@@ -1,0 +1,258 @@
+﻿'use client'
+
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { useState } from 'react'
+import { useI18n } from '@/components/I18nProvider'
+import { supabase } from '@/lib/supabase'
+
+type CalculationCreateFormProps = {
+  customerId?: string | null
+  companyId: string
+  customerName: string
+  cancelHref: string
+  detailHrefBase?: string
+  initialTitle?: string
+  initialDescription?: string
+  initialInternalNote?: string
+}
+
+type CostItemType = 'labor' | 'material' | 'rental' | 'transport' | 'accommodation'
+
+type CustomerDraftItem = {
+  id: string
+  name: string
+  description: string
+  quantity: string
+  unit: string
+  unitPrice: string
+  vatRate: string
+  note: string
+}
+
+type CostDraftItem = {
+  id: string
+  itemType: CostItemType
+  name: string
+  description: string
+  quantity: string
+  unit: string
+  unitCost: string
+  vatRate: string
+  note: string
+}
+
+function createCustomerDraftItem(): CustomerDraftItem {
+  return {
+    id: crypto.randomUUID(),
+    name: '',
+    description: '',
+    quantity: '1',
+    unit: '',
+    unitPrice: '',
+    vatRate: '21',
+    note: '',
+  }
+}
+
+function createCostDraftItem(): CostDraftItem {
+  return {
+    id: crypto.randomUUID(),
+    itemType: 'material',
+    name: '',
+    description: '',
+    quantity: '1',
+    unit: '',
+    unitCost: '',
+    vatRate: '21',
+    note: '',
+  }
+}
+
+function parseNumber(value: string) {
+  const normalized = value.replace(',', '.').trim()
+  if (!normalized) return 0
+  const parsed = Number(normalized)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+function isValidCostDraftItem(item: CostDraftItem) {
+  const quantity = parseNumber(item.quantity)
+  const unitCost = parseNumber(item.unitCost)
+  const hasDescriptor = Boolean(item.name.trim() || item.description.trim() || item.unit.trim())
+
+  return quantity > 0 && unitCost > 0 && hasDescriptor
+}
+
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat('cs-CZ', {
+    style: 'currency',
+    currency: 'CZK',
+    maximumFractionDigits: 0,
+  }).format(value)
+}
+
+async function resolveProfileIdForUser(authUserId: string) {
+  const profileByAuth = await supabase.from('profiles').select('id').eq('auth_user_id', authUserId).maybeSingle()
+  if (profileByAuth.error) throw new Error(profileByAuth.error.message)
+  if (profileByAuth.data?.id) return profileByAuth.data.id
+  const profileByUser = await supabase.from('profiles').select('id').eq('user_id', authUserId).maybeSingle()
+  if (profileByUser.error) throw new Error(profileByUser.error.message)
+  return profileByUser.data?.id ?? null
+}
+
+export default function CalculationCreateForm({
+  customerId,
+  companyId,
+  customerName,
+  cancelHref,
+  detailHrefBase,
+  initialTitle,
+  initialDescription,
+  initialInternalNote,
+}: CalculationCreateFormProps) {
+  const router = useRouter()
+  const { dictionary } = useI18n()
+  const [title, setTitle] = useState(initialTitle || `Kalkulace - ${customerName}`)
+  const [description, setDescription] = useState(initialDescription || '')
+  const [status, setStatus] = useState<'draft' | 'ready'>('draft')
+  const [calculationDate, setCalculationDate] = useState(new Date().toISOString().slice(0, 10))
+  const [internalNote, setInternalNote] = useState(initialInternalNote || '')
+  const [customerItems, setCustomerItems] = useState<CustomerDraftItem[]>([createCustomerDraftItem()])
+  const [costItems, setCostItems] = useState<CostDraftItem[]>([createCostDraftItem()])
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const customerTotal = customerItems.reduce((sum, item) => sum + parseNumber(item.quantity) * parseNumber(item.unitPrice), 0)
+  const customerVatTotal = customerItems.reduce((sum, item) => sum + parseNumber(item.quantity) * parseNumber(item.unitPrice) * (parseNumber(item.vatRate) / 100), 0)
+  const totalCost = costItems.reduce((sum, item) => sum + parseNumber(item.quantity) * parseNumber(item.unitCost), 0)
+  const costVatTotal = costItems.reduce((sum, item) => sum + parseNumber(item.quantity) * parseNumber(item.unitCost) * (parseNumber(item.vatRate) / 100), 0)
+  const laborCost = costItems.reduce((sum, item) => item.itemType === 'labor' ? sum + parseNumber(item.quantity) * parseNumber(item.unitCost) : sum, 0)
+  const otherCost = totalCost - laborCost
+  const expectedProfit = customerTotal - totalCost
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (saving) return
+    setSaving(true)
+    setError(null)
+
+    try {
+      const validCustomerItems = customerItems.filter((item) => item.name.trim())
+      const validCostItems = costItems.filter(isValidCostDraftItem)
+      if (!title.trim()) throw new Error(dictionary.customers.calculationForm.titleRequired)
+      if (validCustomerItems.length === 0) throw new Error(dictionary.customers.calculationForm.customerItemsRequired)
+      if (validCostItems.length === 0) throw new Error(dictionary.customers.calculationForm.costItemsRequired)
+
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+      if (sessionError) throw new Error(sessionError.message)
+
+      const authUserId = session?.user?.id ?? null
+      let createdBy: string | null = null
+      if (authUserId) createdBy = await resolveProfileIdForUser(authUserId)
+
+      const subtotalCost = validCostItems.reduce((sum, item) => sum + parseNumber(item.quantity) * parseNumber(item.unitCost), 0)
+      const subtotalPrice = validCustomerItems.reduce((sum, item) => sum + parseNumber(item.quantity) * parseNumber(item.unitPrice), 0)
+      const marginAmount = subtotalPrice - subtotalCost
+
+      const { data: calculationRow, error: calculationError } = await supabase.from('calculations').insert({
+        company_id: companyId,
+        customer_id: customerId ?? null,
+        title: title.trim(),
+        description: description.trim() || null,
+        status,
+        calculation_date: calculationDate,
+        internal_note: internalNote.trim() || null,
+        subtotal_cost: subtotalCost,
+        subtotal_price: subtotalPrice,
+        margin_amount: marginAmount,
+        total_price: subtotalPrice,
+        currency: 'CZK',
+        created_by: createdBy,
+      }).select('id').single()
+
+      if (calculationError || !calculationRow?.id) throw new Error(calculationError?.message ?? dictionary.customers.calculationForm.saveFailed)
+
+      const customerPayload = validCustomerItems.map((item, index) => {
+        const quantity = parseNumber(item.quantity)
+        const unitPrice = parseNumber(item.unitPrice)
+        return {
+          calculation_id: calculationRow.id,
+          sort_order: index,
+          item_type: 'customer',
+          name: item.name.trim(),
+          description: item.description.trim() || null,
+          quantity,
+          unit: item.unit.trim() || null,
+          unit_cost: 0,
+          unit_price: unitPrice,
+          vat_rate: parseNumber(item.vatRate),
+          total_cost: 0,
+          total_price: quantity * unitPrice,
+          note: item.note.trim() || null,
+        }
+      })
+
+      const costPayload = validCostItems.map((item, index) => {
+        const quantity = parseNumber(item.quantity)
+        const unitCost = parseNumber(item.unitCost)
+        return {
+          calculation_id: calculationRow.id,
+          sort_order: validCustomerItems.length + index,
+          item_type: item.itemType,
+          name: item.name.trim() || typeLabel(item.itemType),
+          description: item.description.trim() || null,
+          quantity,
+          unit: item.unit.trim() || null,
+          unit_cost: unitCost,
+          unit_price: 0,
+          vat_rate: parseNumber(item.vatRate),
+          total_cost: quantity * unitCost,
+          total_price: 0,
+          note: item.note.trim() || null,
+        }
+      })
+
+      const { error: itemsError } = await supabase.from('calculation_items').insert([...customerPayload, ...costPayload])
+      if (itemsError) throw new Error(itemsError.message)
+
+      router.push(detailHrefBase ? `${detailHrefBase}/${calculationRow.id}` : customerId ? `/customers/${customerId}/calculations/${calculationRow.id}` : `/kalkulace/${calculationRow.id}`)
+      router.refresh()
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : dictionary.customers.calculationForm.saveFailed)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const typeLabel = (itemType: CostItemType) => {
+    if (itemType === 'labor') return dictionary.customers.calculationForm.typeLabor
+    if (itemType === 'material') return dictionary.customers.calculationForm.typeMaterial
+    if (itemType === 'rental') return dictionary.customers.calculationForm.typeRental
+    if (itemType === 'transport') return dictionary.customers.calculationForm.typeTransport
+    return dictionary.customers.calculationForm.typeAccommodation
+  }
+
+  return (
+    <form onSubmit={handleSubmit} style={{ display: 'grid', gap: '20px' }}>
+      {error ? <div style={{ padding: '14px 16px', borderRadius: '12px', border: '1px solid #fecaca', backgroundColor: '#fef2f2', color: '#b91c1c', fontWeight: 600 }}>{error}</div> : null}
+      <section style={{ border: '1px solid #e5e7eb', borderRadius: '16px', backgroundColor: '#ffffff', padding: '20px', display: 'grid', gap: '16px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '16px' }}>
+          <label style={{ display: 'grid', gap: '8px' }}><span style={{ fontWeight: 700 }}>{dictionary.customers.calculationForm.calculationTitle}</span><input value={title} onChange={(event) => setTitle(event.target.value)} style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db' }} /></label>
+          <label style={{ display: 'grid', gap: '8px' }}><span style={{ fontWeight: 700 }}>{dictionary.customers.calculationForm.date}</span><input type="date" value={calculationDate} onChange={(event) => setCalculationDate(event.target.value)} style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db' }} /></label>
+          <label style={{ display: 'grid', gap: '8px' }}><span style={{ fontWeight: 700 }}>{dictionary.customers.calculationForm.status}</span><select value={status} onChange={(event) => setStatus(event.target.value as 'draft' | 'ready')} style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db' }}><option value="draft">{dictionary.customers.calculationForm.draft}</option><option value="ready">{dictionary.customers.calculationForm.ready}</option></select></label>
+        </div>
+        <label style={{ display: 'grid', gap: '8px' }}><span style={{ fontWeight: 700 }}>{dictionary.customers.calculationForm.description}</span><textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={3} style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db', resize: 'vertical' }} /></label>
+        <label style={{ display: 'grid', gap: '8px' }}><span style={{ fontWeight: 700 }}>{dictionary.customers.calculationForm.internalNote}</span><textarea value={internalNote} onChange={(event) => setInternalNote(event.target.value)} rows={3} style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db', resize: 'vertical' }} /></label>
+      </section>
+      <section style={{ border: '1px solid #e5e7eb', borderRadius: '16px', backgroundColor: '#ffffff', padding: '20px', display: 'grid', gap: '16px' }}><div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}><h2 style={{ margin: 0, fontSize: '22px' }}>{dictionary.customers.calculationForm.customerItems}</h2><button type="button" onClick={() => setCustomerItems((current) => [...current, createCustomerDraftItem()])} style={{ padding: '10px 14px', borderRadius: '12px', border: '1px solid #d1d5db', backgroundColor: '#ffffff', fontWeight: 700, cursor: 'pointer' }}>{dictionary.customers.calculationForm.addCustomerItem}</button></div>
+      {customerItems.map((item, index) => <div key={item.id} style={{ border: '1px solid #e5e7eb', borderRadius: '14px', padding: '16px', display: 'grid', gap: '14px', backgroundColor: '#f9fafb' }}><div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}><strong>{dictionary.customers.calculationForm.customerItem} {index + 1}</strong>{customerItems.length > 1 && <button type="button" onClick={() => setCustomerItems((current) => current.filter((currentItem) => currentItem.id !== item.id))} style={{ padding: '8px 12px', borderRadius: '10px', border: '1px solid #fecaca', backgroundColor: '#fef2f2', color: '#991b1b', fontWeight: 700, cursor: 'pointer' }}>{dictionary.customers.calculationForm.remove}</button>}</div><div style={{ display: 'grid', gridTemplateColumns: '2fr 2fr', gap: '12px' }}><input placeholder={dictionary.customers.calculationForm.itemName} value={item.name} onChange={(event) => setCustomerItems((current) => current.map((currentItem) => currentItem.id === item.id ? { ...currentItem, name: event.target.value } : currentItem))} style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db' }} /><input placeholder={dictionary.customers.calculationForm.itemDescription} value={item.description} onChange={(event) => setCustomerItems((current) => current.map((currentItem) => currentItem.id === item.id ? { ...currentItem, description: event.target.value } : currentItem))} style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db' }} /></div><div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr', gap: '12px' }}><input placeholder={dictionary.customers.calculationForm.quantity} value={item.quantity} onChange={(event) => setCustomerItems((current) => current.map((currentItem) => currentItem.id === item.id ? { ...currentItem, quantity: event.target.value } : currentItem))} style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db' }} /><input placeholder={dictionary.customers.calculationForm.unit} value={item.unit} onChange={(event) => setCustomerItems((current) => current.map((currentItem) => currentItem.id === item.id ? { ...currentItem, unit: event.target.value } : currentItem))} style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db' }} /><input placeholder={dictionary.customers.calculationForm.unitPrice} value={item.unitPrice} onChange={(event) => setCustomerItems((current) => current.map((currentItem) => currentItem.id === item.id ? { ...currentItem, unitPrice: event.target.value } : currentItem))} style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db' }} /><input placeholder={dictionary.customers.calculationForm.vatRate} value={item.vatRate} onChange={(event) => setCustomerItems((current) => current.map((currentItem) => currentItem.id === item.id ? { ...currentItem, vatRate: event.target.value } : currentItem))} style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db' }} /><input placeholder={dictionary.customers.calculationForm.totalPrice} value={String(parseNumber(item.quantity) * parseNumber(item.unitPrice)).replace('.', ',')} readOnly style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db', backgroundColor: '#f3f4f6', color: '#111827' }} /></div><input placeholder={dictionary.customers.calculationForm.note} value={item.note} onChange={(event) => setCustomerItems((current) => current.map((currentItem) => currentItem.id === item.id ? { ...currentItem, note: event.target.value } : currentItem))} style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db' }} /></div>)}
+      </section>
+      <section style={{ border: '1px solid #e5e7eb', borderRadius: '16px', backgroundColor: '#ffffff', padding: '20px', display: 'grid', gap: '16px' }}><div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}><h2 style={{ margin: 0, fontSize: '22px' }}>{dictionary.customers.calculationForm.internalCostItems}</h2><button type="button" onClick={() => setCostItems((current) => [...current, createCostDraftItem()])} style={{ padding: '10px 14px', borderRadius: '12px', border: '1px solid #d1d5db', backgroundColor: '#ffffff', fontWeight: 700, cursor: 'pointer' }}>{dictionary.customers.calculationForm.addCostItem}</button></div>
+      {costItems.map((item, index) => <div key={item.id} style={{ border: '1px solid #e5e7eb', borderRadius: '14px', padding: '16px', display: 'grid', gap: '14px', backgroundColor: '#f9fafb' }}><div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}><strong>{dictionary.customers.calculationForm.internalCost} {index + 1} · {typeLabel(item.itemType)}</strong>{costItems.length > 1 && <button type="button" onClick={() => setCostItems((current) => current.filter((currentItem) => currentItem.id !== item.id))} style={{ padding: '8px 12px', borderRadius: '10px', border: '1px solid #fecaca', backgroundColor: '#fef2f2', color: '#991b1b', fontWeight: 700, cursor: 'pointer' }}>{dictionary.customers.calculationForm.remove}</button>}</div><div style={{ display: 'grid', gridTemplateColumns: '1.1fr 1.9fr 1.9fr', gap: '12px' }}><label style={{ display: 'grid', gap: '8px' }}><span style={{ fontSize: '13px', fontWeight: 700, color: '#4b5563' }}>{dictionary.customers.calculationForm.costType}</span><select value={item.itemType} onChange={(event) => setCostItems((current) => current.map((currentItem) => currentItem.id === item.id ? { ...currentItem, itemType: event.target.value as CostItemType } : currentItem))} style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db' }}><option value="labor">{dictionary.customers.calculationForm.typeLabor}</option><option value="material">{dictionary.customers.calculationForm.typeMaterial}</option><option value="rental">{dictionary.customers.calculationForm.typeRental}</option><option value="transport">{dictionary.customers.calculationForm.typeTransport}</option><option value="accommodation">{dictionary.customers.calculationForm.typeAccommodation}</option></select></label><input placeholder={dictionary.customers.calculationForm.itemName} value={item.name} onChange={(event) => setCostItems((current) => current.map((currentItem) => currentItem.id === item.id ? { ...currentItem, name: event.target.value } : currentItem))} style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db' }} /><input placeholder={dictionary.customers.calculationForm.itemDescription} value={item.description} onChange={(event) => setCostItems((current) => current.map((currentItem) => currentItem.id === item.id ? { ...currentItem, description: event.target.value } : currentItem))} style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db' }} /></div><div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr', gap: '12px' }}><input placeholder={dictionary.customers.calculationForm.quantity} value={item.quantity} onChange={(event) => setCostItems((current) => current.map((currentItem) => currentItem.id === item.id ? { ...currentItem, quantity: event.target.value } : currentItem))} style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db' }} /><input placeholder={dictionary.customers.calculationForm.unit} value={item.unit} onChange={(event) => setCostItems((current) => current.map((currentItem) => currentItem.id === item.id ? { ...currentItem, unit: event.target.value } : currentItem))} style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db' }} /><input placeholder={dictionary.customers.calculationForm.unitCost} value={item.unitCost} onChange={(event) => setCostItems((current) => current.map((currentItem) => currentItem.id === item.id ? { ...currentItem, unitCost: event.target.value } : currentItem))} style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db' }} /><input placeholder={dictionary.customers.calculationForm.vatRate} value={item.vatRate} onChange={(event) => setCostItems((current) => current.map((currentItem) => currentItem.id === item.id ? { ...currentItem, vatRate: event.target.value } : currentItem))} style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db' }} /><input placeholder={dictionary.customers.calculationForm.totalCost} value={String(parseNumber(item.quantity) * parseNumber(item.unitCost)).replace('.', ',')} readOnly style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db', backgroundColor: '#f3f4f6', color: '#111827' }} /></div><input placeholder={dictionary.customers.calculationForm.note} value={item.note} onChange={(event) => setCostItems((current) => current.map((currentItem) => currentItem.id === item.id ? { ...currentItem, note: event.target.value } : currentItem))} style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db' }} /></div>)}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: '12px' }}><div style={{ padding: '14px', borderRadius: '12px', backgroundColor: '#f9fafb' }}><div style={{ color: '#6b7280', marginBottom: '6px' }}>{dictionary.customers.calculationForm.customerTotal}</div><strong>{formatCurrency(customerTotal)}</strong></div><div style={{ padding: '14px', borderRadius: '12px', backgroundColor: '#f9fafb' }}><div style={{ color: '#6b7280', marginBottom: '6px' }}>{dictionary.customers.calculationForm.customerVat}</div><strong>{formatCurrency(customerVatTotal)}</strong></div><div style={{ padding: '14px', borderRadius: '12px', backgroundColor: '#f9fafb' }}><div style={{ color: '#6b7280', marginBottom: '6px' }}>{dictionary.customers.calculationForm.totalCosts}</div><strong>{formatCurrency(totalCost)}</strong></div><div style={{ padding: '14px', borderRadius: '12px', backgroundColor: '#f9fafb' }}><div style={{ color: '#6b7280', marginBottom: '6px' }}>{dictionary.customers.calculationForm.costVat}</div><strong>{formatCurrency(costVatTotal)}</strong></div><div style={{ padding: '14px', borderRadius: '12px', backgroundColor: '#f9fafb' }}><div style={{ color: '#6b7280', marginBottom: '6px' }}>{dictionary.customers.calculationForm.expectedProfit}</div><strong>{formatCurrency(expectedProfit)}</strong></div><div style={{ padding: '14px', borderRadius: '12px', backgroundColor: '#f9fafb' }}><div style={{ color: '#6b7280', marginBottom: '6px' }}>{dictionary.customers.calculationForm.laborCosts}</div><strong>{formatCurrency(laborCost)}</strong></div><div style={{ padding: '14px', borderRadius: '12px', backgroundColor: '#f9fafb' }}><div style={{ color: '#6b7280', marginBottom: '6px' }}>{dictionary.customers.calculationForm.otherCosts}</div><strong>{formatCurrency(otherCost)}</strong></div></div>
+      </section>
+      <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}><button type="submit" disabled={saving} style={{ padding: '12px 16px', borderRadius: '12px', border: 'none', backgroundColor: '#000000', color: '#ffffff', fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>{saving ? dictionary.customers.calculationForm.savingNew : dictionary.customers.calculationForm.saveCalculation}</button><Link href={cancelHref} style={{ padding: '12px 16px', borderRadius: '12px', border: '1px solid #d1d5db', backgroundColor: '#ffffff', color: '#111827', fontWeight: 700, textDecoration: 'none' }}>{dictionary.customers.calculationForm.cancel}</Link></div>
+    </form>
+  )
+}
