@@ -1,5 +1,6 @@
 ﻿import Link from 'next/link'
 import { redirect } from 'next/navigation'
+import { revalidatePath } from 'next/cache'
 import DashboardShell from '@/components/DashboardShell'
 import WorkerAdvancesSection from '@/app/workers/[workerId]/WorkerAdvancesSection'
 import WorkerAssignmentsSection from '@/app/workers/[workerId]/WorkerAssignmentsSection'
@@ -607,6 +608,147 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
     redirect(targetUrl)
   }
 
+  async function createWorkerAdvance(formData: FormData) {
+    'use server'
+
+    const profileId = String(formData.get('profileId') ?? '').trim()
+    const month = String(formData.get('month') ?? '').trim()
+    const amountRaw = String(formData.get('amount') ?? '').trim()
+    const issuedAt = String(formData.get('issued_at') ?? '').trim()
+    const note = String(formData.get('note') ?? '').trim()
+
+    const targetUrl = profileId
+      ? `/workers/${profileId}${month ? `?month=${encodeURIComponent(month)}` : ''}`
+      : '/workers'
+
+    if (!profileId || !isValidMonthString(month) || !amountRaw || !issuedAt) {
+      redirect(targetUrl)
+    }
+
+    const amount = Number(amountRaw.replace(',', '.'))
+    if (!Number.isFinite(amount) || amount <= 0) {
+      redirect(targetUrl)
+    }
+
+    const { advanceStartDate, advanceEndExclusiveDate } = getAdvanceRange(month)
+    const supabase = await createSupabaseServerClient()
+
+    const [profileCheckResponse, companyMemberResponse, existingAdvancesResponse, paidRequestsResponse] =
+      await Promise.all([
+        supabase
+          .from('profiles')
+          .select('id, worker_type, use_custom_payroll, custom_payroll_type, custom_payroll_day_of_month, custom_payroll_weekday, custom_payroll_anchor_date, allow_advances_override, advance_limit_amount_override')
+          .eq('id', profileId)
+          .maybeSingle(),
+        supabase
+          .from('company_members')
+          .select('company_id')
+          .eq('profile_id', profileId)
+          .eq('is_active', true)
+          .limit(1),
+        supabase
+          .from('worker_advances')
+          .select('id, profile_id, amount, issued_at, note')
+          .eq('profile_id', profileId)
+          .gte('issued_at', advanceStartDate)
+          .lt('issued_at', advanceEndExclusiveDate),
+        supabase
+          .from('advance_requests')
+          .select('id, profile_id, amount, requested_amount, reason, note, status, requested_at, approved_at, reviewed_at, paid_at, payroll_month')
+          .eq('profile_id', profileId)
+          .eq('status', 'paid'),
+      ])
+
+    if (
+      profileCheckResponse.error ||
+      !profileCheckResponse.data ||
+      companyMemberResponse.error ||
+      existingAdvancesResponse.error ||
+      paidRequestsResponse.error
+    ) {
+      redirect(targetUrl)
+    }
+
+    const profileForSettings = profileCheckResponse.data as ProfileRow
+    if (getWorkerType(profileForSettings) === 'contractor') {
+      redirect(targetUrl)
+    }
+
+    const companyId = ((companyMemberResponse.data ?? []) as CompanyMemberRow[])[0]?.company_id ?? null
+    const companySettingsResponse = companyId
+      ? await supabase
+          .from('company_payroll_settings')
+          .select('payroll_type, payroll_day_of_month, payroll_weekday, payroll_anchor_date, allow_advances, advance_limit_amount, advance_frequency')
+          .eq('company_id', companyId)
+          .maybeSingle()
+      : { data: null, error: null }
+
+    if (companySettingsResponse.error) {
+      redirect(targetUrl)
+    }
+
+    const effectiveSettings = getEffectivePayrollSettings(
+      profileForSettings,
+      companySettingsResponse.data as CompanyPayrollSettingsRow | null,
+    )
+
+    if (!effectiveSettings.advancesAllowed) {
+      redirect(targetUrl)
+    }
+
+    const existingAdvances = ((existingAdvancesResponse.data ?? []) as unknown[]) as WorkerAdvanceRow[]
+    const paidRequestsForPeriod = (((paidRequestsResponse.data ?? []) as unknown[]) as AdvanceRequestPayrollRow[])
+      .filter((item) => !isAdvanceRequestRepresentedByWorkerAdvance(item, existingAdvances))
+      .map(mapAdvanceRequestToWorkerAdvance)
+      .filter((item) => isDateInRange(item.issued_at, advanceStartDate, advanceEndExclusiveDate))
+    const existingAdvanceTotal = [...existingAdvances, ...paidRequestsForPeriod].reduce(
+      (sum, item) => sum + Number(item.amount ?? 0),
+      0,
+    )
+
+    if (
+      effectiveSettings.advanceLimitAmount != null &&
+      existingAdvanceTotal + amount > effectiveSettings.advanceLimitAmount
+    ) {
+      redirect(targetUrl)
+    }
+
+    const { error } = await supabase.from('worker_advances').insert({
+      profile_id: profileId,
+      amount,
+      issued_at: issuedAt,
+      note: note || null,
+    })
+
+    if (error) {
+      redirect(targetUrl)
+    }
+
+    revalidatePath(`/workers/${profileId}`)
+    redirect(targetUrl)
+  }
+
+  async function deleteWorkerAdvance(formData: FormData) {
+    'use server'
+
+    const profileId = String(formData.get('profileId') ?? '').trim()
+    const month = String(formData.get('month') ?? '').trim()
+    const advanceId = String(formData.get('advanceId') ?? '').trim()
+    const targetUrl = profileId
+      ? `/workers/${profileId}${month ? `?month=${encodeURIComponent(month)}` : ''}`
+      : '/workers'
+
+    if (!profileId || !advanceId || advanceId.startsWith('advance-request-')) {
+      redirect(targetUrl)
+    }
+
+    const supabase = await createSupabaseServerClient()
+    await supabase.from('worker_advances').delete().eq('id', advanceId).eq('profile_id', profileId)
+
+    revalidatePath(`/workers/${profileId}`)
+    redirect(targetUrl)
+  }
+
   return (
     <DashboardShell activeItem="workers">
       <main style={pageShellStyle}>
@@ -956,7 +1098,17 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
         </div>
 
         {!isContractor ? (
-          <WorkerAdvancesSection advancePeriodLabel={advancePeriodLabel} workerAdvances={displayedWorkerAdvances} />
+          <WorkerAdvancesSection
+            advancePeriodLabel={advancePeriodLabel}
+            selectedMonth={selectedMonth}
+            workerId={workerId}
+            workerAdvances={displayedWorkerAdvances}
+            advancesAllowed={effectivePayrollSettings.advancesAllowed}
+            advanceLimitAmount={effectivePayrollSettings.advanceLimitAmount}
+            totalAdvances={advancePaidInPeriod}
+            createAdvanceAction={createWorkerAdvance}
+            deleteAdvanceAction={deleteWorkerAdvance}
+          />
         ) : null}
 
         <WorkerShiftsSection

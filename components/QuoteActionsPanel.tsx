@@ -331,6 +331,7 @@ export default function QuoteActionsPanel({
       }
 
       const quoteItemsPayload = customerItems.map((item) => ({
+        company_id: companyId,
         quote_id: quoteId,
         sort_order: item.sort_order ?? 0,
         name: item.name,

@@ -94,15 +94,12 @@ export async function POST(request: Request) {
 
   const responseInsert = await admin.from('offer_responses').insert({
     quote_id: offerId,
-    quote_title_snapshot: quote.title || 'Nabídka',
     action_type: actionType,
     customer_name: portalUser.fullName?.trim() || portalUser.customerName?.trim() || portalUser.email,
     customer_email: portalUser.email,
     customer_phone: '-',
     note: note || null,
     visitor_id: portalUser.portalUserId,
-    user_agent: 'customer_portal',
-    referrer: '/portal/offers',
   })
 
   if (responseInsert.error) {
@@ -121,9 +118,7 @@ export async function POST(request: Request) {
 
   await admin.from('offer_events').insert({
     quote_id: offerId,
-    section_key: 'portal',
     event_type: eventType,
-    event_value: note || null,
     visitor_id: portalUser.portalUserId,
   })
 

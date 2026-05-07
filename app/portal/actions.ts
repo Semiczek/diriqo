@@ -114,8 +114,6 @@ export async function approvePortalOfferAction(formData: FormData) {
     .update({
       status: 'accepted',
       accepted_at: now,
-      customer_portal_approved_by: portalUser.portalUserId,
-      customer_portal_approved_note: note || null,
     })
     .eq('id', offerId)
     .eq('customer_id', portalUser.customerId)
@@ -126,9 +124,7 @@ export async function approvePortalOfferAction(formData: FormData) {
 
   await admin.from('offer_events').insert({
     quote_id: offerId,
-    section_key: 'portal',
     event_type: 'portal_offer_approved',
-    event_value: note || null,
     visitor_id: portalUser.portalUserId,
   })
 
@@ -197,15 +193,12 @@ export async function submitPortalOfferResponseAction(formData: FormData) {
 
   const insertResponse = await admin.from('offer_responses').insert({
     quote_id: offerId,
-    quote_title_snapshot: quote.title || 'Nabídka',
     action_type: actionType,
     customer_name: portalUser.fullName?.trim() || portalUser.customerName?.trim() || portalUser.email,
     customer_email: portalUser.email,
     customer_phone: '-',
     note: note || null,
     visitor_id: portalUser.portalUserId,
-    user_agent: 'customer_portal',
-    referrer: '/portal/offers',
   })
 
   if (insertResponse.error) {
@@ -226,9 +219,7 @@ export async function submitPortalOfferResponseAction(formData: FormData) {
 
   await admin.from('offer_events').insert({
     quote_id: offerId,
-    section_key: 'portal',
     event_type: eventType,
-    event_value: note || null,
     visitor_id: portalUser.portalUserId,
   })
 

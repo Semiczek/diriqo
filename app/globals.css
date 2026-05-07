@@ -148,6 +148,370 @@ a[href] {
   grid-column: 1 / -1;
 }
 
+.job-create-form {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.job-create-form > label,
+.job-create-form > div {
+  min-width: 0;
+}
+
+.job-create-form > label {
+  display: grid;
+  gap: 7px;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.job-create-form > label:has(textarea),
+.job-create-form > div,
+.job-create-form > button[type='submit'] {
+  grid-column: 1 / -1;
+}
+
+.job-create-form input:not([type='checkbox']),
+.job-create-form select,
+.job-create-form textarea {
+  min-height: 46px;
+  border-radius: 12px !important;
+  border: 1px solid rgba(148, 163, 184, 0.44) !important;
+  background-color: #ffffff;
+  color: #0f172a;
+  font-size: 15px;
+  font-weight: 650;
+  outline: none;
+  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.02);
+}
+
+.job-create-form textarea {
+  min-height: 112px;
+  resize: vertical;
+}
+
+.job-create-form input:focus,
+.job-create-form select:focus,
+.job-create-form textarea:focus {
+  border-color: rgba(37, 99, 235, 0.58) !important;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.11);
+}
+
+.job-create-form > label > div:not(:only-child):has(input[type='checkbox']) {
+  min-height: 48px;
+  border-radius: 12px !important;
+  border-color: rgba(148, 163, 184, 0.34) !important;
+  color: #0f172a;
+  font-size: 15px;
+  font-weight: 720;
+}
+
+.job-create-form button {
+  border-radius: 12px !important;
+}
+
+.job-create-form > button[type='submit'] {
+  min-height: 50px;
+  border-radius: 14px !important;
+  font-weight: 900 !important;
+  box-shadow: 0 16px 32px rgba(15, 23, 42, 0.18);
+}
+
+.customer-create-form > div,
+.customer-create-form section {
+  min-width: 0;
+}
+
+.customer-create-form label {
+  color: #334155 !important;
+  font-size: 13px;
+  font-weight: 850 !important;
+}
+
+.customer-create-form input {
+  min-height: 46px;
+  border-radius: 12px !important;
+  border: 1px solid rgba(148, 163, 184, 0.44) !important;
+  background-color: #ffffff;
+  color: #0f172a;
+  font-size: 15px !important;
+  font-weight: 650;
+  outline: none;
+  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.02);
+}
+
+.customer-create-form input:focus {
+  border-color: rgba(37, 99, 235, 0.58) !important;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.11);
+}
+
+.customer-create-form section {
+  border-color: rgba(148, 163, 184, 0.24) !important;
+  border-radius: 18px !important;
+  background: #f8fbff;
+}
+
+.customer-create-form section h2 {
+  color: #0f172a !important;
+  font-size: 22px !important;
+  font-weight: 900;
+}
+
+.customer-create-form section p {
+  color: #64748b !important;
+  font-size: 14px;
+  line-height: 1.5;
+  font-weight: 650;
+}
+
+.customer-create-form button,
+.customer-create-form a[style*='border'] {
+  min-height: 46px;
+  border-radius: 12px !important;
+}
+
+.customer-create-form button[type='submit'] {
+  min-height: 50px;
+  border-radius: 14px !important;
+  font-weight: 900 !important;
+  box-shadow: 0 16px 32px rgba(15, 23, 42, 0.18);
+}
+
+.worker-create-form > div {
+  min-width: 0;
+}
+
+.worker-create-form > div > div {
+  min-width: 0;
+}
+
+.worker-create-form label {
+  color: #334155 !important;
+  font-size: 13px;
+  font-weight: 850 !important;
+}
+
+.worker-create-form input,
+.worker-create-form select {
+  min-height: 46px;
+  border-radius: 12px !important;
+  border: 1px solid rgba(148, 163, 184, 0.44) !important;
+  background-color: #ffffff;
+  color: #0f172a;
+  font-size: 15px !important;
+  font-weight: 650;
+  outline: none;
+  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.02);
+}
+
+.worker-create-form input:focus,
+.worker-create-form select:focus {
+  border-color: rgba(37, 99, 235, 0.58) !important;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.11);
+}
+
+.worker-create-form p {
+  color: #64748b !important;
+  font-weight: 650;
+  line-height: 1.45;
+}
+
+.worker-create-form button,
+.worker-create-form a[style*='border'] {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  min-height: 50px;
+}
+
+.worker-detail-advance-form {
+  display: grid;
+  padding: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 18px;
+  background: #f8fbff;
+}
+
+.worker-detail-advance-form label {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.worker-detail-advance-form input,
+.worker-detail-advance-form textarea {
+  width: 100%;
+  min-height: 46px;
+  padding: 11px 13px;
+  border: 1px solid rgba(148, 163, 184, 0.44);
+  border-radius: 12px;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 15px;
+  font-weight: 650;
+  outline: none;
+}
+
+.worker-detail-advance-form textarea {
+  min-height: 92px;
+  resize: vertical;
+}
+
+.worker-detail-advance-form input:focus,
+.worker-detail-advance-form textarea:focus {
+  border-color: rgba(37, 99, 235, 0.58);
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.11);
+}
+
+.worker-detail-advance-form button {
+  width: fit-content;
+  min-height: 46px;
+  padding: 12px 16px;
+  border: 0;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #111827 0%, #1f2937 100%);
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 900;
+  cursor: pointer;
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.14);
+}
+
+.danger-inline-button {
+  min-height: 38px;
+  padding: 9px 12px;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #b91c1c;
+  font-size: 13px;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.invoice-create-filter label,
+.invoice-create-form label {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.invoice-create-filter select,
+.invoice-create-filter input,
+.invoice-create-form input,
+.invoice-create-form textarea {
+  width: 100%;
+  min-height: 46px;
+  padding: 11px 13px;
+  border: 1px solid rgba(148, 163, 184, 0.44);
+  border-radius: 12px;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 15px;
+  font-weight: 650;
+  outline: none;
+}
+
+.invoice-create-form textarea {
+  min-height: 92px;
+  resize: vertical;
+}
+
+.invoice-create-filter select:focus,
+.invoice-create-filter input:focus,
+.invoice-create-form input:focus,
+.invoice-create-form textarea:focus {
+  border-color: rgba(37, 99, 235, 0.58);
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.11);
+}
+
+.invoice-create-form table th {
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 850;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+  background: #f8fafc;
+}
+
+.invoice-create-form table td {
+  border-top: 1px solid rgba(226, 232, 240, 0.85) !important;
+  color: #0f172a;
+}
+
+.invoice-create-form input[type='checkbox'] {
+  width: 18px;
+  min-height: 18px;
+  accent-color: #2563eb;
+}
+
+.invoice-ready-overview {
+  display: grid;
+  gap: 12px;
+}
+
+.invoice-ready-customer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: center;
+  padding: 16px;
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  border-radius: 18px;
+  background: #ffffff;
+}
+
+.invoice-ready-customer-warning {
+  border-color: rgba(245, 158, 11, 0.26);
+}
+
+.invoice-ready-job-list {
+  display: grid;
+  gap: 6px;
+}
+
+.invoice-ready-job {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: #334155;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.invoice-ready-job strong {
+  color: #0f172a;
+  white-space: nowrap;
+}
+
+.invoice-ready-job-muted {
+  color: #64748b;
+  font-size: 13px;
+}
+
+.invoice-ready-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 11px 14px;
+  border-radius: 12px;
+  background: #111827;
+  color: #ffffff;
+  font-weight: 900;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.invoice-ready-action-warning {
+  background: #92400e;
+}
+
 @media (hover: hover) and (pointer: fine) {
   .jobs-premium-link:hover {
     transform: none !important;
@@ -165,6 +529,30 @@ a[href] {
   .job-detail-grid {
     grid-template-columns: 1fr;
     gap: 14px;
+  }
+
+  .job-create-form {
+    grid-template-columns: 1fr;
+  }
+
+  .worker-create-form > div {
+    grid-template-columns: 1fr !important;
+  }
+
+  .worker-detail-advance-form > div {
+    grid-template-columns: 1fr !important;
+  }
+
+  .invoice-create-filter {
+    grid-template-columns: 1fr !important;
+  }
+
+  .invoice-ready-customer {
+    grid-template-columns: 1fr;
+  }
+
+  .invoice-ready-action {
+    width: 100%;
   }
 
   .job-detail-full {

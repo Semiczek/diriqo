@@ -442,6 +442,63 @@ export default async function CustomerDetailPage({
 
   const cardStyle: React.CSSProperties = {
     ...resourceCardStyle,
+    transition: 'transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease',
+  }
+
+  const customerSectionStyle: React.CSSProperties = {
+    ...sectionCardStyle,
+    padding: '24px',
+    background:
+      'linear-gradient(135deg, rgba(255,255,255,0.94) 0%, rgba(248,250,252,0.9) 100%)',
+    border: '1px solid rgba(148, 163, 184, 0.22)',
+    boxShadow: '0 18px 42px rgba(15, 23, 42, 0.07)',
+  }
+
+  const sectionHeaderStyle: React.CSSProperties = {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: '16px',
+    marginBottom: '18px',
+    flexWrap: 'wrap',
+  }
+
+  const sectionIntroStyle: React.CSSProperties = {
+    ...mutedTextStyle,
+    margin: '6px 0 0',
+    maxWidth: '560px',
+  }
+
+  const emptyInlineStyle: React.CSSProperties = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '14px',
+    padding: '18px',
+    borderRadius: '18px',
+    border: '1px solid rgba(148, 163, 184, 0.2)',
+    background:
+      'linear-gradient(135deg, rgba(248,250,252,0.95), rgba(239,246,255,0.7))',
+    color: '#475569',
+  }
+
+  const emptyIconStyle: React.CSSProperties = {
+    width: '42px',
+    height: '42px',
+    borderRadius: '16px',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: '0 0 auto',
+    background: 'linear-gradient(135deg, rgba(124,58,237,0.14), rgba(6,182,212,0.14))',
+    color: '#2563eb',
+    fontWeight: 900,
+  }
+
+  const inlineActionsStyle: React.CSSProperties = {
+    display: 'flex',
+    gap: '10px',
+    flexWrap: 'wrap',
+    alignItems: 'center',
   }
 
   return (
@@ -504,10 +561,6 @@ export default async function CustomerDetailPage({
             <div style={metaItemStyle}>
               <span style={metaLabelStyle}>Hlavní telefon</span>
               <span style={metaValueStyle}>{customer.phone || '—'}</span>
-            </div>
-            <div style={metaItemStyle}>
-              <span style={metaLabelStyle}>ID zákazníka</span>
-              <span style={{ ...metaValueStyle, color: '#64748b', fontSize: '12px' }}>{customer.id}</span>
             </div>
           </div>
         </section>
@@ -663,7 +716,7 @@ export default async function CustomerDetailPage({
           </section>
         )}
 
-        <section style={sectionCardStyle}>
+        <section style={customerSectionStyle}>
           <div
             style={{
               display: 'flex',
@@ -673,40 +726,22 @@ export default async function CustomerDetailPage({
               marginBottom: '16px',
             }}
           >
-            <h2 style={{ ...sectionTitleStyle, marginBottom: 0 }}>Kalkulace</h2>
+            <div>
+              <h2 style={{ ...sectionTitleStyle, marginBottom: 0 }}>Kalkulace</h2>
+              <p style={sectionIntroStyle}>Rychlý přehled rozpracovaných a hotových výpočtů pro zákazníka.</p>
+            </div>
 
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <div style={inlineActionsStyle}>
               <Link
                 href={`/customers/${customerId}/calculations`}
-                style={{
-                  display: 'inline-block',
-                  backgroundColor: '#f3f4f6',
-                  color: '#111827',
-                  textDecoration: 'none',
-                  fontWeight: '700',
-                  fontSize: '14px',
-                  padding: '10px 14px',
-                  borderRadius: '12px',
-                  border: '1px solid #d1d5db',
-                  whiteSpace: 'nowrap',
-                }}
+                style={secondaryButtonStyle}
               >
                 Zobrazit vše
               </Link>
 
               <Link
                 href={`/customers/${customerId}/calculations/new`}
-                style={{
-                  display: 'inline-block',
-                  backgroundColor: '#000000',
-                  color: '#ffffff',
-                  textDecoration: 'none',
-                  fontWeight: '700',
-                  fontSize: '14px',
-                  padding: '10px 14px',
-                  borderRadius: '12px',
-                  whiteSpace: 'nowrap',
-                }}
+                style={primaryButtonStyle}
               >
                 + Nová kalkulace
               </Link>
@@ -792,11 +827,19 @@ export default async function CustomerDetailPage({
               ))}
             </div>
           ) : (
-            <p style={{ color: '#6b7280' }}>Tento zákazník zatím nemá žádné kalkulace.</p>
+            <div style={emptyInlineStyle}>
+              <span style={emptyIconStyle}>+</span>
+              <div>
+                <strong style={{ display: 'block', color: '#0f172a', marginBottom: '3px' }}>
+                  Zatím tu nic není
+                </strong>
+                <span>Tento zákazník zatím nemá žádné kalkulace.</span>
+              </div>
+            </div>
           )}
         </section>
 
-        <section style={sectionCardStyle}>
+        <section style={customerSectionStyle}>
           <div
             style={{
               display: 'flex',
@@ -810,18 +853,7 @@ export default async function CustomerDetailPage({
 
             <Link
               href={`/customers/${customerId}/quotes`}
-              style={{
-                display: 'inline-block',
-                backgroundColor: '#f3f4f6',
-                color: '#111827',
-                textDecoration: 'none',
-                fontWeight: '700',
-                fontSize: '14px',
-                padding: '10px 14px',
-                borderRadius: '12px',
-                border: '1px solid #d1d5db',
-                whiteSpace: 'nowrap',
-              }}
+              style={secondaryButtonStyle}
             >
               Zobrazit vše
             </Link>
@@ -918,11 +950,19 @@ export default async function CustomerDetailPage({
               ))}
             </div>
           ) : (
-            <p style={{ color: '#6b7280' }}>Tento zákazník zatím nemá žádné cenové nabídky.</p>
+            <div style={emptyInlineStyle}>
+              <span style={emptyIconStyle}>+</span>
+              <div>
+                <strong style={{ display: 'block', color: '#0f172a', marginBottom: '3px' }}>
+                  Zatím tu nic není
+                </strong>
+                <span>Tento zákazník zatím nemá žádné cenové nabídky.</span>
+              </div>
+            </div>
           )}
         </section>
 
-        <section style={sectionCardStyle}>
+        <section style={customerSectionStyle}>
           <div
             style={{
               display: 'flex',
@@ -936,17 +976,7 @@ export default async function CustomerDetailPage({
 
             <Link
               href={`/customers/${customerId}/contacts/new`}
-              style={{
-                display: 'inline-block',
-                backgroundColor: '#000000',
-                color: '#ffffff',
-                textDecoration: 'none',
-                fontWeight: '700',
-                fontSize: '14px',
-                padding: '10px 14px',
-                borderRadius: '12px',
-                whiteSpace: 'nowrap',
-              }}
+              style={primaryButtonStyle}
             >
               + Přidat kontakt
             </Link>
@@ -973,18 +1003,7 @@ export default async function CustomerDetailPage({
                     <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                       <Link
                         href={`/customers/${customerId}/contacts/${contact.id}/edit`}
-                        style={{
-                          display: 'inline-block',
-                          backgroundColor: '#f3f4f6',
-                          color: '#111827',
-                          textDecoration: 'none',
-                          fontWeight: '700',
-                          fontSize: '14px',
-                          padding: '8px 12px',
-                          borderRadius: '10px',
-                          border: '1px solid #d1d5db',
-                          whiteSpace: 'nowrap',
-                        }}
+                        style={{ ...secondaryButtonStyle, minHeight: '36px', padding: '8px 12px', fontSize: '13px' }}
                       >
                         Upravit
                       </Link>
@@ -1028,11 +1047,19 @@ export default async function CustomerDetailPage({
               ))}
             </div>
           ) : (
-            <p style={{ color: '#6b7280' }}>Zatím nejsou přidané žádné kontaktní osoby.</p>
+            <div style={emptyInlineStyle}>
+              <span style={emptyIconStyle}>+</span>
+              <div>
+                <strong style={{ display: 'block', color: '#0f172a', marginBottom: '3px' }}>
+                  Zatím tu nic není
+                </strong>
+                <span>Zatím nejsou přidané žádné kontaktní osoby.</span>
+              </div>
+            </div>
           )}
         </section>
 
-        <section style={sectionCardStyle}>
+        <section style={customerSectionStyle}>
           <h2 style={sectionTitleStyle}>Zakázky zákazníka</h2>
 
           {resolvedJobs.length > 0 ? (
@@ -1105,7 +1132,15 @@ export default async function CustomerDetailPage({
               ))}
             </div>
           ) : (
-            <p style={{ color: '#6b7280' }}>Tento zákazník zatím nemá žádné zakázky.</p>
+            <div style={emptyInlineStyle}>
+              <span style={emptyIconStyle}>+</span>
+              <div>
+                <strong style={{ display: 'block', color: '#0f172a', marginBottom: '3px' }}>
+                  Zatím tu nic není
+                </strong>
+                <span>Tento zákazník zatím nemá žádné zakázky.</span>
+              </div>
+            </div>
           )}
         </section>
       </main>

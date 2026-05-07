@@ -1,7 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import type { CSSProperties } from 'react'
 import { useRouter } from 'next/navigation'
 
 import DashboardShell from '@/components/DashboardShell'
@@ -117,34 +118,73 @@ function getNextOccurrenceOnWeekday(date: Date, weekday: number) {
   return next
 }
 
+const pageStyle: CSSProperties = {
+  display: 'grid',
+  gap: '18px',
+  width: '100%',
+  maxWidth: '980px',
+  margin: '0 auto',
+  padding: '2px 0 48px',
+}
+
+const headerStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'flex-end',
+  justifyContent: 'space-between',
+  gap: '16px',
+  flexWrap: 'wrap',
+  padding: '22px',
+  borderRadius: '22px',
+  border: '1px solid rgba(148, 163, 184, 0.24)',
+  background: 'rgba(255,255,255,0.88)',
+  boxShadow: '0 18px 44px rgba(15, 23, 42, 0.08)',
+}
+
+const eyebrowStyle: CSSProperties = {
+  margin: '0 0 7px',
+  color: '#2563eb',
+  fontSize: '12px',
+  fontWeight: 900,
+  letterSpacing: '0.06em',
+  textTransform: 'uppercase',
+}
+
+const titleStyle: CSSProperties = {
+  margin: 0,
+  color: '#0f172a',
+  fontSize: '34px',
+  lineHeight: 1.1,
+  fontWeight: 900,
+}
+
+const backLinkStyle: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  minHeight: '40px',
+  padding: '9px 14px',
+  borderRadius: '999px',
+  border: '1px solid rgba(148, 163, 184, 0.36)',
+  backgroundColor: '#ffffff',
+  color: '#0f172a',
+  textDecoration: 'none',
+  fontSize: '14px',
+  fontWeight: 850,
+}
+
+const sectionStyle: CSSProperties = {
+  display: 'grid',
+  gap: '14px',
+  padding: '20px',
+  borderRadius: '22px',
+  border: '1px solid rgba(148, 163, 184, 0.24)',
+  background: 'rgba(255,255,255,0.92)',
+  boxShadow: '0 14px 34px rgba(15, 23, 42, 0.06)',
+}
+
 export default function NewJobPage() {
   const router = useRouter()
   const { dictionary } = useI18n()
-
-  const weekdayOptions = [
-    dictionary.calendar ? null : null,
-  ]
-
-  const localizedWeekdays = [
-    { value: 1, label: 'Monday' },
-    { value: 2, label: 'Tuesday' },
-    { value: 3, label: 'Wednesday' },
-    { value: 4, label: 'Thursday' },
-    { value: 5, label: 'Friday' },
-    { value: 6, label: 'Saturday' },
-    { value: 0, label: 'Sunday' },
-  ].map((item) => {
-    const labels: Record<number, string> = {
-      1: new Intl.DateTimeFormat('en', { weekday: 'long' }).format(new Date(2026, 0, 5)),
-      2: new Intl.DateTimeFormat('en', { weekday: 'long' }).format(new Date(2026, 0, 6)),
-      3: new Intl.DateTimeFormat('en', { weekday: 'long' }).format(new Date(2026, 0, 7)),
-      4: new Intl.DateTimeFormat('en', { weekday: 'long' }).format(new Date(2026, 0, 8)),
-      5: new Intl.DateTimeFormat('en', { weekday: 'long' }).format(new Date(2026, 0, 9)),
-      6: new Intl.DateTimeFormat('en', { weekday: 'long' }).format(new Date(2026, 0, 10)),
-      0: new Intl.DateTimeFormat('en', { weekday: 'long' }).format(new Date(2026, 0, 11)),
-    }
-    return { value: item.value, label: labels[item.value] }
-  })
 
   const [companyId, setCompanyId] = useState('')
   const [title, setTitle] = useState('')
@@ -167,20 +207,27 @@ export default function NewJobPage() {
   const [selectedWorkDates, setSelectedWorkDates] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
 
-  const generatedWorkDays = generateWorkDays(parseDateTimeLocal(startAt), parseDateTimeLocal(endAt))
+  const generatedWorkDays = useMemo(
+    () => generateWorkDays(parseDateTimeLocal(startAt), parseDateTimeLocal(endAt)),
+    [endAt, startAt]
+  )
 
   useEffect(() => {
-    if (generatedWorkDays.length === 0 || isRecurringWeekly) {
-      setSelectedWorkDates([])
-      return
-    }
+    const timeoutId = window.setTimeout(() => {
+      if (generatedWorkDays.length === 0 || isRecurringWeekly) {
+        setSelectedWorkDates([])
+        return
+      }
 
-    const validDateKeys = new Set(generatedWorkDays.map((day) => day.dateKey))
-    setSelectedWorkDates((current) => {
-      const keptDates = current.filter((dateKey) => validDateKeys.has(dateKey))
-      return keptDates.length > 0 ? keptDates : generatedWorkDays.map((day) => day.dateKey)
-    })
-  }, [endAt, generatedWorkDays.length, isRecurringWeekly, startAt])
+      const validDateKeys = new Set(generatedWorkDays.map((day) => day.dateKey))
+      setSelectedWorkDates((current) => {
+        const keptDates = current.filter((dateKey) => validDateKeys.has(dateKey))
+        return keptDates.length > 0 ? keptDates : generatedWorkDays.map((day) => day.dateKey)
+      })
+    }, 0)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [generatedWorkDays, isRecurringWeekly])
 
   useEffect(() => {
     async function loadInitialData() {
@@ -473,14 +520,18 @@ export default function NewJobPage() {
 
   return (
     <DashboardShell activeItem="jobs">
-      <main style={{ maxWidth: '700px', fontFamily: 'Arial, Helvetica, sans-serif' }}>
-        <Link href="/jobs" style={{ display: 'inline-block', marginBottom: '24px', color: '#2563eb', textDecoration: 'none', fontWeight: '600' }}>
-          {dictionary.jobs.backToJobs}
-        </Link>
+      <main style={pageStyle}>
+        <header style={headerStyle}>
+          <div>
+            <p style={eyebrowStyle}>{dictionary.jobs.title}</p>
+            <h1 style={titleStyle}>{dictionary.jobs.newJobTitle}</h1>
+          </div>
+          <Link href="/jobs" style={backLinkStyle}>
+            ← {dictionary.jobs.backToJobs}
+          </Link>
+        </header>
 
-        <h1 style={{ marginBottom: '24px' }}>{dictionary.jobs.newJobTitle}</h1>
-
-        <form onSubmit={handleSubmit} style={{ display: 'grid', gap: '12px' }}>
+        <form className="job-create-form" onSubmit={handleSubmit} style={{ ...sectionStyle, gap: '14px' }}>
           <label>
             <div style={{ marginBottom: '6px', fontWeight: 600 }}>{dictionary.jobs.customer}</div>
             <select value={customerId} onChange={(e) => setCustomerId(e.target.value)} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db', backgroundColor: 'white' }}>

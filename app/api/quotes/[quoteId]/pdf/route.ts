@@ -79,6 +79,24 @@ type QuoteItemRow = {
 
 type Snapshot = Record<string, unknown>
 
+const emptyQuoteContent = {
+  contact_name: null,
+  contact_email: null,
+  intro_text: null,
+  customer_request_title: null,
+  customer_request: null,
+  our_solution_title: null,
+  proposed_solution: null,
+  timeline_title: null,
+  work_description: null,
+  work_schedule: null,
+  pricing_title: null,
+  pricing_text: null,
+  payment_terms_title: null,
+  payment_terms: null,
+  discount_amount: null,
+}
+
 const cp1252ReverseMap = new Map<string, number>([
   ['Š', 0x8a],
   ['Œ', 0x8c],
@@ -731,7 +749,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     supabase
       .from('quotes')
       .select(
-        'id, company_id, customer_id, quote_number, title, quote_date, valid_until, contact_name, contact_email, intro_text, customer_request_title, customer_request, our_solution_title, proposed_solution, timeline_title, work_description, work_schedule, pricing_title, pricing_text, payment_terms_title, payment_terms, subtotal_price, discount_amount, total_price, customers(name, email, phone, billing_name, billing_street, billing_city, billing_postal_code, billing_country, company_number, vat_number)'
+        'id, company_id, customer_id, quote_number, title, quote_date, valid_until, subtotal_price, total_price, customers(name, email, phone, billing_name, billing_street, billing_city, billing_postal_code, billing_country, company_number, vat_number)'
       )
       .eq('id', quoteId)
       .eq('company_id', activeCompany.companyId)
@@ -771,7 +789,27 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: 'Nepodařilo se načíst údaje firmy.' }, { status: 404 })
   }
 
-  const quote = quoteResponse.data as QuoteRow
+  const quote = {
+    ...emptyQuoteContent,
+    ...(quoteResponse.data as Omit<
+      QuoteRow,
+      | 'contact_name'
+      | 'contact_email'
+      | 'intro_text'
+      | 'customer_request_title'
+      | 'customer_request'
+      | 'our_solution_title'
+      | 'proposed_solution'
+      | 'timeline_title'
+      | 'work_description'
+      | 'work_schedule'
+      | 'pricing_title'
+      | 'pricing_text'
+      | 'payment_terms_title'
+      | 'payment_terms'
+      | 'discount_amount'
+    >),
+  } as QuoteRow
   const supplier = buildSupplierSnapshot(companyResponse.data) as unknown as Snapshot
   const pdf = buildPdf(quote, (itemsResponse.data ?? []) as QuoteItemRow[], supplier)
   const fileNumber = quote.quote_number?.replace(/[^\w-]/g, '') || 'nabidka'

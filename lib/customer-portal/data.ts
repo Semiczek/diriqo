@@ -707,7 +707,7 @@ export async function getPortalOffers(customerId: string) {
   const { data, error } = await admin
     .from('quotes')
     .select(
-      'id, quote_number, title, status, quote_date, valid_until, total_price, intro_text, proposed_solution, pricing_text, work_description, work_schedule, payment_terms, customer_summary, accepted_at, customer_portal_approved_by, customer_portal_approved_note'
+      'id, quote_number, title, status, quote_date, valid_until, total_price, accepted_at'
     )
     .eq('customer_id', customerId)
     .order('quote_date', { ascending: false, nullsFirst: false })
@@ -739,7 +739,7 @@ export async function getPortalOfferDetail(customerId: string, offerId: string) 
     admin
       .from('quotes')
       .select(
-        'id, quote_number, title, status, quote_date, valid_until, contact_name, contact_email, customer_request_title, customer_request, our_solution_title, timeline_title, pricing_title, payment_terms_title, benefits_text, total_price, intro_text, proposed_solution, pricing_text, work_description, work_schedule, payment_terms, customer_summary, created_at, updated_at, accepted_at, customer_portal_approved_by, customer_portal_approved_note, profiles!quotes_created_by_fkey(full_name)'
+        'id, quote_number, title, status, quote_date, valid_until, total_price, created_at, updated_at, accepted_at, profiles!quotes_created_by_fkey(full_name)'
       )
       .eq('customer_id', customerId)
       .eq('id', offerId)
@@ -764,7 +764,47 @@ export async function getPortalOfferDetail(customerId: string, offerId: string) 
     return null
   }
 
-  const quote = quoteResult.data as QuoteRow
+  const quote = {
+    contact_name: null,
+    contact_email: null,
+    customer_request_title: null,
+    customer_request: null,
+    our_solution_title: null,
+    timeline_title: null,
+    pricing_title: null,
+    payment_terms_title: null,
+    benefits_text: null,
+    intro_text: null,
+    proposed_solution: null,
+    pricing_text: null,
+    work_description: null,
+    work_schedule: null,
+    payment_terms: null,
+    customer_summary: null,
+    customer_portal_approved_by: null,
+    customer_portal_approved_note: null,
+    ...(quoteResult.data as Omit<
+      QuoteRow,
+      | 'contact_name'
+      | 'contact_email'
+      | 'customer_request_title'
+      | 'customer_request'
+      | 'our_solution_title'
+      | 'timeline_title'
+      | 'pricing_title'
+      | 'payment_terms_title'
+      | 'benefits_text'
+      | 'intro_text'
+      | 'proposed_solution'
+      | 'pricing_text'
+      | 'work_description'
+      | 'work_schedule'
+      | 'payment_terms'
+      | 'customer_summary'
+      | 'customer_portal_approved_by'
+      | 'customer_portal_approved_note'
+    >),
+  } as QuoteRow
   const profile = asSingleRelation(quote.profiles)
 
   return {

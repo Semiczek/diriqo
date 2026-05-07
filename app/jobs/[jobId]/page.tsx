@@ -1,6 +1,7 @@
 ﻿import JobDetailPageClient from './JobDetailPageClient'
 import { listEntityThreadMessages } from '@/lib/email/listEntityThreadMessages'
 import type { MessageFeedItem } from '@/lib/email/types'
+import { requireHubAccess } from '@/lib/require-hub-access'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 
 export const dynamic = 'force-dynamic'
@@ -223,6 +224,7 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
     )
   }
 
+  const activeCompany = await requireHubAccess()
   const supabase = await createSupabaseServerClient()
 
   const jobResponse = await supabase
@@ -266,6 +268,7 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
       `
     )
     .eq('id', jobId)
+    .eq('company_id', activeCompany.companyId)
     .single()
 
   if (jobResponse.error) {
@@ -416,6 +419,7 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
         `
       )
       .or(`id.eq.${groupRootId},parent_job_id.eq.${groupRootId}`)
+      .eq('company_id', activeCompany.companyId)
       .order('start_at', { ascending: true }),
   ])
 

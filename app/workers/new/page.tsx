@@ -69,6 +69,79 @@ function encodeDetails(value: string | undefined | null) {
   return encodeURIComponent(value.replace(/\s+/g, '-'))
 }
 
+const pageStyle: CSSProperties = {
+  display: 'grid',
+  gap: '18px',
+  width: '100%',
+  maxWidth: '980px',
+  margin: '0 auto',
+  padding: '2px 0 48px',
+  color: '#111827',
+}
+
+const headerStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'flex-end',
+  justifyContent: 'space-between',
+  gap: '16px',
+  flexWrap: 'wrap',
+  padding: '22px',
+  borderRadius: '22px',
+  border: '1px solid rgba(148, 163, 184, 0.24)',
+  background: 'rgba(255,255,255,0.88)',
+  boxShadow: '0 18px 44px rgba(15, 23, 42, 0.08)',
+}
+
+const eyebrowStyle: CSSProperties = {
+  margin: '0 0 7px',
+  color: '#2563eb',
+  fontSize: '12px',
+  fontWeight: 900,
+  letterSpacing: '0.06em',
+  textTransform: 'uppercase',
+}
+
+const titleStyle: CSSProperties = {
+  margin: 0,
+  color: '#0f172a',
+  fontSize: '34px',
+  lineHeight: 1.1,
+  fontWeight: 900,
+}
+
+const subtitleStyle: CSSProperties = {
+  margin: '8px 0 0',
+  color: '#64748b',
+  fontSize: '15px',
+  lineHeight: 1.5,
+  fontWeight: 650,
+}
+
+const backLinkStyle: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  minHeight: '40px',
+  padding: '9px 14px',
+  borderRadius: '999px',
+  border: '1px solid rgba(148, 163, 184, 0.36)',
+  backgroundColor: '#ffffff',
+  color: '#0f172a',
+  textDecoration: 'none',
+  fontSize: '14px',
+  fontWeight: 850,
+}
+
+const formCardStyle: CSSProperties = {
+  display: 'grid',
+  gap: '16px',
+  padding: '22px',
+  borderRadius: '22px',
+  border: '1px solid rgba(148, 163, 184, 0.24)',
+  background: 'rgba(255,255,255,0.92)',
+  boxShadow: '0 14px 34px rgba(15, 23, 42, 0.06)',
+}
+
 export default async function NewWorkerPage({
   searchParams,
 }: NewWorkerPageProps) {
@@ -253,83 +326,44 @@ export default async function NewWorkerPage({
 
   const labelStyle: CSSProperties = {
     display: 'block',
-    fontSize: '14px',
-    fontWeight: 700,
-    color: '#111827',
+    fontSize: '13px',
+    fontWeight: 850,
+    color: '#334155',
     marginBottom: '8px',
   }
 
   const inputStyle: CSSProperties = {
     width: '100%',
     boxSizing: 'border-box',
-    border: '1px solid #d1d5db',
+    border: '1px solid rgba(148, 163, 184, 0.44)',
     borderRadius: '12px',
     padding: '12px 14px',
-    fontSize: '16px',
-    color: '#111827',
+    minHeight: '46px',
+    fontSize: '15px',
+    fontWeight: 650,
+    color: '#0f172a',
     background: '#ffffff',
     outline: 'none',
   }
 
   return (
     <DashboardShell activeItem="workers">
-      <main
-        style={{
-          maxWidth: '900px',
-          fontFamily: 'Arial, Helvetica, sans-serif',
-          color: '#111827',
-        }}
-      >
-        <div style={{ marginBottom: '24px' }}>
-          <Link
-            href="/workers"
-            style={{
-              display: 'inline-block',
-              color: '#374151',
-              textDecoration: 'none',
-              fontSize: '14px',
-              fontWeight: 600,
-            }}
-          >
-            {t.backToWorkers}
-          </Link>
-        </div>
-
-        <section
-          style={{
-            border: '1px solid #e5e7eb',
-            borderRadius: '16px',
-            background: '#ffffff',
-            padding: '24px',
-          }}
-        >
-          <div style={{ marginBottom: '24px' }}>
-            <h1
-              style={{
-                margin: 0,
-                fontSize: '36px',
-                lineHeight: '1.2',
-                color: '#111827',
-              }}
-            >
-              {t.title}
-            </h1>
-
-            <p
-              style={{
-                margin: '10px 0 0 0',
-                fontSize: '15px',
-                color: '#6b7280',
-              }}
-            >
-              {t.subtitle}
-            </p>
+      <main style={pageStyle}>
+        <header style={headerStyle}>
+          <div>
+            <p style={eyebrowStyle}>{dictionary.navigation.workers}</p>
+            <h1 style={titleStyle}>{t.title}</h1>
+            <p style={subtitleStyle}>{t.subtitle}</p>
           </div>
+          <Link href="/workers" style={backLinkStyle}>
+            ← {t.backToWorkers.replace(/^‹\s*/, '')}
+          </Link>
+        </header>
 
+        <section style={formCardStyle}>
           {errorMessage ? (
             <div
               style={{
-                marginBottom: '20px',
                 border: '1px solid #fdba74',
                 background: '#fff7ed',
                 color: '#9a3412',
@@ -347,11 +381,12 @@ export default async function NewWorkerPage({
             </div>
           ) : null}
 
-          <form action={createWorker}>
+          <form action={createWorker} className="worker-create-form">
             <div
               style={{
                 display: 'grid',
                 gap: '18px',
+                gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
               }}
             >
               <div>
@@ -377,14 +412,14 @@ export default async function NewWorkerPage({
 
               <div>
                 <label htmlFor="worker_type" style={labelStyle}>
-                  Typ pracovnika
+                  Typ pracovníka
                 </label>
                 <select id="worker_type" name="worker_type" defaultValue="employee" style={inputStyle}>
                   <option value="employee">{getWorkerTypeLabel('employee')}</option>
                   <option value="contractor">{getWorkerTypeLabel('contractor')}</option>
                 </select>
                 <p style={{ margin: '8px 0 0 0', color: '#6b7280', fontSize: '13px' }}>
-                  Externi pracovnik se nepocita do klasickych vyplat a zaloh.
+                  Externí pracovník se nepočítá do klasických výplat a záloh.
                 </p>
               </div>
 
@@ -403,7 +438,7 @@ export default async function NewWorkerPage({
 
               <div>
                 <label htmlFor="contractor_billing_type" style={labelStyle}>
-                  Typ vyuctovani externisty
+                  Typ vyúčtování externisty
                 </label>
                 <select id="contractor_billing_type" name="contractor_billing_type" defaultValue="hourly" style={inputStyle}>
                   <option value="hourly">{getContractorBillingTypeLabel('hourly')}</option>
@@ -414,7 +449,7 @@ export default async function NewWorkerPage({
 
               <div>
                 <label htmlFor="contractor_default_rate" style={labelStyle}>
-                  Vychozi sazba / cena externisty
+                  Výchozí sazba / cena externisty
                 </label>
                 <input
                   id="contractor_default_rate"
@@ -452,13 +487,15 @@ export default async function NewWorkerPage({
                 type="submit"
                 style={{
                   border: 'none',
-                  borderRadius: '12px',
-                  background: '#111827',
+                  borderRadius: '14px',
+                  background: 'linear-gradient(135deg, #111827 0%, #1f2937 100%)',
                   color: '#ffffff',
-                  padding: '12px 16px',
+                  minHeight: '50px',
+                  padding: '13px 18px',
                   fontSize: '15px',
-                  fontWeight: 700,
+                  fontWeight: 900,
                   cursor: 'pointer',
+                  boxShadow: '0 16px 32px rgba(15, 23, 42, 0.18)',
                 }}
               >
                 {t.create}
@@ -469,13 +506,15 @@ export default async function NewWorkerPage({
                 style={{
                   display: 'inline-block',
                   borderRadius: '12px',
-                  border: '1px solid #d1d5db',
+                  border: '1px solid rgba(148, 163, 184, 0.38)',
                   background: '#ffffff',
                   color: '#111827',
+                  minHeight: '50px',
                   padding: '12px 16px',
                   fontSize: '15px',
-                  fontWeight: 700,
+                  fontWeight: 850,
                   textDecoration: 'none',
+                  boxSizing: 'border-box',
                 }}
               >
                 {t.cancel}

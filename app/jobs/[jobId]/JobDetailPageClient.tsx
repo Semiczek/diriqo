@@ -1021,7 +1021,7 @@ export default function JobDetailPageClient({
   const [groupEconomicsSummaries] =
     useState<JobEconomicsSummaryRow[]>(initialGroupEconomicsSummaries)
   const [workLogs] = useState<WorkLogRow[]>(initialWorkLogs)
-  const [costItems] = useState<CostItemRow[]>(initialCostItems)
+  const [costItems, setCostItems] = useState<CostItemRow[]>(initialCostItems)
   const [jobEconomicsSummary] =
     useState<JobEconomicsSummaryRow | null>(initialJobEconomicsSummary)
   const detailsLoading = false
@@ -1047,6 +1047,18 @@ export default function JobDetailPageClient({
   const [assignmentDrafts, setAssignmentDrafts] = useState<
     Record<string, { labor_hours: string; hourly_rate: string; external_amount: string; note: string }>
   >({})
+
+  function handlePriceSaved(nextPrice: number) {
+    setJob((current) => (current ? { ...current, price: nextPrice } : current))
+  }
+
+  function handleCostItemAdded(item: NormalizedCostItem) {
+    setCostItems((current) => [item, ...current.filter((existing) => existing.id !== item.id)])
+  }
+
+  function handleCostItemDeleted(id: string) {
+    setCostItems((current) => current.filter((item) => item.id !== id))
+  }
 
   useEffect(() => {
     setAssignments(initialAssignments)
@@ -1423,12 +1435,15 @@ export default function JobDetailPageClient({
   }, [jobEconomicsSummary])
 
   const otherCosts = useMemo(() => {
-    return toNumber(jobEconomicsSummary?.other_cost_total)
-  }, [jobEconomicsSummary])
+    return costItems.reduce((sum, item) => {
+      const itemTotal =
+        item.total_price != null
+          ? toNumber(item.total_price)
+          : toNumber(item.quantity) * toNumber(item.unit_price)
 
-  const profit = useMemo(() => {
-    return toNumber(jobEconomicsSummary?.profit_total)
-  }, [jobEconomicsSummary])
+      return sum + itemTotal
+    }, 0)
+  }, [costItems])
 
   const normalizedCostItems = useMemo<NormalizedCostItem[]>(() => {
     return costItems.map((item) => ({
@@ -2920,101 +2935,27 @@ export default function JobDetailPageClient({
       </div>
 
       <div className="job-detail-grid">
-      <JobEconomicsSection
-        jobId={jobId}
-        price={job.price != null ? Number(job.price) : null}
-        assignments={normalizedAssignments}
-        costItems={normalizedCostItems}
-        laborCost={assignmentLaborCost}
-        externalLaborCost={externalLaborCost}
-        otherCosts={otherCosts}
-        profit={assignmentProfit}
-      />
-      <JobPhotosSection jobId={job.id} compact />
+        <div style={{ gridColumn: '1 / -1' }}>
+          <JobEconomicsSection
+            jobId={jobId}
+            companyId={job.company_id ?? null}
+            price={job.price != null ? Number(job.price) : null}
+            assignments={normalizedAssignments}
+            costItems={normalizedCostItems}
+            laborCost={assignmentLaborCost}
+            externalLaborCost={externalLaborCost}
+            otherCosts={otherCosts}
+            profit={assignmentProfit}
+            onPriceSaved={handlePriceSaved}
+            onCostItemAdded={handleCostItemAdded}
+            onCostItemDeleted={handleCostItemDeleted}
+          />
+        </div>
+        <div style={{ gridColumn: '1 / -1' }}>
+          <JobPhotosSection jobId={job.id} compact />
+        </div>
       </div>
 
-      <div
-        style={sectionCardStyle}
-      >
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
-          <div>
-            <h2 style={{ ...cardTitleStyle, margin: 0, fontSize: '20px' }}>
-              Položky nákladů
-            </h2>
-            <div style={{ color: '#6b7280', fontSize: '14px', marginTop: '6px' }}>
-              {totalCostItemsCount === 0
-                ? 'Zatím nejsou přidané žádné další náklady.'
-                : `${totalCostItemsCount} položek ostatních nákladů.`}
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setCostItemsExpanded((current) => !current)}
-            style={{ ...secondaryButtonStyle, cursor: 'pointer' }}
-          >
-            {costItemsExpanded ? 'Skrýt položky nákladů' : totalCostItemsCount === 0 ? 'Přidat náklad' : 'Zobrazit položky nákladů'}
-          </button>
-        </div>
-
-        {costItemsExpanded ? (
-        <div style={{ display: 'grid', gap: '14px', marginTop: '16px' }}>
-          {(Object.keys(groupedCostItems) as CostType[]).map((type) => {
-            const rows = groupedCostItems[type]
-
-            return (
-              <div
-                key={type}
-                style={{
-                  border: '1px solid #e5e7eb',
-                  borderRadius: '12px',
-                  padding: '12px',
-                }}
-              >
-                <div style={{ fontWeight: 700, marginBottom: '8px' }}>{getCostTypeLabel(type)}</div>
-
-                {detailsLoading ? (
-                  <div style={{ color: '#6b7280' }}>{dictionary.jobs.loading}</div>
-                ) : rows.length === 0 ? (
-                  <div style={{ color: '#6b7280' }}>{dictionary.jobs.detail.noItems}</div>
-                ) : (
-                  <div style={{ display: 'grid', gap: '8px' }}>
-                    {rows.map((item) => {
-                      const total =
-                        item.total_price != null
-                          ? toNumber(item.total_price)
-                          : toNumber(item.quantity) * toNumber(item.unit_price)
-
-                      return (
-                        <div
-                          key={item.id}
-                          style={{
-                            display: 'grid',
-                            gap: '4px',
-                            borderTop: '1px solid #f3f4f6',
-                            paddingTop: '8px',
-                          }}
-                        >
-                          <div>
-                            <strong>{dictionary.jobs.detail.itemName}:</strong> {item.title ?? '-'}
-                          </div>
-                          <div>
-                            <strong>{dictionary.jobs.detail.total}:</strong> {formatCurrency(total)}
-                          </div>
-                          <div>
-                            <strong>{dictionary.jobs.detail.note}:</strong> {item.note ?? '-'}
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
-        ) : null}
-      </div>
       <JobCommunicationSection
         jobId={job.id}
         customerId={job.customer_id ?? null}

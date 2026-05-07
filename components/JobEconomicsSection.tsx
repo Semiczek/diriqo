@@ -47,6 +47,7 @@ type CostItem = {
 
 type JobEconomicsSectionProps = {
   jobId: string
+  companyId: string | null
   price: number | null
   assignments: Assignment[]
   costItems: CostItem[]
@@ -54,6 +55,9 @@ type JobEconomicsSectionProps = {
   externalLaborCost?: number
   otherCosts: number
   profit: number
+  onPriceSaved?: (price: number) => void
+  onCostItemAdded?: (item: CostItem) => void
+  onCostItemDeleted?: (id: string) => void
 }
 
 function toNumber(value: string | number | null | undefined) {
@@ -72,6 +76,7 @@ function formatCurrency(value: number) {
 
 export default function JobEconomicsSection({
   jobId,
+  companyId,
   price,
   assignments,
   costItems,
@@ -79,6 +84,9 @@ export default function JobEconomicsSection({
   externalLaborCost = 0,
   otherCosts,
   profit,
+  onPriceSaved,
+  onCostItemAdded,
+  onCostItemDeleted,
 }: JobEconomicsSectionProps) {
   const { dictionary } = useI18n()
   const [isEditing, setIsEditing] = useState(false)
@@ -152,7 +160,7 @@ export default function JobEconomicsSection({
         </div>
 
         <button type="button" onClick={() => setIsEditing((prev) => !prev)} style={buttonStyle}>
-          {isEditing ? 'Zavřít úpravy' : 'Upravit náklady'}
+          {isEditing ? 'Zavřít úpravy' : costItems.length === 0 ? 'Přidat náklad' : 'Upravit náklady'}
         </button>
       </div>
 
@@ -186,13 +194,15 @@ export default function JobEconomicsSection({
       ) : (
         <JobEconomicsEditor
           jobId={jobId}
+          companyId={companyId}
           initialPrice={price}
           initialAssignments={assignments}
           initialCostItems={costItems}
           actualLaborCost={laborCost}
           actualExternalLaborCost={externalLaborCost}
-          actualOtherCosts={otherCosts}
-          actualProfit={profit}
+          onPriceSaved={onPriceSaved}
+          onCostItemAdded={onCostItemAdded}
+          onCostItemDeleted={onCostItemDeleted}
         />
       )}
     </section>

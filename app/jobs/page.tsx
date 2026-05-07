@@ -8,6 +8,12 @@ import type { CSSProperties } from 'react'
 import DashboardShell from '../../components/DashboardShell'
 import { useI18n } from '../../components/I18nProvider'
 import {
+  getCurrentMonthValuePrague as getCurrentMonthValue,
+  parseDateSafe,
+  PRAGUE_TZ,
+} from '@/lib/date/prague-time'
+import { formatDateTimePrague } from '@/lib/formatters'
+import {
   getEffectiveJobWorkState,
   getVisibleBillingState,
   isMultiDayJobRange,
@@ -28,8 +34,6 @@ import {
 import { buildJobGroups, type JobParentLinkRow } from '../../lib/job-grouping'
 import { supabase } from '../../lib/supabase'
 import { getContractorBillingType, getWorkerType } from '@/lib/payroll-settings'
-
-const PRAGUE_TZ = 'Europe/Prague'
 
 type FilterType = 'all' | 'today' | TimeState | WorkState | BillingStateResolved
 type SortType = 'date_asc' | 'date_desc' | 'customer_asc' | 'title_asc'
@@ -141,13 +145,6 @@ type GroupedJobBlock = JobWithComputed & {
   canShowBillingState: boolean
 }
 
-function getCurrentMonthValue() {
-  const now = new Date()
-  const year = now.getFullYear()
-  const month = String(now.getMonth() + 1).padStart(2, '0')
-  return `${year}-${month}`
-}
-
 function getMonthKeyFromJob(
   job: Pick<JobRow, 'start_at' | 'end_at' | 'created_at'> & { sortAt?: string | null }
 ) {
@@ -175,104 +172,6 @@ function getMonthKeyFromJob(
 function toNumber(v: unknown) {
   const n = Number(v)
   return Number.isFinite(n) ? n : 0
-}
-
-function getOffsetMinutesForPrague(date: Date): number {
-  const formatter = new Intl.DateTimeFormat('en-US', {
-    timeZone: PRAGUE_TZ,
-    timeZoneName: 'shortOffset',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false,
-  })
-
-  const parts = formatter.formatToParts(date)
-  const tzName = parts.find((part) => part.type === 'timeZoneName')?.value ?? 'GMT+0'
-  const normalized = tzName.replace('UTC', 'GMT')
-  const match = normalized.match(/GMT([+-])(\d{1,2})(?::?(\d{2}))?/) 
-
-  if (!match) return 0
-
-  const sign = match[1] === '-' ? -1 : 1
-  const hours = Number(match[2] ?? '0')
-  const minutes = Number(match[3] ?? '0')
-
-  return sign * (hours * 60 + minutes)
-}
-
-function pragueWallTimeToDate(
-  year: number,
-  month: number,
-  day: number,
-  hour: number,
-  minute: number,
-  second: number
-): Date {
-  const firstGuessUtcMs = Date.UTC(year, month - 1, day, hour, minute, second)
-  const firstGuessDate = new Date(firstGuessUtcMs)
-  const firstOffsetMinutes = getOffsetMinutesForPrague(firstGuessDate)
-
-  const correctedUtcMs = firstGuessUtcMs - firstOffsetMinutes * 60_000
-  const correctedDate = new Date(correctedUtcMs)
-  const correctedOffsetMinutes = getOffsetMinutesForPrague(correctedDate)
-
-  return new Date(firstGuessUtcMs - correctedOffsetMinutes * 60_000)
-}
-
-function parseDateSafe(value: string | null | undefined): Date | null {
-  if (!value) return null
-
-  const trimmed = value.trim()
-  if (!trimmed) return null
-
-  const hasTimezone =
-    trimmed.endsWith('Z') || /[+-]\d{2}:\d{2}$/.test(trimmed) || /[+-]\d{4}$/.test(trimmed)
-
-  if (hasTimezone) {
-    const direct = new Date(trimmed)
-    return Number.isNaN(direct.getTime()) ? null : direct
-  }
-
-  const normalized = trimmed.replace(' ', 'T')
-  const match = normalized.match(
-    /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?(?:\.\d+)?$/
-  )
-
-  if (match) {
-    const [, year, month, day, hour, minute, second] = match
-
-    return pragueWallTimeToDate(
-      Number(year),
-      Number(month),
-      Number(day),
-      Number(hour),
-      Number(minute),
-      Number(second ?? '0')
-    )
-  }
-
-  const fallback = new Date(normalized)
-  return Number.isNaN(fallback.getTime()) ? null : fallback
-}
-
-function formatDateTimePrague(value: string | null, locale: string) {
-  if (!value) return '—'
-
-  const date = parseDateSafe(value)
-  if (!date) return '—'
-
-  return new Intl.DateTimeFormat(locale, {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    timeZone: PRAGUE_TZ,
-  }).format(date)
 }
 
 function normalizeAssignments(
@@ -899,7 +798,7 @@ export default function JobsPage() {
           active_workers
         `
 
-        let jobsResponse = await supabase
+        const jobsResponse = await supabase
           .from('jobs_with_state')
           .select(
             `
@@ -1082,12 +981,16 @@ export default function JobsPage() {
   }, [dictionary.jobs.unauthenticated])
 
   useEffect(() => {
-    setFilter(parseFilterParam(searchParams.get('filter')))
-    setSelectedMonth(searchParams.get('month') ?? getCurrentMonthValue())
-    setSelectedCustomerId(searchParams.get('customer') ?? '')
-    setSearchTerm(searchParams.get('q') ?? '')
-    setSort(parseSortParam(searchParams.get('sort')))
-    setView(parseViewParam(searchParams.get('view')))
+    const timeoutId = window.setTimeout(() => {
+      setFilter(parseFilterParam(searchParams.get('filter')))
+      setSelectedMonth(searchParams.get('month') ?? getCurrentMonthValue())
+      setSelectedCustomerId(searchParams.get('customer') ?? '')
+      setSearchTerm(searchParams.get('q') ?? '')
+      setSort(parseSortParam(searchParams.get('sort')))
+      setView(parseViewParam(searchParams.get('view')))
+    }, 0)
+
+    return () => window.clearTimeout(timeoutId)
   }, [searchParams])
 
   const jobsWithWorkers = useMemo<JobWithComputed[]>(() => {

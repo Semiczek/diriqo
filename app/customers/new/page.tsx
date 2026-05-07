@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import type { CSSProperties } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
@@ -56,13 +57,100 @@ function mapBrowserAresPayload(subject: BrowserAresSubject, fallbackIco: string)
     billingStreet: subject.sidlo?.textovaAdresa?.trim() || null,
     billingCity: subject.sidlo?.nazevObce?.trim() || subject.sidlo?.castObceNazev?.trim() || null,
     billingPostalCode: subject.sidlo?.psc?.trim() || null,
-    billingCountry: subject.sidlo?.nazevStatu?.trim() || 'Ceska republika',
+    billingCountry: subject.sidlo?.nazevStatu?.trim() || 'Česká republika',
   }
+}
+
+function normalizeCountry(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+}
+
+function isCzechBillingCountry(value: string) {
+  const normalizedCountry = normalizeCountry(value)
+
+  return (
+    normalizedCountry === 'cz' ||
+    normalizedCountry === 'cr' ||
+    normalizedCountry === 'cesko' ||
+    normalizedCountry === 'ceska republika' ||
+    normalizedCountry === 'czechia' ||
+    normalizedCountry === 'czech republic'
+  )
+}
+
+const pageStyle: CSSProperties = {
+  display: 'grid',
+  gap: '18px',
+  width: '100%',
+  maxWidth: '980px',
+  margin: '0 auto',
+  padding: '2px 0 48px',
+  color: '#111827',
+}
+
+const headerStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'flex-end',
+  justifyContent: 'space-between',
+  gap: '16px',
+  flexWrap: 'wrap',
+  padding: '22px',
+  borderRadius: '22px',
+  border: '1px solid rgba(148, 163, 184, 0.24)',
+  background: 'rgba(255,255,255,0.88)',
+  boxShadow: '0 18px 44px rgba(15, 23, 42, 0.08)',
+}
+
+const eyebrowStyle: CSSProperties = {
+  margin: '0 0 7px',
+  color: '#2563eb',
+  fontSize: '12px',
+  fontWeight: 900,
+  letterSpacing: '0.06em',
+  textTransform: 'uppercase',
+}
+
+const titleStyle: CSSProperties = {
+  margin: 0,
+  color: '#0f172a',
+  fontSize: '34px',
+  lineHeight: 1.1,
+  fontWeight: 900,
+}
+
+const backLinkStyle: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  minHeight: '40px',
+  padding: '9px 14px',
+  borderRadius: '999px',
+  border: '1px solid rgba(148, 163, 184, 0.36)',
+  backgroundColor: '#ffffff',
+  color: '#0f172a',
+  textDecoration: 'none',
+  fontSize: '14px',
+  fontWeight: 850,
+}
+
+const formCardStyle: CSSProperties = {
+  display: 'grid',
+  gap: '16px',
+  padding: '22px',
+  borderRadius: '22px',
+  border: '1px solid rgba(148, 163, 184, 0.24)',
+  background: 'rgba(255,255,255,0.92)',
+  boxShadow: '0 14px 34px rgba(15, 23, 42, 0.06)',
 }
 
 export default function NewCustomerPage() {
   const router = useRouter()
   const { dictionary } = useI18n()
+  const [shouldContinueToCalculation, setShouldContinueToCalculation] = useState(false)
 
   const [companyId, setCompanyId] = useState<string | null>(null)
   const [name, setName] = useState('')
@@ -78,6 +166,11 @@ export default function NewCustomerPage() {
   const [loading, setLoading] = useState(false)
   const [loadingAres, setLoadingAres] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const canLoadFromAres = isCzechBillingCountry(billingCountry)
+
+  useEffect(() => {
+    setShouldContinueToCalculation(new URLSearchParams(window.location.search).get('next') === 'calculation')
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -113,6 +206,7 @@ export default function NewCustomerPage() {
 
   async function handleLoadFromAres() {
     if (loading || loadingAres) return
+    if (!canLoadFromAres) return
 
     const normalizedCompanyNumber = companyNumber.replace(/\D/g, '')
 
@@ -218,7 +312,7 @@ export default function NewCustomerPage() {
         billing_country: trimmedBillingCountry || null,
         company_number: trimmedCompanyNumber || null,
         vat_number: trimmedVatNumber || null,
-        ares_last_checked_at: trimmedCompanyNumber ? new Date().toISOString() : null,
+        ares_last_checked_at: trimmedCompanyNumber && isCzechBillingCountry(trimmedBillingCountry) ? new Date().toISOString() : null,
       })
       .select('id')
       .single()
@@ -240,21 +334,32 @@ export default function NewCustomerPage() {
       return
     }
 
-    router.push(`/customers/${data.id}`)
+    router.push(shouldContinueToCalculation ? `/customers/${data.id}/calculations/new` : `/customers/${data.id}`)
     router.refresh()
   }
 
   return (
     <DashboardShell activeItem="customers">
-      <main style={{ maxWidth: '900px', fontFamily: 'Arial, Helvetica, sans-serif', color: '#111827' }}>
-        <Link href="/customers" style={{ display: 'inline-block', marginBottom: '24px', color: '#2563eb', textDecoration: 'none', fontWeight: '600' }}>
-          {dictionary.customers.backToCustomers}
-        </Link>
+      <main style={pageStyle}>
+        <header style={headerStyle}>
+          <div>
+            <p style={eyebrowStyle}>{shouldContinueToCalculation ? 'Nová kalkulace' : dictionary.navigation.customers}</p>
+            <h1 style={titleStyle}>
+              {shouldContinueToCalculation ? 'Nový zákazník pro kalkulaci' : dictionary.customers.newCustomerTitle}
+            </h1>
+            {shouldContinueToCalculation ? (
+              <p style={{ margin: '10px 0 0', color: '#64748b', fontSize: '16px', lineHeight: 1.5 }}>
+                Nejdřív založ zákazníka. Po uložení tě Diriqo rovnou přesune na vytvoření kalkulace.
+              </p>
+            ) : null}
+          </div>
+          <Link href={shouldContinueToCalculation ? '/kalkulace/nova' : '/customers'} style={backLinkStyle} aria-label={shouldContinueToCalculation ? 'Zpět na výběr zákazníka' : dictionary.customers.backToCustomers}>
+            {shouldContinueToCalculation ? 'Zpět na výběr zákazníka' : dictionary.customers.backToCustomers}
+          </Link>
+        </header>
 
-        <section style={{ backgroundColor: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '16px', padding: '24px' }}>
-          <h1 style={{ margin: '0 0 24px 0', fontSize: '32px', lineHeight: '1.2', color: '#111827' }}>{dictionary.customers.newCustomerTitle}</h1>
-
-          <form onSubmit={handleSubmit} style={{ display: 'grid', gap: '16px' }}>
+        <section style={formCardStyle}>
+          <form className="customer-create-form" onSubmit={handleSubmit} style={{ display: 'grid', gap: '16px' }}>
             <div>
               <label htmlFor="name" style={{ display: 'block', marginBottom: '8px', fontWeight: '700', color: '#111827' }}>{dictionary.customers.customerNameRequiredLabel}</label>
               <input id="name" type="text" value={name} onChange={(event) => setName(event.target.value)} placeholder={dictionary.customers.customerNamePlaceholder} style={{ width: '100%', padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db', fontSize: '16px', color: '#111827', backgroundColor: '#ffffff', boxSizing: 'border-box' }} />
@@ -276,15 +381,17 @@ export default function NewCustomerPage() {
                 <p style={{ margin: '8px 0 0 0', color: '#6b7280' }}>{dictionary.customers.billingSectionDescription}</p>
               </div>
 
-              <div style={{ display: 'grid', gap: '12px', gridTemplateColumns: 'minmax(0, 1fr) auto', alignItems: 'end' }}>
+              <div style={{ display: 'grid', gap: '12px', gridTemplateColumns: canLoadFromAres ? 'minmax(0, 1fr) auto' : '1fr', alignItems: 'end' }}>
                 <div>
                   <label htmlFor="companyNumber" style={{ display: 'block', marginBottom: '8px', fontWeight: '700', color: '#111827' }}>{dictionary.customers.companyNumber}</label>
                   <input id="companyNumber" type="text" value={companyNumber} onChange={(event) => setCompanyNumber(event.target.value)} placeholder={dictionary.customers.companyNumberPlaceholder} style={{ width: '100%', padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db', fontSize: '16px', color: '#111827', backgroundColor: '#ffffff', boxSizing: 'border-box' }} />
                 </div>
 
-                <button type="button" onClick={handleLoadFromAres} disabled={loading || loadingAres} style={{ backgroundColor: '#f3f4f6', color: '#111827', border: '1px solid #d1d5db', borderRadius: '12px', padding: '12px 18px', fontSize: '14px', fontWeight: '700', cursor: loading || loadingAres ? 'default' : 'pointer', opacity: loading || loadingAres ? 0.7 : 1 }}>
-                  {loadingAres ? dictionary.customers.loadingFromAres : dictionary.customers.loadFromAres}
-                </button>
+                {canLoadFromAres ? (
+                  <button type="button" onClick={handleLoadFromAres} disabled={loading || loadingAres} style={{ backgroundColor: '#f3f4f6', color: '#111827', border: '1px solid #d1d5db', borderRadius: '12px', padding: '12px 18px', fontSize: '14px', fontWeight: '700', cursor: loading || loadingAres ? 'default' : 'pointer', opacity: loading || loadingAres ? 0.7 : 1 }}>
+                    {loadingAres ? dictionary.customers.loadingFromAres : dictionary.customers.loadFromAres}
+                  </button>
+                ) : null}
               </div>
 
               <div><label htmlFor="vatNumber" style={{ display: 'block', marginBottom: '8px', fontWeight: '700', color: '#111827' }}>{dictionary.customers.vatNumber}</label><input id="vatNumber" type="text" value={vatNumber} onChange={(event) => setVatNumber(event.target.value)} placeholder={dictionary.customers.vatNumberPlaceholder} style={{ width: '100%', padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db', fontSize: '16px', color: '#111827', backgroundColor: '#ffffff', boxSizing: 'border-box' }} /></div>
@@ -303,10 +410,14 @@ export default function NewCustomerPage() {
 
             <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginTop: '8px' }}>
               <button type="submit" disabled={loading || !companyId} style={{ backgroundColor: '#000000', color: '#ffffff', border: 'none', borderRadius: '12px', padding: '12px 18px', fontSize: '14px', fontWeight: '700', cursor: loading || !companyId ? 'default' : 'pointer', opacity: loading || !companyId ? 0.7 : 1 }}>
-                {loading ? dictionary.customers.creatingCustomer : dictionary.customers.createCustomer}
+                {loading
+                  ? dictionary.customers.creatingCustomer
+                  : shouldContinueToCalculation
+                    ? 'Založit a pokračovat na kalkulaci'
+                    : dictionary.customers.createCustomer}
               </button>
 
-              <Link href="/customers" style={{ display: 'inline-block', backgroundColor: '#f3f4f6', color: '#111827', textDecoration: 'none', border: '1px solid #d1d5db', borderRadius: '12px', padding: '12px 18px', fontSize: '14px', fontWeight: '700' }}>
+              <Link href={shouldContinueToCalculation ? '/kalkulace/nova' : '/customers'} style={{ display: 'inline-block', backgroundColor: '#f3f4f6', color: '#111827', textDecoration: 'none', border: '1px solid #d1d5db', borderRadius: '12px', padding: '12px 18px', fontSize: '14px', fontWeight: '700' }}>
                 {dictionary.customers.cancel}
               </Link>
             </div>

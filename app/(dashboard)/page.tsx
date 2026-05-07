@@ -7,6 +7,36 @@ import DashboardQuickNotes from '../../components/DashboardQuickNotes'
 import { getRequestDictionary } from '@/lib/i18n/server'
 import { getActiveCompanyContext } from '../../lib/active-company'
 import {
+  endOfTodayPrague,
+  endOfTomorrowPrague,
+  endOfWeekPrague,
+  formatMonthInputValue,
+  formatPragueDateKey,
+  getCurrentMonthValuePrague,
+  getDaysInMonth,
+  getNowPrague,
+  getPraguePartsFromDate,
+  getPragueWeekday,
+  getMonthRangeFromValue,
+  overlapsRange,
+  parseDateSafe,
+  PRAGUE_TZ,
+  pragueWallTimeToDate,
+  shiftMonthRange,
+  startOfTodayPrague,
+  startOfTomorrowPrague,
+  startOfWeekPrague,
+} from '@/lib/date/prague-time'
+import {
+  formatCurrency,
+  formatPercent,
+  formatTime,
+} from '@/lib/formatters'
+import {
+  getPayrollRangeFromMonthValue,
+  isWorkerAdvanceBackfilledFromRequest,
+} from '@/lib/payroll/payroll-periods'
+import {
   getEffectiveJobWorkState,
   isCompletedJob as isResolvedJobDone,
   getVisibleBillingState as getVisibleResolvedBillingState,
@@ -28,11 +58,6 @@ import { getContractorBillingType, getWorkerType } from '@/lib/payroll-settings'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
-
-const PRAGUE_TZ = 'Europe/Prague'
-const PAYROLL_ADVANCE_START_DAY = 19
-const PAYROLL_ADVANCE_END_EXCLUSIVE_DAY = 18
-const PAYROLL_ADVANCE_END_VISIBLE_DAY = 17
 
 type JobRow = {
   id: string
@@ -231,15 +256,6 @@ type DashboardPageProps = {
   }>
 }
 
-type PragueDateParts = {
-  year: number
-  month: number
-  day: number
-  hour: number
-  minute: number
-  second: number
-}
-
 function asSingleRelation<T>(value: T[] | T | null | undefined): T | null {
   if (!value) return null
   if (Array.isArray(value)) return value[0] ?? null
@@ -253,160 +269,6 @@ function toNumber(value: number | string | null | undefined): number {
 
 function roundHours(value: number): number {
   return Math.round(value * 100) / 100
-}
-
-function formatCurrency(value: number | null | undefined): string {
-  if (value == null) return '\u2014'
-
-  return new Intl.NumberFormat('cs-CZ', {
-    style: 'currency',
-    currency: 'CZK',
-    maximumFractionDigits: 0,
-  }).format(value)
-}
-
-function formatSignedCurrency(value: number): string {
-  if (value > 0) return `+${formatCurrency(value)}`
-  if (value < 0) return `-${formatCurrency(Math.abs(value))}`
-  return formatCurrency(0)
-}
-
-function formatPercent(value: number | null | undefined): string {
-  if (value == null || !Number.isFinite(value)) return '\u2014'
-
-  return `${Math.round(value)} %`
-}
-
-function getDaysInMonth(date: Date): number {
-  const parts = getPraguePartsFromDate(date)
-  return new Date(Date.UTC(parts.year, parts.month, 0)).getUTCDate()
-}
-
-function getOffsetMinutesForPrague(date: Date): number {
-  const formatter = new Intl.DateTimeFormat('en-US', {
-    timeZone: PRAGUE_TZ,
-    timeZoneName: 'shortOffset',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false,
-  })
-
-  const parts = formatter.formatToParts(date)
-  const tzName = parts.find((part) => part.type === 'timeZoneName')?.value ?? 'GMT+0'
-  const normalized = tzName.replace('UTC', 'GMT')
-  const match = normalized.match(/GMT([+-])(\d{1,2})(?::?(\d{2}))?/)
-
-  if (!match) return 0
-
-  const sign = match[1] === '-' ? -1 : 1
-  const hours = Number(match[2] ?? '0')
-  const minutes = Number(match[3] ?? '0')
-
-  return sign * (hours * 60 + minutes)
-}
-
-function getPraguePartsFromDate(date: Date): PragueDateParts {
-  const formatter = new Intl.DateTimeFormat('en-GB', {
-    timeZone: PRAGUE_TZ,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false,
-  })
-
-  const parts = formatter.formatToParts(date)
-
-  const get = (type: Intl.DateTimeFormatPartTypes) =>
-    Number(parts.find((part) => part.type === type)?.value ?? '0')
-
-  return {
-    year: get('year'),
-    month: get('month'),
-    day: get('day'),
-    hour: get('hour'),
-    minute: get('minute'),
-    second: get('second'),
-  }
-}
-
-function pragueWallTimeToDate(
-  year: number,
-  month: number,
-  day: number,
-  hour: number,
-  minute: number,
-  second: number
-): Date {
-  const firstGuessUtcMs = Date.UTC(year, month - 1, day, hour, minute, second)
-  const firstGuessDate = new Date(firstGuessUtcMs)
-  const firstOffsetMinutes = getOffsetMinutesForPrague(firstGuessDate)
-
-  const correctedUtcMs = firstGuessUtcMs - firstOffsetMinutes * 60_000
-  const correctedDate = new Date(correctedUtcMs)
-  const correctedOffsetMinutes = getOffsetMinutesForPrague(correctedDate)
-
-  return new Date(firstGuessUtcMs - correctedOffsetMinutes * 60_000)
-}
-
-function parseDateSafe(value: string | Date | null | undefined): Date | null {
-  if (!value) return null
-
-  if (value instanceof Date) {
-    return Number.isNaN(value.getTime()) ? null : value
-  }
-
-  const trimmed = value.trim()
-  if (!trimmed) return null
-
-  const hasTimezone =
-    trimmed.endsWith('Z') ||
-    /[+-]\d{2}:\d{2}$/.test(trimmed) ||
-    /[+-]\d{4}$/.test(trimmed)
-
-  if (hasTimezone) {
-    const direct = new Date(trimmed)
-    return Number.isNaN(direct.getTime()) ? null : direct
-  }
-
-  const normalized = trimmed.replace(' ', 'T')
-
-  const match = normalized.match(
-    /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?(?:\.\d+)?$/
-  )
-
-  if (match) {
-    const [, year, month, day, hour, minute, second] = match
-
-    return pragueWallTimeToDate(
-      Number(year),
-      Number(month),
-      Number(day),
-      Number(hour),
-      Number(minute),
-      Number(second ?? '0')
-    )
-  }
-
-  const fallback = new Date(normalized)
-  return Number.isNaN(fallback.getTime()) ? null : fallback
-}
-
-function formatTime(value: string | null): string {
-  const date = parseDateSafe(value)
-  if (!date) return '\u2014'
-
-  return new Intl.DateTimeFormat('cs-CZ', {
-    hour: '2-digit',
-    minute: '2-digit',
-    timeZone: PRAGUE_TZ,
-  }).format(date)
 }
 
 function formatDateLabel(date: Date): string {
@@ -428,70 +290,6 @@ function formatTimeFromDate(value: Date | null): string {
   }).format(value)
 }
 
-function formatPragueDateKey(date: Date): string {
-  const parts = getPraguePartsFromDate(date)
-  const month = String(parts.month).padStart(2, '0')
-  const day = String(parts.day).padStart(2, '0')
-  return `${parts.year}-${month}-${day}`
-}
-
-function formatMonthInputValue(date: Date): string {
-  const parts = getPraguePartsFromDate(date)
-  return `${parts.year}-${String(parts.month).padStart(2, '0')}`
-}
-
-function getCurrentMonthValuePrague(): string {
-  return formatMonthInputValue(new Date())
-}
-
-function getPragueWeekday(year: number, month: number, day: number): number {
-  return new Date(Date.UTC(year, month - 1, day)).getUTCDay()
-}
-
-function addPragueDays(date: Date, days: number): Date {
-  const parts = getPraguePartsFromDate(date)
-  return pragueWallTimeToDate(parts.year, parts.month, parts.day + days, parts.hour, parts.minute, parts.second)
-}
-
-function normalizePayrollMonthValue(value: string | null | undefined): string | null {
-  const normalized = (value ?? '').trim()
-  const match = normalized.match(/^(\d{4})-(\d{2})(?:-\d{2})?$/)
-  if (!match) return null
-  return `${match[1]}-${match[2]}`
-}
-
-function getPayrollMonthValueFromDateString(value: string | null | undefined): string | null {
-  const date = parseDateSafe(value)
-  if (!date) return null
-
-  const parts = getPraguePartsFromDate(date)
-  const payrollMonth =
-    parts.day >= 19
-      ? pragueWallTimeToDate(parts.year, parts.month + 1, 1, 0, 0, 0)
-      : pragueWallTimeToDate(parts.year, parts.month, 1, 0, 0, 0)
-
-  return formatMonthInputValue(payrollMonth)
-}
-
-function getAdvanceRequestPayrollMonth(row: AdvanceRequestRow): string | null {
-  return (
-    normalizePayrollMonthValue(row.payroll_month) ||
-    getPayrollMonthValueFromDateString(row.paid_at) ||
-    getPayrollMonthValueFromDateString(row.approved_at || row.reviewed_at) ||
-    getPayrollMonthValueFromDateString(row.requested_at || row.created_at)
-  )
-}
-
-function isWorkerAdvanceBackfilledFromRequest(row: AdvanceRequestRow, workerAdvances: WorkerAdvanceDashboardRow[]) {
-  const requestRef = `(${row.id})`
-  return workerAdvances.some(
-    (advance) =>
-      advance.profile_id === row.profile_id &&
-      typeof advance.note === 'string' &&
-      advance.note.includes(requestRef)
-  )
-}
-
 function formatShortDateTime(value: string | null): string {
   const date = parseDateSafe(value)
   if (!date) return '\u2014'
@@ -504,141 +302,6 @@ function formatShortDateTime(value: string | null): string {
     minute: '2-digit',
     timeZone: PRAGUE_TZ,
   }).format(date)
-}
-
-function getNowPrague(): Date {
-  return new Date()
-}
-
-function startOfTodayPrague(): Date {
-  const nowParts = getPraguePartsFromDate(new Date())
-  return pragueWallTimeToDate(nowParts.year, nowParts.month, nowParts.day, 0, 0, 0)
-}
-
-function endOfTodayPrague(): Date {
-  const nowParts = getPraguePartsFromDate(new Date())
-  return pragueWallTimeToDate(nowParts.year, nowParts.month, nowParts.day, 23, 59, 59)
-}
-
-function startOfTomorrowPrague(): Date {
-  const todayParts = getPraguePartsFromDate(new Date())
-  return pragueWallTimeToDate(todayParts.year, todayParts.month, todayParts.day + 1, 0, 0, 0)
-}
-
-function endOfTomorrowPrague(): Date {
-  const todayParts = getPraguePartsFromDate(new Date())
-  const dayAfterTomorrowStart = pragueWallTimeToDate(
-    todayParts.year,
-    todayParts.month,
-    todayParts.day + 2,
-    0,
-    0,
-    0
-  )
-
-  return new Date(dayAfterTomorrowStart.getTime() - 1)
-}
-
-function startOfMonthPrague(): Date {
-  const nowParts = getPraguePartsFromDate(new Date())
-  return pragueWallTimeToDate(nowParts.year, nowParts.month, 1, 0, 0, 0)
-}
-
-function endOfMonthPrague(): Date {
-  const nowParts = getPraguePartsFromDate(new Date())
-  const nextMonthYear = nowParts.month === 12 ? nowParts.year + 1 : nowParts.year
-  const nextMonth = nowParts.month === 12 ? 1 : nowParts.month + 1
-  const nextMonthStart = pragueWallTimeToDate(nextMonthYear, nextMonth, 1, 0, 0, 0)
-  return new Date(nextMonthStart.getTime() - 1)
-}
-
-function startOfWeekPrague(): Date {
-  const nowParts = getPraguePartsFromDate(new Date())
-  const todayStart = pragueWallTimeToDate(nowParts.year, nowParts.month, nowParts.day, 0, 0, 0)
-  const weekday = getPragueWeekday(nowParts.year, nowParts.month, nowParts.day)
-  const diffToMonday = weekday === 0 ? -6 : 1 - weekday
-  return addPragueDays(todayStart, diffToMonday)
-}
-
-function endOfWeekPrague(): Date {
-  const weekStart = startOfWeekPrague()
-  const weekStartParts = getPraguePartsFromDate(weekStart)
-  return pragueWallTimeToDate(
-    weekStartParts.year,
-    weekStartParts.month,
-    weekStartParts.day + 6,
-    23,
-    59,
-    59
-  )
-}
-
-function shiftMonthRange(start: Date, diff: number) {
-  const parts = getPraguePartsFromDate(start)
-  const shiftedStart = pragueWallTimeToDate(parts.year, parts.month + diff, 1, 0, 0, 0)
-  const shiftedParts = getPraguePartsFromDate(shiftedStart)
-  const nextMonthStart = pragueWallTimeToDate(
-    shiftedParts.year,
-    shiftedParts.month + 1,
-    1,
-    0,
-    0,
-    0
-  )
-
-  return {
-    start: shiftedStart,
-    end: new Date(nextMonthStart.getTime() - 1),
-  }
-}
-
-function getMonthRangeFromValue(value: string | null | undefined) {
-  const normalized = (value ?? '').trim()
-  const isValid = /^\d{4}-\d{2}$/.test(normalized)
-  const effectiveValue = isValid ? normalized : getCurrentMonthValuePrague()
-  const [yearRaw, monthRaw] = effectiveValue.split('-')
-  const year = Number(yearRaw)
-  const month = Number(monthRaw)
-  const start = pragueWallTimeToDate(year, month, 1, 0, 0, 0)
-  const nextMonthStart = pragueWallTimeToDate(year, month + 1, 1, 0, 0, 0)
-  const end = new Date(nextMonthStart.getTime() - 1)
-  const label = new Intl.DateTimeFormat('cs-CZ', {
-    month: 'long',
-    year: 'numeric',
-    timeZone: PRAGUE_TZ,
-  }).format(start)
-
-  return {
-    value: effectiveValue,
-    start,
-    end,
-    label,
-  }
-}
-
-function getPayrollRangeFromMonthValue(value: string) {
-  const [yearRaw, monthRaw] = value.split('-')
-  const year = Number(yearRaw)
-  const month = Number(monthRaw)
-  const start = pragueWallTimeToDate(year, month, PAYROLL_ADVANCE_START_DAY, 0, 0, 0)
-  const endExclusive = pragueWallTimeToDate(year, month + 1, PAYROLL_ADVANCE_END_EXCLUSIVE_DAY, 0, 0, 0)
-  const endVisible = pragueWallTimeToDate(year, month + 1, PAYROLL_ADVANCE_END_VISIBLE_DAY, 0, 0, 0)
-  const payDate = pragueWallTimeToDate(year, month + 1, PAYROLL_ADVANCE_END_EXCLUSIVE_DAY, 0, 0, 0)
-
-  const formatDate = (date: Date) =>
-    new Intl.DateTimeFormat('cs-CZ', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      timeZone: PRAGUE_TZ,
-    }).format(date)
-
-  return {
-    startDate: formatPragueDateKey(start),
-    endExclusiveDate: formatPragueDateKey(endExclusive),
-    periodLabel: `${formatDate(start)} - ${formatDate(endVisible)}`,
-    payDateLabel: formatDate(payDate),
-  }
 }
 
 function buildDashboardHref({
@@ -754,22 +417,6 @@ function getDisplayWorkStateForDay(
   }
 
   return job.work_state
-}
-
-function overlapsRange(
-  startAt: string | Date | null,
-  endAt: string | Date | null,
-  rangeStart: Date,
-  rangeEnd: Date
-): boolean {
-  if (!startAt && !endAt) return false
-
-  const start = parseDateSafe(startAt)
-  const end = parseDateSafe(endAt)
-
-  if (start && end) return start <= rangeEnd && end >= rangeStart
-  if (start) return start >= rangeStart && start <= rangeEnd
-  return false
 }
 
 function isDateInDateKeyRange(

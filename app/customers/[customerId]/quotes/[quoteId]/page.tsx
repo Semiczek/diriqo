@@ -120,6 +120,8 @@ const emptyQuoteDetails = {
   contact_name: null,
   contact_email: null,
   intro_text: null,
+  customer_note: null,
+  internal_note: null,
   customer_request_title: null,
   customer_request: null,
   our_solution_title: null,
@@ -131,6 +133,7 @@ const emptyQuoteDetails = {
   pricing_text: null,
   payment_terms_title: null,
   payment_terms: null,
+  discount_amount: null,
   first_viewed_at: null,
   last_viewed_at: null,
   view_count: null,
@@ -280,9 +283,10 @@ export default async function QuoteDetailPage({ params }: PageProps) {
     supabase
       .from('quotes')
       .select(
-        'id, company_id, customer_id, source_calculation_id, quote_number, title, status, quote_date, valid_until, customer_note, internal_note, subtotal_price, discount_amount, total_price, sent_at',
+        'id, company_id, customer_id, source_calculation_id, quote_number, title, status, quote_date, valid_until, subtotal_price, total_price, share_token, sent_at',
       )
       .eq('id', quoteId)
+      .eq('company_id', activeCompany.companyId)
       .maybeSingle(),
     supabase
       .from('quote_items')
@@ -292,9 +296,7 @@ export default async function QuoteDetailPage({ params }: PageProps) {
       .order('created_at', { ascending: true }),
     supabase
       .from('offer_events')
-      .select(
-        'id, section_key, event_type, event_value, visitor_id, user_agent, device_type, referrer, created_at',
-      )
+      .select('id, event_type, visitor_id, created_at')
       .eq('quote_id', quoteId)
       .order('created_at', { ascending: false })
       .limit(200),
@@ -322,39 +324,42 @@ export default async function QuoteDetailPage({ params }: PageProps) {
     return (
       <DashboardShell activeItem="quotes">
         <main style={pageShellStyle}>
-          <p>{dictionary.customers.quoteDetail.notFound}</p>
+          {quoteError ? (
+            <div
+              style={{
+                border: '1px solid #fed7aa',
+                backgroundColor: '#fff7ed',
+                color: '#9a3412',
+                borderRadius: '16px',
+                padding: '20px',
+                lineHeight: 1.5,
+              }}
+            >
+              <strong>Nepodařilo se načíst cenovou nabídku.</strong>
+              <div>{quoteError.message}</div>
+              <div style={{ marginTop: '8px', color: '#7c2d12', fontSize: '14px' }}>
+                Zkontroluj, jestli v Supabase existuje řádek v tabulce quotes a jestli má tabulka
+                všechny runtime sloupce pro detail nabídky.
+              </div>
+            </div>
+          ) : (
+            <p>{dictionary.customers.quoteDetail.notFound}</p>
+          )}
         </main>
       </DashboardShell>
     )
   }
 
-  const { data: quoteDetails, error: quoteDetailsError } = await supabase
-    .from('quotes')
-    .select(
-      'share_token, contact_name, contact_email, intro_text, customer_request_title, customer_request, our_solution_title, proposed_solution, timeline_title, work_description, work_schedule, pricing_title, pricing_text, payment_terms_title, payment_terms, first_viewed_at, last_viewed_at, view_count',
-    )
-    .eq('id', quoteId)
-    .maybeSingle()
-
-  if (quoteDetailsError) {
-    console.error('[QUOTES] Failed to load optional quote detail columns', {
-      quoteId,
-      companyId: activeCompany.companyId,
-      message: quoteDetailsError.message,
-      details: quoteDetailsError.details,
-      hint: quoteDetailsError.hint,
-      code: quoteDetailsError.code,
-    })
-  }
-
   const normalizedQuote = {
     ...emptyQuoteDetails,
-    ...(quote as Omit<
+    ...(quote as unknown as Omit<
       QuoteRow,
       | 'share_token'
       | 'contact_name'
       | 'contact_email'
       | 'intro_text'
+      | 'customer_note'
+      | 'internal_note'
       | 'customer_request_title'
       | 'customer_request'
       | 'our_solution_title'
@@ -366,11 +371,11 @@ export default async function QuoteDetailPage({ params }: PageProps) {
       | 'pricing_text'
       | 'payment_terms_title'
       | 'payment_terms'
+      | 'discount_amount'
       | 'first_viewed_at'
       | 'last_viewed_at'
       | 'view_count'
     >),
-    ...((quoteDetails ?? {}) as Partial<QuoteRow>),
   } as QuoteRow
   const quoteCustomerId = normalizedQuote.customer_id || customerId
   const { data: customer, error: customerError } = await supabase
@@ -388,6 +393,77 @@ export default async function QuoteDetailPage({ params }: PageProps) {
       hint: customerError.hint,
       code: customerError.code,
     })
+  }
+
+  let quoteItems = (items ?? []) as QuoteItemRow[]
+  let quoteItemsError = itemsError
+
+  if (!quoteItemsError && quoteItems.length === 0 && normalizedQuote.source_calculation_id) {
+    const { data: calculationItems, error: calculationItemsError } = await supabase
+      .from('calculation_items')
+      .select('id, name, description, quantity, unit, unit_price, total_price, note')
+      .eq('calculation_id', normalizedQuote.source_calculation_id)
+      .eq('item_type', 'customer')
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: true })
+
+    if (calculationItemsError) {
+      quoteItemsError = calculationItemsError
+      console.error('[QUOTES] Failed to load fallback calculation items', {
+        quoteId,
+        sourceCalculationId: normalizedQuote.source_calculation_id,
+        message: calculationItemsError.message,
+        details: calculationItemsError.details,
+        hint: calculationItemsError.hint,
+        code: calculationItemsError.code,
+      })
+    } else {
+      quoteItems = (calculationItems ?? []) as QuoteItemRow[]
+    }
+  }
+
+  if (!quoteItemsError && quoteItems.length === 0 && normalizedQuote.source_calculation_id) {
+    const { data: latestVersion, error: latestVersionError } = await supabase
+      .from('calculation_versions')
+      .select('id')
+      .eq('calculation_id', normalizedQuote.source_calculation_id)
+      .order('version_number', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (latestVersionError) {
+      console.error('[QUOTES] Failed to load latest calculation version for item fallback', {
+        quoteId,
+        sourceCalculationId: normalizedQuote.source_calculation_id,
+        message: latestVersionError.message,
+        details: latestVersionError.details,
+        hint: latestVersionError.hint,
+        code: latestVersionError.code,
+      })
+    } else if (latestVersion?.id) {
+      const { data: versionItems, error: versionItemsError } = await supabase
+        .from('calculation_version_items')
+        .select('id, name, description, quantity, unit, unit_price, total_price, note')
+        .eq('calculation_version_id', latestVersion.id)
+        .eq('item_type', 'customer')
+        .order('sort_order', { ascending: true })
+        .order('created_at', { ascending: true })
+
+      if (versionItemsError) {
+        quoteItemsError = versionItemsError
+        console.error('[QUOTES] Failed to load fallback calculation version items', {
+          quoteId,
+          sourceCalculationId: normalizedQuote.source_calculation_id,
+          calculationVersionId: latestVersion.id,
+          message: versionItemsError.message,
+          details: versionItemsError.details,
+          hint: versionItemsError.hint,
+          code: versionItemsError.code,
+        })
+      } else {
+        quoteItems = (versionItems ?? []) as QuoteItemRow[]
+      }
+    }
   }
 
   const { data: calculationVersions, error: calculationVersionsError } =
@@ -411,7 +487,14 @@ export default async function QuoteDetailPage({ params }: PageProps) {
           : `/offer/${normalizedQuote.share_token}`
       })()
     : null
-  const offerEvents = (events ?? []) as OfferEventRow[]
+  const offerEvents = ((events ?? []) as Array<Pick<OfferEventRow, 'id' | 'event_type' | 'visitor_id' | 'created_at'>>).map((event) => ({
+    ...event,
+    section_key: null,
+    event_value: null,
+    user_agent: null,
+    device_type: null,
+    referrer: null,
+  })) as OfferEventRow[]
   const offerResponses = (responses ?? []) as OfferResponseRow[]
   let communicationFeed = [] as Awaited<
     ReturnType<typeof listEntityThreadMessages>
@@ -684,15 +767,15 @@ export default async function QuoteDetailPage({ params }: PageProps) {
             {dictionary.customers.quoteDetail.items}
           </h2>
 
-          {itemsError ? (
+          {quoteItemsError ? (
             <p style={{ color: '#b91c1c' }}>
-              {dictionary.customers.quoteDetail.itemsLoadFailed}: {itemsError.message}
+              {dictionary.customers.quoteDetail.itemsLoadFailed}: {quoteItemsError.message}
             </p>
-          ) : !items || items.length === 0 ? (
+          ) : quoteItems.length === 0 ? (
             <p style={{ color: '#6b7280' }}>{dictionary.customers.quoteDetail.noItems}</p>
           ) : (
             <div style={{ display: 'grid', gap: '12px' }}>
-              {(items as QuoteItemRow[]).map((item) => (
+              {quoteItems.map((item) => (
                 <div
                   key={item.id}
                   style={{

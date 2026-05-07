@@ -26,6 +26,7 @@ type DashboardShellProps = {
     | 'invoices'
     | 'help'
     | 'account'
+    | 'companySettings'
 }
 
 type CompanyMembership = {
@@ -293,7 +294,7 @@ export default function DashboardShell({
                               textTransform: 'uppercase',
                             }}
                           >
-                            Aktivni firma
+                            Aktivní firma
                           </div>
                           {companyMemberships.length > 0 ? (
                             companyMemberships.map((membership) => {
@@ -334,7 +335,7 @@ export default function DashboardShell({
                                         fontWeight: 850,
                                       }}
                                     >
-                                      {membership.companyName || 'Firma bez nazvu'}
+                                      {membership.companyName || 'Firma bez názvu'}
                                     </span>
                                     {membership.role ? (
                                       <span
@@ -381,7 +382,7 @@ export default function DashboardShell({
                                 fontWeight: 700,
                               }}
                             >
-                              Zadna dalsi firma neni k dispozici.
+                              Žádná další firma není k dispozici.
                             </div>
                           )}
                         </div>
@@ -533,6 +534,8 @@ function getActiveLabel(activeItem: DashboardShellProps['activeItem']) {
   if (activeItem === 'calendar') return 'Kalendář'
   if (activeItem === 'invoices') return 'Fakturace'
   if (activeItem === 'account') return 'Můj účet'
+  if (activeItem === 'companySettings') return 'Nastavení společnosti'
   if (activeItem === 'help') return 'Nápověda'
   return 'Přehled'
 }
+

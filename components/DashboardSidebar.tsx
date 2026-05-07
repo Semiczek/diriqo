@@ -18,6 +18,7 @@ type SidebarItemKey =
   | 'invoices'
   | 'help'
   | 'account'
+  | 'companySettings'
 
 type DashboardSidebarProps = {
   activeItem?: SidebarItemKey
@@ -80,6 +81,7 @@ export default function DashboardSidebar({
     {
       title: 'NASTAVENÍ',
       items: [
+        { href: '/settings/company', label: 'Společnost', key: 'companySettings', icon: 'S' },
         { href: '/ucet', label: 'Můj účet', key: 'account', icon: '?' },
       ],
     },
@@ -418,4 +420,5 @@ const sidebarMiniLink = {
   fontSize: '13px',
   fontWeight: 850,
 } as const
+
 

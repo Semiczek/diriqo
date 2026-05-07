@@ -28,12 +28,9 @@ const uiText: Record<
   Locale,
   {
     searchPlaceholder: string
-    all: string
     noResults: string
     expandAll: string
     collapseAll: string
-    open: string
-    quickNav: string
     contents: string
     sections: string
     results: string
@@ -42,12 +39,9 @@ const uiText: Record<
 > = {
   cs: {
     searchPlaceholder: 'Hledat v nápovědě...',
-    all: 'Vše',
     noResults: 'Nic jsem nenašel. Zkus jiné slovo nebo kratší dotaz.',
     expandAll: 'Rozbalit vše',
     collapseAll: 'Sbalit vše',
-    open: 'Otevřít',
-    quickNav: 'Rychlá navigace',
     contents: 'Obsah',
     sections: 'kapitol',
     results: 'výsledků',
@@ -61,12 +55,9 @@ const uiText: Record<
   },
   en: {
     searchPlaceholder: 'Search the help...',
-    all: 'All',
     noResults: 'No match found. Try a different or shorter search.',
     expandAll: 'Expand all',
     collapseAll: 'Collapse all',
-    open: 'Open',
-    quickNav: 'Quick navigation',
     contents: 'Contents',
     sections: 'chapters',
     results: 'results',
@@ -80,12 +71,9 @@ const uiText: Record<
   },
   de: {
     searchPlaceholder: 'In der Hilfe suchen...',
-    all: 'Alle',
     noResults: 'Kein Treffer. Versuche ein anderes oder kürzeres Suchwort.',
     expandAll: 'Alle öffnen',
     collapseAll: 'Alle schließen',
-    open: 'Öffnen',
-    quickNav: 'Schnellnavigation',
     contents: 'Inhalt',
     sections: 'Kapitel',
     results: 'Treffer',
@@ -104,6 +92,13 @@ function getSectionNumber(section: HelpSection) {
   return Number.isFinite(raw) ? raw : 0
 }
 
+function normalizeSearch(value: string) {
+  return value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+}
+
 function sectionText(section: HelpSection) {
   return [
     section.title,
@@ -115,12 +110,16 @@ function sectionText(section: HelpSection) {
 }
 
 function pickQuickSteps(sections: HelpSection[]) {
-  const workflowSection = sections.find((section) => section.title.startsWith('2.'))
-  const listBlock = workflowSection?.blocks.find(
-    (block) => block.type === 'ordered-list'
-  ) as Extract<HelpBlock, { type: 'ordered-list' }> | undefined
+  const workflowSection =
+    sections.find((section) => section.title.startsWith('2.')) ??
+    sections.find((section) => normalizeSearch(section.title).includes('postup')) ??
+    sections[0]
 
-  return listBlock?.items ?? []
+  const listBlock = workflowSection?.blocks.find(
+    (block) => block.type === 'ordered-list' || block.type === 'unordered-list'
+  ) as Extract<HelpBlock, { type: 'ordered-list' | 'unordered-list' }> | undefined
+
+  return listBlock?.items.slice(0, 6) ?? []
 }
 
 function pickSectionSummary(section: HelpSection) {
@@ -128,8 +127,8 @@ function pickSectionSummary(section: HelpSection) {
     (block) => block.type === 'paragraph'
   ) as Extract<HelpBlock, { type: 'paragraph' }> | undefined
 
-  if (!paragraphBlock) return section.title
-  return paragraphBlock.text
+  const text = paragraphBlock?.text ?? section.title
+  return text.length > 180 ? `${text.slice(0, 177).trim()}...` : text
 }
 
 function renderInline(text: string) {
@@ -184,7 +183,7 @@ function renderBlock(block: HelpBlock, sectionIndex: number, blockIndex: number)
       <h3
         key={`${sectionIndex}-${blockIndex}`}
         style={{
-          margin: '8px 0 0 0',
+          margin: '8px 0 0',
           fontSize: '19px',
           lineHeight: 1.3,
           color: '#173153',
@@ -238,9 +237,10 @@ export default function HelpCenterClient({
   )
 
   const quickSteps = useMemo(() => pickQuickSteps(sections), [sections])
+  const hasQuery = query.trim().length > 0
 
   const filteredSections = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase()
+    const normalizedQuery = normalizeSearch(query.trim())
     const selectedCategory = t.categories.find((item) => item.key === category) ?? t.categories[0]
 
     return sections.filter((section) => {
@@ -252,7 +252,7 @@ export default function HelpCenterClient({
       if (!inCategory) return false
       if (!normalizedQuery) return true
 
-      return sectionText(section).toLowerCase().includes(normalizedQuery)
+      return normalizeSearch(sectionText(section)).includes(normalizedQuery)
     })
   }, [category, query, sections, t.categories])
 
@@ -288,6 +288,7 @@ export default function HelpCenterClient({
 
   return (
     <main
+      className="help-page"
       style={{
         maxWidth: '1180px',
         color: '#111827',
@@ -300,8 +301,7 @@ export default function HelpCenterClient({
           borderRadius: '28px',
           padding: '34px',
           marginBottom: '20px',
-          background:
-            'linear-gradient(135deg, #070B1F 0%, #0B1733 48%, #083344 100%)',
+          background: 'linear-gradient(135deg, #070B1F 0%, #0B1733 48%, #083344 100%)',
           color: '#ffffff',
           boxShadow: '0 26px 70px rgba(15, 23, 42, 0.22)',
           border: '1px solid rgba(6, 182, 212, 0.2)',
@@ -333,7 +333,7 @@ export default function HelpCenterClient({
             filter: 'blur(14px)',
           }}
         />
-        <div style={{ display: 'grid', gap: '16px' }}>
+        <div style={{ position: 'relative', display: 'grid', gap: '16px' }}>
           <div
             style={{
               display: 'inline-flex',
@@ -351,6 +351,7 @@ export default function HelpCenterClient({
             }}
           >
             <span
+              aria-hidden="true"
               style={{
                 width: '24px',
                 height: '24px',
@@ -367,10 +368,18 @@ export default function HelpCenterClient({
           </div>
 
           <div>
-            <h1 style={{ margin: '0 0 10px 0', fontSize: '42px', lineHeight: 1.08, maxWidth: '820px' }}>
+            <h1 style={{ margin: '0 0 10px', fontSize: '42px', lineHeight: 1.08, maxWidth: '820px' }}>
               {dictionary.help.title}
             </h1>
-            <p style={{ margin: 0, maxWidth: '840px', color: 'rgba(255,255,255,0.88)', fontSize: '16px', lineHeight: 1.7 }}>
+            <p
+              style={{
+                margin: 0,
+                maxWidth: '840px',
+                color: 'rgba(255,255,255,0.88)',
+                fontSize: '16px',
+                lineHeight: 1.7,
+              }}
+            >
               {intro.length > 0 ? intro.join(' ') : dictionary.help.subtitle}
             </p>
           </div>
@@ -378,6 +387,7 @@ export default function HelpCenterClient({
       </section>
 
       <section
+        className="help-search-bar"
         style={{
           display: 'grid',
           gridTemplateColumns: 'minmax(0, 1fr) auto',
@@ -440,6 +450,7 @@ export default function HelpCenterClient({
                 type="button"
                 onClick={() => setCategory(item.key)}
                 style={{
+                  minHeight: '44px',
                   borderRadius: '999px',
                   border: active ? '1px solid #2563eb' : '1px solid #cbd5e1',
                   background: active
@@ -457,7 +468,7 @@ export default function HelpCenterClient({
           })}
 
           <div style={{ color: '#64748b', fontWeight: 700 }}>
-            {filteredSections.length} {query.trim() ? t.results : t.sections}
+            {filteredSections.length} {hasQuery ? t.results : t.sections}
           </div>
         </div>
       </section>
@@ -473,10 +484,10 @@ export default function HelpCenterClient({
             boxShadow: '0 16px 36px rgba(15, 23, 42, 0.06)',
           }}
         >
-          <h2 style={{ margin: '0 0 6px 0', fontSize: '24px', color: '#0f172a' }}>
+          <h2 style={{ margin: '0 0 6px', fontSize: '24px', color: '#0f172a' }}>
             {dictionary.help.recommendedTitle}
           </h2>
-          <p style={{ margin: '0 0 14px 0', color: '#64748b', fontSize: '14px' }}>
+          <p style={{ margin: '0 0 14px', color: '#64748b', fontSize: '14px' }}>
             {dictionary.help.recommendedSubtitle}
           </p>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px' }}>
@@ -503,42 +514,33 @@ export default function HelpCenterClient({
         </section>
       ) : null}
 
-      <section style={{ display: 'grid', gridTemplateColumns: '260px minmax(0, 1fr)', gap: '18px', alignItems: 'start' }}>
-        <aside
-          style={{
-            position: 'sticky',
-            top: '96px',
-            borderRadius: '22px',
-            border: '1px solid rgba(226, 232, 240, 0.9)',
-            backgroundColor: 'rgba(255,255,255,0.88)',
-            padding: '16px',
-            display: 'grid',
-            gap: '10px',
-            maxHeight: 'calc(100vh - 124px)',
-            overflowY: 'auto',
-          }}
-        >
+      <section className="help-content-layout">
+        <aside className="help-table-of-contents">
           <div style={{ fontSize: '14px', fontWeight: 900, color: '#0f172a', marginBottom: '4px' }}>
             {t.contents}
           </div>
-          {filteredSections.slice(0, 18).map((section) => (
-            <a
-              key={section.id}
-              href={`#${section.id}`}
-              style={{
-                textDecoration: 'none',
-                color: '#334155',
-                fontSize: '14px',
-                lineHeight: 1.35,
-                borderRadius: '10px',
-                padding: '9px 10px',
-                backgroundColor: expandedIds.has(section.id) ? '#eef5ff' : 'transparent',
-                border: expandedIds.has(section.id) ? '1px solid #cfe0f7' : '1px solid transparent',
-              }}
-            >
-              {section.title.replace(/^\d+\.\s*/, '')}
-            </a>
-          ))}
+          {filteredSections.map((section) => {
+            const isOpen = hasQuery || expandedIds.has(section.id)
+
+            return (
+              <a
+                key={section.id}
+                href={`#${section.id}`}
+                style={{
+                  textDecoration: 'none',
+                  color: '#334155',
+                  fontSize: '14px',
+                  lineHeight: 1.35,
+                  borderRadius: '10px',
+                  padding: '9px 10px',
+                  backgroundColor: isOpen ? '#eef5ff' : 'transparent',
+                  border: isOpen ? '1px solid #cfe0f7' : '1px solid transparent',
+                }}
+              >
+                {section.title.replace(/^\d+\.\s*/, '')}
+              </a>
+            )
+          })}
         </aside>
 
         <div style={{ display: 'grid', gap: '12px', paddingBottom: '40px' }}>
@@ -557,7 +559,7 @@ export default function HelpCenterClient({
             </div>
           ) : (
             filteredSections.map((section, sectionIndex) => {
-              const isExpanded = expandedIds.has(section.id)
+              const isExpanded = hasQuery || expandedIds.has(section.id)
 
               return (
                 <article
@@ -569,7 +571,9 @@ export default function HelpCenterClient({
                     border: '1px solid rgba(223, 231, 242, 0.95)',
                     backgroundColor: '#ffffff',
                     overflow: 'hidden',
-                    boxShadow: isExpanded ? '0 18px 40px rgba(15, 23, 42, 0.08)' : '0 10px 24px rgba(15, 23, 42, 0.035)',
+                    boxShadow: isExpanded
+                      ? '0 18px 40px rgba(15, 23, 42, 0.08)'
+                      : '0 10px 24px rgba(15, 23, 42, 0.035)',
                   }}
                 >
                   <button
@@ -606,11 +610,27 @@ export default function HelpCenterClient({
                       {section.title.split('.')[0]}
                     </span>
                     <span style={{ minWidth: 0 }}>
-                      <span style={{ display: 'block', fontSize: '22px', lineHeight: 1.2, fontWeight: 900, color: '#10233f' }}>
+                      <span
+                        style={{
+                          display: 'block',
+                          fontSize: '22px',
+                          lineHeight: 1.2,
+                          fontWeight: 900,
+                          color: '#10233f',
+                        }}
+                      >
                         {section.title.replace(/^\d+\.\s*/, '')}
                       </span>
                       {!isExpanded ? (
-                        <span style={{ display: 'block', marginTop: '6px', color: '#64748b', fontSize: '14px', lineHeight: 1.45 }}>
+                        <span
+                          style={{
+                            display: 'block',
+                            marginTop: '6px',
+                            color: '#64748b',
+                            fontSize: '14px',
+                            lineHeight: 1.45,
+                          }}
+                        >
                           {pickSectionSummary(section)}
                         </span>
                       ) : null}
@@ -630,10 +650,8 @@ export default function HelpCenterClient({
                   </button>
 
                   {isExpanded ? (
-                    <div style={{ display: 'grid', gap: '13px', padding: '0 22px 22px 80px' }}>
-                      {section.blocks.map((block, blockIndex) =>
-                        renderBlock(block, sectionIndex, blockIndex)
-                      )}
+                    <div className="help-section-body">
+                      {section.blocks.map((block, blockIndex) => renderBlock(block, sectionIndex, blockIndex))}
                     </div>
                   ) : null}
                 </article>
@@ -644,20 +662,54 @@ export default function HelpCenterClient({
       </section>
 
       <style>{`
+        .help-content-layout {
+          display: grid;
+          grid-template-columns: 260px minmax(0, 1fr);
+          gap: 18px;
+          align-items: start;
+        }
+
+        .help-table-of-contents {
+          position: sticky;
+          top: 96px;
+          border-radius: 22px;
+          border: 1px solid rgba(226, 232, 240, 0.9);
+          background-color: rgba(255,255,255,0.88);
+          padding: 16px;
+          display: grid;
+          gap: 10px;
+          max-height: calc(100vh - 124px);
+          overflow-y: auto;
+        }
+
+        .help-section-body {
+          display: grid;
+          gap: 13px;
+          padding: 0 22px 22px 80px;
+        }
+
         @media (max-width: 920px) {
-          main section[style*="260px"] {
-            grid-template-columns: 1fr !important;
+          .help-content-layout {
+            grid-template-columns: 1fr;
           }
 
-          main aside {
-            position: static !important;
-            max-height: 240px !important;
+          .help-table-of-contents {
+            position: static;
+            max-height: 260px;
           }
         }
 
         @media (max-width: 640px) {
-          main section[style*="minmax(0, 1fr) auto"] {
+          .help-page {
+            max-width: 100%;
+          }
+
+          .help-search-bar {
             grid-template-columns: 1fr !important;
+          }
+
+          .help-section-body {
+            padding: 0 18px 20px;
           }
         }
       `}</style>

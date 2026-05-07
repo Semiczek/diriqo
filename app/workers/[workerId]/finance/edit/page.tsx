@@ -50,28 +50,6 @@ function formatCurrency(value: number) {
   }).format(value)
 }
 
-function formatDate(value: string | null) {
-  if (!value) return '—'
-
-  const date = new Date(value)
-
-  if (Number.isNaN(date.getTime())) return value
-
-  return new Intl.DateTimeFormat('cs-CZ', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  }).format(date)
-}
-
-function getTodayDateInputValue() {
-  const now = new Date()
-  const year = now.getFullYear()
-  const month = String(now.getMonth() + 1).padStart(2, '0')
-  const day = String(now.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
-
 function getTodayMonthInputValue() {
   const now = new Date()
   const year = now.getFullYear()
@@ -103,13 +81,9 @@ export default function EditWorkerFinancePage({
   const [defaultHourlyRate, setDefaultHourlyRate] = useState('')
   const [loading, setLoading] = useState(true)
   const [savingWorker, setSavingWorker] = useState(false)
-  const [savingAdvance, setSavingAdvance] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
-  const [advanceAmount, setAdvanceAmount] = useState('')
-  const [advanceIssuedAt, setAdvanceIssuedAt] = useState(getTodayDateInputValue())
-  const [advanceNote, setAdvanceNote] = useState('')
   const [advances, setAdvances] = useState<WorkerAdvanceRow[]>([])
   const [payrollMonth, setPayrollMonth] = useState(getTodayMonthInputValue())
   const [payrollItemType, setPayrollItemType] = useState<PayrollItemType>('bonus')
@@ -286,91 +260,6 @@ export default function EditWorkerFinancePage({
       setError(getErrorMessage(err, dictionary.workers.financeEdit.saveWorkerFailed))
     } finally {
       setSavingWorker(false)
-    }
-  }
-
-  async function handleCreateAdvance(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-
-    if (!workerId) return
-
-    try {
-      setSavingAdvance(true)
-      setError(null)
-      setSuccessMessage(null)
-
-      const parsedAmount = Number(advanceAmount)
-
-      if (!advanceAmount.trim()) {
-        throw new Error(dictionary.workers.financeEdit.advanceAmountRequired)
-      }
-
-      if (Number.isNaN(parsedAmount) || parsedAmount <= 0) {
-        throw new Error(dictionary.workers.financeEdit.advanceAmountInvalid)
-      }
-
-      if (!advanceIssuedAt) {
-        throw new Error(dictionary.workers.financeEdit.advanceDateRequired)
-      }
-
-      const insertResponse = await supabase.from('worker_advances').insert({
-        profile_id: workerId,
-        amount: parsedAmount,
-        issued_at: advanceIssuedAt,
-        note: advanceNote.trim() || null,
-      })
-
-      if (insertResponse.error) {
-        throw new Error(insertResponse.error.message)
-      }
-
-      const reloadAdvancesResponse = await supabase
-        .from('worker_advances')
-        .select('id, profile_id, amount, issued_at, note, created_at')
-        .eq('profile_id', workerId)
-        .order('issued_at', { ascending: false })
-        .order('created_at', { ascending: false })
-
-      if (reloadAdvancesResponse.error) {
-        throw new Error(reloadAdvancesResponse.error.message)
-      }
-
-      setAdvances((reloadAdvancesResponse.data ?? []) as WorkerAdvanceRow[])
-      setAdvanceAmount('')
-      setAdvanceIssuedAt(getTodayDateInputValue())
-      setAdvanceNote('')
-      setSuccessMessage(dictionary.workers.financeEdit.saveAdvanceSuccess)
-      router.refresh()
-    } catch (err: unknown) {
-      setError(getErrorMessage(err, dictionary.workers.financeEdit.saveAdvanceFailed))
-    } finally {
-      setSavingAdvance(false)
-    }
-  }
-
-  async function handleDeleteAdvance(advanceId: string) {
-    const confirmed = window.confirm(dictionary.workers.financeEdit.deleteAdvanceConfirm)
-
-    if (!confirmed) return
-
-    try {
-      setError(null)
-      setSuccessMessage(null)
-
-      const deleteResponse = await supabase
-        .from('worker_advances')
-        .delete()
-        .eq('id', advanceId)
-
-      if (deleteResponse.error) {
-        throw new Error(deleteResponse.error.message)
-      }
-
-      setAdvances((current) => current.filter((item) => item.id !== advanceId))
-      setSuccessMessage(dictionary.workers.financeEdit.deleteAdvanceSuccess)
-      router.refresh()
-    } catch (err: unknown) {
-      setError(getErrorMessage(err, dictionary.workers.financeEdit.deleteAdvanceFailed))
     }
   }
 
@@ -913,7 +802,7 @@ export default function EditWorkerFinancePage({
                 alignItems: 'flex-start',
                 gap: '16px',
                 flexWrap: 'wrap',
-                marginBottom: '24px',
+                marginBottom: '20px',
               }}
             >
               <div>
@@ -925,7 +814,7 @@ export default function EditWorkerFinancePage({
                     color: '#111827',
                   }}
                 >
-                  {dictionary.workers.financeEdit.addAdvance}
+                  Zálohy jsou v přehledu pracovníka
                 </h2>
 
                 <p
@@ -935,7 +824,7 @@ export default function EditWorkerFinancePage({
                     color: '#6b7280',
                   }}
                 >
-                  {dictionary.workers.financeEdit.addAdvanceDescription}
+                  Přidávání a mazání záloh se teď řeší přímo v detailu pracovníka, aby sedělo s interním / externím režimem a výplatním nastavením.
                 </p>
               </div>
 
@@ -949,7 +838,7 @@ export default function EditWorkerFinancePage({
                 }}
               >
                 <div style={{ fontSize: '13px', color: '#6b7280', marginBottom: '6px' }}>
-                  {dictionary.workers.financeEdit.advancesTotal}
+                  Evidované zálohy
                 </div>
                 <div style={{ fontSize: '28px', fontWeight: 700, color: '#111827' }}>
                   {formatCurrency(totalAdvances)}
@@ -957,157 +846,9 @@ export default function EditWorkerFinancePage({
               </div>
             </div>
 
-            <form onSubmit={handleCreateAdvance}>
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-                  gap: '18px',
-                  marginBottom: '18px',
-                }}
-              >
-                <div>
-                  <label htmlFor="advanceAmount" style={labelStyle}>
-                    {dictionary.workers.financeEdit.advanceAmount}
-                  </label>
-                  <input
-                    id="advanceAmount"
-                    type="number"
-                    step="0.01"
-                    inputMode="decimal"
-                    value={advanceAmount}
-                    onChange={(e) => setAdvanceAmount(e.target.value)}
-                    style={inputStyle}
-                    placeholder={dictionary.workers.financeEdit.advanceAmountPlaceholder}
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="advanceIssuedAt" style={labelStyle}>
-                    {dictionary.workers.financeEdit.issueDate}
-                  </label>
-                  <input
-                    id="advanceIssuedAt"
-                    type="date"
-                    value={advanceIssuedAt}
-                    onChange={(e) => setAdvanceIssuedAt(e.target.value)}
-                    style={inputStyle}
-                  />
-                </div>
-              </div>
-
-              <div style={{ marginBottom: '18px' }}>
-                <label htmlFor="advanceNote" style={labelStyle}>
-                  {dictionary.workers.financeEdit.note}
-                </label>
-                <textarea
-                  id="advanceNote"
-                  value={advanceNote}
-                  onChange={(e) => setAdvanceNote(e.target.value)}
-                  style={{
-                    ...inputStyle,
-                    minHeight: '110px',
-                    resize: 'vertical',
-                  }}
-                  placeholder={dictionary.workers.financeEdit.notePlaceholder}
-                />
-              </div>
-
-              <button type="submit" style={primaryButtonStyle} disabled={savingAdvance}>
-                {savingAdvance
-                  ? dictionary.workers.financeEdit.savingAdvance
-                  : dictionary.workers.financeEdit.saveAdvance}
-              </button>
-            </form>
-          </section>
-
-          <section style={boxStyle}>
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                gap: '16px',
-                flexWrap: 'wrap',
-                marginBottom: '20px',
-              }}
-            >
-              <div>
-                <h2
-                  style={{
-                    margin: 0,
-                    fontSize: '30px',
-                    lineHeight: 1.1,
-                    color: '#111827',
-                  }}
-                >
-                  {dictionary.workers.financeEdit.advanceHistory}
-                </h2>
-
-                <p
-                  style={{
-                    margin: '10px 0 0 0',
-                    fontSize: '15px',
-                    color: '#6b7280',
-                  }}
-                >
-                  {dictionary.workers.financeEdit.advanceHistoryDescription}
-                </p>
-              </div>
-            </div>
-
-            {advances.length === 0 ? (
-              <div
-                style={{
-                  border: '1px solid #e5e7eb',
-                  borderRadius: '14px',
-                  padding: '18px',
-                  background: '#f9fafb',
-                  color: '#6b7280',
-                }}
-              >
-                {dictionary.workers.financeEdit.noAdvances}
-              </div>
-            ) : (
-              <div style={tableWrapStyle}>
-                <table style={tableStyle}>
-                  <thead>
-                    <tr>
-                      <th style={thStyle}>{dictionary.workers.financeEdit.issueDate}</th>
-                      <th style={thStyle}>{dictionary.workers.detail.amount}</th>
-                      <th style={thStyle}>{dictionary.workers.financeEdit.note}</th>
-                      <th style={thStyle}>{dictionary.workers.financeEdit.actions}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {advances.map((advance) => (
-                      <tr key={advance.id}>
-                        <td style={tdStyle}>{formatDate(advance.issued_at)}</td>
-                        <td style={tdStyle}>{formatCurrency(Number(advance.amount ?? 0))}</td>
-                        <td style={tdStyle}>{advance.note?.trim() ? advance.note : '—'}</td>
-                        <td style={tdStyle}>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteAdvance(advance.id)}
-                            style={{
-                              border: '1px solid #fecaca',
-                              background: '#ffffff',
-                              color: '#b91c1c',
-                              borderRadius: '10px',
-                              padding: '10px 12px',
-                              fontWeight: 700,
-                              cursor: 'pointer',
-                            }}
-                          >
-                            {dictionary.workers.financeEdit.delete}
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+            <Link href={workerId ? `/workers/${workerId}?month=${payrollMonth}` : '/workers'} style={primaryButtonStyle}>
+              Otevřít přehled pracovníka
+            </Link>
           </section>
         </div>
       </main>

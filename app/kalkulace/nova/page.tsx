@@ -43,9 +43,12 @@ export default async function NewCalculationStartPage() {
           <div style={heroContentStyle}>
             <div style={eyebrowStyle}>Nová kalkulace</div>
             <h1 style={heroTitleStyle}>Vyber zákazníka</h1>
-            <p style={heroTextStyle}>Nejprve vyber zákazníka, nebo založ interní kalkulaci bez vazby.</p>
+            <p style={heroTextStyle}>Vyber existujícího zákazníka, založ nového, nebo vytvoř interní kalkulaci bez vazby.</p>
           </div>
-          <PrimaryAction href="/kalkulace/nova/bez-zakaznika">Vytvořit bez zákazníka</PrimaryAction>
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            <PrimaryAction href="/customers/new?next=calculation">Nový zákazník</PrimaryAction>
+            <SecondaryAction href="/kalkulace/nova/bez-zakaznika">Vytvořit bez zákazníka</SecondaryAction>
+          </div>
         </section>
 
         {error ? (
@@ -56,7 +59,7 @@ export default async function NewCalculationStartPage() {
           <div style={emptyStateStyle}>
             <h2 style={{ margin: '0 0 8px', color: '#0f172a' }}>Nejsou tu žádní zákazníci.</h2>
             <p style={{ margin: '0 0 16px' }}>Nejprve založ zákazníka, nebo vytvoř kalkulaci bez zákazníka.</p>
-            <PrimaryAction href="/customers/new">Nový zákazník</PrimaryAction>
+            <PrimaryAction href="/customers/new?next=calculation">Nový zákazník</PrimaryAction>
           </div>
         ) : (
           <section style={{ ...sectionCardStyle, display: 'grid', gap: '12px' }}>
@@ -64,6 +67,24 @@ export default async function NewCalculationStartPage() {
               <h2 style={cardTitleStyle}>Zákazníci</h2>
               <p style={{ ...mutedTextStyle, margin: '6px 0 0' }}>Vyber, komu kalkulaci připravuješ.</p>
             </div>
+            <Link
+              href="/customers/new?next=calculation"
+              style={{
+                ...resourceCardStyle,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '12px',
+                padding: '18px 18px',
+                border: '1px solid rgba(124,58,237,0.22)',
+                background: 'linear-gradient(135deg, rgba(124,58,237,0.08), rgba(6,182,212,0.08))',
+                color: '#312e81',
+                fontWeight: 900,
+              }}
+            >
+              <span>+ Založit nového zákazníka a pokračovat na kalkulaci</span>
+              <span style={{ color: '#2563eb', fontWeight: 950 }}>Nový</span>
+            </Link>
             {(customers as CustomerRow[]).map((customer) => (
               <Link
                 key={customer.id}

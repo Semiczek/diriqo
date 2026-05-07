@@ -54,7 +54,7 @@ async function resolveProfileIdForUser(authUserId: string) {
   return profileByUser.data?.id ?? null
 }
 
-export default function CreateQuoteFromCalculationButton({ calculationId, customerId, companyId, title, internalNote, subtotalPrice, totalPrice, currency, items }: CreateQuoteFromCalculationButtonProps) {
+export default function CreateQuoteFromCalculationButton({ calculationId, customerId, companyId, title, subtotalPrice, totalPrice, currency, items }: CreateQuoteFromCalculationButtonProps) {
   const router = useRouter()
   const [creating, setCreating] = useState(false)
 
@@ -82,24 +82,7 @@ export default function CreateQuoteFromCalculationButton({ calculationId, custom
         title,
         status: 'draft',
         quote_date: new Date().toISOString().slice(0, 10),
-        contact_name: null,
-        contact_email: null,
-        intro_text: null,
-        customer_request_title: 'Požadavek zákazníka',
-        customer_note: null,
-        internal_note: internalNote,
-        customer_request: null,
-        our_solution_title: 'Naše řešení',
-        proposed_solution: null,
-        timeline_title: 'Časový harmonogram',
-        work_description: null,
-        work_schedule: null,
-        pricing_title: 'Cenová kalkulace',
-        pricing_text: null,
-        payment_terms_title: 'Platební podmínky',
-        payment_terms: 'Faktura 14 dni po predani.',
         subtotal_price: subtotalPrice,
-        discount_amount: 0,
         total_price: totalPrice,
         currency,
         created_by: createdBy,
@@ -109,6 +92,7 @@ export default function CreateQuoteFromCalculationButton({ calculationId, custom
       if (quoteError || !quoteRow?.id) throw new Error(quoteError?.message ?? 'Nepodařilo se vytvořit nabídku.')
 
       const quoteItemsPayload = customerItems.map((item) => ({
+        company_id: companyId,
         quote_id: quoteRow.id,
         sort_order: item.sortOrder,
         name: item.name,

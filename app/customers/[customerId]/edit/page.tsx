@@ -5,6 +5,19 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import DashboardShell from '@/components/DashboardShell'
 import { useI18n } from '@/components/I18nProvider'
+import {
+  errorStateStyle,
+  eyebrowStyle,
+  heroCardStyle,
+  heroContentStyle,
+  heroTextStyle,
+  heroTitleStyle,
+  inputStyle,
+  pageShellStyle,
+  primaryButtonStyle,
+  secondaryButtonStyle,
+  sectionCardStyle,
+} from '@/components/SaasPageLayout'
 import { supabase } from '@/lib/supabase'
 
 type Customer = {
@@ -279,259 +292,276 @@ export default function EditCustomerPage() {
     router.refresh()
   }
 
+  const labelStyle: React.CSSProperties = {
+    display: 'grid',
+    gap: 7,
+    color: '#334155',
+    fontSize: 13,
+    fontWeight: 820,
+  }
+
+  const formSectionStyle: React.CSSProperties = {
+    ...sectionCardStyle,
+    padding: 22,
+    display: 'grid',
+    gap: 16,
+    background:
+      'linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(248,250,252,0.9) 100%)',
+  }
+
+  const sectionTitleStyle: React.CSSProperties = {
+    margin: 0,
+    color: '#0f172a',
+    fontSize: 24,
+    lineHeight: 1.15,
+    fontWeight: 900,
+  }
+
+  const sectionTextStyle: React.CSSProperties = {
+    margin: '6px 0 0',
+    color: '#64748b',
+    fontSize: 14,
+    lineHeight: 1.45,
+  }
+
+  const buttonResetStyle: React.CSSProperties = {
+    appearance: 'none',
+    WebkitAppearance: 'none',
+    cursor: saving ? 'not-allowed' : 'pointer',
+  }
+  const normalizedBillingCountry = billingCountry
+    .trim()
+    .toLocaleLowerCase('cs-CZ')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+  const canUseAres =
+    normalizedBillingCountry === '' ||
+    normalizedBillingCountry === 'ceska republika' ||
+    normalizedBillingCountry === 'cesko' ||
+    normalizedBillingCountry === 'czech republic'
+
   return (
     <DashboardShell activeItem="customers">
-      <div
-        style={{
-          maxWidth: 720,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 16,
-        }}
-      >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <h1
-            style={{
-              margin: 0,
-              fontSize: 32,
-              fontWeight: 700,
-              color: '#111827',
-            }}
-          >
-            {dictionary.customers.customerEdit.title}
-          </h1>
+      <main style={{ ...pageShellStyle, maxWidth: 1120 }}>
+        <section style={heroCardStyle}>
+          <div style={heroContentStyle}>
+            <div style={eyebrowStyle}>Zákazník</div>
+            <h1 style={heroTitleStyle}>{dictionary.customers.customerEdit.title}</h1>
+            <p style={heroTextStyle}>{dictionary.customers.customerEdit.subtitle}</p>
+          </div>
 
-          <p
-            style={{
-              margin: 0,
-              fontSize: 16,
-              color: '#6b7280',
-            }}
-          >
-            {dictionary.customers.customerEdit.subtitle}
-          </p>
-        </div>
-
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
           <Link
             href={`/customers/${customerId}`}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '10px 14px',
-              borderRadius: 10,
-              textDecoration: 'none',
-              border: '1px solid #d1d5db',
-              color: '#111827',
-              background: '#ffffff',
-              fontWeight: 600,
-            }}
+            style={secondaryButtonStyle}
           >
             {dictionary.customers.customerEdit.backToDetail}
           </Link>
-        </div>
+        </section>
 
         <form
           onSubmit={handleSubmit}
           style={{
-            background: '#ffffff',
-            border: '1px solid #e5e7eb',
-            borderRadius: 16,
-            padding: 20,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 16,
-            boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+            display: 'grid',
+            gap: 18,
           }}
         >
           {loading ? (
-            <div style={{ color: '#6b7280' }}>{dictionary.customers.customerEdit.loading}</div>
+            <section style={formSectionStyle}>
+              <div style={{ color: '#64748b', fontWeight: 750 }}>
+                {dictionary.customers.customerEdit.loading}
+              </div>
+            </section>
           ) : (
             <>
-              <div>
-                <label htmlFor="name" style={{ display: 'block', fontSize: 14, fontWeight: 600, marginBottom: 6, color: '#111827' }}>
-                  {dictionary.customers.customerEdit.customerName}
-                </label>
-                <input
-                  id="name"
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder={dictionary.customers.customerEdit.customerNamePlaceholder}
-                  required
-                  style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '1px solid #d1d5db', fontSize: 14, outline: 'none' }}
-                />
-              </div>
-
-              <div>
-                <label htmlFor="email" style={{ display: 'block', fontSize: 14, fontWeight: 600, marginBottom: 6, color: '#111827' }}>
-                  {dictionary.customers.customerEdit.mainEmail}
-                </label>
-                <input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder={dictionary.customers.customerEdit.mainEmailPlaceholder}
-                  style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '1px solid #d1d5db', fontSize: 14, outline: 'none' }}
-                />
-              </div>
-
-              <div>
-                <label htmlFor="phone" style={{ display: 'block', fontSize: 14, fontWeight: 600, marginBottom: 6, color: '#111827' }}>
-                  {dictionary.customers.customerEdit.mainPhone}
-                </label>
-                <input
-                  id="phone"
-                  type="text"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder={dictionary.customers.customerEdit.mainPhonePlaceholder}
-                  style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '1px solid #d1d5db', fontSize: 14, outline: 'none' }}
-                />
-              </div>
-
-              <section style={{ border: '1px solid #e5e7eb', borderRadius: 16, padding: 16, display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <section style={formSectionStyle}>
                 <div>
-                  <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: '#111827' }}>
-                    {dictionary.customers.customerEdit.billingTitle}
-                  </h2>
-                  <p style={{ margin: '8px 0 0 0', fontSize: 14, color: '#6b7280' }}>
-                    {dictionary.customers.customerEdit.billingDescription}
-                  </p>
+                  <h2 style={sectionTitleStyle}>Základní údaje</h2>
+                  <p style={sectionTextStyle}>Jméno zákazníka a hlavní kontakt pro rychlou komunikaci.</p>
+                </div>
+
+                <div style={{ display: 'grid', gap: 14, gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))' }}>
+                  <label htmlFor="name" style={labelStyle}>
+                    {dictionary.customers.customerEdit.customerName}
+                    <input
+                      id="name"
+                      type="text"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder={dictionary.customers.customerEdit.customerNamePlaceholder}
+                      required
+                      style={inputStyle}
+                    />
+                  </label>
+
+                  <label htmlFor="email" style={labelStyle}>
+                    {dictionary.customers.customerEdit.mainEmail}
+                    <input
+                      id="email"
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder={dictionary.customers.customerEdit.mainEmailPlaceholder}
+                      style={inputStyle}
+                    />
+                  </label>
+
+                  <label htmlFor="phone" style={labelStyle}>
+                    {dictionary.customers.customerEdit.mainPhone}
+                    <input
+                      id="phone"
+                      type="text"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder={dictionary.customers.customerEdit.mainPhonePlaceholder}
+                      style={inputStyle}
+                    />
+                  </label>
+                </div>
+              </section>
+
+              <section style={formSectionStyle}>
+                <div>
+                  <h2 style={sectionTitleStyle}>{dictionary.customers.customerEdit.billingTitle}</h2>
+                  <p style={sectionTextStyle}>{dictionary.customers.customerEdit.billingDescription}</p>
                 </div>
 
                 <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'minmax(0, 1fr) auto', alignItems: 'end' }}>
-                  <div>
-                    <label htmlFor="companyNumber" style={{ display: 'block', fontSize: 14, fontWeight: 600, marginBottom: 6, color: '#111827' }}>
-                      {dictionary.customers.customerEdit.companyNumberLabel}
-                    </label>
+                  <label htmlFor="companyNumber" style={labelStyle}>
+                    {dictionary.customers.customerEdit.companyNumberLabel}
                     <input
                       id="companyNumber"
                       type="text"
                       value={companyNumber}
                       onChange={(e) => setCompanyNumber(e.target.value)}
                       placeholder={dictionary.customers.customerEdit.companyNumberPlaceholder}
-                      style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '1px solid #d1d5db', fontSize: 14, outline: 'none' }}
+                      style={inputStyle}
                     />
-                  </div>
+                  </label>
 
-                  <button
-                    type="button"
-                    onClick={handleLoadFromAres}
-                    disabled={saving || loadingAres}
-                    style={{ padding: '12px 16px', borderRadius: 10, border: '1px solid #d1d5db', background: '#ffffff', color: '#111827', fontWeight: 700, cursor: saving || loadingAres ? 'not-allowed' : 'pointer', opacity: saving || loadingAres ? 0.7 : 1 }}
-                  >
-                    {loadingAres ? dictionary.customers.customerEdit.loadingFromAres : dictionary.customers.customerEdit.loadFromAres}
-                  </button>
+                  {canUseAres ? (
+                    <button
+                      type="button"
+                      onClick={handleLoadFromAres}
+                      disabled={saving || loadingAres}
+                      style={{
+                        ...secondaryButtonStyle,
+                        ...buttonResetStyle,
+                        minHeight: 46,
+                        opacity: saving || loadingAres ? 0.7 : 1,
+                      }}
+                    >
+                      {loadingAres ? dictionary.customers.customerEdit.loadingFromAres : dictionary.customers.customerEdit.loadFromAres}
+                    </button>
+                  ) : null}
                 </div>
 
-                <div>
-                  <label htmlFor="vatNumber" style={{ display: 'block', fontSize: 14, fontWeight: 600, marginBottom: 6, color: '#111827' }}>
-                    {dictionary.customers.customerEdit.vatNumberLabel}
-                  </label>
+                <label htmlFor="vatNumber" style={labelStyle}>
+                  {dictionary.customers.customerEdit.vatNumberLabel}
                   <input
                     id="vatNumber"
                     type="text"
                     value={vatNumber}
                     onChange={(e) => setVatNumber(e.target.value)}
                     placeholder={dictionary.customers.customerEdit.vatNumberPlaceholder}
-                    style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '1px solid #d1d5db', fontSize: 14, outline: 'none' }}
+                    style={inputStyle}
                   />
-                </div>
+                </label>
 
-                <div>
-                  <label htmlFor="billingName" style={{ display: 'block', fontSize: 14, fontWeight: 600, marginBottom: 6, color: '#111827' }}>
-                    {dictionary.customers.customerEdit.billingNameLabel}
-                  </label>
+                <label htmlFor="billingName" style={labelStyle}>
+                  {dictionary.customers.customerEdit.billingNameLabel}
                   <input
                     id="billingName"
                     type="text"
                     value={billingName}
                     onChange={(e) => setBillingName(e.target.value)}
                     placeholder={dictionary.customers.customerEdit.billingNamePlaceholder}
-                    style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '1px solid #d1d5db', fontSize: 14, outline: 'none' }}
+                    style={inputStyle}
                   />
-                </div>
+                </label>
 
-                <div>
-                  <label htmlFor="billingStreet" style={{ display: 'block', fontSize: 14, fontWeight: 600, marginBottom: 6, color: '#111827' }}>
-                    {dictionary.customers.customerEdit.streetLabel}
-                  </label>
+                <label htmlFor="billingStreet" style={labelStyle}>
+                  {dictionary.customers.customerEdit.streetLabel}
                   <input
                     id="billingStreet"
                     type="text"
                     value={billingStreet}
                     onChange={(e) => setBillingStreet(e.target.value)}
                     placeholder={dictionary.customers.customerEdit.streetPlaceholder}
-                    style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '1px solid #d1d5db', fontSize: 14, outline: 'none' }}
+                    style={inputStyle}
                   />
-                </div>
+                </label>
 
                 <div style={{ display: 'grid', gap: 16, gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 180px)' }}>
-                  <div>
-                    <label htmlFor="billingCity" style={{ display: 'block', fontSize: 14, fontWeight: 600, marginBottom: 6, color: '#111827' }}>
-                      {dictionary.customers.customerEdit.cityLabel}
-                    </label>
+                  <label htmlFor="billingCity" style={labelStyle}>
+                    {dictionary.customers.customerEdit.cityLabel}
                     <input
                       id="billingCity"
                       type="text"
                       value={billingCity}
                       onChange={(e) => setBillingCity(e.target.value)}
                       placeholder={dictionary.customers.customerEdit.cityPlaceholder}
-                      style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '1px solid #d1d5db', fontSize: 14, outline: 'none' }}
+                      style={inputStyle}
                     />
-                  </div>
+                  </label>
 
-                  <div>
-                    <label htmlFor="billingPostalCode" style={{ display: 'block', fontSize: 14, fontWeight: 600, marginBottom: 6, color: '#111827' }}>
-                      {dictionary.customers.customerEdit.postalCodeLabel}
-                    </label>
+                  <label htmlFor="billingPostalCode" style={labelStyle}>
+                    {dictionary.customers.customerEdit.postalCodeLabel}
                     <input
                       id="billingPostalCode"
                       type="text"
                       value={billingPostalCode}
                       onChange={(e) => setBillingPostalCode(e.target.value)}
                       placeholder={dictionary.customers.customerEdit.postalCodePlaceholder}
-                      style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '1px solid #d1d5db', fontSize: 14, outline: 'none' }}
+                      style={inputStyle}
                     />
-                  </div>
+                  </label>
                 </div>
 
-                <div>
-                  <label htmlFor="billingCountry" style={{ display: 'block', fontSize: 14, fontWeight: 600, marginBottom: 6, color: '#111827' }}>
-                    {dictionary.customers.customerEdit.countryLabel}
-                  </label>
+                <label htmlFor="billingCountry" style={labelStyle}>
+                  {dictionary.customers.customerEdit.countryLabel}
                   <input
                     id="billingCountry"
                     type="text"
                     value={billingCountry}
                     onChange={(e) => setBillingCountry(e.target.value)}
                     placeholder={dictionary.customers.customerEdit.countryPlaceholder}
-                    style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '1px solid #d1d5db', fontSize: 14, outline: 'none' }}
+                    style={inputStyle}
                   />
-                </div>
+                </label>
               </section>
 
               {error ? (
-                <div style={{ padding: '12px 14px', borderRadius: 10, background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', fontSize: 14 }}>
+                <div style={errorStateStyle}>
                   {error}
                 </div>
               ) : null}
 
-              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+              <div
+                style={{
+                  ...sectionCardStyle,
+                  display: 'flex',
+                  gap: 12,
+                  flexWrap: 'wrap',
+                  alignItems: 'center',
+                  justifyContent: 'flex-end',
+                  padding: 16,
+                }}
+              >
                 <button
                   type="submit"
                   disabled={saving}
-                  style={{ padding: '12px 16px', borderRadius: 10, border: 'none', background: '#111827', color: '#ffffff', fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}
+                  style={{
+                    ...primaryButtonStyle,
+                    ...buttonResetStyle,
+                    opacity: saving ? 0.7 : 1,
+                  }}
                 >
                   {saving ? dictionary.customers.customerEdit.saving : dictionary.customers.customerEdit.saveChanges}
                 </button>
 
                 <Link
                   href={`/customers/${customerId}`}
-                  style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '12px 16px', borderRadius: 10, textDecoration: 'none', border: '1px solid #d1d5db', color: '#111827', background: '#ffffff', fontWeight: 600 }}
+                  style={secondaryButtonStyle}
                 >
                   {dictionary.customers.customerEdit.cancel}
                 </Link>
@@ -539,7 +569,7 @@ export default function EditCustomerPage() {
             </>
           )}
         </form>
-      </div>
+      </main>
     </DashboardShell>
   )
 }

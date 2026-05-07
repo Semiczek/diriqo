@@ -47,13 +47,6 @@ function buildShareToken() {
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
 }
 
-function normalizeMoney(value: string) {
-  const normalized = value.replace(',', '.').trim()
-  if (!normalized) return 0
-  const parsed = Number(normalized)
-  return Number.isFinite(parsed) ? parsed : 0
-}
-
 export default function QuoteEditForm({ customerId, quoteId, initialValues }: QuoteEditFormProps) {
   const router = useRouter()
   const { dictionary } = useI18n()
@@ -101,24 +94,6 @@ export default function QuoteEditForm({ customerId, quoteId, initialValues }: Qu
         status,
         quote_date: quoteDate || null,
         valid_until: validUntil || null,
-        contact_name: contactName.trim() || null,
-        contact_email: contactEmail.trim() || null,
-        intro_text: introText.trim() || null,
-        customer_request_title: customerRequestTitle.trim() || dictionary.customers.quoteDetail.defaultCustomerRequestTitle,
-        discount_amount: normalizeMoney(discountAmount),
-        customer_note: customerNote.trim() || null,
-        internal_note: internalNote.trim() || null,
-        customer_request: customerRequest.trim() || null,
-        our_solution_title: ourSolutionTitle.trim() || dictionary.customers.quoteDetail.defaultOurSolutionTitle,
-        proposed_solution: proposedSolution.trim() || null,
-        benefits_text: benefitsText.trim() || null,
-        timeline_title: timelineTitle.trim() || dictionary.customers.quoteDetail.defaultTimelineTitle,
-        work_description: workDescription.trim() || null,
-        work_schedule: workSchedule.trim() || null,
-        pricing_title: pricingTitle.trim() || dictionary.customers.quoteDetail.defaultPricingTitle,
-        pricing_text: pricingText.trim() || null,
-        payment_terms_title: paymentTermsTitle.trim() || dictionary.customers.quoteDetail.defaultPaymentTermsTitle,
-        payment_terms: paymentTerms.trim() || dictionary.customers.quoteDetail.defaultPaymentTerms,
         sent_at: status === 'sent' ? initialValues.sentAt || new Date().toISOString() : null,
         accepted_at: status === 'accepted' ? initialValues.acceptedAt || new Date().toISOString() : null,
         rejected_at: status === 'rejected' ? initialValues.rejectedAt || new Date().toISOString() : null,
