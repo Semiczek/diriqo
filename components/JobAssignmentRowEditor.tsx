@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState } from 'react'
 import Link from 'next/link'
+import { updateJobAssignmentEconomicsAction } from '@/app/business-actions'
 import { useI18n } from '@/components/I18nProvider'
 import {
   getEffectiveJobWorkState,
@@ -10,7 +11,6 @@ import {
   resolveJobWorkState,
   resolveLegacyJobStatus,
 } from '@/lib/job-status'
-import { supabase } from '@/lib/supabase'
 
 type Props = {
   item: {
@@ -250,19 +250,17 @@ export default function JobAssignmentRowEditor({ item, defaultRate }: Props) {
 
     setSaving(true)
 
-    const { error: updateError } = await supabase
-      .from('job_assignments')
-      .update({
-        labor_hours: Math.round(parsedHours * 100) / 100,
-        hourly_rate: Math.round(parsedRate * 100) / 100,
-      })
-      .eq('job_id', item.job_id)
-      .eq('profile_id', item.profile_id)
+    const result = await updateJobAssignmentEconomicsAction({
+      jobId: item.job_id,
+      profileId: item.profile_id,
+      laborHours: Math.round(parsedHours * 100) / 100,
+      hourlyRate: Math.round(parsedRate * 100) / 100,
+    })
 
     setSaving(false)
 
-    if (updateError) {
-      setError(updateError.message || t.saveFailed)
+    if (!result.ok) {
+      setError(result.error || t.saveFailed)
       return
     }
 

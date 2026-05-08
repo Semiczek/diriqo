@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useMemo, useState } from 'react'
 import type { CSSProperties, FormEvent } from 'react'
@@ -15,7 +15,7 @@ type DashboardQuickNotesProps = {
 
 const starterNotes: QuickNote[] = [
   { id: 'starter-call-customer', text: 'Zavolat zákazníkovi', done: false },
-  { id: 'starter-check-job', text: 'Zkontrolovat zakázku v Litovli', done: false },
+  { id: 'starter-check-jobs', text: 'Zkontrolovat dnešní zakázky', done: false },
 ]
 
 export default function DashboardQuickNotes({ storageKey }: DashboardQuickNotesProps) {
@@ -82,7 +82,7 @@ export default function DashboardQuickNotes({ storageKey }: DashboardQuickNotesP
         <input
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
-          placeholder="Napsat co chci udělat..."
+          placeholder="Napsat, co chci udělat..."
           style={quickNotesInput}
         />
         <button type="submit" style={quickNotesAddButton}>

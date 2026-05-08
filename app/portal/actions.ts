@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 
 import { requirePortalUserContext } from '@/lib/customer-portal/auth'
 import { canPortalApproveOffer } from '@/lib/customer-portal/data'
+import { acceptPublicOffer } from '@/lib/dal/flow'
 import { createSupabaseAdminClient } from '@/lib/supabase-admin'
 
 function normalizeText(value: FormDataEntryValue | null, maxLength: number) {
@@ -44,6 +45,7 @@ export async function createPortalInquiryAction(formData: FormData) {
     .from('customers')
     .select('id, name, company_id')
     .eq('id', portalUser.customerId)
+    .eq('company_id', portalUser.companyId)
     .maybeSingle()
 
   if (customerError || !customer?.company_id) {
@@ -86,7 +88,6 @@ export async function approvePortalOfferAction(formData: FormData) {
   const admin = createSupabaseAdminClient()
 
   const offerId = normalizeText(formData.get('offerId'), 64)
-  const note = normalizeText(formData.get('approvalNote'), 2000)
 
   if (!offerId) {
     redirect('/portal/offers?error=missing-offer')
@@ -94,39 +95,36 @@ export async function approvePortalOfferAction(formData: FormData) {
 
   const { data: quote, error: quoteError } = await admin
     .from('quotes')
-    .select('id, customer_id, status, valid_until, accepted_at')
+    .select('id, company_id, customer_id, status, valid_until, accepted_at')
     .eq('id', offerId)
     .eq('customer_id', portalUser.customerId)
+    .eq('company_id', portalUser.companyId)
     .maybeSingle()
 
   if (quoteError || !quote) {
     redirect('/portal/offers?error=not-found')
   }
 
+  if (!quote.company_id) {
+    redirect(`/portal/offers/${offerId}?error=save-failed`)
+  }
+
   if (!canPortalApproveOffer(quote)) {
     redirect(`/portal/offers/${offerId}?error=already-closed`)
   }
 
-  const now = new Date().toISOString()
-
-  const { error: updateError } = await admin
-    .from('quotes')
-    .update({
-      status: 'accepted',
-      accepted_at: now,
-    })
-    .eq('id', offerId)
-    .eq('customer_id', portalUser.customerId)
-
-  if (updateError) {
+  try {
+    await acceptPublicOffer(
+      {
+        supabase: admin,
+        companyId: quote.company_id,
+        visitorId: portalUser.portalUserId,
+      },
+      offerId,
+    )
+  } catch {
     redirect(`/portal/offers/${offerId}?error=save-failed`)
   }
-
-  await admin.from('offer_events').insert({
-    quote_id: offerId,
-    event_type: 'portal_offer_approved',
-    visitor_id: portalUser.portalUserId,
-  })
 
   revalidatePath('/portal')
   revalidatePath('/portal/offers')
@@ -148,9 +146,10 @@ export async function submitPortalOfferResponseAction(formData: FormData) {
 
   const { data: quote, error: quoteError } = await admin
     .from('quotes')
-    .select('id, title, customer_id, status, valid_until, accepted_at')
+    .select('id, title, company_id, customer_id, status, valid_until, accepted_at')
     .eq('id', offerId)
     .eq('customer_id', portalUser.customerId)
+    .eq('company_id', portalUser.companyId)
     .maybeSingle()
 
   if (quoteError || !quote) {
@@ -192,6 +191,7 @@ export async function submitPortalOfferResponseAction(formData: FormData) {
       : 'portal_offer_not_interested'
 
   const insertResponse = await admin.from('offer_responses').insert({
+    company_id: quote.company_id,
     quote_id: offerId,
     action_type: actionType,
     customer_name: portalUser.fullName?.trim() || portalUser.customerName?.trim() || portalUser.email,
@@ -211,6 +211,7 @@ export async function submitPortalOfferResponseAction(formData: FormData) {
       .update({ status: nextStatus })
       .eq('id', offerId)
       .eq('customer_id', portalUser.customerId)
+      .eq('company_id', quote.company_id)
 
     if (updateResponse.error) {
       redirect(`/portal/offers/${offerId}?error=save-failed`)
@@ -218,6 +219,7 @@ export async function submitPortalOfferResponseAction(formData: FormData) {
   }
 
   await admin.from('offer_events').insert({
+    company_id: quote.company_id,
     quote_id: offerId,
     event_type: eventType,
     visitor_id: portalUser.portalUserId,

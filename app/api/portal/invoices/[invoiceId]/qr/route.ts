@@ -38,6 +38,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     .select('id, invoice_number, variable_symbol, total_with_vat, supplier_snapshot')
     .eq('id', invoiceId)
     .eq('customer_id', portalUser.customerId)
+    .eq('company_id', portalUser.companyId)
     .or('status.is.null,status.neq.draft')
     .maybeSingle()
 

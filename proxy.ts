@@ -21,6 +21,8 @@ const PROTECTED_MATCHERS = [
   '/poptavky',
   '/workers',
   '/kalkulace',
+  '/settings',
+  '/invoices',
   '/work-shifts',
   '/ucet',
   '/napoveda',
@@ -28,7 +30,12 @@ const PROTECTED_MATCHERS = [
   '/api/active-company',
   '/api/company-billing',
   '/api/customer-portal-users',
+  '/api/invoices',
+  '/api/jobs',
+  '/api/job-assignments',
   '/api/job-photos',
+  '/api/pohoda-exports',
+  '/api/quotes',
   '/api/mail/feed',
   '/api/mail/send',
 ]
@@ -64,7 +71,7 @@ type CookieOptions = {
   secure?: boolean
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const detectedCountry =
     request.headers.get('x-vercel-ip-country') ??
     request.headers.get('cf-ipcountry')
@@ -284,6 +291,8 @@ export const config = {
     '/poptavky/:path*',
     '/workers/:path*',
     '/kalkulace/:path*',
+    '/settings/:path*',
+    '/invoices/:path*',
     '/work-shifts/:path*',
     '/ucet/:path*',
     '/napoveda/:path*',
@@ -291,7 +300,12 @@ export const config = {
     '/api/active-company',
     '/api/company-billing',
     '/api/customer-portal-users',
+    '/api/invoices/:path*',
+    '/api/jobs/:path*',
+    '/api/job-assignments/:path*',
     '/api/job-photos/:path*',
+    '/api/pohoda-exports/:path*',
+    '/api/quotes/:path*',
     '/api/mail/feed',
     '/api/mail/send',
     '/portal',

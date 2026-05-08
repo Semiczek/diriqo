@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import DashboardShell from '@/components/DashboardShell'
 import { useI18n } from '@/components/I18nProvider'
 import { supabase } from '@/lib/supabase'
+import { updateAdvanceRequestStatusAction } from './actions'
 
 type AdvanceRequestRow = {
   id: string
@@ -166,49 +167,6 @@ function normalizeRequest(row: AdvanceRequestRow): AdvanceRequestView {
   }
 }
 
-function getTodayDateOnly() {
-  const now = new Date()
-  const year = now.getFullYear()
-  const month = String(now.getMonth() + 1).padStart(2, '0')
-  const day = String(now.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
-
-function getIssuedAtForWorkerAdvance(item: AdvanceRequestView) {
-  if (item.paidAt) {
-    return item.paidAt.slice(0, 10)
-  }
-
-  return getTodayDateOnly()
-}
-
-function getPayrollMonthForRequestUpdate(paidAt: string | null, fallbackIso: string) {
-  return getPayrollMonthFromDateString(paidAt) || getPayrollMonthFromDate(new Date(fallbackIso))
-}
-
-function getRequestPayrollMonthForUpdate(item: AdvanceRequestView, paidAt: string | null, fallbackIso: string) {
-  return normalizePayrollMonthKey(item.payrollMonth) || getPayrollMonthForRequestUpdate(paidAt, fallbackIso)
-}
-
-function buildWorkerAdvanceNote(item: AdvanceRequestView) {
-  const cleanNote = item.note.trim()
-
-  if (cleanNote) {
-    return `Vyplaceno z žádosti o zálohu (${item.id}) – ${cleanNote}`
-  }
-
-  return `Vyplaceno z žádosti o zálohu (${item.id})`
-}
-
-function isMissingAdvanceRequestIdColumn(error: { message?: string; code?: string } | null | undefined) {
-  const message = error?.message?.toLowerCase() ?? ''
-  return (
-    error?.code === '42703' ||
-    message.includes('advance_request_id') ||
-    message.includes('no unique or exclusion constraint')
-  )
-}
-
 function parseAmountInput(value: string) {
   const normalized = value.replace(',', '.').trim()
   if (!normalized) return Number.NaN
@@ -364,83 +322,6 @@ export default function AdvanceRequestsPage() {
 
   const totalAmount = filteredItems.reduce((sum, item) => sum + item.amount, 0)
 
-  async function createWorkerAdvanceIfMissing(item: AdvanceRequestView) {
-    if (!item.profileId) {
-      throw new Error(t.requestHasNoProfile)
-    }
-
-    const note = buildWorkerAdvanceNote(item)
-    const issuedAt = getIssuedAtForWorkerAdvance(item)
-    const workerAdvancePayload = {
-      advance_request_id: item.id,
-      profile_id: item.profileId,
-      amount: item.amount,
-      issued_at: issuedAt,
-      note,
-    }
-
-    const { error: upsertError } = await supabase
-      .from('worker_advances')
-      .upsert(workerAdvancePayload, { onConflict: 'advance_request_id' })
-
-    if (!upsertError) {
-      return
-    }
-
-    if (!isMissingAdvanceRequestIdColumn(upsertError)) {
-      throw new Error(upsertError.message)
-    }
-
-    const { data: existingRows, error: existingError } = await supabase
-      .from('worker_advances')
-      .select('id, amount, issued_at')
-      .eq('profile_id', item.profileId)
-      .eq('note', note)
-      .limit(1)
-
-    if (existingError) {
-      throw new Error(existingError.message)
-    }
-
-    const existingAdvance = (existingRows ?? [])[0]
-
-    if (existingAdvance) {
-      const currentAmount = parseNumber(existingAdvance.amount)
-      const currentIssuedAt =
-        typeof existingAdvance.issued_at === 'string'
-          ? existingAdvance.issued_at.slice(0, 10)
-          : ''
-
-      if (currentAmount !== item.amount || currentIssuedAt !== issuedAt) {
-        const { error: updateExistingError } = await supabase
-          .from('worker_advances')
-          .update({
-            amount: item.amount,
-            issued_at: issuedAt,
-            note,
-          })
-          .eq('id', existingAdvance.id)
-
-        if (updateExistingError) {
-          throw new Error(updateExistingError.message)
-        }
-      }
-
-      return
-    }
-
-    const { error: insertError } = await supabase.from('worker_advances').insert({
-      profile_id: item.profileId,
-      amount: item.amount,
-      issued_at: issuedAt,
-      note,
-    })
-
-    if (insertError) {
-      throw new Error(insertError.message)
-    }
-  }
-
   function getDraftAmount(item: AdvanceRequestView) {
     return amountDrafts[item.id] ?? String(item.amount || item.requestedAmount || '')
   }
@@ -453,78 +334,24 @@ export default function AdvanceRequestsPage() {
     setSavingId(item.id)
     setError(null)
 
-    const nowIso = new Date().toISOString()
-
     try {
-      if ((nextStatus === 'approved' || nextStatus === 'paid') && overrideAmount <= 0) {
-        throw new Error(t.approvedAmountPositive)
-      }
-
-      const updatePayload: Record<string, unknown> = {
+      const result = await updateAdvanceRequestStatusAction({
+        requestId: item.id,
         status: nextStatus,
-        amount: nextStatus === 'rejected' ? item.amount : overrideAmount,
-      }
+        amount: overrideAmount,
+      })
 
-      if (nextStatus === 'approved') {
-        updatePayload.approved_at = nowIso
-        updatePayload.reviewed_at = nowIso
-        updatePayload.payroll_month = getRequestPayrollMonthForUpdate(item, null, nowIso)
-      }
-
-      if (nextStatus === 'rejected') {
-        updatePayload.reviewed_at = nowIso
-      }
-
-      if (nextStatus === 'paid') {
-        updatePayload.paid_at = nowIso
-        updatePayload.approved_at = item.approvedAt || nowIso
-        updatePayload.reviewed_at = item.approvedAt || nowIso
-        updatePayload.payroll_month = getRequestPayrollMonthForUpdate(item, nowIso, nowIso)
-      }
-
-      let updateQuery = supabase
-        .from('advance_requests')
-        .update(updatePayload)
-        .eq('id', item.id)
-
-      if (nextStatus === 'approved' || nextStatus === 'rejected') {
-        updateQuery = updateQuery.eq('status', 'pending')
-      }
-
-      if (nextStatus === 'paid') {
-        updateQuery = updateQuery.eq('status', 'approved')
-      }
-
-      const { data: updatedRows, error: updateError } = await updateQuery.select('id')
-
-      if (updateError) {
-        throw new Error(updateError.message)
-      }
-
-      if ((updatedRows ?? []).length === 0) {
-        await loadData()
-        return
+      if (!result.ok) {
+        throw new Error(result.error)
       }
 
       const updatedItem: AdvanceRequestView = {
         ...item,
         amount: nextStatus === 'rejected' ? item.amount : overrideAmount,
         status: nextStatus,
-        approvedAt:
-          nextStatus === 'approved'
-            ? nowIso
-            : nextStatus === 'paid'
-              ? item.approvedAt || nowIso
-              : item.approvedAt,
-        paidAt: nextStatus === 'paid' ? nowIso : item.paidAt,
-        payrollMonth:
-          nextStatus === 'approved' || nextStatus === 'paid'
-            ? getRequestPayrollMonthForUpdate(item, nextStatus === 'paid' ? nowIso : null, nowIso)
-            : item.payrollMonth,
-      }
-
-      if (nextStatus === 'paid') {
-        await createWorkerAdvanceIfMissing(updatedItem)
+        approvedAt: result.data.approvedAt,
+        paidAt: result.data.paidAt,
+        payrollMonth: result.data.payrollMonth,
       }
 
       setItems((prev) =>
@@ -539,7 +366,7 @@ export default function AdvanceRequestsPage() {
       }))
     } catch (err: unknown) {
       console.error('Advance request update failed', err)
-      setError('Data se nepodařilo uložit.')
+      setError('Data se nepodarilo ulozit.')
     } finally {
       setSavingId(null)
     }

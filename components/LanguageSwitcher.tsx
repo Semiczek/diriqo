@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { LOCALES, type Locale } from '@/lib/i18n/config'
 import { useI18n } from './I18nProvider'
 
-const LANGUAGE_LABELS: Record<Locale, string> = {
+const localeLabels: Record<Locale, string> = {
   cs: 'Čeština',
   en: 'English',
   de: 'Deutsch',
@@ -73,7 +73,7 @@ export default function LanguageSwitcher({
       >
         {LOCALES.map((supportedLocale) => (
           <option key={supportedLocale} value={supportedLocale}>
-            {LANGUAGE_LABELS[supportedLocale]}
+            {localeLabels[supportedLocale]}
           </option>
         ))}
       </select>

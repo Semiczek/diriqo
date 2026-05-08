@@ -152,17 +152,8 @@ export default function EntityCommunicationTimeline({
   emptyLabel = 'Zatím tu není žádná emailová komunikace.',
   feedItems,
 }: EntityCommunicationTimelineProps) {
-  const [feed, setFeed] = useState<MessageFeedItem[]>(feedItems)
-
-  useEffect(() => {
-    setFeed((current) => {
-      if (feedItems.length === 0 && current.length > 0) {
-        return current
-      }
-
-      return feedItems
-    })
-  }, [feedItems])
+  const [localFeed, setLocalFeed] = useState<MessageFeedItem[] | null>(null)
+  const feed = localFeed ?? feedItems
 
   useEffect(() => {
     let cancelled = false
@@ -172,9 +163,10 @@ export default function EntityCommunicationTimeline({
         const nextFeed = await loadEntityFeed(entityType, entityId)
 
         if (!cancelled && nextFeed) {
-          setFeed((current) => {
-            if (nextFeed.length === 0 && current.length > 0) {
-              return current
+          setLocalFeed((current) => {
+            const fallbackFeed = current ?? feedItems
+            if (nextFeed.length === 0 && fallbackFeed.length > 0) {
+              return fallbackFeed
             }
 
             return nextFeed
@@ -190,7 +182,7 @@ export default function EntityCommunicationTimeline({
     return () => {
       cancelled = true
     }
-  }, [entityId, entityType])
+  }, [entityId, entityType, feedItems])
 
   useEffect(() => {
     function handleFeedRefresh(event: Event) {
@@ -215,8 +207,8 @@ export default function EntityCommunicationTimeline({
           happenedAt,
         }
 
-        setFeed((current) =>
-          [...current, optimisticItem].sort(
+        setLocalFeed((current) =>
+          [...(current ?? feedItems), optimisticItem].sort(
             (a, b) => new Date(a.happenedAt).getTime() - new Date(b.happenedAt).getTime(),
           ),
         )
@@ -224,7 +216,7 @@ export default function EntityCommunicationTimeline({
         void loadEntityFeedUntilMessageAppears(entityType, entityId, detail.subject, detail.email)
           .then((nextFeed) => {
             if (nextFeed) {
-              setFeed(nextFeed)
+              setLocalFeed(nextFeed)
             }
           })
           .catch((error) => {
@@ -237,9 +229,10 @@ export default function EntityCommunicationTimeline({
       void loadEntityFeed(entityType, entityId)
         .then((nextFeed) => {
           if (nextFeed) {
-            setFeed((current) => {
-              if (nextFeed.length === 0 && current.length > 0) {
-                return current
+            setLocalFeed((current) => {
+              const fallbackFeed = current ?? feedItems
+              if (nextFeed.length === 0 && fallbackFeed.length > 0) {
+                return fallbackFeed
               }
 
               return nextFeed
@@ -256,7 +249,7 @@ export default function EntityCommunicationTimeline({
     return () => {
       window.removeEventListener('diriqo:email-feed-refresh', handleFeedRefresh as EventListener)
     }
-  }, [entityId, entityType])
+  }, [entityId, entityType, feedItems])
 
   return (
     <section

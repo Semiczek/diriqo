@@ -44,6 +44,7 @@ import {
   thStyle,
 } from '@/app/workers/[workerId]/worker-detail-helpers'
 import { getRequestDictionary } from '@/lib/i18n/server'
+import { requireCompanyRole } from '@/lib/server-guards'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 import {
   getContractorBillingTypeLabel,
@@ -566,6 +567,12 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
       redirect(targetUrl)
     }
 
+    const access = await requireCompanyRole('company_admin', 'super_admin')
+
+    if (!access.ok || companyId !== access.value.companyId) {
+      redirect(targetUrl)
+    }
+
     const startedAtDate = startedAtRaw ? new Date(startedAtRaw) : null
     const endedAtDate = endedAtRaw ? new Date(endedAtRaw) : null
     const startedAt = startedAtDate && !Number.isNaN(startedAtDate.getTime()) ? startedAtDate.toISOString() : null
@@ -591,7 +598,7 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
     const supabase = await createSupabaseServerClient()
     const { error } = await supabase.from('work_shifts').insert({
       profile_id: profileId,
-      company_id: companyId || null,
+      company_id: access.value.companyId,
       job_id: jobId || null,
       job_hours_override: jobId ? jobHoursOverride : null,
       shift_date: shiftDate,
@@ -625,6 +632,12 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
       redirect(targetUrl)
     }
 
+    const access = await requireCompanyRole('company_admin', 'super_admin')
+
+    if (!access.ok) {
+      redirect(targetUrl)
+    }
+
     const amount = Number(amountRaw.replace(',', '.'))
     if (!Number.isFinite(amount) || amount <= 0) {
       redirect(targetUrl)
@@ -645,6 +658,7 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
           .select('company_id')
           .eq('profile_id', profileId)
           .eq('is_active', true)
+          .eq('company_id', access.value.companyId)
           .limit(1),
         supabase
           .from('worker_advances')
@@ -714,6 +728,7 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
     }
 
     const { error } = await supabase.from('worker_advances').insert({
+      company_id: access.value.companyId,
       profile_id: profileId,
       amount,
       issued_at: issuedAt,
@@ -742,8 +757,19 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
       redirect(targetUrl)
     }
 
+    const access = await requireCompanyRole('company_admin', 'super_admin')
+
+    if (!access.ok) {
+      redirect(targetUrl)
+    }
+
     const supabase = await createSupabaseServerClient()
-    await supabase.from('worker_advances').delete().eq('id', advanceId).eq('profile_id', profileId)
+    await supabase
+      .from('worker_advances')
+      .delete()
+      .eq('id', advanceId)
+      .eq('profile_id', profileId)
+      .eq('company_id', access.value.companyId)
 
     revalidatePath(`/workers/${profileId}`)
     redirect(targetUrl)

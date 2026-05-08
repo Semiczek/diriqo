@@ -1,6 +1,7 @@
 ﻿'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
+import type { CSSProperties, FormEvent } from 'react'
 import { useI18n } from '@/components/I18nProvider'
 import {
   cardTitleStyle,
@@ -13,12 +14,13 @@ import {
   sectionCardStyle,
 } from '@/components/SaasPageLayout'
 
-type JobPhotoType = 'before' | 'after'
+type JobPhotoType = 'before' | 'after' | 'progress' | 'issue' | 'document'
 
 type JobPhotoMeta = {
   id: string
   photoType: JobPhotoType
   fileName: string
+  note: string | null
   takenAt: string | null
   thumbUrl: string | null
 }
@@ -34,9 +36,17 @@ type JobPhotosResponse = {
 type JobPhotosSectionProps = {
   jobId: string
   compact?: boolean
+  canManage?: boolean
 }
 
 const PAGE_SIZE = 20
+const PHOTO_TYPES: JobPhotoType[] = ['before', 'after', 'progress', 'issue', 'document']
+
+type UploadFileDraft = {
+  key: string
+  file: File
+  note: string
+}
 
 function formatDateTime(value: string | null) {
   if (!value) return '-'
@@ -53,9 +63,11 @@ function formatDateTime(value: string | null) {
   }).format(date)
 }
 
-export default function JobPhotosSection({ jobId, compact = false }: JobPhotosSectionProps) {
+export default function JobPhotosSection({ jobId, compact = false, canManage = false }: JobPhotosSectionProps) {
   const { dictionary } = useI18n()
   const t = dictionary.jobs.detail.photos
+  const fileInputId = useId()
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [expanded, setExpanded] = useState(false)
   const [items, setItems] = useState<JobPhotoMeta[]>([])
   const [total, setTotal] = useState(0)
@@ -69,14 +81,30 @@ export default function JobPhotosSection({ jobId, compact = false }: JobPhotosSe
   const [selectedPhotoFileName, setSelectedPhotoFileName] = useState<string | null>(null)
   const [selectedPhotoLoading, setSelectedPhotoLoading] = useState(false)
   const [selectedPhotoError, setSelectedPhotoError] = useState<string | null>(null)
+  const [uploadPhotoType, setUploadPhotoType] = useState<JobPhotoType>('before')
+  const [uploadFiles, setUploadFiles] = useState<UploadFileDraft[]>([])
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState<string | null>(null)
+  const [deletingPhotoId, setDeletingPhotoId] = useState<string | null>(null)
 
   const beforeCount = useMemo(() => items.filter((item) => item.photoType === 'before').length, [items])
   const afterCount = useMemo(() => items.filter((item) => item.photoType === 'after').length, [items])
   const hasMore = items.length < total
+  const selectedFilesLabel = uploadFiles.length === 0
+    ? 'Soubor nevybran'
+    : uploadFiles.length === 1
+      ? uploadFiles[0].file.name
+      : `${uploadFiles.length} souboru vybrano`
 
-  const photoTypeLabel = (type: JobPhotoType) => (type === 'before' ? t.before : t.after)
+  const photoTypeLabel = (type: JobPhotoType) => {
+    if (type === 'before') return t.before
+    if (type === 'after') return t.after
+    if (type === 'progress') return 'Prubeh'
+    if (type === 'issue') return 'Problem'
+    return 'Dokument'
+  }
 
-  const photoTypeTone = (type: JobPhotoType): React.CSSProperties => {
+  const photoTypeTone = (type: JobPhotoType): CSSProperties => {
     if (type === 'before') {
       return {
         backgroundColor: '#dbeafe',
@@ -85,10 +113,34 @@ export default function JobPhotosSection({ jobId, compact = false }: JobPhotosSe
       }
     }
 
-    return {
+    if (type === 'after') {
+      return {
       backgroundColor: '#dcfce7',
       color: '#166534',
       border: '1px solid #bbf7d0',
+      }
+    }
+
+    if (type === 'progress') {
+      return {
+        backgroundColor: '#e0f2fe',
+        color: '#075985',
+        border: '1px solid #bae6fd',
+      }
+    }
+
+    if (type === 'document') {
+      return {
+        backgroundColor: '#f3e8ff',
+        color: '#6b21a8',
+        border: '1px solid #e9d5ff',
+      }
+    }
+
+    return {
+      backgroundColor: '#fef3c7',
+      color: '#92400e',
+      border: '1px solid #fde68a',
     }
   }
 
@@ -149,6 +201,10 @@ export default function JobPhotosSection({ jobId, compact = false }: JobPhotosSe
     setSelectedPhotoFileName(null)
     setSelectedPhotoLoading(false)
     setSelectedPhotoError(null)
+    setUploadFiles([])
+    setUploadError(null)
+    setUploading(false)
+    setDeletingPhotoId(null)
   }, [jobId])
 
   useEffect(() => {
@@ -184,6 +240,90 @@ export default function JobPhotosSection({ jobId, compact = false }: JobPhotosSe
     }
   }
 
+  function handleUploadFileChange(files: FileList | null) {
+    const nextFiles = Array.from(files ?? []).map((file) => ({
+      key: `${file.name}-${file.size}-${file.lastModified}`,
+      file,
+      note: '',
+    }))
+    setUploadFiles(nextFiles)
+    setUploadError(null)
+  }
+
+  function updateUploadNote(key: string, note: string) {
+    setUploadFiles((prev) => prev.map((item) => (item.key === key ? { ...item, note } : item)))
+  }
+
+  async function handleUploadPhotos(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+
+    if (uploadFiles.length === 0) {
+      setUploadError('Vyberte alespon jednu fotografii.')
+      return
+    }
+
+    setUploading(true)
+    setUploadError(null)
+
+    try {
+      const formData = new FormData()
+      formData.append('jobId', jobId)
+      formData.append('photoType', uploadPhotoType)
+      for (const item of uploadFiles) {
+        formData.append('files', item.file)
+        formData.append('notes', item.note)
+      }
+
+      const response = await fetch('/api/job-photos', {
+        method: 'POST',
+        body: formData,
+      })
+      const data = (await response.json().catch(() => null)) as { error?: string } | null
+
+      if (!response.ok) {
+        throw new Error(data?.error || 'Fotky se nepodarilo nahrat.')
+      }
+
+    setUploadFiles([])
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+    await loadPhotos(0, false)
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : 'Fotky se nepodarilo nahrat.')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  async function handleDeletePhoto(photoId: string) {
+    setDeletingPhotoId(photoId)
+    setError(null)
+
+    try {
+      const response = await fetch('/api/job-photos', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ photoId }),
+      })
+      const data = (await response.json().catch(() => null)) as { error?: string } | null
+
+      if (!response.ok) {
+        throw new Error(data?.error || 'Fotku se nepodarilo smazat.')
+      }
+
+      setItems((prev) => prev.filter((item) => item.id !== photoId))
+      setTotal((prev) => Math.max(0, prev - 1))
+      if (selectedPhoto?.id === photoId) {
+        setSelectedPhoto(null)
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Fotku se nepodarilo smazat.')
+    } finally {
+      setDeletingPhotoId(null)
+    }
+  }
+
   return (
     <>
       <div style={{ ...sectionCardStyle, marginTop: compact ? 0 : '20px' }}>
@@ -213,6 +353,81 @@ export default function JobPhotosSection({ jobId, compact = false }: JobPhotosSe
             {error && <div style={errorStateStyle}>{error}</div>}
             {metadataInfo && <div style={{ ...metaItemStyle, backgroundColor: '#eff6ff', border: '1px solid #bfdbfe', color: '#1d4ed8' }}>{metadataInfo}</div>}
 
+            {canManage && (
+              <form onSubmit={(event) => void handleUploadPhotos(event)} style={{ border: '1px solid #e5e7eb', borderRadius: '14px', padding: '14px', display: 'grid', gap: '12px', backgroundColor: '#f9fafb' }}>
+                <div style={{ display: 'grid', gap: '10px', gridTemplateColumns: 'minmax(180px, 240px) minmax(240px, 1fr)', alignItems: 'end' }}>
+                  <label style={{ display: 'grid', gap: '6px', fontWeight: 700, color: '#111827' }}>
+                    Typ fotky
+                    <select
+                      value={uploadPhotoType}
+                      onChange={(event) => setUploadPhotoType(event.target.value as JobPhotoType)}
+                      disabled={uploading}
+                      style={{ border: '1px solid #d1d5db', borderRadius: '10px', padding: '10px 12px', font: 'inherit', backgroundColor: '#fff' }}
+                    >
+                      {PHOTO_TYPES.map((type) => (
+                        <option key={type} value={type}>{photoTypeLabel(type)}</option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <div style={{ display: 'grid', gap: '6px', fontWeight: 700, color: '#111827' }}>
+                    Fotky
+                    <input
+                      ref={fileInputRef}
+                      id={fileInputId}
+                      type="file"
+                      multiple
+                      accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+                      onChange={(event) => handleUploadFileChange(event.target.files)}
+                      disabled={uploading}
+                      style={{ position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clip: 'rect(0, 0, 0, 0)', whiteSpace: 'nowrap', border: 0 }}
+                    />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minHeight: '52px', border: '1px solid #d1d5db', borderRadius: '10px', padding: '7px 10px', backgroundColor: '#fff', overflow: 'hidden' }}>
+                      <label
+                        htmlFor={fileInputId}
+                        style={{ ...secondaryButtonStyle, cursor: uploading ? 'default' : 'pointer', opacity: uploading ? 0.65 : 1, whiteSpace: 'nowrap' }}
+                      >
+                        Zvolit soubory
+                      </label>
+                      <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: uploadFiles.length > 0 ? '#111827' : '#6b7280', fontWeight: 700 }}>
+                        {selectedFilesLabel}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {uploadFiles.length > 0 && (
+                  <div style={{ display: 'grid', gap: '10px' }}>
+                    {uploadFiles.map((item) => (
+                      <label key={item.key} style={{ display: 'grid', gap: '6px', color: '#374151', fontWeight: 700 }}>
+                        Poznamka k fotce: {item.file.name}
+                        <textarea
+                          value={item.note}
+                          onChange={(event) => updateUploadNote(item.key, event.target.value)}
+                          disabled={uploading}
+                          rows={2}
+                          placeholder="Volitelna poznamka"
+                          style={{ border: '1px solid #d1d5db', borderRadius: '10px', padding: '10px 12px', font: 'inherit', resize: 'vertical', backgroundColor: '#fff' }}
+                        />
+                      </label>
+                    ))}
+                  </div>
+                )}
+
+                {uploadError && <div style={errorStateStyle}>{uploadError}</div>}
+
+                <div>
+                  <button
+                    type="submit"
+                    disabled={uploading || uploadFiles.length === 0}
+                    style={{ ...primaryButtonStyle, cursor: uploading || uploadFiles.length === 0 ? 'default' : 'pointer', opacity: uploading || uploadFiles.length === 0 ? 0.65 : 1 }}
+                  >
+                    {uploading ? 'Nahravam...' : 'Nahrat fotky'}
+                  </button>
+                </div>
+              </form>
+            )}
+
             {loading ? (
               <div style={mutedTextStyle}>{t.loading}</div>
             ) : items.length === 0 ? (
@@ -220,26 +435,44 @@ export default function JobPhotosSection({ jobId, compact = false }: JobPhotosSe
             ) : (
               <div style={{ display: 'grid', gap: '12px', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
                 {items.map((photo) => (
-                  <button
+                  <div
                     key={photo.id}
-                    type="button"
-                    onClick={() => void handleOpenPhoto(photo)}
-                    style={{ padding: 0, border: '1px solid #e5e7eb', borderRadius: '12px', overflow: 'hidden', backgroundColor: '#f9fafb', cursor: 'pointer', textAlign: 'left' }}
+                    style={{ border: '1px solid #e5e7eb', borderRadius: '12px', overflow: 'hidden', backgroundColor: '#f9fafb' }}
                   >
-                    <div
-                      style={{ height: '180px', backgroundColor: '#e5e7eb', backgroundImage: photo.thumbUrl ? `url("${photo.thumbUrl}")` : undefined, backgroundSize: 'cover', backgroundPosition: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6b7280' }}
+                    <button
+                      type="button"
+                      onClick={() => void handleOpenPhoto(photo)}
+                      style={{ width: '100%', padding: 0, border: 0, backgroundColor: 'transparent', cursor: 'pointer', textAlign: 'left' }}
                     >
-                      {!photo.thumbUrl ? t.noPreview : null}
-                    </div>
-
-                    <div style={{ padding: '10px 12px', display: 'grid', gap: '6px' }}>
-                      <div style={{ ...photoTypeTone(photo.photoType), display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 'fit-content', padding: '4px 8px', borderRadius: '999px', fontSize: '12px', fontWeight: 700 }}>
-                        {photoTypeLabel(photo.photoType)}
+                      <div
+                        style={{ height: '180px', backgroundColor: '#e5e7eb', backgroundImage: photo.thumbUrl ? `url("${photo.thumbUrl}")` : undefined, backgroundSize: 'cover', backgroundPosition: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6b7280' }}
+                      >
+                        {!photo.thumbUrl ? t.noPreview : null}
                       </div>
-                      <div style={{ fontWeight: 700, color: '#111827', fontSize: '14px' }}>{photo.fileName}</div>
-                      <div style={{ color: '#6b7280', fontSize: '13px' }}>{formatDateTime(photo.takenAt)}</div>
-                    </div>
-                  </button>
+
+                      <div style={{ padding: '10px 12px', display: 'grid', gap: '6px' }}>
+                        <div style={{ ...photoTypeTone(photo.photoType), display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 'fit-content', padding: '4px 8px', borderRadius: '999px', fontSize: '12px', fontWeight: 700 }}>
+                          {photoTypeLabel(photo.photoType)}
+                        </div>
+                        <div style={{ fontWeight: 700, color: '#111827', fontSize: '14px' }}>{photo.fileName}</div>
+                        {photo.note && <div style={{ color: '#4b5563', fontSize: '13px' }}>{photo.note}</div>}
+                        <div style={{ color: '#6b7280', fontSize: '13px' }}>{formatDateTime(photo.takenAt)}</div>
+                      </div>
+                    </button>
+
+                    {canManage && (
+                      <div style={{ padding: '0 12px 12px' }}>
+                        <button
+                          type="button"
+                          onClick={() => void handleDeletePhoto(photo.id)}
+                          disabled={deletingPhotoId === photo.id}
+                          style={{ ...secondaryButtonStyle, width: '100%', justifyContent: 'center', cursor: deletingPhotoId === photo.id ? 'default' : 'pointer', opacity: deletingPhotoId === photo.id ? 0.65 : 1 }}
+                        >
+                          {deletingPhotoId === photo.id ? 'Mazu...' : 'Smazat'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 ))}
               </div>
             )}
@@ -267,6 +500,7 @@ export default function JobPhotosSection({ jobId, compact = false }: JobPhotosSe
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontWeight: 800, color: '#111827' }}>{selectedPhoto.fileName}</div>
                 <div style={{ color: '#6b7280', fontSize: '14px' }}>{photoTypeLabel(selectedPhoto.photoType)} | {formatDateTime(selectedPhoto.takenAt)}</div>
+                {selectedPhoto.note && <div style={{ color: '#374151', fontSize: '14px', marginTop: '4px' }}>{selectedPhoto.note}</div>}
               </div>
 
               <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>

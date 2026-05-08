@@ -1,8 +1,8 @@
 ﻿'use client'
 
 import React, { useMemo, useState } from 'react'
+import { updateWorkShiftAction } from '@/app/business-actions'
 import { useI18n } from '@/components/I18nProvider'
-import { supabase } from '@/lib/supabase'
 
 type ShiftRowEditorProps = {
   shift: {
@@ -169,40 +169,31 @@ export default function ShiftRowEditor({ shift, jobs, supportsJobAssignment }: S
 
     setSaving(true)
 
-    const payload = supportsJobAssignment
-      ? {
-          job_id: jobIdInput.trim() || null,
-          job_hours_override: jobIdInput.trim() === '' ? null : parsedJobHoursOverride,
-          started_at: startedAt,
-          ended_at: endedAt,
-          hours_override: parsedHoursOverride,
-          note: noteInput.trim() || null,
-        }
-      : {
-          started_at: startedAt,
-          ended_at: endedAt,
-          hours_override: parsedHoursOverride,
-          note: noteInput.trim() || null,
-        }
+    const result = await updateWorkShiftAction({
+      shiftId: currentShift.id,
+      jobId: supportsJobAssignment ? jobIdInput.trim() || null : null,
+      shiftDate: currentShift.shift_date,
+      startedAt,
+      endedAt,
+      hoursOverride: parsedHoursOverride,
+      jobHoursOverride: supportsJobAssignment && jobIdInput.trim() !== '' ? parsedJobHoursOverride : null,
+      note: noteInput.trim() || null,
+      supportsJobAssignment,
+    })
 
-    const query = supabase.from('work_shifts').update(payload).eq('id', currentShift.id)
-    const result = supportsJobAssignment
-      ? await query.select('id, job_id, job_hours_override, shift_date, started_at, ended_at, hours_override, note').single()
-      : await query.select('id, shift_date, started_at, ended_at, hours_override, note').single()
-
-    const { data, error: updateError } = result
     setSaving(false)
 
-    if (updateError) {
-      setError(updateError.message || t.saveFailed)
+    if (!result.ok) {
+      setError(result.error || t.saveFailed)
       return
     }
 
-    if (!data) {
+    if (!result.data.shift) {
       setError(t.updatedDataMissing)
       return
     }
 
+    const data = result.data.shift
     const updatedJobId = supportsJobAssignment && 'job_id' in data && (typeof data.job_id === 'string' || data.job_id === null) ? data.job_id : null
     const updatedJobHoursOverride = supportsJobAssignment && 'job_hours_override' in data && (typeof data.job_hours_override === 'number' || typeof data.job_hours_override === 'string' || data.job_hours_override === null)
       ? data.job_hours_override != null ? Number(data.job_hours_override) : null

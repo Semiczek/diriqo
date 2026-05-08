@@ -74,12 +74,8 @@ export default function AdminAuthGuard({ children }: AdminAuthGuardProps) {
             return
           }
 
-          await clearInvalidLocalSession()
-
-          if (!mounted) return
-
-          if (pathname !== '/login') {
-            router.replace('/login?error=no-hub-access')
+          if (pathname !== '/onboarding') {
+            router.replace('/onboarding')
           }
 
           return

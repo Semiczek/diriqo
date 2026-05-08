@@ -16,7 +16,7 @@ export default async function PortalJobsPage({ searchParams }: JobsPageProps) {
   const params = searchParams ? await searchParams : undefined
   const selectedMonth = params?.month?.trim() || 'all'
   const selectedStatus = params?.status?.trim() || 'all'
-  const jobs = await getPortalJobs(portalUser.customerId)
+  const jobs = await getPortalJobs(portalUser.customerId, portalUser.companyId ?? '')
 
   const monthOptions = Array.from(
     new Set(

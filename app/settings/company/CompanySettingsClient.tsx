@@ -1,6 +1,7 @@
 'use client'
 
 import { FormEvent, useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 
 import {
   COMPANY_MODULE_KEYS,
@@ -11,6 +12,7 @@ import {
   type CompanyPayrollSettings,
   type CompanySettings,
 } from '@/lib/company-settings-shared'
+import { COMPANY_TIME_ZONE_OPTIONS } from '@/lib/company-timezone'
 import {
   updateCompanyBasicInfo,
   updateCompanyBillingSettings,
@@ -35,6 +37,21 @@ type CompanyRow = {
   timezone?: string | null
 }
 
+type WorkerPaymentRow = {
+  worker_type: string | null
+  pay_type_override: string | null
+  payday_day_override: number | null
+  payday_weekday_override: number | null
+  hourly_rate: number | null
+  fixed_rate_per_job: number | null
+  advances_enabled_override: boolean | null
+  advance_limit_amount_override: number | null
+  contractor_company_name: string | null
+  contractor_registration_no: string | null
+  contractor_vat_no: string | null
+  contractor_invoice_required: boolean | null
+}
+
 type MemberRow = {
   id: string | null
   profileId: string | null
@@ -42,6 +59,7 @@ type MemberRow = {
   email: string | null
   role: string
   isActive: boolean
+  paymentSettings?: WorkerPaymentRow | null
 }
 
 type Props = {
@@ -55,14 +73,14 @@ type Props = {
 
 type TabKey = 'overview' | 'basic' | 'payroll' | 'jobs' | 'billing' | 'modules' | 'users'
 
-const tabs: Array<{ key: TabKey; label: string }> = [
-  { key: 'overview', label: 'Přehled' },
-  { key: 'basic', label: 'Základní údaje' },
-  { key: 'payroll', label: 'Pracovníci a výplaty' },
-  { key: 'jobs', label: 'Zakázky' },
-  { key: 'billing', label: 'Fakturace' },
-  { key: 'modules', label: 'Moduly' },
-  { key: 'users', label: 'Uživatelé' },
+const tabs: Array<{ key: TabKey; label: string; description: string }> = [
+  { key: 'overview', label: 'Přehled', description: 'Stav nastavení firmy' },
+  { key: 'basic', label: 'Základní údaje', description: 'Identita, kontakt, měna' },
+  { key: 'payroll', label: 'Pracovníci a výplaty', description: 'Sazby, zálohy, výjimky' },
+  { key: 'jobs', label: 'Zakázky', description: 'Workflow a povinné podklady' },
+  { key: 'billing', label: 'Fakturace', description: 'DPH, splatnost, banka' },
+  { key: 'modules', label: 'Moduly', description: 'Zapnuté části aplikace' },
+  { key: 'users', label: 'Uživatelé', description: 'Členové a role firmy' },
 ]
 
 const moduleLabels: Record<CompanyModuleKey, string> = {
@@ -88,6 +106,7 @@ export default function CompanySettingsClient({
   modules,
   members,
 }: Props) {
+  const router = useRouter()
   const [activeTab, setActiveTab] = useState<TabKey>('overview')
   const [message, setMessage] = useState<SettingsActionResult | null>(null)
   const [isPending, startTransition] = useTransition()
@@ -95,31 +114,31 @@ export default function CompanySettingsClient({
   function submitWith(action: (formData: FormData) => Promise<SettingsActionResult>) {
     return (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault()
-      const formData = new FormData(event.currentTarget)
+      const form = event.currentTarget
+      const formData = new FormData(form)
+
       startTransition(async () => {
-        setMessage(await action(formData))
+        const result = await action(formData)
+        setMessage(result)
+        if (result.ok) router.refresh()
       })
     }
   }
 
   return (
-    <div style={{ display: 'grid', gap: '20px' }}>
+    <div style={pageStyle}>
       <section className="company-settings-hero" style={{ ...panelStyle, ...heroStyle }}>
         <div>
           <div style={eyebrowStyle}>SaaS nastavení</div>
-          <h1 style={{ margin: '8px 0', fontSize: 'clamp(32px, 4vw, 54px)', lineHeight: 1 }}>
-            Nastavení společnosti
-          </h1>
+          <h1 style={heroTitleStyle}>Nastavení společnosti</h1>
           <p style={mutedStyle}>
             {company.name || 'Diriqo'} má tady základní firemní údaje, workflow, fakturaci a zapnuté moduly.
           </p>
         </div>
         <div style={heroStatStyle}>
           <span style={labelStyle}>Aktivní firma</span>
-          <strong style={{ display: 'block', marginTop: '8px', fontSize: '24px' }}>
-            {company.name || 'Diriqo'}
-          </strong>
-          <span style={{ display: 'block', marginTop: '8px', color: '#64748b', fontWeight: 750 }}>
+          <strong style={heroStatValueStyle}>{company.name || 'Diriqo'}</strong>
+          <span style={heroStatMetaStyle}>
             {members.filter((member) => member.isActive).length} aktivních členů
           </span>
         </div>
@@ -127,25 +146,35 @@ export default function CompanySettingsClient({
 
       <div className="company-settings-layout" style={settingsLayoutStyle}>
         <aside style={tabsStyle} aria-label="Sekce nastavení">
-          {tabs.map((tab) => (
-            <button
-              key={tab.key}
-              type="button"
-              onClick={() => {
-                setActiveTab(tab.key)
-                setMessage(null)
-              }}
-              style={{
-                ...tabButtonStyle,
-                ...(activeTab === tab.key ? activeTabButtonStyle : {}),
-              }}
-            >
-              {tab.label}
-            </button>
-          ))}
+          {tabs.map((tab) => {
+            const active = activeTab === tab.key
+
+            return (
+              <button
+                key={tab.key}
+                className="company-settings-tab"
+                type="button"
+                aria-current={active ? 'page' : undefined}
+                onClick={() => {
+                  setActiveTab(tab.key)
+                  setMessage(null)
+                }}
+                style={{
+                  ...tabButtonStyle,
+                  ...(active ? activeTabButtonStyle : {}),
+                }}
+              >
+                <span style={tabDotStyle} />
+                <span style={{ minWidth: 0 }}>
+                  <span style={tabLabelStyle}>{tab.label}</span>
+                  <span style={tabDescriptionStyle}>{tab.description}</span>
+                </span>
+              </button>
+            )
+          })}
         </aside>
 
-        <section style={{ display: 'grid', gap: '16px', minWidth: 0 }}>
+        <section style={contentStyle}>
           {message ? <Message result={message} /> : null}
 
           {activeTab === 'overview' ? (
@@ -171,7 +200,12 @@ export default function CompanySettingsClient({
                 <Field label="Web" name="web" defaultValue={company.web ?? ''} />
                 <Field label="Měna" name="currency" defaultValue={company.currency ?? 'CZK'} />
                 <Field label="Jazyk" name="locale" defaultValue={company.locale ?? 'cs-CZ'} />
-                <Field label="Časové pásmo" name="timezone" defaultValue={company.timezone ?? 'Europe/Prague'} />
+                <SelectField
+                  label="Časové pásmo"
+                  name="timezone"
+                  defaultValue={company.timezone ?? 'Europe/Prague'}
+                  options={COMPANY_TIME_ZONE_OPTIONS.map((option) => [option.value, option.label])}
+                />
                 <Field label="Adresa" name="address" defaultValue={company.address ?? ''} wide />
               </div>
               <SubmitButton pending={isPending}>Uložit základní údaje</SubmitButton>
@@ -179,7 +213,7 @@ export default function CompanySettingsClient({
           ) : null}
 
           {activeTab === 'payroll' ? (
-            <div style={{ display: 'grid', gap: '16px' }}>
+            <div style={contentStyle}>
               <form style={panelStyle} onSubmit={submitWith(updateCompanyPayrollSettings)}>
                 <SectionHeader
                   title="Pracovníci a výplaty"
@@ -202,23 +236,18 @@ export default function CompanySettingsClient({
               </form>
 
               <section style={panelStyle}>
-                <SectionHeader title="Individuální výjimky" description="MVP přehled pracovníků. Výjimku můžeš uložit u konkrétní osoby." />
-                <div style={{ display: 'grid', gap: '12px' }}>
+                <SectionHeader
+                  title="Individuální výjimky"
+                  description="Ulož konkrétní sazbu, typ pracovníka nebo zálohy pro jednotlivé členy firmy."
+                />
+                <div style={contentStyle}>
                   {members.map((member) => (
-                    <form key={member.profileId ?? member.id} style={workerCardStyle} onSubmit={submitWith(updateWorkerPaymentSettings)}>
-                      <input type="hidden" name="profile_id" value={member.profileId ?? ''} />
-                      <div>
-                        <strong style={{ display: 'block', fontSize: '18px' }}>{member.fullName}</strong>
-                        <span style={mutedStyle}>{member.email ?? 'Bez e-mailu'} · {roleLabel(member.role)}</span>
-                      </div>
-                      <div style={miniGridStyle}>
-                        <SelectField label="Typ" name="worker_type" defaultValue="employee" options={[['employee', 'Interní'], ['contractor', 'Externista']]} />
-                        <SelectField label="Výplata" name="pay_type_override" defaultValue="" options={[['', 'Firemní nastavení'], ['after_shift', 'Po směně'], ['weekly', 'Týdně'], ['biweekly', 'Každých 14 dní'], ['monthly', 'Měsíčně']]} />
-                        <Field label="Sazba Kč/h" name="hourly_rate" defaultValue="" type="number" />
-                        <Field label="Fix za zakázku" name="fixed_rate_per_job" defaultValue="" type="number" />
-                      </div>
-                      <SubmitButton pending={isPending} compact>Uložit pracovníka</SubmitButton>
-                    </form>
+                    <WorkerPaymentForm
+                      key={member.profileId ?? member.id}
+                      member={member}
+                      pending={isPending}
+                      onSubmit={submitWith(updateWorkerPaymentSettings)}
+                    />
                   ))}
                 </div>
               </section>
@@ -272,8 +301,8 @@ export default function CompanySettingsClient({
 
           {activeTab === 'users' ? (
             <section style={panelStyle}>
-              <SectionHeader title="Uživatelé" description="MVP seznam členů firmy. Později sem přijde pozvání uživatelů a správa rolí." />
-              <div style={{ display: 'grid', gap: '10px' }}>
+              <SectionHeader title="Uživatelé" description="Přehled členů firmy a jejich rolí." />
+              <div style={contentStyle}>
                 {members.map((member) => (
                   <div key={member.profileId ?? member.id} style={userRowStyle}>
                     <div>
@@ -289,19 +318,69 @@ export default function CompanySettingsClient({
         </section>
       </div>
       <style>{`
+        .company-settings-tab:focus {
+          outline: none;
+        }
+
+        .company-settings-tab:focus-visible {
+          outline: 2px solid rgba(37, 99, 235, 0.55);
+          outline-offset: 3px;
+        }
+
         @media (max-width: 900px) {
           .company-settings-hero,
           .company-settings-layout {
             display: grid !important;
             grid-template-columns: 1fr !important;
           }
-
-          .company-settings-hero {
-            gap: 14px !important;
-          }
         }
       `}</style>
     </div>
+  )
+}
+
+function WorkerPaymentForm({
+  member,
+  pending,
+  onSubmit,
+}: {
+  member: MemberRow
+  pending: boolean
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void
+}) {
+  const settings = member.paymentSettings
+  const advancesMode =
+    settings?.advances_enabled_override == null
+      ? 'inherit'
+      : settings.advances_enabled_override
+        ? 'enabled'
+        : 'disabled'
+
+  return (
+    <form style={workerCardStyle} onSubmit={onSubmit}>
+      <input type="hidden" name="profile_id" value={member.profileId ?? ''} />
+      <div>
+        <strong style={workerNameStyle}>{member.fullName}</strong>
+        <span style={mutedStyle}>
+          {member.email ?? 'Bez e-mailu'} · {roleLabel(member.role)}
+        </span>
+      </div>
+      <div style={miniGridStyle}>
+        <SelectField label="Typ" name="worker_type" defaultValue={settings?.worker_type ?? 'employee'} options={[['employee', 'Interní'], ['contractor', 'Externista']]} />
+        <SelectField label="Výplata" name="pay_type_override" defaultValue={settings?.pay_type_override ?? ''} options={[['', 'Firemní nastavení'], ['after_shift', 'Po směně'], ['weekly', 'Týdně'], ['biweekly', 'Každých 14 dní'], ['monthly', 'Měsíčně']]} />
+        <Field label="Den v měsíci" name="payday_day_override" defaultValue={settings?.payday_day_override ?? ''} type="number" />
+        <Field label="Den v týdnu" name="payday_weekday_override" defaultValue={settings?.payday_weekday_override ?? ''} type="number" />
+        <Field label="Sazba Kč/h" name="hourly_rate" defaultValue={settings?.hourly_rate ?? ''} type="number" />
+        <Field label="Fix za zakázku" name="fixed_rate_per_job" defaultValue={settings?.fixed_rate_per_job ?? ''} type="number" />
+        <SelectField label="Zálohy" name="advances_enabled_override_mode" defaultValue={advancesMode} options={[['inherit', 'Firemní nastavení'], ['enabled', 'Povolit'], ['disabled', 'Zakázat']]} />
+        <Field label="Limit zálohy" name="advance_limit_amount_override" defaultValue={settings?.advance_limit_amount_override ?? ''} type="number" />
+        <Field label="Firma externisty" name="contractor_company_name" defaultValue={settings?.contractor_company_name ?? ''} />
+        <Field label="IČO externisty" name="contractor_registration_no" defaultValue={settings?.contractor_registration_no ?? ''} />
+        <Field label="DIČ externisty" name="contractor_vat_no" defaultValue={settings?.contractor_vat_no ?? ''} />
+        <CheckboxField label="Vyžadovat fakturu externisty" name="contractor_invoice_required" defaultChecked={settings?.contractor_invoice_required === true} />
+      </div>
+      <SubmitButton pending={pending} compact>Uložit pracovníka</SubmitButton>
+    </form>
   )
 }
 
@@ -329,7 +408,7 @@ function Overview({
         <SummaryCard label="Firma" value={company.name || 'Diriqo'} detail={company.email || 'E-mail není nastavený'} onClick={() => onNavigate('basic')} />
         <SummaryCard label="Výplaty" value={getPayTypeLabel(payrollSettings.default_pay_type)} detail={`Výchozí sazba ${payrollSettings.default_hourly_rate ?? 0} Kč/h`} onClick={() => onNavigate('payroll')} />
         <SummaryCard label="Zakázky" value={companySettings.default_job_status_after_worker_done === 'done' ? 'Rovnou hotovo' : 'Čeká na kontrolu'} detail={companySettings.require_work_time_tracking ? 'Čas práce je povinný' : 'Čas práce je volitelný'} onClick={() => onNavigate('jobs')} />
-        <SummaryCard label="Fakturace" value={billingSettings.billing_enabled ? 'Zapnutá' : 'Vypnutá'} detail={`Splatnost ${billingSettings.default_invoice_due_days} dní`} onClick={() => onNavigate('billing')} />
+        <SummaryCard label="Fakturace" value={billingSettings.billing_enabled ? 'Zapnutá' : 'Vypnutá'} detail={`Splatnost ${billingSettings.default_invoice_due_days} dnů`} onClick={() => onNavigate('billing')} />
         <SummaryCard label="Moduly" value={`${enabledModules}/${COMPANY_MODULE_KEYS.length}`} detail={getContractorCostModeLabel(payrollSettings.default_contractor_cost_mode)} onClick={() => onNavigate('modules')} />
       </div>
     </section>
@@ -337,17 +416,13 @@ function Overview({
 }
 
 function Message({ result }: { result: SettingsActionResult }) {
-  return (
-    <div style={{ ...messageStyle, ...(result.ok ? successStyle : errorStyle) }}>
-      {result.message}
-    </div>
-  )
+  return <div style={{ ...messageStyle, ...(result.ok ? successStyle : errorStyle) }}>{result.message}</div>
 }
 
 function SectionHeader({ title, description }: { title: string; description: string }) {
   return (
     <header style={{ marginBottom: '16px' }}>
-      <h2 style={{ margin: 0, fontSize: '28px', lineHeight: 1.1 }}>{title}</h2>
+      <h2 style={sectionTitleStyle}>{title}</h2>
       <p style={{ ...mutedStyle, marginTop: '7px' }}>{description}</p>
     </header>
   )
@@ -385,7 +460,7 @@ function SelectField({
   label: string
   name: string
   defaultValue: string
-  options: Array<[string, string]>
+  options: Array<readonly [string, string]>
 }) {
   return (
     <label style={fieldStyle}>
@@ -422,8 +497,8 @@ function SummaryCard({ label, value, detail, onClick }: { label: string; value: 
   return (
     <button type="button" onClick={onClick} style={summaryCardStyle}>
       <span style={labelStyle}>{label}</span>
-      <strong style={{ display: 'block', marginTop: '9px', fontSize: '26px', color: '#0f172a' }}>{value}</strong>
-      <span style={{ display: 'block', marginTop: '8px', color: '#64748b', fontWeight: 700 }}>{detail}</span>
+      <strong style={summaryValueStyle}>{value}</strong>
+      <span style={summaryDetailStyle}>{detail}</span>
     </button>
   )
 }
@@ -434,6 +509,9 @@ function roleLabel(role: string) {
   if (role === 'manager') return 'Manažer'
   return 'Pracovník'
 }
+
+const pageStyle = { display: 'grid', gap: '20px' } as const
+const contentStyle = { display: 'grid', gap: '16px', minWidth: 0 } as const
 
 const panelStyle = {
   borderRadius: '24px',
@@ -451,6 +529,13 @@ const heroStyle = {
   background: 'linear-gradient(135deg, rgba(124,58,237,0.08), rgba(6,182,212,0.10) 62%, #ffffff)',
 } as const
 
+const heroTitleStyle = {
+  margin: '8px 0',
+  fontSize: 'clamp(32px, 4vw, 54px)',
+  lineHeight: 1,
+  color: '#0f172a',
+} as const
+
 const heroStatStyle = {
   borderRadius: '22px',
   border: '1px solid rgba(203, 213, 225, 0.78)',
@@ -460,9 +545,12 @@ const heroStatStyle = {
   boxShadow: '0 16px 36px rgba(15, 23, 42, 0.08)',
 } as const
 
+const heroStatValueStyle = { display: 'block', marginTop: '8px', fontSize: '24px', color: '#0f172a' } as const
+const heroStatMetaStyle = { display: 'block', marginTop: '8px', color: '#64748b', fontWeight: 750 } as const
+
 const settingsLayoutStyle = {
   display: 'grid',
-  gridTemplateColumns: '240px minmax(0, 1fr)',
+  gridTemplateColumns: '280px minmax(0, 1fr)',
   gap: '18px',
 } as const
 
@@ -473,23 +561,25 @@ const tabsStyle = {
   boxShadow: '0 18px 48px rgba(15, 23, 42, 0.08)',
   alignSelf: 'start',
   display: 'grid',
-  gap: '8px',
-  padding: '14px',
+  gap: '6px',
+  padding: '12px',
   position: 'sticky',
   top: '18px',
 } as const
 
 const tabButtonStyle = {
-  minHeight: '46px',
-  borderRadius: '14px',
+  minHeight: '58px',
+  borderRadius: '16px',
   border: '1px solid transparent',
   background: 'transparent',
   color: '#475569',
   textAlign: 'left',
   padding: '10px 12px',
-  fontSize: '15px',
-  fontWeight: 850,
   cursor: 'pointer',
+  display: 'grid',
+  gridTemplateColumns: '9px minmax(0, 1fr)',
+  alignItems: 'center',
+  gap: '11px',
 } as const
 
 const activeTabButtonStyle = {
@@ -497,6 +587,16 @@ const activeTabButtonStyle = {
   borderColor: 'rgba(37, 99, 235, 0.18)',
   color: '#0f172a',
 } as const
+
+const tabDotStyle = {
+  width: '9px',
+  height: '9px',
+  borderRadius: '999px',
+  background: 'linear-gradient(135deg, #7c3aed, #06b6d4)',
+} as const
+
+const tabLabelStyle = { display: 'block', fontSize: '15px', fontWeight: 900, lineHeight: 1.2 } as const
+const tabDescriptionStyle = { display: 'block', marginTop: '3px', fontSize: '12px', color: '#64748b', fontWeight: 700 } as const
 
 const formGridStyle = {
   display: 'grid',
@@ -506,7 +606,7 @@ const formGridStyle = {
 
 const miniGridStyle = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
   gap: '10px',
 } as const
 
@@ -574,6 +674,9 @@ const summaryCardStyle = {
   cursor: 'pointer',
 } as const
 
+const summaryValueStyle = { display: 'block', marginTop: '9px', fontSize: '26px', color: '#0f172a' } as const
+const summaryDetailStyle = { display: 'block', marginTop: '8px', color: '#64748b', fontWeight: 700 } as const
+
 const workerCardStyle = {
   display: 'grid',
   gap: '12px',
@@ -582,6 +685,8 @@ const workerCardStyle = {
   background: '#f8fafc',
   padding: '16px',
 } as const
+
+const workerNameStyle = { display: 'block', fontSize: '18px', color: '#0f172a' } as const
 
 const userRowStyle = {
   display: 'flex',
@@ -620,6 +725,7 @@ const eyebrowStyle = {
   fontWeight: 950,
 } as const
 
+const sectionTitleStyle = { margin: 0, fontSize: '28px', lineHeight: 1.1, color: '#0f172a' } as const
 const labelStyle = { color: '#64748b', fontSize: '13px', fontWeight: 900 } as const
 
 const mutedStyle = {

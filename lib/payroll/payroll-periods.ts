@@ -1,10 +1,10 @@
 import {
   formatMonthInputValue,
-  formatPragueDateKey,
-  getPraguePartsFromDate,
+  formatDateKeyInTimeZone,
+  getPartsFromDateInTimeZone,
   parseDateSafe,
   PRAGUE_TZ,
-  pragueWallTimeToDate,
+  wallTimeToDateInTimeZone,
 } from '@/lib/date/prague-time'
 
 export const PAYROLL_ADVANCE_START_DAY = 19
@@ -32,25 +32,25 @@ export function normalizePayrollMonthValue(value: string | null | undefined): st
   return `${match[1]}-${match[2]}`
 }
 
-export function getPayrollMonthValueFromDateString(value: string | null | undefined): string | null {
-  const date = parseDateSafe(value)
+export function getPayrollMonthValueFromDateString(value: string | null | undefined, timeZone = PRAGUE_TZ): string | null {
+  const date = parseDateSafe(value, timeZone)
   if (!date) return null
 
-  const parts = getPraguePartsFromDate(date)
+  const parts = getPartsFromDateInTimeZone(date, timeZone)
   const payrollMonth =
     parts.day >= PAYROLL_ADVANCE_START_DAY
-      ? pragueWallTimeToDate(parts.year, parts.month + 1, 1, 0, 0, 0)
-      : pragueWallTimeToDate(parts.year, parts.month, 1, 0, 0, 0)
+      ? wallTimeToDateInTimeZone(parts.year, parts.month + 1, 1, 0, 0, 0, timeZone)
+      : wallTimeToDateInTimeZone(parts.year, parts.month, 1, 0, 0, 0, timeZone)
 
-  return formatMonthInputValue(payrollMonth)
+  return formatMonthInputValue(payrollMonth, timeZone)
 }
 
-export function getAdvanceRequestPayrollMonth(row: PayrollAdvanceRequestLike): string | null {
+export function getAdvanceRequestPayrollMonth(row: PayrollAdvanceRequestLike, timeZone = PRAGUE_TZ): string | null {
   return (
     normalizePayrollMonthValue(row.payroll_month) ||
-    getPayrollMonthValueFromDateString(row.paid_at) ||
-    getPayrollMonthValueFromDateString(row.approved_at || row.reviewed_at) ||
-    getPayrollMonthValueFromDateString(row.requested_at || row.created_at)
+    getPayrollMonthValueFromDateString(row.paid_at, timeZone) ||
+    getPayrollMonthValueFromDateString(row.approved_at || row.reviewed_at, timeZone) ||
+    getPayrollMonthValueFromDateString(row.requested_at || row.created_at, timeZone)
   )
 }
 
@@ -67,26 +67,26 @@ export function isWorkerAdvanceBackfilledFromRequest<
   )
 }
 
-export function getPayrollRangeFromMonthValue(value: string) {
+export function getPayrollRangeFromMonthValue(value: string, timeZone = PRAGUE_TZ) {
   const [yearRaw, monthRaw] = value.split('-')
   const year = Number(yearRaw)
   const month = Number(monthRaw)
-  const start = pragueWallTimeToDate(year, month, PAYROLL_ADVANCE_START_DAY, 0, 0, 0)
-  const endExclusive = pragueWallTimeToDate(year, month + 1, PAYROLL_ADVANCE_END_EXCLUSIVE_DAY, 0, 0, 0)
-  const endVisible = pragueWallTimeToDate(year, month + 1, PAYROLL_ADVANCE_END_VISIBLE_DAY, 0, 0, 0)
-  const payDate = pragueWallTimeToDate(year, month + 1, PAYROLL_ADVANCE_END_EXCLUSIVE_DAY, 0, 0, 0)
+  const start = wallTimeToDateInTimeZone(year, month, PAYROLL_ADVANCE_START_DAY, 0, 0, 0, timeZone)
+  const endExclusive = wallTimeToDateInTimeZone(year, month + 1, PAYROLL_ADVANCE_END_EXCLUSIVE_DAY, 0, 0, 0, timeZone)
+  const endVisible = wallTimeToDateInTimeZone(year, month + 1, PAYROLL_ADVANCE_END_VISIBLE_DAY, 0, 0, 0, timeZone)
+  const payDate = wallTimeToDateInTimeZone(year, month + 1, PAYROLL_ADVANCE_END_EXCLUSIVE_DAY, 0, 0, 0, timeZone)
 
   const formatDate = (date: Date) =>
     new Intl.DateTimeFormat('cs-CZ', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
-      timeZone: PRAGUE_TZ,
+      timeZone,
     }).format(date)
 
   return {
-    startDate: formatPragueDateKey(start),
-    endExclusiveDate: formatPragueDateKey(endExclusive),
+    startDate: formatDateKeyInTimeZone(start, timeZone),
+    endExclusiveDate: formatDateKeyInTimeZone(endExclusive, timeZone),
     periodLabel: `${formatDate(start)} - ${formatDate(endVisible)}`,
     payDateLabel: formatDate(payDate),
   }

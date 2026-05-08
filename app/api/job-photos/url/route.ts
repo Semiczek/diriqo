@@ -1,9 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 import { getActiveCompanyContext } from '@/lib/active-company'
-import { createSupabaseServerClient } from '@/lib/supabase-server'
+import { JOB_PHOTO_BUCKET, verifyJobPhotoAccess } from '@/lib/job-photo-storage'
+import { createSupabaseAdminClient } from '@/lib/supabase-admin'
 
-const BUCKET = 'job-photos'
+type PhotoRow = {
+  storage_path: string | null
+  file_name: string | null
+  job_id: string | null
+  jobs?: { id: string; company_id: string | null } | { id: string; company_id: string | null }[] | null
+}
+
+function asSingle<T>(value: T | T[] | null | undefined) {
+  if (!value) return null
+  return Array.isArray(value) ? value[0] ?? null : value
+}
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
@@ -19,7 +30,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const supabase = await createSupabaseServerClient()
+  const supabase = createSupabaseAdminClient()
 
   const { data, error } = await supabase
     .from('job_photos')
@@ -27,6 +38,7 @@ export async function GET(request: NextRequest) {
       `
         storage_path,
         file_name,
+        job_id,
         jobs!inner (
           id,
           company_id
@@ -37,16 +49,31 @@ export async function GET(request: NextRequest) {
     .eq('jobs.company_id', activeCompany.companyId)
     .single()
 
-  if (error || !data?.storage_path) {
+  const photo = data as PhotoRow | null
+  const job = asSingle(photo?.jobs)
+
+  if (error || !photo?.storage_path || !photo.job_id || job?.company_id !== activeCompany.companyId) {
     return NextResponse.json(
       { error: `Nepodarilo se nacist fotografii: ${error?.message ?? 'Chybi storage path.'}` },
       { status: 404 }
     )
   }
 
+  let hasJobAccess = false
+
+  try {
+    hasJobAccess = await verifyJobPhotoAccess(photo.job_id, activeCompany)
+  } catch {
+    return NextResponse.json({ error: 'Nepodarilo se overit pristup k fotografii.' }, { status: 500 })
+  }
+
+  if (!hasJobAccess) {
+    return NextResponse.json({ error: 'Fotografie nebyla nalezena.' }, { status: 404 })
+  }
+
   const { data: signedData, error: signedError } = await supabase.storage
-    .from(BUCKET)
-    .createSignedUrl(data.storage_path, 60 * 30)
+    .from(JOB_PHOTO_BUCKET)
+    .createSignedUrl(photo.storage_path, 60 * 30)
 
   if (signedError || !signedData?.signedUrl) {
     return NextResponse.json(
@@ -57,6 +84,6 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({
     url: signedData.signedUrl,
-    fileName: data.file_name ?? 'fotografie.jpg',
+    fileName: photo.file_name ?? 'fotografie.jpg',
   })
 }

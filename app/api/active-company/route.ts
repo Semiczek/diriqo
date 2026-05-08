@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 
+import { resolveActiveCompanySwitch } from '@/lib/active-company-switch'
 import { getActiveCompanyContext } from '@/lib/active-company'
 
 export async function GET() {
@@ -17,6 +18,7 @@ export async function GET() {
   return NextResponse.json({
     companyId: activeCompany.companyId,
     companyName: activeCompany.companyName,
+    timeZone: activeCompany.timeZone,
     profileId: activeCompany.profileId,
     profileName: activeCompany.profileName,
     profileEmail: activeCompany.profileEmail,
@@ -40,19 +42,21 @@ export async function POST(request: Request) {
   const payload = (await request.json().catch(() => null)) as {
     companyId?: string | null
   } | null
-  const companyId = payload?.companyId?.trim() ?? ''
-  const targetCompany = activeCompany.companyMemberships.find(
-    (membership) => membership.companyId === companyId
+  const switchResult = resolveActiveCompanySwitch(
+    payload?.companyId,
+    activeCompany.companyMemberships,
   )
 
-  if (!companyId || !targetCompany) {
+  if (!switchResult.ok) {
     return NextResponse.json(
       {
-        error: 'Company not available',
+        error: switchResult.error,
       },
       { status: 400 }
     )
   }
+
+  const targetCompany = switchResult.company
 
   const response = NextResponse.json({
     companyId: targetCompany.companyId,

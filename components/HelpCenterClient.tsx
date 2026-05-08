@@ -22,6 +22,7 @@ type HelpCenterClientProps = {
   dictionary: TranslationDictionary
   intro: string[]
   sections: HelpSection[]
+  supportEmail: string
 }
 
 const uiText: Record<
@@ -228,6 +229,7 @@ export default function HelpCenterClient({
   dictionary,
   intro,
   sections,
+  supportEmail,
 }: HelpCenterClientProps) {
   const t = uiText[locale]
   const [query, setQuery] = useState('')
@@ -382,6 +384,23 @@ export default function HelpCenterClient({
             >
               {intro.length > 0 ? intro.join(' ') : dictionary.help.subtitle}
             </p>
+            <a
+              href={`mailto:${supportEmail}`}
+              style={{
+                display: 'inline-flex',
+                marginTop: '16px',
+                color: '#ffffff',
+                backgroundColor: 'rgba(255,255,255,0.14)',
+                border: '1px solid rgba(255,255,255,0.24)',
+                borderRadius: '999px',
+                padding: '9px 14px',
+                textDecoration: 'none',
+                fontSize: '14px',
+                fontWeight: 850,
+              }}
+            >
+              Support: {supportEmail}
+            </a>
           </div>
         </div>
       </section>

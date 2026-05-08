@@ -27,31 +27,31 @@ export function formatHours(value: number | null | undefined): string {
   return `${value.toLocaleString('cs-CZ', { maximumFractionDigits: 2 })} h`
 }
 
-export function formatDate(value: string | Date | null | undefined): string {
-  const date = parseDateSafe(value)
+export function formatDate(value: string | Date | null | undefined, timeZone = PRAGUE_TZ): string {
+  const date = parseDateSafe(value, timeZone)
   if (!date) return '\u2014'
 
   return new Intl.DateTimeFormat('cs-CZ', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
-    timeZone: PRAGUE_TZ,
+    timeZone,
   }).format(date)
 }
 
-export function formatTime(value: string | Date | null | undefined): string {
-  const date = parseDateSafe(value)
+export function formatTime(value: string | Date | null | undefined, timeZone = PRAGUE_TZ): string {
+  const date = parseDateSafe(value, timeZone)
   if (!date) return '\u2014'
 
   return new Intl.DateTimeFormat('cs-CZ', {
     hour: '2-digit',
     minute: '2-digit',
-    timeZone: PRAGUE_TZ,
+    timeZone,
   }).format(date)
 }
 
-export function formatDateTimePrague(value: string | Date | null | undefined, locale = 'cs-CZ'): string {
-  const date = parseDateSafe(value)
+export function formatDateTimePrague(value: string | Date | null | undefined, locale = 'cs-CZ', timeZone = PRAGUE_TZ): string {
+  const date = parseDateSafe(value, timeZone)
   if (!date) return '\u2014'
 
   return new Intl.DateTimeFormat(locale, {
@@ -60,6 +60,6 @@ export function formatDateTimePrague(value: string | Date | null | undefined, lo
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
-    timeZone: PRAGUE_TZ,
+    timeZone,
   }).format(date)
 }

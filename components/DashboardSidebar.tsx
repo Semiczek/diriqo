@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -22,22 +22,17 @@ type SidebarItemKey =
 
 type DashboardSidebarProps = {
   activeItem?: SidebarItemKey
-  loggingOut?: boolean
   mobileOpen?: boolean
   onNavigate?: () => void
-  onLogout?: () => void
 }
 
 export default function DashboardSidebar({
   activeItem,
-  loggingOut = false,
   mobileOpen = false,
   onNavigate,
-  onLogout,
 }: DashboardSidebarProps) {
   const pathname = usePathname()
   const { dictionary } = useI18n()
-  const activeCompanyName = dictionary.common.appName
 
   const menuGroups: Array<{
     title: string
@@ -51,16 +46,16 @@ export default function DashboardSidebar({
     {
       title: 'HLAVNÍ',
       items: [
-        { href: '/', label: dictionary.navigation.dashboard, key: 'dashboard', icon: '⌂' },
-        { href: '/jobs', label: dictionary.navigation.jobs, key: 'jobs', icon: '▦' },
-        { href: '/customers', label: dictionary.navigation.customers, key: 'customers', icon: '◇' },
+        { href: '/', label: dictionary.navigation.dashboard, key: 'dashboard', icon: 'P' },
+        { href: '/jobs', label: dictionary.navigation.jobs, key: 'jobs', icon: 'Z' },
+        { href: '/customers', label: dictionary.navigation.customers, key: 'customers', icon: 'K' },
       ],
     },
     {
       title: 'TÝM',
       items: [
-        { href: '/workers', label: dictionary.navigation.workers, key: 'workers', icon: '◉' },
-        { href: '/calendar', label: dictionary.navigation.calendar, key: 'calendar', icon: '□' },
+        { href: '/workers', label: dictionary.navigation.workers, key: 'workers', icon: 'T' },
+        { href: '/calendar', label: dictionary.navigation.calendar, key: 'calendar', icon: 'C' },
         { href: '/absences', label: dictionary.navigation.absences, key: 'absences', icon: '!' },
         {
           href: '/advance-requests',
@@ -74,7 +69,7 @@ export default function DashboardSidebar({
       title: 'FINANCE',
       items: [
         { href: '/invoices', label: 'Fakturace', key: 'invoices', icon: 'Kč' },
-        { href: '/kalkulace', label: dictionary.navigation.calculations, key: 'kalkulace', icon: '∑' },
+        { href: '/kalkulace', label: dictionary.navigation.calculations, key: 'kalkulace', icon: 'Σ' },
         { href: '/cenove-nabidky', label: dictionary.navigation.quotes, key: 'quotes', icon: '%' },
       ],
     },
@@ -277,75 +272,6 @@ export default function DashboardSidebar({
           ))}
         </nav>
 
-        <div
-          style={{
-            display: 'none',
-            marginTop: 'auto',
-            paddingTop: '14px',
-            borderTop: '1px solid rgba(255,255,255,0.1)',
-            gap: '8px',
-          }}
-        >
-          <div
-            style={{
-              padding: '12px',
-              borderRadius: '18px',
-              background: 'linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.04))',
-              border: '1px solid rgba(255,255,255,0.12)',
-              boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.08)',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
-              <div
-                style={{
-                  width: '36px',
-                  height: '36px',
-                  borderRadius: '14px',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  background: 'linear-gradient(135deg, #7c3aed 0%, #2563eb 52%, #06b6d4 100%)',
-                  color: '#ffffff',
-                  fontWeight: 950,
-                  flexShrink: 0,
-                }}
-              >
-                AA
-              </div>
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: '14px', fontWeight: 850, color: '#ffffff' }}>Adam Admin</div>
-                <div style={{ fontSize: '12px', color: 'rgba(226,232,240,0.72)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {activeCompanyName}
-                </div>
-              </div>
-            </div>
-            <Link href="/ucet" onClick={onNavigate} style={sidebarMiniLink}>
-              Můj účet
-            </Link>
-          </div>
-
-          <Link href="/napoveda" onClick={onNavigate} style={sidebarFooterLink}>
-            <span>?</span>
-            <span>{dictionary.navigation.help}</span>
-          </Link>
-          {onLogout ? (
-            <button
-              type="button"
-              onClick={onLogout}
-              disabled={loggingOut}
-              style={{
-                ...sidebarFooterLink,
-                width: '100%',
-                border: '1px solid rgba(255,255,255,0.1)',
-                cursor: loggingOut ? 'default' : 'pointer',
-                opacity: loggingOut ? 0.72 : 1,
-              }}
-            >
-              <span>×</span>
-              <span>{loggingOut ? dictionary.common.loggingOut : dictionary.common.logout}</span>
-            </button>
-          ) : null}
-        </div>
       </aside>
 
       <style>{`
@@ -392,33 +318,5 @@ export default function DashboardSidebar({
     </>
   )
 }
-
-const sidebarFooterLink = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: '10px',
-  padding: '9px 11px',
-  borderRadius: '14px',
-  backgroundColor: 'rgba(255,255,255,0.045)',
-  color: '#ffffff',
-  textDecoration: 'none',
-  fontSize: '13px',
-  fontWeight: 800,
-  boxSizing: 'border-box',
-} as const
-
-const sidebarMiniLink = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  width: '100%',
-  padding: '8px 10px',
-  borderRadius: '12px',
-  backgroundColor: 'rgba(255,255,255,0.08)',
-  color: '#ffffff',
-  textDecoration: 'none',
-  fontSize: '13px',
-  fontWeight: 850,
-} as const
 
 

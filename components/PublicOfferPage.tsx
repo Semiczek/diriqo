@@ -289,19 +289,20 @@ export default function PublicOfferPage({
       style={{
         minHeight: '100vh',
         background:
-          'radial-gradient(circle at top left, rgba(191, 219, 254, 0.55), transparent 34%), linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%)',
-        padding: '32px 16px 56px',
+          'radial-gradient(circle at 12% 0%, rgba(217, 70, 239, 0.18), transparent 34%), radial-gradient(circle at 86% 8%, rgba(6, 182, 212, 0.22), transparent 32%), linear-gradient(180deg, #f8fbff 0%, #eef4ff 48%, #f8fafc 100%)',
+        padding: '28px 16px 56px',
         color: '#111827',
       }}
     >
-      <main style={{ maxWidth: '1020px', margin: '0 auto', display: 'grid', gap: '20px' }}>
+      <main style={{ maxWidth: '1080px', margin: '0 auto', display: 'grid', gap: '22px' }}>
         <section
           style={{
-            borderRadius: '28px',
-            border: '1px solid #dbe4f0',
-            backgroundColor: '#ffffff',
-            padding: '28px',
-            boxShadow: '0 20px 60px rgba(15, 23, 42, 0.08)',
+            borderRadius: '32px',
+            border: '1px solid rgba(124, 58, 237, 0.2)',
+            background:
+              'linear-gradient(135deg, rgba(255,255,255,0.98) 0%, rgba(255,255,255,0.92) 58%, rgba(236,254,255,0.96) 100%)',
+            padding: '0',
+            boxShadow: '0 24px 70px rgba(15, 23, 42, 0.12)',
             overflow: 'hidden',
             position: 'relative',
           }}
@@ -309,36 +310,113 @@ export default function PublicOfferPage({
           <div
             style={{
               position: 'absolute',
-              inset: '0 auto auto 0',
-              width: '220px',
-              height: '220px',
-              background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.12), rgba(37, 99, 235, 0.1))',
-              borderBottomRightRadius: '999px',
+              inset: '-120px auto auto -90px',
+              width: '380px',
+              height: '380px',
+              background: 'radial-gradient(circle, rgba(217, 70, 239, 0.28), rgba(37, 99, 235, 0.16) 48%, transparent 70%)',
+              borderRadius: '999px',
+              filter: 'blur(2px)',
+              pointerEvents: 'none',
+            }}
+          />
+          <div
+            style={{
+              position: 'absolute',
+              inset: 'auto -120px -140px auto',
+              width: '420px',
+              height: '420px',
+              background: 'radial-gradient(circle, rgba(34, 211, 238, 0.28), rgba(59, 130, 246, 0.12) 46%, transparent 72%)',
+              borderRadius: '999px',
               pointerEvents: 'none',
             }}
           />
 
-          <div style={{ position: 'relative', display: 'grid', gap: '24px' }}>
+          <div
+            style={{
+              position: 'relative',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '18px',
+              padding: '22px 28px',
+              background:
+                'linear-gradient(90deg, rgba(4, 9, 28, 0.96), rgba(15, 23, 42, 0.9) 52%, rgba(8, 47, 73, 0.86))',
+              borderBottom: '1px solid rgba(255,255,255,0.12)',
+              flexWrap: 'wrap',
+            }}
+          >
+            <img
+              src="/diriqo-logo-full.png"
+              alt="Diriqo"
+              style={{
+                width: '158px',
+                height: 'auto',
+                display: 'block',
+                filter: 'drop-shadow(0 12px 28px rgba(34, 211, 238, 0.2))',
+              }}
+            />
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '10px',
+                color: '#e0f2fe',
+                fontSize: '13px',
+                fontWeight: 800,
+                textTransform: 'uppercase',
+                letterSpacing: '0.08em',
+              }}
+            >
+              <span
+                style={{
+                  width: '10px',
+                  height: '10px',
+                  borderRadius: '999px',
+                  background: 'linear-gradient(135deg, #d946ef, #06b6d4)',
+                  boxShadow: '0 0 18px rgba(34, 211, 238, 0.9)',
+                }}
+              />
+              Online nabídka
+            </div>
+          </div>
+
+          <div style={{ position: 'relative', display: 'grid', gap: '26px', padding: '32px 34px 34px' }}>
             <div style={{ display: 'grid', gap: '12px' }}>
               <div
                 style={{
-                  fontSize: '13px',
-                  fontWeight: 700,
-                  letterSpacing: '0.08em',
+                  width: 'fit-content',
+                  borderRadius: '999px',
+                  border: '1px solid rgba(124, 58, 237, 0.24)',
+                  background: 'linear-gradient(135deg, rgba(250, 245, 255, 0.95), rgba(236, 254, 255, 0.95))',
+                  padding: '8px 13px',
+                  fontSize: '12px',
+                  fontWeight: 900,
+                  letterSpacing: '0.07em',
                   textTransform: 'uppercase',
-                  color: '#475569',
+                  color: '#5b21b6',
                 }}
               >
                 Online cenová nabídka
               </div>
 
-              <h1 style={{ margin: 0, fontSize: 'clamp(32px, 5vw, 56px)', lineHeight: 1.02 }}>{title}</h1>
+              <h1
+                style={{
+                  margin: 0,
+                  maxWidth: '880px',
+                  fontSize: 'clamp(38px, 6vw, 68px)',
+                  lineHeight: 0.98,
+                  color: '#08111f',
+                  fontWeight: 900,
+                }}
+              >
+                {title}
+              </h1>
 
-              <div style={{ color: '#475569', fontSize: '18px', fontWeight: 600 }}>
+              <div style={{ color: '#334155', fontSize: '19px', fontWeight: 800 }}>
                 {customerName || 'Řešení připravené na míru'}
               </div>
 
-              <div style={{ maxWidth: '720px', color: '#334155', fontSize: '18px', lineHeight: 1.65 }}>{heroSummary}</div>
+              <div style={{ maxWidth: '760px', color: '#475569', fontSize: '18px', lineHeight: 1.65 }}>{heroSummary}</div>
 
               {successMessage ? (
                 <div
@@ -366,15 +444,17 @@ export default function PublicOfferPage({
             >
               <div
                 style={{
-                  borderRadius: '22px',
-                  backgroundColor: '#f8fafc',
-                  border: '1px solid #e2e8f0',
-                  padding: '20px',
+                  borderRadius: '24px',
+                  background:
+                    'linear-gradient(180deg, rgba(255,255,255,0.96), rgba(248,250,252,0.94))',
+                  border: '1px solid rgba(203, 213, 225, 0.9)',
+                  padding: '22px',
                   display: 'grid',
                   gap: '12px',
+                  boxShadow: '0 16px 44px rgba(15, 23, 42, 0.06)',
                 }}
               >
-                <div style={{ fontSize: '16px', fontWeight: 800 }}>Hlavní přínosy nabídky</div>
+                <div style={{ fontSize: '17px', fontWeight: 900, color: '#0f172a' }}>Hlavní přínosy nabídky</div>
                 <div style={{ display: 'grid', gap: '10px' }}>
                   {keyBenefits.map((benefit) => (
                     <div
@@ -387,7 +467,7 @@ export default function PublicOfferPage({
                         lineHeight: 1.55,
                       }}
                     >
-                      <span style={{ color: '#166534', fontWeight: 900 }}>•</span>
+                      <span style={{ color: '#06b6d4', fontWeight: 900 }}>•</span>
                       <span>{benefit}</span>
                     </div>
                   ))}
@@ -399,18 +479,21 @@ export default function PublicOfferPage({
 
               <div
                 style={{
-                  borderRadius: '22px',
-                  backgroundColor: '#111827',
+                  borderRadius: '26px',
+                  background:
+                    'radial-gradient(circle at 22% 0%, rgba(217,70,239,0.28), transparent 34%), radial-gradient(circle at 100% 0%, rgba(6,182,212,0.28), transparent 38%), linear-gradient(135deg, #070b1a 0%, #101827 62%, #06243a 100%)',
                   color: '#ffffff',
-                  padding: '20px',
+                  padding: '24px',
                   display: 'grid',
                   gap: '14px',
                   alignContent: 'start',
+                  border: '1px solid rgba(255,255,255,0.12)',
+                  boxShadow: '0 22px 58px rgba(15, 23, 42, 0.22), inset 0 1px 0 rgba(255,255,255,0.12)',
                 }}
               >
                 <div>
                   <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '13px', marginBottom: '6px' }}>Cena celkem</div>
-                  <div style={{ fontSize: 'clamp(28px, 4vw, 40px)', fontWeight: 800 }}>{formatCurrency(priceTotal)}</div>
+                  <div style={{ fontSize: 'clamp(34px, 5vw, 52px)', fontWeight: 900 }}>{formatCurrency(priceTotal)}</div>
                 </div>
 
                 {timelineSection?.content ? (
@@ -428,7 +511,7 @@ export default function PublicOfferPage({
                 </div>
 
                 <div style={{ display: 'grid', gap: '12px', marginTop: '4px', justifyItems: 'start', width: '100%' }}>
-                  <CtaButton onClick={handleOpenPricingDetail} label="Detail cenové nabídky" />
+                  <CtaButton onClick={handleOpenPricingDetail} label="Detail cenové nabídky" primary />
                 </div>
               </div>
             </div>

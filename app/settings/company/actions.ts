@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 
 import { COMPANY_MODULE_KEYS, type CompanyModuleKey } from '@/lib/company-settings-shared'
+import { resolveCompanyTimeZone } from '@/lib/company-timezone'
 import { requireHubAccess } from '@/lib/require-hub-access'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 
@@ -45,6 +46,19 @@ function enumValue<T extends string>(formData: FormData, key: string, allowed: r
   return allowed.includes(value as T) ? (value as T) : fallback
 }
 
+function nullablePayType(formData: FormData, key: string) {
+  const value = asText(formData, key)
+  if (!value) return null
+  return ['after_shift', 'weekly', 'biweekly', 'monthly'].includes(value) ? value : null
+}
+
+function nullableBooleanOverride(formData: FormData, key: string) {
+  const value = asText(formData, key)
+  if (value === 'enabled') return true
+  if (value === 'disabled') return false
+  return null
+}
+
 async function requireCompanySettingsAccess() {
   const activeCompany = await requireHubAccess()
   const role = (activeCompany.role ?? '').toLowerCase()
@@ -85,7 +99,7 @@ export async function updateCompanyBasicInfo(formData: FormData): Promise<Settin
         address: asText(formData, 'address'),
         currency: asRequiredText(formData, 'currency', 'CZK'),
         locale: asRequiredText(formData, 'locale', 'cs-CZ'),
-        timezone: asRequiredText(formData, 'timezone', 'Europe/Prague'),
+        timezone: resolveCompanyTimeZone(asText(formData, 'timezone')),
       })
       .eq('id', activeCompany.companyId)
 
@@ -204,15 +218,12 @@ export async function updateWorkerPaymentSettings(formData: FormData): Promise<S
         company_id: activeCompany.companyId,
         profile_id: profileId,
         worker_type: enumValue(formData, 'worker_type', ['employee', 'contractor'] as const, 'employee'),
-        pay_type_override: asText(formData, 'pay_type_override'),
+        pay_type_override: nullablePayType(formData, 'pay_type_override'),
         payday_day_override: asInteger(formData, 'payday_day_override'),
         payday_weekday_override: asInteger(formData, 'payday_weekday_override'),
         hourly_rate: asNumber(formData, 'hourly_rate'),
         fixed_rate_per_job: asNumber(formData, 'fixed_rate_per_job'),
-        advances_enabled_override:
-          formData.get('advances_enabled_override_mode') === 'inherit'
-            ? null
-            : asBoolean(formData, 'advances_enabled_override'),
+        advances_enabled_override: nullableBooleanOverride(formData, 'advances_enabled_override_mode'),
         advance_limit_amount_override: asNumber(formData, 'advance_limit_amount_override'),
         contractor_company_name: asText(formData, 'contractor_company_name'),
         contractor_registration_no: asText(formData, 'contractor_registration_no'),

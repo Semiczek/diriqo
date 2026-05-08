@@ -6,7 +6,7 @@ import { getPortalInvoices } from '@/lib/customer-portal/data'
 
 export default async function PortalInvoicesPage() {
   const portalUser = await requirePortalUserContext()
-  const invoices = await getPortalInvoices(portalUser.customerId)
+  const invoices = await getPortalInvoices(portalUser.customerId, portalUser.companyId ?? '')
   const invoicesByMonth = invoices.reduce<Array<{ monthKey: string; monthLabel: string; items: typeof invoices }>>(
     (groups, invoice) => {
       const monthKey = invoice.monthValue ?? 'unknown'

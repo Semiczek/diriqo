@@ -25,6 +25,8 @@ type ResendWebhookPayload = {
   }
 }
 
+class WebhookAuthError extends Error {}
+
 function getResendClient() {
   const apiKey = process.env.RESEND_API_KEY?.trim()
   if (!apiKey) throw new Error('Chybí RESEND_API_KEY.')
@@ -39,16 +41,27 @@ function getWebhookSecret() {
 
 async function verifyWebhook(request: NextRequest, payload: string) {
   const resend = getResendClient()
+  const id = request.headers.get('svix-id') ?? ''
+  const timestamp = request.headers.get('svix-timestamp') ?? ''
+  const signature = request.headers.get('svix-signature') ?? ''
 
-  return resend.webhooks.verify({
-    payload,
-    headers: {
-      id: request.headers.get('svix-id') ?? '',
-      timestamp: request.headers.get('svix-timestamp') ?? '',
-      signature: request.headers.get('svix-signature') ?? '',
-    },
-    webhookSecret: getWebhookSecret(),
-  })
+  if (!id || !timestamp || !signature) {
+    throw new WebhookAuthError('Missing Resend webhook signature headers.')
+  }
+
+  try {
+    return await resend.webhooks.verify({
+      payload,
+      headers: {
+        id,
+        timestamp,
+        signature,
+      },
+      webhookSecret: getWebhookSecret(),
+    })
+  } catch {
+    throw new WebhookAuthError('Invalid Resend webhook signature.')
+  }
 }
 
 async function updateOutboundStatusByProviderMessageId(
@@ -238,6 +251,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, skipped: true })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unexpected error'
+    if (error instanceof WebhookAuthError) {
+      console.warn('[EMAIL] Resend webhook signature rejected', { error: message })
+      return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
+    }
+
     console.error('[EMAIL] Resend webhook processing failed', { error: message })
     return NextResponse.json({ ok: false, error: message }, { status: 500 })
   }

@@ -4,28 +4,34 @@ import type { CSSProperties, ReactNode } from 'react'
 import DashboardShell from '../../components/DashboardShell'
 import DashboardMonthPicker from '../../components/DashboardMonthPicker'
 import DashboardQuickNotes from '../../components/DashboardQuickNotes'
+import FirstRunChecklist from '@/components/FirstRunChecklist'
 import { getRequestDictionary } from '@/lib/i18n/server'
+import { listJobEconomicsSummaries } from '@/lib/dal/economics'
+import { calculateQuotedJobEconomics, type JobEconomicsSummary } from '@/lib/economics'
+import { getFirstRunChecklist } from '@/lib/onboarding'
+import { resolveCompanyTimeZone } from '@/lib/company-timezone'
 import { getActiveCompanyContext } from '../../lib/active-company'
 import {
   endOfTodayPrague,
   endOfTomorrowPrague,
   endOfWeekPrague,
+  formatDateKeyInTimeZone,
   formatMonthInputValue,
   formatPragueDateKey,
   getCurrentMonthValuePrague,
   getDaysInMonth,
   getNowPrague,
+  getPartsFromDateInTimeZone,
   getPraguePartsFromDate,
   getPragueWeekday,
   getMonthRangeFromValue,
   overlapsRange,
   parseDateSafe,
-  PRAGUE_TZ,
-  pragueWallTimeToDate,
   shiftMonthRange,
   startOfTodayPrague,
   startOfTomorrowPrague,
   startOfWeekPrague,
+  wallTimeToDateInTimeZone,
 } from '@/lib/date/prague-time'
 import {
   formatCurrency,
@@ -54,7 +60,6 @@ import type {
 import { getQuoteStatusLabel, getQuoteStatusStyle, resolveQuoteStatus } from '../../lib/quote-status'
 import { createSupabaseServerClient } from '../../lib/supabase-server'
 import { buildJobGroups, getJobGroupRootId } from '../../lib/job-grouping'
-import { getContractorBillingType, getWorkerType } from '@/lib/payroll-settings'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -179,6 +184,16 @@ type QuoteDashboardRow = {
   created_at: string | null
 }
 
+type DashboardInvoiceRow = {
+  id: string
+  company_id: string | null
+  customer_id: string | null
+  invoice_number: string | null
+  status: string | null
+  due_date: string | null
+  total_with_vat: number | string | null
+}
+
 type WorkShiftDashboardRow = {
   id: string
   company_id?: string | null
@@ -236,6 +251,7 @@ type MonthEconomyJob = {
   otherCost: number
   profit: number
   revenue: number
+  invoicedRevenue: number
   margin: number | null
   start_at: string | null
   end_at: string | null
@@ -271,27 +287,27 @@ function roundHours(value: number): number {
   return Math.round(value * 100) / 100
 }
 
-function formatDateLabel(date: Date): string {
+function formatDateLabel(date: Date, timeZone: string): string {
   return new Intl.DateTimeFormat('cs-CZ', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
-    timeZone: PRAGUE_TZ,
+    timeZone,
   }).format(date)
 }
 
-function formatTimeFromDate(value: Date | null): string {
+function formatTimeFromDate(value: Date | null, timeZone: string): string {
   if (!value) return '-'
 
   return new Intl.DateTimeFormat('cs-CZ', {
     hour: '2-digit',
     minute: '2-digit',
-    timeZone: PRAGUE_TZ,
+    timeZone,
   }).format(value)
 }
 
-function formatShortDateTime(value: string | null): string {
-  const date = parseDateSafe(value)
+function formatShortDateTime(value: string | null, timeZone: string): string {
+  const date = parseDateSafe(value, timeZone)
   if (!date) return '\u2014'
 
   return new Intl.DateTimeFormat('cs-CZ', {
@@ -300,7 +316,7 @@ function formatShortDateTime(value: string | null): string {
     month: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
-    timeZone: PRAGUE_TZ,
+    timeZone,
   }).format(date)
 }
 
@@ -331,9 +347,9 @@ function buildDashboardHref({
   return query ? `/?${query}` : '/'
 }
 
-function getWeekSegmentsForMonth(monthStart: Date) {
-  const daysInMonth = getDaysInMonth(monthStart)
-  const monthParts = getPraguePartsFromDate(monthStart)
+function getWeekSegmentsForMonth(monthStart: Date, timeZone: string) {
+  const daysInMonth = getDaysInMonth(monthStart, timeZone)
+  const monthParts = getPartsFromDateInTimeZone(monthStart, timeZone)
   const segments: Array<{
     value: string
     label: string
@@ -345,11 +361,11 @@ function getWeekSegmentsForMonth(monthStart: Date) {
   let weekIndex = 0
 
   while (startDay <= daysInMonth && weekIndex < 5) {
-    const start = pragueWallTimeToDate(monthParts.year, monthParts.month, startDay, 0, 0, 0)
+    const start = wallTimeToDateInTimeZone(monthParts.year, monthParts.month, startDay, 0, 0, 0, timeZone)
     const weekday = getPragueWeekday(monthParts.year, monthParts.month, startDay)
     const daysUntilSunday = weekday === 0 ? 0 : 7 - weekday
     const endDay = Math.min(daysInMonth, startDay + daysUntilSunday)
-    const end = pragueWallTimeToDate(monthParts.year, monthParts.month, endDay, 23, 59, 59)
+    const end = wallTimeToDateInTimeZone(monthParts.year, monthParts.month, endDay, 23, 59, 59, timeZone)
 
     segments.push({
       value: String(weekIndex + 1),
@@ -385,7 +401,8 @@ function getRelevantTimeRangeForDay(
   startAt: string | null,
   endAt: string | null,
   dayStart: Date,
-  dayEnd: Date
+  dayEnd: Date,
+  timeZone: string
 ) {
   const start = parseDateSafe(startAt)
   const end = parseDateSafe(endAt)
@@ -394,8 +411,8 @@ function getRelevantTimeRangeForDay(
   const effectiveEnd = end && end < dayEnd ? end : dayEnd
 
   return {
-    startLabel: formatTimeFromDate(effectiveStart),
-    endLabel: formatTimeFromDate(effectiveEnd),
+    startLabel: formatTimeFromDate(effectiveStart, timeZone),
+    endLabel: formatTimeFromDate(effectiveEnd, timeZone),
   }
 }
 
@@ -422,12 +439,13 @@ function getDisplayWorkStateForDay(
 function isDateInDateKeyRange(
   value: string | null | undefined,
   startDate: string,
-  endExclusiveDate: string
+  endExclusiveDate: string,
+  timeZone: string
 ) {
-  const date = parseDateSafe(value)
+  const date = parseDateSafe(value, timeZone)
   if (!date) return false
 
-  const dateKey = formatPragueDateKey(date)
+  const dateKey = formatDateKeyInTimeZone(date, timeZone)
   return dateKey >= startDate && dateKey < endExclusiveDate
 }
 
@@ -613,10 +631,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const resolvedSearchParams = searchParams ? await searchParams : undefined
   const selectedJobsDay =
     resolvedSearchParams?.jobs_day === 'tomorrow' ? 'tomorrow' : 'today'
-  const summaryMonthConfig = getMonthRangeFromValue(resolvedSearchParams?.summary_month)
-  const selectedSummaryMonth = summaryMonthConfig.value
-  const selectedSummaryWeekRaw = (resolvedSearchParams?.summary_week ?? '').trim()
-  const payrollMonthConfig = getPayrollRangeFromMonthValue(selectedSummaryMonth)
 
   const activeCompany = await getActiveCompanyContext()
 
@@ -640,19 +654,25 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   }
 
   const companyId = activeCompany.companyId
+  const companyTimeZone = resolveCompanyTimeZone(activeCompany.timeZone)
+  const summaryMonthConfig = getMonthRangeFromValue(resolvedSearchParams?.summary_month, companyTimeZone)
+  const selectedSummaryMonth = summaryMonthConfig.value
+  const selectedSummaryWeekRaw = (resolvedSearchParams?.summary_week ?? '').trim()
+  const payrollMonthConfig = getPayrollRangeFromMonthValue(selectedSummaryMonth, companyTimeZone)
   const supabase = await createSupabaseServerClient()
+  const firstRunChecklist = await getFirstRunChecklist(supabase, companyId)
 
-  const todayStart = startOfTodayPrague()
-  const todayEnd = endOfTodayPrague()
-  const tomorrowStart = startOfTomorrowPrague()
-  const tomorrowEnd = endOfTomorrowPrague()
-  const weekStart = startOfWeekPrague()
-  const weekEnd = endOfWeekPrague()
-  const summaryPreviousMonthRange = shiftMonthRange(summaryMonthConfig.start, -1)
-  const summaryNextMonthRange = shiftMonthRange(summaryMonthConfig.start, 1)
+  const todayStart = startOfTodayPrague(companyTimeZone)
+  const todayEnd = endOfTodayPrague(companyTimeZone)
+  const tomorrowStart = startOfTomorrowPrague(companyTimeZone)
+  const tomorrowEnd = endOfTomorrowPrague(companyTimeZone)
+  const weekStart = startOfWeekPrague(companyTimeZone)
+  const weekEnd = endOfWeekPrague(companyTimeZone)
+  const summaryPreviousMonthRange = shiftMonthRange(summaryMonthConfig.start, -1, companyTimeZone)
+  const summaryNextMonthRange = shiftMonthRange(summaryMonthConfig.start, 1, companyTimeZone)
   const previousMonthRange = summaryPreviousMonthRange
-  const summaryWeekSegments = getWeekSegmentsForMonth(summaryMonthConfig.start)
-  const currentMonthValue = getCurrentMonthValuePrague()
+  const summaryWeekSegments = getWeekSegmentsForMonth(summaryMonthConfig.start, companyTimeZone)
+  const currentMonthValue = getCurrentMonthValuePrague(companyTimeZone)
   const isCurrentSummaryMonth = selectedSummaryMonth === currentMonthValue
   const autoSummaryWeekValue = isCurrentSummaryMonth
     ? summaryWeekSegments.find((segment) => overlapsRange(todayStart, todayStart, segment.start, segment.end))
@@ -665,8 +685,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     summaryWeekSegments.find((segment) => segment.value === selectedSummaryWeek) ??
     summaryWeekSegments[0]
 
-  const todayShiftDate = formatPragueDateKey(todayStart)
-  const tomorrowShiftDate = formatPragueDateKey(tomorrowStart)
+  const todayShiftDate = formatDateKeyInTimeZone(todayStart, companyTimeZone)
+  const tomorrowShiftDate = formatDateKeyInTimeZone(tomorrowStart, companyTimeZone)
   const selectedDayStart = selectedJobsDay === 'tomorrow' ? tomorrowStart : todayStart
   const selectedDayEnd = selectedJobsDay === 'tomorrow' ? tomorrowEnd : todayEnd
   const selectedShiftDate = selectedJobsDay === 'tomorrow' ? tomorrowShiftDate : todayShiftDate
@@ -679,6 +699,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     shiftsResponse,
     advancesResponse,
     quotesResponse,
+    invoicesResponse,
     jobParentLinksResponse,
   ] = await Promise.all([
     supabase
@@ -751,7 +772,14 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       .select('id, company_id, customer_id, quote_number, title, status, valid_until, total_price, created_at')
       .eq('company_id', companyId)
       .order('created_at', { ascending: false })
-      .limit(4),
+      .limit(20),
+
+    supabase
+      .from('invoices')
+      .select('id, company_id, customer_id, invoice_number, status, due_date, total_with_vat')
+      .eq('company_id', companyId)
+      .order('due_date', { ascending: true })
+      .limit(50),
 
     supabase
       .from('jobs')
@@ -796,6 +824,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   )
   const jobIds = jobs.map((job) => job.id)
   const profileIds = Array.from(activeMemberProfileIds)
+  const economicsSummaries: JobEconomicsSummary[] = await listJobEconomicsSummaries(
+    {
+      supabase,
+      companyId,
+    },
+    jobIds
+  )
   const [
     assignmentCostsResponse,
     jobCostItemsResponse,
@@ -885,6 +920,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const quotes = ((quotesResponse.data ?? []) as QuoteDashboardRow[]).filter(
     (quote) => !quote.company_id || quote.company_id === companyId
   )
+  const invoices = ((invoicesResponse.data ?? []) as DashboardInvoiceRow[]).filter(
+    (invoice) => !invoice.company_id || invoice.company_id === companyId
+  )
 
   const customerMap = new Map(customers.map((customer) => [customer.id, customer.name ?? 'Bez zákazníka']))
   const assignmentCountByJobId = allAssignments.reduce((map, assignment) => {
@@ -893,50 +931,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     return map
   }, new Map<string, number>())
 
-  const laborByJobId = new Map<string, number>()
-  const externalLaborByJobId = new Map<string, number>()
-  const otherCostsByJobId = new Map<string, number>()
-  for (const assignment of assignmentCosts) {
-    if (!assignment.job_id) continue
-
-    const profileRelation = asSingleRelation(assignment.profiles)
-    const workerType = getWorkerType({
-      worker_type: assignment.worker_type_snapshot ?? profileRelation?.worker_type,
-    })
-    const billingType = getContractorBillingType(
-      assignment.assignment_billing_type ?? profileRelation?.contractor_billing_type
-    )
-    const hourlyRate = toNumber(
-      assignment.hourly_rate ??
-        profileRelation?.contractor_default_rate ??
-        profileRelation?.default_hourly_rate
-    )
-    const laborCost =
-      workerType === 'contractor' && billingType !== 'hourly' && assignment.external_amount != null
-        ? toNumber(assignment.external_amount)
-        : toNumber(assignment.labor_hours) * hourlyRate
-
-    if (workerType === 'contractor') {
-      externalLaborByJobId.set(
-        assignment.job_id,
-        (externalLaborByJobId.get(assignment.job_id) ?? 0) + laborCost
-      )
-    } else {
-      laborByJobId.set(assignment.job_id, (laborByJobId.get(assignment.job_id) ?? 0) + laborCost)
-    }
-  }
-  const companyMonthLaborTotal = Array.from(laborByJobId.values()).reduce((sum, value) => sum + value, 0)
-
-  for (const item of jobCostItems) {
-    if (!item.job_id) continue
-
-    const directCost =
-      item.total_price != null
-        ? toNumber(item.total_price)
-        : toNumber(item.quantity) * toNumber(item.unit_price)
-
-    otherCostsByJobId.set(item.job_id, (otherCostsByJobId.get(item.job_id) ?? 0) + directCost)
-  }
+  void assignmentCosts
+  void jobCostItems
+  const economicsByJobId = new Map(economicsSummaries.map((summary) => [summary.job_id, summary]))
 
   const isVisibleInDailyOverview = (job: JobRow, dayStart: Date, dayEnd: Date) =>
     overlapsDay(job.start_at, job.end_at, dayStart, dayEnd) && job.time_state !== 'finished'
@@ -972,8 +969,11 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       const rootId = getJobGroupRootId(job.id, groupedParentByJobId)
       const rootJob = jobsById.get(rootId) ?? job
       const current = grouped.get(rootId)
-      const nextLaborCost = laborByJobId.get(job.id) ?? 0
-      const nextOtherCost = (otherCostsByJobId.get(job.id) ?? 0) + (externalLaborByJobId.get(job.id) ?? 0)
+      const economicsSummary = economicsByJobId.get(job.id)
+      const nextLaborCost = toNumber(economicsSummary?.labor_cost_total)
+      const nextOtherCost = toNumber(economicsSummary?.other_cost_total)
+      const nextRevenue = toNumber(economicsSummary?.revenue_total)
+      const nextPrice = toNumber(job.price)
 
       const nextStart =
         [current?.start_at, job.start_at, rootJob.start_at]
@@ -987,10 +987,15 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           .filter((value): value is Date => Boolean(value))
           .sort((a, b) => b.getTime() - a.getTime())[0] ?? null
 
-      const revenue = toNumber(rootJob.price)
+      const price = (current?.price ?? 0) + nextPrice
+      const invoicedRevenue = (current?.invoicedRevenue ?? 0) + nextRevenue
       const laborCost = (current?.laborCost ?? 0) + nextLaborCost
       const otherCost = (current?.otherCost ?? 0) + nextOtherCost
-      const profit = revenue - laborCost - otherCost
+      const quotedEconomics = calculateQuotedJobEconomics({
+        quotedRevenue: price,
+        laborCost,
+        otherCost,
+      })
       const completed =
         (current?.completed ?? false) || isCompletedJob(rootJob.work_state) || isCompletedJob(job.work_state)
       const timeFinished =
@@ -1006,14 +1011,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         id: rootJob.id,
         title: rootJob.title ?? job.title ?? 'Bez názvu',
         customer_id: rootJob.customer_id ?? job.customer_id ?? null,
-        // Revenue comes from the root parent job, while costs are summed
-        // across the full parent + child group to avoid duplicating the parent price.
-        // Dashboard profit uses completed work, independent of invoicing status.
-        price: toNumber(rootJob.price),
+        price: quotedEconomics.quotedRevenue,
         laborCost,
         otherCost,
-        revenue,
-        margin: revenue > 0 ? (profit / revenue) * 100 : null,
+        revenue: quotedEconomics.quotedRevenue,
+        invoicedRevenue,
+        margin: quotedEconomics.margin_percent,
         start_at: nextStart ? nextStart.toISOString() : rootJob.start_at ?? job.start_at ?? null,
         end_at: nextEnd ? nextEnd.toISOString() : rootJob.end_at ?? job.end_at ?? null,
         created_at: rootJob.created_at ?? job.created_at ?? null,
@@ -1021,7 +1024,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         invoiced,
         completed,
         timeFinished,
-        profit,
+        profit: quotedEconomics.profit,
       })
     }
 
@@ -1037,12 +1040,11 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const monthInvoicedJobs = monthEconomyJobs.filter((job) => job.invoiced)
   const monthProfitJobs = monthCompletedJobs
   const monthReadyToInvoice = monthWaitingForInvoiceJobs.reduce((sum, job) => sum + job.price, 0)
-  const monthInvoiced = monthInvoicedJobs.reduce((sum, job) => sum + job.price, 0)
+  const monthInvoiced = monthInvoicedJobs.reduce((sum, job) => sum + job.invoicedRevenue, 0)
   const monthLabor = monthProfitJobs.reduce((sum, job) => sum + job.laborCost, 0)
   const monthOther = monthProfitJobs.reduce((sum, job) => sum + job.otherCost, 0)
   const monthTotalCosts = monthLabor + monthOther
-  // KPI profit is based only on completed jobs in the selected month:
-  // completed job prices minus other costs minus work from job assignments.
+  // KPI profit follows the same central job economics as the jobs list: job price minus labor and direct costs.
   const monthProfit = monthProfitJobs.reduce((sum, job) => sum + job.profit, 0)
 
   const weekAbsences = absences.filter((item) =>
@@ -1070,7 +1072,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     const status = (item.status ?? '').trim().toLowerCase()
     if (status !== 'paid') return false
     if (!item.profile_id || !activeMemberProfileIds.has(item.profile_id)) return false
-    if (!isDateInDateKeyRange(item.paid_at, payrollMonthConfig.startDate, payrollMonthConfig.endExclusiveDate)) return false
+    if (!isDateInDateKeyRange(item.paid_at, payrollMonthConfig.startDate, payrollMonthConfig.endExclusiveDate, companyTimeZone)) return false
     return !isWorkerAdvanceBackfilledFromRequest(item, payrollWorkerAdvances)
   })
   const payrollAdvanceTotal = payrollWorkerAdvances.reduce(
@@ -1087,6 +1089,16 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       !isCompletedJob(job.work_state) &&
       Math.max(toNumber(job.assigned_total), assignmentCountByJobId.get(job.id) ?? 0) === 0
   )
+  const inProgressJobs = operationalJobs.filter(
+    (job) => job.work_state === 'in_progress' || toNumber(job.active_workers) > 0
+  )
+  const overdueQuotes = quotes.filter((quote) => resolveQuoteStatus(quote.status, quote.valid_until) === 'expired')
+  const overdueInvoices = invoices.filter((invoice) => {
+    const dueDate = parseDateSafe(invoice.due_date)
+    const status = (invoice.status ?? '').trim().toLowerCase()
+
+    return Boolean(dueDate && dueDate < todayStart && !['paid', 'cancelled'].includes(status))
+  })
 
   const overdueBillingJobs = operationalJobs.filter(
     (job) => getVisibleBillingState(job.work_state, job.billing_state_resolved) === 'overdue'
@@ -1163,7 +1175,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     const date = parseDateSafe(job.end_at) ?? parseDateSafe(job.start_at) ?? parseDateSafe(job.created_at)
     if (!date || date < summaryMonthConfig.start || date > summaryMonthConfig.end) continue
 
-    const day = getPraguePartsFromDate(date).day
+    const day = getPartsFromDateInTimeZone(date, companyTimeZone).day
     const current = monthProfitByDay.get(day) ?? { profit: 0, revenue: 0, costs: 0 }
     const laborCost = job.laborCost
     const otherCost = job.otherCost
@@ -1289,7 +1301,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         id: job.id,
         title: job.title ?? t.unnamedJob,
         customer: customerMap.get(job.customer_id ?? '') ?? t.noCustomer,
-        meta: [formatShortDateTime(job.start_at), job.address].filter(Boolean).join(' • '),
+        meta: [formatShortDateTime(job.start_at, companyTimeZone), job.address].filter(Boolean).join(' • '),
         href: `/jobs/${job.id}`,
         actionHref: `/jobs/${job.id}`,
         actionLabel: 'Přiřadit pracovníka',
@@ -1305,7 +1317,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         id: job.id,
         title: job.title ?? t.unnamedJob,
         customer: customerMap.get(job.customer_id ?? '') ?? t.noCustomer,
-        meta: [formatShortDateTime(job.end_at ?? job.start_at), formatCurrency(toNumber(job.price))]
+        meta: [formatShortDateTime(job.end_at ?? job.start_at, companyTimeZone), formatCurrency(toNumber(job.price))]
           .filter(Boolean)
           .join(' • '),
         href: `/jobs/${job.id}`,
@@ -1325,12 +1337,48 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         id: job.id,
         title: job.title ?? t.unnamedJob,
         customer: customerMap.get(job.customer_id ?? '') ?? t.noCustomer,
-        meta: [formatShortDateTime(job.end_at ?? job.start_at), formatCurrency(toNumber(job.price))]
+        meta: [formatShortDateTime(job.end_at ?? job.start_at, companyTimeZone), formatCurrency(toNumber(job.price))]
           .filter(Boolean)
           .join(' • '),
         href: `/jobs/${job.id}`,
         actionHref: `/jobs/${job.id}`,
         actionLabel: 'Označit zaplaceno',
+      })),
+    },
+    {
+      key: 'overdue-invoices',
+      label: 'Faktury po splatnosti',
+      value: overdueInvoices.length,
+      severity: overdueInvoices.length > 0 ? 'critical' : 'ok',
+      emptyText: 'Žádná faktura není po splatnosti.',
+      items: overdueInvoices.map((invoice) => ({
+        id: invoice.id,
+        title: invoice.invoice_number ?? 'Faktura',
+        customer: customerMap.get(invoice.customer_id ?? '') ?? t.noCustomer,
+        meta: [formatShortDateTime(invoice.due_date, companyTimeZone), formatCurrency(toNumber(invoice.total_with_vat))]
+          .filter(Boolean)
+          .join(' • '),
+        href: `/invoices/${invoice.id}`,
+        actionHref: `/invoices/${invoice.id}`,
+        actionLabel: 'Otevřít fakturu',
+      })),
+    },
+    {
+      key: 'overdue-quotes',
+      label: 'Prošlé nabídky',
+      value: overdueQuotes.length,
+      severity: overdueQuotes.length > 0 ? 'warning' : 'ok',
+      emptyText: 'Žádná nabídka není po platnosti.',
+      items: overdueQuotes.map((quote) => ({
+        id: quote.id,
+        title: quote.title || quote.quote_number,
+        customer: customerMap.get(quote.customer_id ?? '') ?? t.noCustomer,
+        meta: [quote.quote_number, formatShortDateTime(quote.valid_until, companyTimeZone), formatCurrency(toNumber(quote.total_price))]
+          .filter(Boolean)
+          .join(' • '),
+        href: quote.customer_id ? `/customers/${quote.customer_id}/quotes/${quote.id}` : '/cenove-nabidky',
+        actionHref: quote.customer_id ? `/customers/${quote.customer_id}/quotes/${quote.id}` : '/cenove-nabidky',
+        actionLabel: 'Otevřít nabídku',
       })),
     },
     {
@@ -1343,7 +1391,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         id: advance.id,
         title: memberNameByProfileId.get(advance.profile_id ?? '') ?? 'Pracovník',
         customer: 'Žádost o zálohu',
-        meta: [formatCurrency(toNumber(advance.amount ?? advance.requested_amount)), formatShortDateTime(advance.requested_at ?? advance.created_at)]
+        meta: [formatCurrency(toNumber(advance.amount ?? advance.requested_amount)), formatShortDateTime(advance.requested_at ?? advance.created_at, companyTimeZone)]
           .filter(Boolean)
           .join(' • '),
         href: '/advance-requests',
@@ -1361,7 +1409,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         id: absence.id,
         title: memberNameByProfileId.get(absence.profile_id ?? '') ?? 'Pracovník',
         customer: 'Žádost o nepřítomnost',
-        meta: [formatDateLabel(parseDateSafe(absence.start_at) ?? todayStart), formatDateLabel(parseDateSafe(absence.end_at) ?? parseDateSafe(absence.start_at) ?? todayStart)]
+        meta: [formatDateLabel(parseDateSafe(absence.start_at, companyTimeZone) ?? todayStart, companyTimeZone), formatDateLabel(parseDateSafe(absence.end_at, companyTimeZone) ?? parseDateSafe(absence.start_at, companyTimeZone) ?? todayStart, companyTimeZone)]
           .filter(Boolean)
           .join(' • '),
         href: '/absences',
@@ -1390,12 +1438,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     jobsWithoutAssignments.length +
     overdueBillingJobs.length +
     waitingInvoiceJobs.length +
+    overdueInvoices.length +
+    overdueQuotes.length +
     pendingAdvances.length +
     pendingAbsences.length
-  const todayJobsWithoutAssignments = jobsWithoutAssignments.filter((job) =>
-    isVisibleInDailyOverview(job, todayStart, todayEnd)
-  )
-  const todayProblemCount = todayJobsWithoutAssignments.length + overdueBillingJobs.length
   const companyStateStyle = monthProfit < 0 ? companyStateCardLoss : companyStateCardProfit
   const companyStateSentence =
     monthProfit < 0
@@ -1455,7 +1501,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               <div>
                 <h1 style={stateTitle}>Přehled firmy</h1>
                 <div style={heroStatusRow}>
-                  <span style={heroDatePill}>{formatDateLabel(todayStart)}</span>
+                  <span style={heroDatePill}>{formatDateLabel(todayStart, companyTimeZone)}</span>
                 </div>
                 <p style={stateText}>
                   Objednávky k odbavení za {summaryMonthConfig.label}: {formatCurrency(monthOrdered)}.
@@ -1467,7 +1513,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                   <Link
                     href={buildDashboardHref({
                       jobsDay: selectedJobsDay,
-                      summaryMonth: formatMonthInputValue(summaryPreviousMonthRange.start),
+                      summaryMonth: formatMonthInputValue(summaryPreviousMonthRange.start, companyTimeZone),
                     })}
                     style={monthNavLink}
                   >
@@ -1483,7 +1529,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                   <Link
                     href={buildDashboardHref({
                       jobsDay: selectedJobsDay,
-                      summaryMonth: getCurrentMonthValuePrague(),
+                      summaryMonth: getCurrentMonthValuePrague(companyTimeZone),
                     })}
                     style={monthNavLink}
                   >
@@ -1493,7 +1539,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                   <Link
                     href={buildDashboardHref({
                       jobsDay: selectedJobsDay,
-                      summaryMonth: formatMonthInputValue(summaryNextMonthRange.start),
+                      summaryMonth: formatMonthInputValue(summaryNextMonthRange.start, companyTimeZone),
                     })}
                     style={monthNavLink}
                   >
@@ -1512,6 +1558,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             <DashboardQuickNotes storageKey={`diriqo:dashboard:quick-notes:${companyId}`} />
           </div>
         </section>
+
+        <FirstRunChecklist checklist={firstRunChecklist} />
 
         <section style={kpiSection}>
           <div style={kpiHeader}>
@@ -1537,6 +1585,14 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               accent="#16a34a"
             />
             <StatCard
+              title="Rozdělané zakázky"
+              value={String(inProgressJobs.length)}
+              subvalue="Práce, která právě běží"
+              detail="Operativní kontrola rozpracované práce"
+              accent="#0ea5e9"
+              urgent={inProgressJobs.length > 0}
+            />
+            <StatCard
               title="Hotovo tento měsíc"
               value={String(monthCompletedJobs.length)}
               subvalue={`Dokončené zakázky za ${summaryMonthConfig.label}`}
@@ -1552,10 +1608,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               urgent={waitingInvoiceTotal > 0 || waitingInvoiceJobs.length > 0}
             />
             <StatCard
-              title="Odhadovaný zisk"
+              title="Zisk zakázek"
               value={formatCurrency(monthProfit)}
-              subvalue="Po práci a nákladech"
-              detail="Orientační ekonomika firmy"
+              subvalue="Cena zakázek minus práce a přímé náklady"
+              detail="Provozní ekonomika firmy"
               accent="#06b6d4"
               highlight
             />
@@ -1599,7 +1655,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               <div style={panelTitle}>Dnes</div>
               <div style={panelSubtitle}>Lidé v práci, dnešní zakázky a odpracované hodiny v jednom přehledu.</div>
             </div>
-            <div style={monthBadge}>{formatDateLabel(todayStart)}</div>
+            <div style={monthBadge}>{formatDateLabel(todayStart, companyTimeZone)}</div>
           </div>
 
           <div style={operationsSummaryGrid}>
@@ -1700,7 +1756,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                       job.start_at,
                       job.end_at,
                       selectedDayStart,
-                      selectedDayEnd
+                      selectedDayEnd,
+                      companyTimeZone
                     )
                     const displayWorkState = getDisplayWorkStateForDay(
                       job,
@@ -1792,8 +1849,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                       return (
                         <Link key={job.id} href={`/jobs/${job.id}`} style={compactJobRow}>
                           <div style={jobTimeCol}>
-                            <div style={jobTime}>{formatDateLabel(parseDateSafe(job.start_at) ?? getNowPrague())}</div>
-                            <div style={jobTimeMuted}>{formatShortDateTime(job.end_at)}</div>
+                            <div style={jobTime}>{formatDateLabel(parseDateSafe(job.start_at, companyTimeZone) ?? getNowPrague(), companyTimeZone)}</div>
+                            <div style={jobTimeMuted}>{formatShortDateTime(job.end_at, companyTimeZone)}</div>
                           </div>
 
                           <div style={jobMainCol}>
@@ -1841,7 +1898,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               <EconomyLine label={t.invoiced} value={formatCurrency(monthInvoiced)} />
               <EconomyLine label="Nevyfakturováno" value={formatCurrency(monthReadyToInvoice)} />
               <EconomyLine label="Práce" value={formatCurrency(monthLabor)} />
-              <EconomyLine label={t.otherCosts} value={formatCurrency(monthOther)} />
+              <EconomyLine label="Přímé náklady" value={formatCurrency(monthOther)} />
               <EconomyLine label="Vyplacené zálohy" value={formatCurrency(payrollAdvanceTotal)} />
               <EconomyLine label="Zisk" value={formatCurrency(monthProfit)} strong />
             </div>
@@ -1907,7 +1964,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                           {quote.quote_number} • {customer}
                         </div>
                         <div style={dashboardListSubmeta}>
-                          {formatShortDateTime(quote.created_at)} • {formatCurrency(quote.total_price)}
+                          {formatShortDateTime(quote.created_at, companyTimeZone)} • {formatCurrency(quote.total_price)}
                         </div>
                       </div>
 
@@ -1952,7 +2009,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                       <div>
                         <div style={workerName}>{absence.name}</div>
                         <div style={profitJobMeta}>
-                          {formatShortDateTime(absence.startAt)} - {formatShortDateTime(absence.endAt)}
+                          {formatShortDateTime(absence.startAt, companyTimeZone)} - {formatShortDateTime(absence.endAt, companyTimeZone)}
                         </div>
                       </div>
                       <div

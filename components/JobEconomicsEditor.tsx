@@ -1,7 +1,11 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import {
+  createJobCostItemAction,
+  deleteJobCostItemAction,
+  updateJobPriceAction,
+} from '@/app/business-actions'
 
 type Assignment = {
   id: string
@@ -127,7 +131,6 @@ function SummaryTile({ label, value, tone }: { label: string; value: string; ton
 
 export default function JobEconomicsEditor({
   jobId,
-  companyId,
   initialPrice,
   initialAssignments,
   initialCostItems,
@@ -164,7 +167,7 @@ export default function JobEconomicsEditor({
   }, [costItems])
 
   const currentPrice = toNumber(price)
-  const currentProfit = currentPrice - actualLaborCost - actualExternalLaborCost - currentOtherCosts
+  const plannedProfit = currentPrice - actualLaborCost - actualExternalLaborCost - currentOtherCosts
   const liveNewCostTotal = toNumber(newCost.quantity) * toNumber(newCost.unit_price)
   const canAddCost = newCost.title.trim().length > 0 && toNumber(newCost.unit_price) > 0 && !addingCost
 
@@ -218,12 +221,9 @@ export default function JobEconomicsEditor({
       setSavingPrice(true)
       setMessage('Ukládám cenu...')
 
-      const { error } = await supabase
-        .from('jobs')
-        .update({ price: toNumber(price) })
-        .eq('id', jobId)
+      const result = await updateJobPriceAction({ jobId, price: toNumber(price) })
 
-      if (error) throw error
+      if (!result.ok) throw new Error(result.error)
 
       setMessage('Cena zakázky byla uložena.')
       onPriceSaved?.(toNumber(price))
@@ -255,43 +255,20 @@ export default function JobEconomicsEditor({
       const unitPrice = toNumber(newCost.unit_price)
       const totalPrice = quantity * unitPrice
 
-      const directPayload = {
-        company_id: companyId,
-        job_id: jobId,
-        cost_type: newCost.cost_type,
-        name: newCost.title.trim(),
+      const result = await createJobCostItemAction({
+        jobId,
+        costType: newCost.cost_type,
         title: newCost.title.trim(),
-        amount: totalPrice,
         quantity,
         unit: newCost.unit.trim() || 'ks',
-        unit_price: unitPrice,
-        total_price: totalPrice,
+        unitPrice,
+        totalPrice,
         note: newCost.note.trim() || null,
-      }
-
-      const rpcResponse = await supabase.rpc('create_job_cost_item', {
-        p_company_id: companyId,
-        p_job_id: jobId,
-        p_cost_type: newCost.cost_type,
-        p_title: newCost.title.trim(),
-        p_quantity: quantity,
-        p_unit: newCost.unit.trim() || 'ks',
-        p_unit_price: unitPrice,
-        p_total_price: totalPrice,
-        p_note: newCost.note.trim() || null,
       })
 
-      const fallbackToDirectInsert =
-        rpcResponse.error &&
-        (rpcResponse.error.code === '42883' || rpcResponse.error.message?.toLowerCase().includes('could not find the function'))
+      if (!result.ok) throw new Error(result.error)
 
-      const { data, error } = fallbackToDirectInsert
-        ? await supabase.from('job_cost_items').insert([directPayload]).select().single()
-        : rpcResponse
-
-      if (error) throw error
-
-      const savedCostItem = data as CostItem
+      const savedCostItem = result.data.item as CostItem
       setCostItems((prev) => [savedCostItem, ...prev])
       onCostItemAdded?.(savedCostItem)
       setNewCost({
@@ -317,8 +294,8 @@ export default function JobEconomicsEditor({
     try {
       setMessage('Mažu náklad...')
 
-      const { error } = await supabase.from('job_cost_items').delete().eq('id', id)
-      if (error) throw error
+      const result = await deleteJobCostItemAction({ id, jobId })
+      if (!result.ok) throw new Error(result.error)
 
       setCostItems((prev) => prev.filter((item) => item.id !== id))
       onCostItemDeleted?.(id)
@@ -350,11 +327,11 @@ export default function JobEconomicsEditor({
       <div style={panelStyle}>
         <h3 style={{ margin: '0 0 14px 0', fontSize: '20px' }}>Rychlý souhrn</h3>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px' }}>
-          <SummaryTile label="Cena" value={formatCurrency(toNumber(price))} />
+          <SummaryTile label="Cena zakázky" value={formatCurrency(toNumber(price))} />
           <SummaryTile label="Interní práce" value={formatCurrency(actualLaborCost)} />
           <SummaryTile label="Externí práce" value={formatCurrency(actualExternalLaborCost)} />
-          <SummaryTile label="Ostatní náklady" value={formatCurrency(currentOtherCosts)} />
-          <SummaryTile label="Zisk" value={formatCurrency(currentProfit)} tone={currentProfit >= 0 ? 'success' : 'danger'} />
+          <SummaryTile label="Přímé náklady" value={formatCurrency(currentOtherCosts)} />
+          <SummaryTile label="Plánovaný rozdíl" value={formatCurrency(plannedProfit)} tone={plannedProfit >= 0 ? 'success' : 'danger'} />
         </div>
       </div>
 

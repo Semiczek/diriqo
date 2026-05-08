@@ -758,6 +758,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       .from('quote_items')
       .select('name, description, quantity, unit, unit_price, total_price, note')
       .eq('quote_id', quoteId)
+      .eq('company_id', activeCompany.companyId)
       .order('sort_order', { ascending: true })
       .order('created_at', { ascending: true }),
     supabase

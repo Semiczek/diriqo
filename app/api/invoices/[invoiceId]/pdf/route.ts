@@ -403,6 +403,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       .from('invoice_items')
       .select('item_name, quantity, unit, total_without_vat, vat_rate, vat_amount, total_with_vat')
       .eq('invoice_id', invoiceId)
+      .eq('company_id', activeCompany?.companyId ?? portalUser?.companyId ?? '00000000-0000-0000-0000-000000000000')
       .order('sort_order', { ascending: true }),
   ])
 
@@ -422,6 +423,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
   const hasHubAccess = activeCompany?.companyId === invoice.company_id
   const hasPortalAccess =
     portalUser?.customerId === invoice.customer_id &&
+    portalUser.companyId === invoice.company_id &&
     ['issued', 'sent', 'paid', 'overdue'].includes(invoice.status ?? '') &&
     Boolean(invoice.invoice_number)
 

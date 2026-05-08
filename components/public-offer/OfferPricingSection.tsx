@@ -29,9 +29,9 @@ export default function OfferPricingSection({
       data-section-key="pricing"
       style={{
         borderRadius: '24px',
-        border: '1px solid #bfdbfe',
+        border: '1px solid rgba(59, 130, 246, 0.26)',
         backgroundColor: '#ffffff',
-        boxShadow: '0 18px 44px rgba(37, 99, 235, 0.08)',
+        boxShadow: '0 18px 52px rgba(37, 99, 235, 0.12)',
         overflow: 'hidden',
       }}
     >
@@ -46,13 +46,13 @@ export default function OfferPricingSection({
           gap: '12px',
           padding: '20px 22px',
           border: 'none',
-          backgroundColor: '#eff6ff',
+          background: 'linear-gradient(135deg, #eff6ff, #ecfeff)',
           cursor: 'pointer',
           textAlign: 'left',
         }}
       >
-        <span style={{ fontSize: '24px', fontWeight: 800 }}>{pricingTitle}</span>
-        <span style={{ color: '#1d4ed8', fontWeight: 700 }}>{isOpen ? 'Sbalit' : 'Rozbalit'}</span>
+        <span style={{ fontSize: '24px', fontWeight: 900, color: '#08111f' }}>{pricingTitle}</span>
+        <span style={{ color: '#2563eb', fontWeight: 800 }}>{isOpen ? 'Sbalit' : 'Rozbalit'}</span>
       </button>
 
       {isOpen ? (
@@ -62,7 +62,8 @@ export default function OfferPricingSection({
               marginTop: '18px',
               padding: '18px 20px',
               borderRadius: '18px',
-              backgroundColor: '#111827',
+              background:
+                'radial-gradient(circle at 12% 0%, rgba(217,70,239,0.3), transparent 36%), radial-gradient(circle at 100% 0%, rgba(6,182,212,0.26), transparent 40%), linear-gradient(135deg, #070b1a, #111827 64%, #06243a)',
               color: '#ffffff',
               display: 'flex',
               justifyContent: 'space-between',
@@ -73,7 +74,7 @@ export default function OfferPricingSection({
           >
             <div>
               <div style={{ color: 'rgba(255,255,255,0.72)', fontSize: '13px', marginBottom: '6px' }}>Finální cena nabídky</div>
-              <div style={{ fontSize: 'clamp(30px, 4vw, 42px)', fontWeight: 800 }}>{formatCurrency(priceTotal)}</div>
+              <div style={{ fontSize: 'clamp(32px, 4vw, 46px)', fontWeight: 900 }}>{formatCurrency(priceTotal)}</div>
             </div>
             <div style={{ color: 'rgba(255,255,255,0.8)', lineHeight: 1.6, maxWidth: '420px' }}>
               {hasText(pricingText) ? pricingText : 'Cena vychází z rozsahu prací uvedeného v této nabídce.'}
@@ -86,8 +87,8 @@ export default function OfferPricingSection({
                 key={item.id}
                 style={{
                   borderRadius: '16px',
-                  border: '1px solid #dbeafe',
-                  backgroundColor: '#f8fafc',
+                  border: '1px solid rgba(191, 219, 254, 0.9)',
+                  background: 'linear-gradient(135deg, #ffffff, #f8fbff)',
                   padding: '16px',
                   display: 'grid',
                   gap: '10px',

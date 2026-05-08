@@ -65,7 +65,7 @@ function photoSection(title: string, items: Array<{ id: string; fileName: string
 export default async function PortalJobDetailPage({ params }: JobDetailPageProps) {
   const portalUser = await requirePortalUserContext()
   const { jobId } = await params
-  const job = await getPortalJobDetail(portalUser.customerId, jobId)
+  const job = await getPortalJobDetail(portalUser.customerId, portalUser.companyId ?? '', jobId)
 
   if (!job) {
     notFound()

@@ -15,7 +15,7 @@ type OfferDetailPageProps = {
 export default async function PortalOfferDetailPage({ params }: OfferDetailPageProps) {
   const portalUser = await requirePortalUserContext()
   const { offerId } = await params
-  const offer = await getPortalOfferDetail(portalUser.customerId, offerId)
+  const offer = await getPortalOfferDetail(portalUser.customerId, portalUser.companyId ?? '', offerId)
 
   if (!offer) {
     notFound()

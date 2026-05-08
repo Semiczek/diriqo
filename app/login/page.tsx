@@ -1,6 +1,6 @@
 'use client'
 
-import { FormEvent, Suspense, useMemo, useState } from 'react'
+import { FormEvent, Suspense, useState } from 'react'
 import Image from 'next/image'
 import { useRouter, useSearchParams } from 'next/navigation'
 
@@ -12,6 +12,22 @@ import { supabase } from '@/lib/supabase'
 type MembershipRow = {
   role: string | null
   is_active: boolean | null
+}
+
+function getErrorMessageFromParam(errorParam: string | null, dictionary: ReturnType<typeof useI18n>['dictionary']) {
+  if (errorParam === 'no-hub-access') {
+    return dictionary.auth.noHubAccess
+  }
+
+  if (errorParam === 'no-profile') {
+    return dictionary.auth.noProfile
+  }
+
+  if (errorParam === 'no-membership') {
+    return dictionary.auth.noMembership
+  }
+
+  return null
 }
 
 function getThrownMessage(error: unknown, fallback: string) {
@@ -27,36 +43,49 @@ function LoginPageContent() {
   const searchParams = useSearchParams()
   const { dictionary } = useI18n()
 
-  function getErrorMessageFromParam(errorParam: string | null) {
-    if (errorParam === 'no-hub-access') {
-      return dictionary.auth.noHubAccess
-    }
-
-    if (errorParam === 'no-profile') {
-      return dictionary.auth.noProfile
-    }
-
-    if (errorParam === 'no-membership') {
-      return dictionary.auth.noMembership
-    }
-
-    return null
-  }
-
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [fullName, setFullName] = useState('')
+  const [mode, setMode] = useState<'sign-in' | 'sign-up'>('sign-in')
   const [loading, setLoading] = useState(false)
-
-  const initialError = useMemo(() => {
-    return getErrorMessageFromParam(searchParams.get('error'))
-  }, [searchParams])
+  const initialError = getErrorMessageFromParam(searchParams.get('error'), dictionary)
 
   const [error, setError] = useState<string | null>(initialError)
+  const [notice, setNotice] = useState<string | null>(null)
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setLoading(true)
     setError(null)
+    setNotice(null)
+
+    if (mode === 'sign-up') {
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: fullName.trim(),
+          },
+        },
+      })
+
+      if (signUpError || !signUpData.user) {
+        setError(signUpError?.message || 'Účet se nepodařilo vytvořit.')
+        setLoading(false)
+        return
+      }
+
+      if (!signUpData.session) {
+        setNotice('Účet je vytvořený. Zkontroluj e-mail a po potvrzení se přihlas.')
+        setLoading(false)
+        return
+      }
+
+      router.replace('/onboarding')
+      router.refresh()
+      return
+    }
 
     const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
       email,
@@ -109,9 +138,8 @@ function LoginPageContent() {
       }
 
       if (!profileId) {
-        await supabase.auth.signOut()
-        setError(dictionary.auth.noAdminProfile)
-        setLoading(false)
+        router.replace('/onboarding')
+        router.refresh()
         return
       }
 
@@ -131,9 +159,8 @@ function LoginPageContent() {
       const memberships = (membershipsResponse.data ?? []) as MembershipRow[]
 
       if (memberships.length === 0) {
-        await supabase.auth.signOut()
-        setError(dictionary.auth.noActivePermissions)
-        setLoading(false)
+        router.replace('/onboarding')
+        router.refresh()
         return
       }
 
@@ -229,6 +256,40 @@ function LoginPageContent() {
         </div>
 
         <form onSubmit={handleSubmit}>
+          {mode === 'sign-up' ? (
+            <div style={{ marginBottom: 16 }}>
+              <label
+                htmlFor="fullName"
+                style={{
+                  display: 'block',
+                  marginBottom: 6,
+                  fontSize: 14,
+                  fontWeight: 600,
+                  color: '#111827',
+                }}
+              >
+                Jméno
+              </label>
+              <input
+                id="fullName"
+                type="text"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                placeholder="Jméno administrátora"
+                autoComplete="name"
+                style={{
+                  width: '100%',
+                  height: 44,
+                  borderRadius: 8,
+                  border: '1px solid #d1d5db',
+                  padding: '0 12px',
+                  fontSize: 14,
+                  boxSizing: 'border-box',
+                }}
+              />
+            </div>
+          ) : null}
+
           <div style={{ marginBottom: 16 }}>
             <label
               htmlFor="email"
@@ -311,6 +372,22 @@ function LoginPageContent() {
             </div>
           ) : null}
 
+          {notice ? (
+            <div
+              style={{
+                marginBottom: 16,
+                padding: 12,
+                borderRadius: 8,
+                background: '#ecfdf5',
+                border: '1px solid #bbf7d0',
+                color: '#166534',
+                fontSize: 14,
+              }}
+            >
+              {notice}
+            </div>
+          ) : null}
+
           <button
             type="submit"
             disabled={loading}
@@ -326,9 +403,36 @@ function LoginPageContent() {
               cursor: loading ? 'not-allowed' : 'pointer',
             }}
           >
-            {loading ? dictionary.auth.signingIn : dictionary.auth.signIn}
+            {loading
+              ? mode === 'sign-up'
+                ? 'Vytvářím účet...'
+                : dictionary.auth.signingIn
+              : mode === 'sign-up'
+                ? 'Vytvořit účet'
+                : dictionary.auth.signIn}
           </button>
         </form>
+
+        <button
+          type="button"
+          onClick={() => {
+            setMode((current) => (current === 'sign-in' ? 'sign-up' : 'sign-in'))
+            setError(null)
+            setNotice(null)
+          }}
+          style={{
+            width: '100%',
+            marginTop: 12,
+            border: 'none',
+            background: 'transparent',
+            color: '#2563eb',
+            fontSize: 14,
+            fontWeight: 700,
+            cursor: 'pointer',
+          }}
+        >
+          {mode === 'sign-up' ? 'Už mám účet' : 'Vytvořit novou firmu'}
+        </button>
       </div>
     </div>
   )

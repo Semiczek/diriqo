@@ -419,12 +419,13 @@ function asSingleRelation<T>(value: T[] | T | null | undefined): T | null {
   return value
 }
 
-export async function getPortalJobs(customerId: string) {
+export async function getPortalJobs(customerId: string, companyId: string) {
   const admin = createSupabaseAdminClient()
   const { data: jobs, error } = await admin
     .from('jobs')
     .select('id, title, address, price, status, start_at, end_at, created_at, customer_summary')
     .eq('customer_id', customerId)
+    .eq('company_id', companyId)
     .order('start_at', { ascending: false, nullsFirst: false })
     .order('created_at', { ascending: false })
 
@@ -440,6 +441,7 @@ export async function getPortalJobs(customerId: string) {
           .from('jobs_with_state')
           .select('id, time_state, work_state')
           .in('id', ids)
+          .eq('company_id', companyId)
       : { data: [] }
 
   const stateMap = new Map<string, JobStateRow>(
@@ -469,12 +471,13 @@ export async function getPortalJobs(customerId: string) {
   })
 }
 
-export async function getPortalJobDetail(customerId: string, jobId: string) {
+export async function getPortalJobDetail(customerId: string, companyId: string, jobId: string) {
   const admin = createSupabaseAdminClient()
   const { data: job, error } = await admin
     .from('jobs')
     .select('id, title, address, price, status, start_at, end_at, created_at, customer_summary')
     .eq('customer_id', customerId)
+    .eq('company_id', companyId)
     .eq('id', jobId)
     .maybeSingle()
 
@@ -490,12 +493,14 @@ export async function getPortalJobDetail(customerId: string, jobId: string) {
     .from('jobs_with_state')
     .select('id, time_state, work_state')
     .eq('id', jobId)
+    .eq('company_id', companyId)
     .maybeSingle()
 
   const { data: photos, error: photosError } = await admin
     .from('job_photos')
     .select('id, photo_type, file_name, taken_at, storage_path, thumb_storage_path')
     .eq('job_id', jobId)
+    .eq('company_id', companyId)
     .order('taken_at', { ascending: false })
 
   if (photosError) {
@@ -570,12 +575,13 @@ export async function getPortalJobDetail(customerId: string, jobId: string) {
   }
 }
 
-export async function getPortalInvoices(customerId: string) {
+export async function getPortalInvoices(customerId: string, companyId: string) {
   const admin = createSupabaseAdminClient()
   const { data, error } = await admin
     .from('invoices')
     .select('id, invoice_number, variable_symbol, status, issue_date, due_date, total_with_vat, paid_at')
     .eq('customer_id', customerId)
+    .eq('company_id', companyId)
     .or('status.is.null,status.neq.draft')
     .order('issue_date', { ascending: false, nullsFirst: false })
     .order('created_at', { ascending: false })
@@ -606,27 +612,18 @@ export async function getPortalInvoices(customerId: string) {
   })
 }
 
-export async function getPortalInvoiceDetail(customerId: string, invoiceId: string) {
+export async function getPortalInvoiceDetail(customerId: string, companyId: string, invoiceId: string) {
   const admin = createSupabaseAdminClient()
-  const [invoiceResult, itemsResult] = await Promise.all([
-    admin
-      .from('invoices')
-      .select(
-        'id, invoice_number, variable_symbol, status, issue_date, due_date, taxable_supply_date, payment_method, is_vat_payer, vat_note, subtotal_without_vat, vat_total, total_with_vat, paid_at, note, customer_snapshot, supplier_snapshot'
-      )
-      .eq('id', invoiceId)
-      .eq('customer_id', customerId)
-      .or('status.is.null,status.neq.draft')
-      .maybeSingle(),
-    admin
-      .from('invoice_items')
-      .select(
-        'id, source_job_id, item_name, description, quantity, unit, unit_price_without_vat, vat_rate, vat_amount, total_without_vat, total_with_vat'
-      )
-      .eq('invoice_id', invoiceId)
-      .order('sort_order', { ascending: true })
-      .order('created_at', { ascending: true }),
-  ])
+  const invoiceResult = await admin
+    .from('invoices')
+    .select(
+      'id, invoice_number, variable_symbol, status, issue_date, due_date, taxable_supply_date, payment_method, is_vat_payer, vat_note, subtotal_without_vat, vat_total, total_with_vat, paid_at, note, customer_snapshot, supplier_snapshot'
+    )
+    .eq('id', invoiceId)
+    .eq('customer_id', customerId)
+    .eq('company_id', companyId)
+    .or('status.is.null,status.neq.draft')
+    .maybeSingle()
 
   if (invoiceResult.error) {
     throw new Error(`Nepodařilo se načíst fakturu: ${invoiceResult.error.message}`)
@@ -635,6 +632,16 @@ export async function getPortalInvoiceDetail(customerId: string, invoiceId: stri
   if (!invoiceResult.data) {
     return null
   }
+
+  const itemsResult = await admin
+    .from('invoice_items')
+    .select(
+      'id, source_job_id, item_name, description, quantity, unit, unit_price_without_vat, vat_rate, vat_amount, total_without_vat, total_with_vat'
+    )
+    .eq('invoice_id', invoiceId)
+    .eq('company_id', companyId)
+    .order('sort_order', { ascending: true })
+    .order('created_at', { ascending: true })
 
   if (itemsResult.error) {
     throw new Error(`Nepodařilo se načíst položky faktury: ${itemsResult.error.message}`)
@@ -702,7 +709,7 @@ export async function getPortalInvoiceDetail(customerId: string, invoiceId: stri
   } satisfies PortalInvoiceDetail
 }
 
-export async function getPortalOffers(customerId: string) {
+export async function getPortalOffers(customerId: string, companyId: string) {
   const admin = createSupabaseAdminClient()
   const { data, error } = await admin
     .from('quotes')
@@ -710,6 +717,8 @@ export async function getPortalOffers(customerId: string) {
       'id, quote_number, title, status, quote_date, valid_until, total_price, accepted_at'
     )
     .eq('customer_id', customerId)
+    .eq('company_id', companyId)
+    .neq('status', 'draft')
     .order('quote_date', { ascending: false, nullsFirst: false })
     .order('created_at', { ascending: false })
 
@@ -733,35 +742,37 @@ export async function getPortalOffers(customerId: string) {
   }) satisfies PortalOfferListItem)
 }
 
-export async function getPortalOfferDetail(customerId: string, offerId: string) {
+export async function getPortalOfferDetail(customerId: string, companyId: string, offerId: string) {
   const admin = createSupabaseAdminClient()
-  const [quoteResult, itemsResult] = await Promise.all([
-    admin
-      .from('quotes')
-      .select(
-        'id, quote_number, title, status, quote_date, valid_until, total_price, created_at, updated_at, accepted_at, profiles!quotes_created_by_fkey(full_name)'
-      )
-      .eq('customer_id', customerId)
-      .eq('id', offerId)
-      .maybeSingle(),
-    admin
-      .from('quote_items')
-      .select('id, name, description, quantity, unit, unit_price, total_price, note')
-      .eq('quote_id', offerId)
-      .order('sort_order', { ascending: true })
-      .order('created_at', { ascending: true }),
-  ])
+  const quoteResult = await admin
+    .from('quotes')
+    .select(
+      'id, quote_number, title, status, quote_date, valid_until, total_price, created_at, updated_at, accepted_at, profiles!quotes_created_by_fkey(full_name)'
+    )
+    .eq('customer_id', customerId)
+    .eq('company_id', companyId)
+    .neq('status', 'draft')
+    .eq('id', offerId)
+    .maybeSingle()
 
   if (quoteResult.error) {
     throw new Error(`Nepodařilo se načíst detail nabídky: ${quoteResult.error.message}`)
   }
 
-  if (itemsResult.error) {
-    throw new Error(`Nepodařilo se načíst položky nabídky: ${itemsResult.error.message}`)
-  }
-
   if (!quoteResult.data) {
     return null
+  }
+
+  const itemsResult = await admin
+    .from('quote_items')
+    .select('id, name, description, quantity, unit, unit_price, total_price, note')
+    .eq('quote_id', offerId)
+    .eq('company_id', companyId)
+    .order('sort_order', { ascending: true })
+    .order('created_at', { ascending: true })
+
+  if (itemsResult.error) {
+    throw new Error(`Nepodařilo se načíst položky nabídky: ${itemsResult.error.message}`)
   }
 
   const quote = {
@@ -855,13 +866,13 @@ export async function getPortalOfferDetail(customerId: string, offerId: string) 
     })),
   }
 }
-
-export async function getPortalInquiries(customerId: string) {
+export async function getPortalInquiries(customerId: string, companyId: string) {
   const admin = createSupabaseAdminClient()
   const { data, error } = await admin
     .from('leads')
     .select('id, subject, location_text, message, customer_note, preferred_month, status, created_at, closed_at')
     .eq('customer_id', customerId)
+    .eq('company_id', companyId)
     .order('created_at', { ascending: false })
 
   if (error) {
@@ -878,12 +889,13 @@ export async function getPortalInquiries(customerId: string) {
   }) satisfies PortalInquiryListItem)
 }
 
-export async function getPortalInquiryDetail(customerId: string, inquiryId: string) {
+export async function getPortalInquiryDetail(customerId: string, companyId: string, inquiryId: string) {
   const admin = createSupabaseAdminClient()
   const { data, error } = await admin
     .from('leads')
     .select('id, subject, location_text, message, customer_note, preferred_month, status, created_at, closed_at')
     .eq('customer_id', customerId)
+    .eq('company_id', companyId)
     .eq('id', inquiryId)
     .maybeSingle()
 

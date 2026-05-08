@@ -469,6 +469,7 @@ create table if not exists public.job_photos (
   storage_path text not null,
   thumb_storage_path text null,
   file_name text null,
+  note text null,
   mime_type text null,
   size_bytes bigint null,
   thumb_size_bytes bigint null,

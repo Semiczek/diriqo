@@ -75,10 +75,11 @@ function sectionCard(title: string, href: string, items: Array<{ id: string; tit
 
 export default async function PortalDashboardPage() {
   const portalUser = await requirePortalUserContext()
+  const companyId = portalUser.companyId ?? ''
   const [jobs, offers, invoices] = await Promise.all([
-    getPortalJobs(portalUser.customerId),
-    getPortalOffers(portalUser.customerId),
-    getPortalInvoices(portalUser.customerId),
+    getPortalJobs(portalUser.customerId, companyId),
+    getPortalOffers(portalUser.customerId, companyId),
+    getPortalInvoices(portalUser.customerId, companyId),
   ])
 
   const orderedCount = jobs.filter((job) => job.customerStatus === 'Objedn\u00e1no').length

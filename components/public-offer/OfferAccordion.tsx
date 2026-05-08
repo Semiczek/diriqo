@@ -20,14 +20,14 @@ export default function OfferAccordion({
   const accentStyles =
     tone === 'highlight'
       ? {
-          border: '1px solid #fed7aa',
-          headerBackground: '#fff7ed',
-          labelColor: '#9a3412',
+          border: '1px solid rgba(217, 70, 239, 0.24)',
+          headerBackground: 'linear-gradient(135deg, #fdf4ff, #ecfeff)',
+          labelColor: '#7c3aed',
         }
       : {
-          border: '1px solid #dbe4f0',
-          headerBackground: '#ffffff',
-          labelColor: '#475569',
+          border: '1px solid rgba(191, 219, 254, 0.95)',
+          headerBackground: 'linear-gradient(135deg, #ffffff, #f8fbff)',
+          labelColor: '#2563eb',
         }
 
   return (
@@ -37,10 +37,10 @@ export default function OfferAccordion({
       }}
       data-section-key={sectionKey}
       style={{
-        borderRadius: '20px',
+        borderRadius: '24px',
         border: accentStyles.border,
         backgroundColor: '#ffffff',
-        boxShadow: '0 12px 36px rgba(15, 23, 42, 0.05)',
+        boxShadow: '0 16px 44px rgba(15, 23, 42, 0.07)',
         overflow: 'hidden',
       }}
     >
@@ -53,14 +53,14 @@ export default function OfferAccordion({
           justifyContent: 'space-between',
           alignItems: 'center',
           gap: '12px',
-          padding: '18px 22px',
+          padding: '20px 24px',
           border: 'none',
-          backgroundColor: accentStyles.headerBackground,
+          background: accentStyles.headerBackground,
           cursor: 'pointer',
           textAlign: 'left',
         }}
       >
-        <span style={{ fontSize: '24px', fontWeight: 800 }}>{title}</span>
+        <span style={{ fontSize: '24px', fontWeight: 900, color: '#08111f' }}>{title}</span>
         <span style={{ color: accentStyles.labelColor, fontWeight: 700 }}>{isOpen ? 'Sbalit' : 'Rozbalit'}</span>
       </button>
 

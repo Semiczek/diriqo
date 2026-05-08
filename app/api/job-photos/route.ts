@@ -1,12 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 import { getActiveCompanyContext } from '@/lib/active-company'
+import {
+  buildJobPhotoStoragePath,
+  hasJobPhotoAdminAccess,
+  isExpectedJobPhotoStoragePath,
+  isSupportedJobPhotoMimeType,
+  JOB_PHOTO_BUCKET,
+  MAX_JOB_PHOTO_UPLOAD_BYTES,
+  normalizeJobPhotoCategory,
+  verifyJobPhotoAccess,
+} from '@/lib/job-photo-storage'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 
-const BUCKET = 'job-photos'
 const DEFAULT_LIMIT = 20
 const MAX_LIMIT = 50
-const MAX_UPLOAD_BYTES = 50 * 1024 * 1024
 const RETRY_DELAYS_MS = [200, 700, 1500]
 
 type LogContext = {
@@ -79,26 +87,7 @@ async function withRetry<T>(
   throw lastError
 }
 
-function normalizePhotoType(value: FormDataEntryValue | null) {
-  return String(value ?? '').trim() === 'after' ? 'after' : 'before'
-}
-
-function getSafeFileExtension(fileName: string, mimeType: string) {
-  const extension = fileName.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '') ?? ''
-
-  if (extension) {
-    return extension.slice(0, 12)
-  }
-
-  if (mimeType === 'image/png') return 'png'
-  if (mimeType === 'image/webp') return 'webp'
-  if (mimeType === 'image/heic') return 'heic'
-  if (mimeType === 'image/heif') return 'heif'
-
-  return 'jpg'
-}
-
-function normalizeTakenAt(value: FormDataEntryValue | null) {
+function normalizeTakenAt(value: unknown) {
   const rawValue = String(value ?? '').trim()
   if (!rawValue) return new Date().toISOString()
 
@@ -106,24 +95,43 @@ function normalizeTakenAt(value: FormDataEntryValue | null) {
   return Number.isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString()
 }
 
-function isImageFile(file: File) {
-  return ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'].includes(file.type)
+function normalizeFileName(value: unknown) {
+  const fileName = String(value ?? '').trim()
+  return fileName ? fileName.slice(0, 255) : 'fotografie.jpg'
 }
 
-async function verifyJobAccess(jobId: string, companyId: string) {
-  const supabase = await createSupabaseServerClient()
-  const jobResponse = await supabase
-    .from('jobs')
-    .select('id')
-    .eq('id', jobId)
-    .eq('company_id', companyId)
-    .maybeSingle()
-
-  if (jobResponse.error) {
-    throw new Error(`Nepodarilo se overit zakazku: ${jobResponse.error.message}`)
+function normalizeUploadPayload(value: unknown) {
+  if (!value || typeof value !== 'object') {
+    return null
   }
 
-  return Boolean(jobResponse.data?.id)
+  const row = value as Record<string, unknown>
+  const sizeBytes = Number(row.sizeBytes)
+
+  return {
+    jobId: String(row.jobId ?? '').trim(),
+    photoType: normalizeJobPhotoCategory(row.photoType),
+    fileName: normalizeFileName(row.fileName),
+    mimeType: String(row.mimeType ?? '').trim(),
+    sizeBytes: Number.isFinite(sizeBytes) ? sizeBytes : Number.NaN,
+    takenAt: normalizeTakenAt(row.takenAt),
+    storagePath: String(row.storagePath ?? '').trim(),
+    note: normalizeNote(row.note),
+  }
+}
+
+function normalizeNote(value: unknown) {
+  const note = String(value ?? '').trim()
+  return note ? note.slice(0, 1000) : null
+}
+
+function isUploadFile(value: FormDataEntryValue): value is File {
+  return typeof File !== 'undefined' && value instanceof File && value.size > 0
+}
+
+function getFormValue(formData: FormData, key: string) {
+  const value = formData.get(key)
+  return typeof value === 'string' ? value : ''
 }
 
 export async function GET(request: NextRequest) {
@@ -145,21 +153,24 @@ export async function GET(request: NextRequest) {
 
   const supabase = await createSupabaseServerClient()
 
-  const jobResponse = await supabase
-    .from('jobs')
-    .select('id')
-    .eq('id', jobId)
-    .eq('company_id', activeCompany.companyId)
-    .maybeSingle()
+  let hasJobAccess = false
 
-  if (jobResponse.error) {
+  try {
+    hasJobAccess = await verifyJobPhotoAccess(jobId, activeCompany)
+  } catch (error) {
+    logJobPhotoWarning({
+      operation: 'job_access_verify',
+      status: 'failed',
+      errorName: getErrorName(error),
+      errorCode: getErrorCode(error),
+    })
     return NextResponse.json(
-      { error: `Nepodarilo se overit zakazku: ${jobResponse.error.message}` },
+      { error: 'Nepodarilo se overit zakazku.' },
       { status: 500 }
     )
   }
 
-  if (!jobResponse.data?.id) {
+  if (!hasJobAccess) {
     return NextResponse.json({ error: 'Zakazka nebyla nalezena.' }, { status: 404 })
   }
 
@@ -170,6 +181,7 @@ export async function GET(request: NextRequest) {
         id,
         photo_type,
         file_name,
+        note,
         taken_at,
         thumb_storage_path,
         storage_path
@@ -177,6 +189,7 @@ export async function GET(request: NextRequest) {
       { count: 'exact' }
     )
     .eq('job_id', jobId)
+    .eq('company_id', activeCompany.companyId)
     .order('taken_at', { ascending: false })
     .range(offset, offset + limit - 1)
 
@@ -197,7 +210,7 @@ export async function GET(request: NextRequest) {
 
   if (previewPaths.length > 0) {
     const { data: signedPreviews, error: signedPreviewError } = await supabase.storage
-      .from(BUCKET)
+      .from(JOB_PHOTO_BUCKET)
       .createSignedUrls(previewPaths, 60 * 30)
 
     if (signedPreviewError) {
@@ -215,7 +228,7 @@ export async function GET(request: NextRequest) {
   let storageObjectDetectedWithoutMetadata = false
   if (rows.length === 0) {
     const { data: storageObjects, error: storageListError } = await supabase.storage
-      .from(BUCKET)
+      .from(JOB_PHOTO_BUCKET)
       .list(jobId, { limit: 1 })
 
     if (storageListError) {
@@ -236,8 +249,9 @@ export async function GET(request: NextRequest) {
 
       return {
         id: row.id,
-        photoType: row.photo_type === 'after' ? 'after' : 'before',
+        photoType: normalizeJobPhotoCategory(row.photo_type),
         fileName: row.file_name ?? 'Fotografie',
+        note: row.note ?? null,
         takenAt: row.taken_at ?? null,
         thumbUrl: previewPath ? signedPreviewMap.get(previewPath) ?? null : null,
       }
@@ -256,39 +270,153 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  let formData: FormData
+  if (request.headers.get('content-type')?.toLowerCase().includes('multipart/form-data')) {
+    if (!hasJobPhotoAdminAccess(activeCompany)) {
+      return NextResponse.json({ error: 'K nahravani fotek nema uzivatel opravneni.' }, { status: 403 })
+    }
 
-  try {
-    formData = await request.formData()
-  } catch {
-    return NextResponse.json({ error: 'Neplatny upload formulare.' }, { status: 400 })
+    const formData = await request.formData()
+    const jobId = getFormValue(formData, 'jobId').trim()
+    const photoType = normalizeJobPhotoCategory(getFormValue(formData, 'photoType'))
+    const files = formData.getAll('files').filter(isUploadFile)
+    const notes = formData.getAll('notes').map((value) => normalizeNote(value))
+
+    if (!jobId) {
+      return NextResponse.json({ error: 'Chybi jobId.' }, { status: 400 })
+    }
+
+    if (files.length === 0) {
+      return NextResponse.json({ error: 'Vyberte alespon jednu fotografii.' }, { status: 400 })
+    }
+
+    let jobExists = false
+
+    try {
+      jobExists = await verifyJobPhotoAccess(jobId, activeCompany)
+    } catch (error) {
+      logJobPhotoWarning({
+        operation: 'job_access_verify',
+        status: 'failed',
+        errorName: getErrorName(error),
+        errorCode: getErrorCode(error),
+      })
+      return NextResponse.json({ error: 'Nepodarilo se overit zakazku.' }, { status: 500 })
+    }
+
+    if (!jobExists) {
+      return NextResponse.json({ error: 'Zakazka nebyla nalezena.' }, { status: 404 })
+    }
+
+    const supabase = await createSupabaseServerClient()
+    const uploadedPaths: string[] = []
+    const insertedItems = []
+
+    for (let index = 0; index < files.length; index += 1) {
+      const file = files[index]
+      const fileName = normalizeFileName(file.name)
+      const mimeType = file.type
+      const sizeBytes = file.size
+
+      if (sizeBytes <= 0 || sizeBytes > MAX_JOB_PHOTO_UPLOAD_BYTES) {
+        return NextResponse.json({ error: `Fotografie ${fileName} je prazdna nebo prilis velka.` }, { status: 400 })
+      }
+
+      if (!isSupportedJobPhotoMimeType(mimeType)) {
+        return NextResponse.json({ error: `Soubor ${fileName} musi byt fotografie JPG, PNG, WEBP, HEIC nebo HEIF.` }, { status: 400 })
+      }
+
+      const photoId = crypto.randomUUID()
+      const storagePath = buildJobPhotoStoragePath({
+        companyId: activeCompany.companyId,
+        jobId,
+        category: photoType,
+        fileName,
+        mimeType,
+        photoId,
+      })
+
+      try {
+        const bytes = new Uint8Array(await file.arrayBuffer())
+        const { error: uploadError } = await supabase.storage
+          .from(JOB_PHOTO_BUCKET)
+          .upload(storagePath, bytes, {
+            cacheControl: '3600',
+            contentType: mimeType,
+            upsert: false,
+          })
+
+        if (uploadError) throw uploadError
+        uploadedPaths.push(storagePath)
+
+        const { data: inserted, error: insertError } = await supabase
+          .from('job_photos')
+          .insert({
+            id: photoId,
+            company_id: activeCompany.companyId,
+            job_id: jobId,
+            uploaded_by: activeCompany.profileId,
+            photo_type: photoType,
+            file_name: fileName,
+            note: notes[index] ?? null,
+            mime_type: mimeType,
+            size_bytes: sizeBytes,
+            taken_at: new Date().toISOString(),
+            storage_path: storagePath,
+            thumb_storage_path: storagePath,
+          })
+          .select('id, photo_type, file_name, note, taken_at, storage_path, thumb_storage_path')
+          .single()
+
+        if (insertError) throw insertError
+        insertedItems.push(inserted)
+      } catch (error) {
+        logJobPhotoWarning({
+          operation: 'admin_upload',
+          status: 'failed',
+          fileSize: sizeBytes,
+          mimeType,
+          errorName: getErrorName(error),
+          errorCode: getErrorCode(error),
+        })
+
+        if (uploadedPaths.length > 0) {
+          await supabase.storage.from(JOB_PHOTO_BUCKET).remove(uploadedPaths)
+        }
+
+        return NextResponse.json({ error: `Fotografii ${fileName} se nepodarilo nahrat.` }, { status: 500 })
+      }
+    }
+
+    return NextResponse.json({
+      items: insertedItems.map((item) => ({
+        id: item.id,
+        photoType: normalizeJobPhotoCategory(item.photo_type),
+        fileName: item.file_name ?? 'Fotografie',
+        note: item.note ?? null,
+        takenAt: item.taken_at ?? null,
+        thumbUrl: null,
+      })),
+    }, { status: 201 })
   }
 
-  const jobId = String(formData.get('jobId') ?? '').trim()
-  const file = formData.get('file')
-  const photoType = normalizePhotoType(formData.get('photoType'))
-  const takenAt = normalizeTakenAt(formData.get('takenAt'))
+  const payload = normalizeUploadPayload(await request.json().catch(() => null))
 
-  if (!jobId) {
+  if (!payload?.jobId) {
     return NextResponse.json({ error: 'Chybi jobId.' }, { status: 400 })
   }
 
-  if (!(file instanceof File)) {
-    return NextResponse.json({ error: 'Chybi soubor fotografie.' }, { status: 400 })
-  }
-
-  if (file.size <= 0 || file.size > MAX_UPLOAD_BYTES) {
+  if (payload.sizeBytes <= 0 || payload.sizeBytes > MAX_JOB_PHOTO_UPLOAD_BYTES) {
     return NextResponse.json({ error: 'Fotografie je prazdna nebo prilis velka.' }, { status: 400 })
   }
 
-  if (!isImageFile(file)) {
+  if (!isSupportedJobPhotoMimeType(payload.mimeType)) {
     return NextResponse.json({ error: 'Soubor musi byt fotografie JPG, PNG, WEBP, HEIC nebo HEIF.' }, { status: 400 })
   }
 
   let jobExists = false
 
   try {
-    jobExists = await verifyJobAccess(jobId, activeCompany.companyId)
+    jobExists = await verifyJobPhotoAccess(payload.jobId, activeCompany)
   } catch (error) {
     logJobPhotoWarning({
       operation: 'job_access_verify',
@@ -304,41 +432,97 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = await createSupabaseServerClient()
-  const uploadContext = { fileSize: file.size, mimeType: file.type }
+  const uploadContext = { fileSize: payload.sizeBytes, mimeType: payload.mimeType }
 
   try {
     await withRetry('bucket_verify', async () => {
-      const { error } = await supabase.storage.from(BUCKET).list('', { limit: 1 })
+      const { error } = await supabase.storage.from(JOB_PHOTO_BUCKET).list('', { limit: 1 })
       if (error) throw error
     })
   } catch {
     return NextResponse.json({ error: 'Bucket job-photos neni dostupny.' }, { status: 500 })
   }
 
-  const extension = getSafeFileExtension(file.name, file.type)
-  const storagePath = `${jobId}/${crypto.randomUUID()}.${extension}`
-  const arrayBuffer = await file.arrayBuffer()
-  const uploadBody = new Uint8Array(arrayBuffer)
+  const storagePath = buildJobPhotoStoragePath({
+    companyId: activeCompany.companyId,
+    jobId: payload.jobId,
+    category: payload.photoType,
+    fileName: payload.fileName,
+    mimeType: payload.mimeType,
+  })
 
   try {
-    await withRetry(
-      'storage_upload',
-      async () => {
-        const { error } = await supabase.storage
-          .from(BUCKET)
-          .upload(storagePath, uploadBody, {
-            cacheControl: '3600',
-            contentType: file.type,
-            upsert: false,
-          })
+    const signedUpload = await withRetry('signed_upload_create', async () => {
+      const { data, error } = await supabase.storage
+        .from(JOB_PHOTO_BUCKET)
+        .createSignedUploadUrl(storagePath)
 
-        if (error) throw error
-      },
-      uploadContext
-    )
+      if (error || !data?.token) throw error ?? new Error('Missing signed upload token.')
+      return data
+    }, uploadContext)
+
+    return NextResponse.json({
+      bucket: JOB_PHOTO_BUCKET,
+      path: storagePath,
+      token: signedUpload.token,
+      signedUrl: signedUpload.signedUrl,
+      maxBytes: MAX_JOB_PHOTO_UPLOAD_BYTES,
+    })
   } catch {
-    return NextResponse.json({ error: 'Nepodarilo se nahrat fotografii.' }, { status: 502 })
+    return NextResponse.json({ error: 'Nepodarilo se pripravit upload fotografie.' }, { status: 502 })
   }
+}
+
+export async function PATCH(request: NextRequest) {
+  const activeCompany = await getActiveCompanyContext()
+
+  if (!activeCompany) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
+  const payload = normalizeUploadPayload(await request.json().catch(() => null))
+
+  if (!payload?.jobId || !payload.storagePath) {
+    return NextResponse.json({ error: 'Chybi metadata fotografie.' }, { status: 400 })
+  }
+
+  if (!isExpectedJobPhotoStoragePath({
+    storagePath: payload.storagePath,
+    companyId: activeCompany.companyId,
+    jobId: payload.jobId,
+    category: payload.photoType,
+  })) {
+    return NextResponse.json({ error: 'Storage path neodpovida tenant/job scope.' }, { status: 400 })
+  }
+
+  if (payload.sizeBytes <= 0 || payload.sizeBytes > MAX_JOB_PHOTO_UPLOAD_BYTES) {
+    return NextResponse.json({ error: 'Fotografie je prazdna nebo prilis velka.' }, { status: 400 })
+  }
+
+  if (!isSupportedJobPhotoMimeType(payload.mimeType)) {
+    return NextResponse.json({ error: 'Soubor musi byt fotografie JPG, PNG, WEBP, HEIC nebo HEIF.' }, { status: 400 })
+  }
+
+  let jobExists = false
+
+  try {
+    jobExists = await verifyJobPhotoAccess(payload.jobId, activeCompany)
+  } catch (error) {
+    logJobPhotoWarning({
+      operation: 'job_access_verify',
+      status: 'failed',
+      errorName: getErrorName(error),
+      errorCode: getErrorCode(error),
+    })
+    return NextResponse.json({ error: 'Nepodarilo se overit zakazku.' }, { status: 500 })
+  }
+
+  if (!jobExists) {
+    return NextResponse.json({ error: 'Zakazka nebyla nalezena.' }, { status: 404 })
+  }
+
+  const supabase = await createSupabaseServerClient()
+  const uploadContext = { fileSize: payload.sizeBytes, mimeType: payload.mimeType }
 
   try {
     const inserted = await withRetry(
@@ -347,14 +531,19 @@ export async function POST(request: NextRequest) {
         const { data, error } = await supabase
           .from('job_photos')
           .insert({
-            job_id: jobId,
-            photo_type: photoType,
-            file_name: file.name,
-            taken_at: takenAt,
-            storage_path: storagePath,
-            thumb_storage_path: storagePath,
+            company_id: activeCompany.companyId,
+            job_id: payload.jobId,
+            uploaded_by: activeCompany.profileId,
+            photo_type: payload.photoType,
+            file_name: payload.fileName,
+            note: payload.note,
+            mime_type: payload.mimeType,
+            size_bytes: payload.sizeBytes,
+            taken_at: payload.takenAt,
+            storage_path: payload.storagePath,
+            thumb_storage_path: payload.storagePath,
           })
-          .select('id, photo_type, file_name, taken_at, storage_path, thumb_storage_path')
+          .select('id, photo_type, file_name, note, taken_at, storage_path, thumb_storage_path')
           .single()
 
         if (error) throw error
@@ -368,16 +557,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       item: {
         id: inserted.id,
-        photoType: inserted.photo_type === 'after' ? 'after' : 'before',
-        fileName: inserted.file_name ?? file.name,
-        takenAt: inserted.taken_at ?? takenAt,
+        photoType: normalizeJobPhotoCategory(inserted.photo_type),
+        fileName: inserted.file_name ?? payload.fileName,
+        note: inserted.note ?? null,
+        takenAt: inserted.taken_at ?? payload.takenAt,
         thumbUrl: null,
       },
     }, { status: 201 })
   } catch {
     logJobPhotoWarning({ operation: 'metadata_insert', status: 'cleanup_storage_after_db_failure', ...uploadContext })
 
-    const { error: cleanupError } = await supabase.storage.from(BUCKET).remove([storagePath])
+    const { error: cleanupError } = await supabase.storage.from(JOB_PHOTO_BUCKET).remove([payload.storagePath])
     if (cleanupError) {
       logJobPhotoWarning({
         operation: 'storage_cleanup',
@@ -389,4 +579,80 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ error: 'Fotografie byla nahrana, ale metadata se nepodarilo ulozit.' }, { status: 500 })
   }
+}
+
+export async function DELETE(request: NextRequest) {
+  const activeCompany = await getActiveCompanyContext()
+
+  if (!activeCompany) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
+  if (!hasJobPhotoAdminAccess(activeCompany)) {
+    return NextResponse.json({ error: 'Ke smazani fotky nema uzivatel opravneni.' }, { status: 403 })
+  }
+
+  const payload = (await request.json().catch(() => null)) as { photoId?: unknown } | null
+  const photoId = String(payload?.photoId ?? '').trim()
+
+  if (!photoId) {
+    return NextResponse.json({ error: 'Chybi photoId.' }, { status: 400 })
+  }
+
+  const supabase = await createSupabaseServerClient()
+  const { data: photo, error: photoError } = await supabase
+    .from('job_photos')
+    .select('id, company_id, job_id, storage_path, thumb_storage_path')
+    .eq('id', photoId)
+    .eq('company_id', activeCompany.companyId)
+    .maybeSingle()
+
+  if (photoError) {
+    return NextResponse.json({ error: `Nepodarilo se nacist fotku: ${photoError.message}` }, { status: 500 })
+  }
+
+  if (!photo?.id) {
+    return NextResponse.json({ error: 'Fotka nebyla nalezena.' }, { status: 404 })
+  }
+
+  let jobExists = false
+
+  try {
+    jobExists = await verifyJobPhotoAccess(photo.job_id, activeCompany)
+  } catch (error) {
+    logJobPhotoWarning({
+      operation: 'job_access_verify',
+      status: 'failed',
+      errorName: getErrorName(error),
+      errorCode: getErrorCode(error),
+    })
+    return NextResponse.json({ error: 'Nepodarilo se overit zakazku.' }, { status: 500 })
+  }
+
+  if (!jobExists) {
+    return NextResponse.json({ error: 'Zakazka nebyla nalezena.' }, { status: 404 })
+  }
+
+  const storagePaths = Array.from(
+    new Set([photo.storage_path, photo.thumb_storage_path].filter((value): value is string => Boolean(value)))
+  )
+
+  if (storagePaths.length > 0) {
+    const { error: storageError } = await supabase.storage.from(JOB_PHOTO_BUCKET).remove(storagePaths)
+    if (storageError) {
+      return NextResponse.json({ error: `Nepodarilo se smazat soubor ze storage: ${storageError.message}` }, { status: 500 })
+    }
+  }
+
+  const { error: deleteError } = await supabase
+    .from('job_photos')
+    .delete()
+    .eq('id', photo.id)
+    .eq('company_id', activeCompany.companyId)
+
+  if (deleteError) {
+    return NextResponse.json({ error: `Nepodarilo se smazat metadata fotky: ${deleteError.message}` }, { status: 500 })
+  }
+
+  return NextResponse.json({ ok: true, photoId: photo.id })
 }

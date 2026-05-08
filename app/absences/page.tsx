@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import DashboardShell from '@/components/DashboardShell'
 import { useI18n } from '@/components/I18nProvider'
 import { supabase } from '@/lib/supabase'
+import { updateAbsenceStatusAction } from './actions'
 
 type AbsenceRow = {
   id: string
@@ -367,19 +368,14 @@ export default function AbsencesPage() {
     setSavingId(itemId)
     setError(null)
 
-    const nowIso = new Date().toISOString()
+    const result = await updateAbsenceStatusAction({
+      absenceId: itemId,
+      status: nextStatus,
+    })
 
-    const { error } = await supabase
-      .from('absence_requests')
-      .update({
-        status: nextStatus,
-        reviewed_at: nowIso,
-      })
-      .eq('id', itemId)
-
-    if (error) {
-      console.error('Absence status update failed', error)
-      setError('Data se nepodařilo uložit.')
+    if (!result.ok) {
+      console.error('Absence status update failed', result.error)
+      setError('Data se nepodarilo ulozit.')
       setSavingId(null)
       return
     }
@@ -390,7 +386,7 @@ export default function AbsencesPage() {
           ? {
               ...item,
               status: nextStatus,
-              reviewedAt: nowIso,
+              reviewedAt: result.data.reviewedAt,
             }
           : item
       )

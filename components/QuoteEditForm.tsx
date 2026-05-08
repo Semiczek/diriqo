@@ -3,10 +3,10 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
+import { updateQuoteAction } from '@/app/business-actions'
 import { useI18n } from '@/components/I18nProvider'
 import { DEFAULT_QUOTE_BENEFITS_TEXT } from '@/lib/quote-benefits'
 import { QuoteStatus } from '@/lib/quote-status'
-import { supabase } from '@/lib/supabase'
 
 type QuoteEditFormProps = {
   customerId: string
@@ -99,10 +99,21 @@ export default function QuoteEditForm({ customerId, quoteId, initialValues }: Qu
         rejected_at: status === 'rejected' ? initialValues.rejectedAt || new Date().toISOString() : null,
       }
 
-      const { error: updateError } = await supabase.from('quotes').update(payload).eq('id', quoteId)
+      const result = await updateQuoteAction({
+        quoteId,
+        customerId,
+        title: payload.title,
+        shareToken: payload.share_token,
+        status: payload.status,
+        quoteDate: payload.quote_date,
+        validUntil: payload.valid_until,
+        sentAt: payload.sent_at,
+        acceptedAt: payload.accepted_at,
+        rejectedAt: payload.rejected_at,
+      })
 
-      if (updateError) {
-        throw new Error(updateError.message)
+      if (!result.ok) {
+        throw new Error(result.error)
       }
 
       router.push(`/customers/${customerId}/quotes/${quoteId}`)

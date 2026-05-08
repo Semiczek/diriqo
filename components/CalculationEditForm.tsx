@@ -3,8 +3,8 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useMemo, useState } from 'react'
+import { updateCalculationAction } from '@/app/business-actions'
 import { useI18n } from '@/components/I18nProvider'
-import { supabase } from '@/lib/supabase'
 
 type CostItemType = 'labor' | 'material' | 'rental' | 'transport' | 'accommodation'
 
@@ -114,28 +114,9 @@ function createCostDraftItem(item?: CalculationItemInput): CostDraftItem {
   }
 }
 
-async function resolveProfileIdForUser(authUserId: string) {
-  const profileByAuth = await supabase
-    .from('profiles')
-    .select('id')
-    .eq('auth_user_id', authUserId)
-    .maybeSingle()
-
-  if (profileByAuth.error) throw new Error(profileByAuth.error.message)
-  if (profileByAuth.data?.id) return profileByAuth.data.id
-
-  const profileByUser = await supabase
-    .from('profiles')
-    .select('id')
-    .eq('user_id', authUserId)
-    .maybeSingle()
-
-  if (profileByUser.error) throw new Error(profileByUser.error.message)
-  return profileByUser.data?.id ?? null
-}
-
 export default function CalculationEditForm({
   calculationId,
+  customerId = null,
   cancelHref,
   detailHref,
   initialValues,
@@ -198,13 +179,6 @@ export default function CalculationEditForm({
     setError(null)
 
     try {
-      const {
-        data: { session },
-        error: sessionError,
-      } = await supabase.auth.getSession()
-
-      if (sessionError) throw new Error(sessionError.message)
-
       const validCustomerItems = customerItems.filter((item) => item.name.trim())
       const validCostItems = costItems.filter(isValidCostDraftItem)
 
@@ -216,170 +190,25 @@ export default function CalculationEditForm({
         throw new Error(dictionary.customers.calculationForm.costItemsRequired)
       }
 
-      const [{ data: currentCalculation, error: currentCalculationError }, { data: currentItems, error: currentItemsError }] =
-        await Promise.all([
-          supabase
-            .from('calculations')
-            .select(
-              'id, company_id, customer_id, title, description, status, calculation_date, internal_note, subtotal_cost, subtotal_price, margin_amount, total_price, currency'
-            )
-            .eq('id', calculationId)
-            .maybeSingle(),
-          supabase
-            .from('calculation_items')
-            .select(
-              'sort_order, item_type, name, description, quantity, unit, unit_cost, unit_price, vat_rate, total_cost, total_price, note'
-            )
-            .eq('calculation_id', calculationId)
-            .order('sort_order', { ascending: true })
-            .order('created_at', { ascending: true }),
-        ])
-
-      if (currentCalculationError || !currentCalculation) {
-        throw new Error(
-          currentCalculationError?.message ??
-            dictionary.customers.calculationForm.originalLoadFailed
-        )
-      }
-
-      if (currentItemsError) throw new Error(currentItemsError.message)
-
-      const { data: latestVersionRows, error: latestVersionError } = await supabase
-        .from('calculation_versions')
-        .select('version_number')
-        .eq('calculation_id', calculationId)
-        .order('version_number', { ascending: false })
-        .limit(1)
-
-      if (latestVersionError) {
-        throw new Error(
-          latestVersionError.message.includes('calculation_versions')
-            ? dictionary.customers.calculationForm.versionTableMissing
-            : latestVersionError.message
-        )
-      }
-
-      const nextVersionNumber = (latestVersionRows?.[0]?.version_number ?? 0) + 1
-      const authUserId = session?.user?.id ?? null
-      const savedBy = authUserId ? await resolveProfileIdForUser(authUserId) : null
-
-      const { data: insertedVersion, error: insertedVersionError } = await supabase
-        .from('calculation_versions')
-        .insert({
-          calculation_id: currentCalculation.id,
-          company_id: currentCalculation.company_id,
-          customer_id: currentCalculation.customer_id,
-          version_number: nextVersionNumber,
-          title: currentCalculation.title,
-          description: currentCalculation.description,
-          status: currentCalculation.status ?? 'draft',
-          calculation_date: currentCalculation.calculation_date,
-          internal_note: currentCalculation.internal_note,
-          subtotal_cost: currentCalculation.subtotal_cost ?? 0,
-          subtotal_price: currentCalculation.subtotal_price ?? 0,
-          margin_amount: currentCalculation.margin_amount ?? 0,
-          total_price: currentCalculation.total_price ?? 0,
-          currency: currentCalculation.currency ?? 'CZK',
-          saved_by: savedBy,
-        })
-        .select('id')
-        .single()
-
-      if (insertedVersionError || !insertedVersion?.id) {
-        throw new Error(
-          insertedVersionError?.message ??
-            dictionary.customers.calculationForm.versionSaveFailed
-        )
-      }
-
-      const versionItemsPayload = ((currentItems ?? []) as Array<{
-        sort_order: number | null
-        item_type: string | null
-        name: string
-        description: string | null
-        quantity: number | null
-        unit: string | null
-        unit_cost: number | null
-        unit_price: number | null
-        vat_rate: number | null
-        total_cost: number | null
-        total_price: number | null
-        note: string | null
-      }>).map((item) => ({
-        calculation_version_id: insertedVersion.id,
-        sort_order: item.sort_order ?? 0,
-        item_type: item.item_type,
-        name: item.name,
-        description: item.description,
-        quantity: item.quantity ?? 0,
-        unit: item.unit,
-        unit_cost: item.unit_cost ?? 0,
-        unit_price: item.unit_price ?? 0,
-        vat_rate: item.vat_rate ?? 21,
-        total_cost: item.total_cost ?? 0,
-        total_price: item.total_price ?? 0,
-        note: item.note,
-      }))
-
-      if (versionItemsPayload.length > 0) {
-        const { error: versionItemsError } = await supabase
-          .from('calculation_version_items')
-          .insert(versionItemsPayload)
-
-        if (versionItemsError) {
-          throw new Error(
-            versionItemsError.message.includes('calculation_version_items')
-              ? dictionary.customers.calculationForm.versionItemsTableMissing
-              : versionItemsError.message
-          )
-        }
-      }
-
       const subtotalCost = validCostItems.reduce((sum, item) => sum + parseNumber(item.quantity) * parseNumber(item.unitCost), 0)
       const subtotalPrice = validCustomerItems.reduce((sum, item) => sum + parseNumber(item.quantity) * parseNumber(item.unitPrice), 0)
-
-      const { error: calculationError } = await supabase
-        .from('calculations')
-        .update({
-          title: title.trim(),
-          description: description.trim() || null,
-          status,
-          calculation_date: calculationDate,
-          internal_note: internalNote.trim() || null,
-          subtotal_cost: subtotalCost,
-          subtotal_price: subtotalPrice,
-          margin_amount: subtotalPrice - subtotalCost,
-          total_price: subtotalPrice,
-          currency: 'CZK',
-        })
-        .eq('id', calculationId)
-
-      if (calculationError) throw new Error(calculationError.message)
-
-      const { error: deleteError } = await supabase
-        .from('calculation_items')
-        .delete()
-        .eq('calculation_id', calculationId)
-
-      if (deleteError) throw new Error(deleteError.message)
 
       const customerPayload = validCustomerItems.map((item, index) => {
         const quantity = parseNumber(item.quantity)
         const unitPrice = parseNumber(item.unitPrice)
 
         return {
-          calculation_id: calculationId,
-          sort_order: index,
-          item_type: 'customer',
+          sortOrder: index,
+          itemType: 'customer',
           name: item.name.trim(),
           description: item.description.trim() || null,
           quantity,
           unit: item.unit.trim() || null,
-          unit_cost: 0,
-          unit_price: unitPrice,
-          vat_rate: parseNumber(item.vatRate),
-          total_cost: 0,
-          total_price: quantity * unitPrice,
+          unitCost: 0,
+          unitPrice,
+          vatRate: parseNumber(item.vatRate),
+          totalCost: 0,
+          totalPrice: quantity * unitPrice,
           note: item.note.trim() || null,
         }
       })
@@ -389,27 +218,37 @@ export default function CalculationEditForm({
         const unitCost = parseNumber(item.unitCost)
 
         return {
-          calculation_id: calculationId,
-          sort_order: validCustomerItems.length + index,
-          item_type: item.itemType,
+          sortOrder: validCustomerItems.length + index,
+          itemType: item.itemType,
           name: item.name.trim() || typeLabel(item.itemType),
           description: item.description.trim() || null,
           quantity,
           unit: item.unit.trim() || null,
-          unit_cost: unitCost,
-          unit_price: 0,
-          vat_rate: parseNumber(item.vatRate),
-          total_cost: quantity * unitCost,
-          total_price: 0,
+          unitCost,
+          unitPrice: 0,
+          vatRate: parseNumber(item.vatRate),
+          totalCost: quantity * unitCost,
+          totalPrice: 0,
           note: item.note.trim() || null,
         }
       })
 
-      const { error: insertError } = await supabase
-        .from('calculation_items')
-        .insert([...customerPayload, ...costPayload])
+      const result = await updateCalculationAction(calculationId, {
+        customerId,
+        title: title.trim(),
+        description: description.trim() || null,
+        status,
+        calculationDate,
+        internalNote: internalNote.trim() || null,
+        subtotalCost,
+        subtotalPrice,
+        marginAmount: subtotalPrice - subtotalCost,
+        totalPrice: subtotalPrice,
+        currency: 'CZK',
+        items: [...customerPayload, ...costPayload],
+      })
 
-      if (insertError) throw new Error(insertError.message)
+      if (!result.ok) throw new Error(result.error)
 
       router.push(detailHref)
       router.refresh()

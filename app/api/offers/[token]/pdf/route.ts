@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 import { formatCurrency } from '@/lib/invoices'
+import { isLikelyPublicOfferToken } from '@/lib/public-offer-security'
+import { resolveQuoteStatus } from '@/lib/quote-status'
 import { createSupabasePublicClient } from '@/lib/supabase-public'
 
 export const runtime = 'nodejs'
@@ -14,6 +16,7 @@ type RouteContext = {
 type PublicQuoteRow = {
   id: string
   title: string
+  status: string | null
   valid_until: string | null
   intro_text: string | null
   contact_name: string | null
@@ -239,6 +242,10 @@ function buildPdf(quote: PublicQuoteRow, items: PublicQuoteItemRow[]) {
 
 export async function GET(_request: NextRequest, context: RouteContext) {
   const { token } = await context.params
+  if (!isLikelyPublicOfferToken(token)) {
+    return NextResponse.json({ error: 'Neplatny token nabidky.' }, { status: 400 })
+  }
+
   const supabase = createSupabasePublicClient()
   const [{ data: quote, error: quoteError }, { data: items, error: itemsError }] = await Promise.all([
     supabase.rpc('get_public_offer_by_token', { input_token: token }).maybeSingle(),
@@ -253,6 +260,11 @@ export async function GET(_request: NextRequest, context: RouteContext) {
   }
 
   const normalizedQuote = quote as PublicQuoteRow
+  const status = resolveQuoteStatus(normalizedQuote.status, normalizedQuote.valid_until)
+  if (status === 'expired' || status === 'draft') {
+    return NextResponse.json({ error: 'Cenova nabidka neni verejne dostupna.' }, { status: 410 })
+  }
+
   const pdf = buildPdf(normalizedQuote, (items ?? []) as PublicQuoteItemRow[])
   const fileName = normalizePdfText(normalizedQuote.title || 'cenova-nabidka')
     .toLowerCase()

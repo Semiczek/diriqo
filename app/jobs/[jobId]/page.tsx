@@ -1,6 +1,7 @@
 ﻿import JobDetailPageClient from './JobDetailPageClient'
 import { listEntityThreadMessages } from '@/lib/email/listEntityThreadMessages'
 import type { MessageFeedItem } from '@/lib/email/types'
+import { listJobEconomicsSummaries } from '@/lib/dal/economics'
 import { requireHubAccess } from '@/lib/require-hub-access'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 
@@ -172,17 +173,6 @@ type GroupMemberJobRow = {
   customer_id: string | null
 }
 
-type JobEconomicsSummaryRow = {
-  job_id: string
-  revenue_total: number | null
-  labor_hours_total: number | null
-  labor_cost_total: number | null
-  other_cost_total: number | null
-  total_cost_total: number | null
-  profit_total: number | null
-  margin_percent: number | null
-}
-
 type JobDetailPageProps = {
   params: Promise<{
     jobId: string
@@ -201,9 +191,6 @@ const emptyInitialDetail = {
   initialWorkLogs: [],
   initialCostItems: [],
 }
-
-const economicsSelect =
-  'job_id, revenue_total, labor_hours_total, labor_cost_total, other_cost_total, total_cost_total, profit_total, margin_percent'
 
 export default async function JobDetailPage({ params }: JobDetailPageProps) {
   const { jobId } = await params
@@ -440,7 +427,7 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
       : null
   const groupJobIds = groupMemberJobs.length > 0 ? groupMemberJobs.map((item) => item.id) : [job.id]
 
-  const [groupStatesResponse, groupShiftsResponse, groupEconomicsResponse] =
+  const [groupStatesResponse, groupShiftsResponse, groupEconomicsSummaries] =
     groupJobIds.length > 0
       ? await Promise.all([
           supabase
@@ -476,15 +463,18 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
             .in('job_id', groupJobIds)
             .order('shift_date', { ascending: true })
             .order('started_at', { ascending: true }),
-          supabase
-            .from('job_economics_summary')
-            .select(economicsSelect)
-            .in('job_id', groupJobIds),
+          listJobEconomicsSummaries(
+            {
+              supabase,
+              companyId: activeCompany.companyId,
+            },
+            groupJobIds,
+          ),
         ])
       : [
           { data: [], error: null },
           { data: [], error: null },
-          { data: [], error: null },
+          [],
         ]
 
   const baseAssignments = (assignmentsResponse.data as AssignmentBaseRow[] | null) ?? []
@@ -515,8 +505,6 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
     profiles: shift.profile_id ? profilesById.get(shift.profile_id) ?? null : null,
   }))
   const groupMemberJobStates = (groupStatesResponse.data as JobStateRow[] | null) ?? []
-  const groupEconomicsSummaries =
-    (groupEconomicsResponse.data as JobEconomicsSummaryRow[] | null) ?? []
   const jobState = groupMemberJobStates.find((item) => item.id === jobId) ?? null
   const jobEconomicsSummary =
     groupEconomicsSummaries.find((item) => item.job_id === jobId) ?? null
@@ -528,13 +516,13 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
     groupJobsResponse.error?.message ??
     groupStatesResponse.error?.message ??
     groupShiftsResponse.error?.message ??
-    groupEconomicsResponse.error?.message ??
     profilesResponse.error?.message ??
     null
 
   return (
     <JobDetailPageClient
       jobId={jobId}
+      canManageJobPhotos={activeCompany.role === 'super_admin' || activeCompany.role === 'company_admin'}
       initialJob={job}
       initialJobState={jobState}
       initialCustomer={customer}

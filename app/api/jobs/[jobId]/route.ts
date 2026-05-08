@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 import { getActiveCompanyContext } from '@/lib/active-company'
+import { markJobCompleted, markReadyForInvoice } from '@/lib/dal/flow'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 
 type RouteContext = {
@@ -173,6 +174,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       { error: `Failed to update job: ${updateResponse.error.message}` },
       { status: 500 }
     )
+  }
+
+  if (status === 'done') {
+    await markJobCompleted({ supabase, companyId: activeCompany.companyId }, cleanJobId)
+    await markReadyForInvoice({ supabase, companyId: activeCompany.companyId }, cleanJobId)
   }
 
   if (propagateToChildren && !existingJob.parent_job_id) {

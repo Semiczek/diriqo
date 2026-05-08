@@ -15,17 +15,18 @@ export default function OfferNextStepsSection({
   return (
     <section
       style={{
-        borderRadius: '22px',
-        border: '1px solid #dbe4f0',
-        backgroundColor: '#ffffff',
-        padding: '24px',
-        boxShadow: '0 12px 36px rgba(15, 23, 42, 0.05)',
+        borderRadius: '26px',
+        border: '1px solid rgba(124, 58, 237, 0.2)',
+        background:
+          'radial-gradient(circle at 0% 0%, rgba(217,70,239,0.12), transparent 34%), radial-gradient(circle at 100% 0%, rgba(6,182,212,0.14), transparent 34%), #ffffff',
+        padding: '26px',
+        boxShadow: '0 18px 52px rgba(15, 23, 42, 0.08)',
         display: 'grid',
         gap: '14px',
       }}
     >
       <div style={{ display: 'grid', gap: '6px' }}>
-        <strong style={{ fontSize: '22px', color: '#111827', lineHeight: 1.2 }}>
+          <strong style={{ fontSize: '24px', color: '#08111f', lineHeight: 1.2 }}>
           Jak chcete pokračovat?
         </strong>
         <span style={{ color: '#475569', lineHeight: 1.6 }}>
@@ -47,14 +48,15 @@ export default function OfferNextStepsSection({
           style={{
             padding: '15px 18px',
             borderRadius: '12px',
-            border: '1px solid #0B1B2B',
-            backgroundColor: '#0B1B2B',
+            border: '1px solid rgba(255,255,255,0.18)',
+            background: 'linear-gradient(135deg, #7c3aed 0%, #2563eb 52%, #06b6d4 100%)',
             color: '#ffffff',
             fontSize: '15px',
             fontWeight: 700,
             cursor: 'pointer',
             minHeight: '50px',
             width: '100%',
+            boxShadow: '0 16px 34px rgba(37, 99, 235, 0.24)',
           }}
         >
           Chci realizaci

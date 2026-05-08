@@ -167,6 +167,20 @@ function getAppBaseUrl() {
   return getPublicAppBaseUrl()
 }
 
+function buildShareToken() {
+  const bytes = new Uint8Array(24)
+  crypto.getRandomValues(bytes)
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
+}
+
+function buildShareTokenExpiresAt(validUntil: string | null | undefined) {
+  if (validUntil) return `${validUntil}T23:59:59.999Z`
+
+  const expiresAt = new Date()
+  expiresAt.setDate(expiresAt.getDate() + 30)
+  return expiresAt.toISOString()
+}
+
 function getSectionLabel(
   sectionKey: string | null,
   quote: QuoteRow,
@@ -292,18 +306,21 @@ export default async function QuoteDetailPage({ params }: PageProps) {
       .from('quote_items')
       .select('id, name, description, quantity, unit, unit_price, total_price, note')
       .eq('quote_id', quoteId)
+      .eq('company_id', activeCompany.companyId)
       .order('sort_order', { ascending: true })
       .order('created_at', { ascending: true }),
     supabase
       .from('offer_events')
       .select('id, event_type, visitor_id, created_at')
       .eq('quote_id', quoteId)
+      .eq('company_id', activeCompany.companyId)
       .order('created_at', { ascending: false })
       .limit(200),
     supabase
       .from('offer_responses')
       .select('id, action_type, customer_name, customer_email, customer_phone, note, created_at')
       .eq('quote_id', quoteId)
+      .eq('company_id', activeCompany.companyId)
       .order('created_at', { ascending: false })
       .limit(50),
   ])
@@ -403,6 +420,7 @@ export default async function QuoteDetailPage({ params }: PageProps) {
       .from('calculation_items')
       .select('id, name, description, quantity, unit, unit_price, total_price, note')
       .eq('calculation_id', normalizedQuote.source_calculation_id)
+      .eq('company_id', activeCompany.companyId)
       .eq('item_type', 'customer')
       .order('sort_order', { ascending: true })
       .order('created_at', { ascending: true })
@@ -479,12 +497,41 @@ export default async function QuoteDetailPage({ params }: PageProps) {
       : { data: [], error: null }
 
   const resolvedStatus = resolveQuoteStatus(normalizedQuote.status, normalizedQuote.valid_until)
-  const shareUrl = normalizedQuote.share_token
+  let effectiveShareToken = normalizedQuote.share_token?.trim() || null
+
+  if (!effectiveShareToken) {
+    const generatedShareToken = buildShareToken()
+    const { error: shareTokenError } = await supabase
+      .from('quotes')
+      .update({
+        share_token: generatedShareToken,
+        share_token_scope: 'quote_public_offer',
+        share_token_expires_at: buildShareTokenExpiresAt(normalizedQuote.valid_until),
+        share_token_revoked_at: null,
+      })
+      .eq('id', quoteId)
+      .eq('company_id', activeCompany.companyId)
+
+    if (shareTokenError) {
+      console.error('[QUOTES] Failed to backfill quote share token', {
+        quoteId,
+        customerId: quoteCustomerId,
+        companyId: activeCompany.companyId,
+        message: shareTokenError.message,
+        details: shareTokenError.details,
+        hint: shareTokenError.hint,
+        code: shareTokenError.code,
+      })
+    } else {
+      effectiveShareToken = generatedShareToken
+      normalizedQuote.share_token = generatedShareToken
+    }
+  }
+
+  const shareUrl = effectiveShareToken
     ? (() => {
         const baseUrl = getAppBaseUrl()
-        return baseUrl
-          ? `${baseUrl}/offer/${normalizedQuote.share_token}`
-          : `/offer/${normalizedQuote.share_token}`
+        return baseUrl ? `${baseUrl}/offer/${effectiveShareToken}` : `/offer/${effectiveShareToken}`
       })()
     : null
   const offerEvents = ((events ?? []) as Array<Pick<OfferEventRow, 'id' | 'event_type' | 'visitor_id' | 'created_at'>>).map((event) => ({

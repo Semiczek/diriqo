@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import Link from 'next/link'
 import { ReactNode, useEffect, useState } from 'react'
@@ -40,6 +40,10 @@ type CompanyMembership = {
 type ActiveCompanyPayload = {
   companyId: string
   companyName: string | null
+  profileId?: string | null
+  profileName?: string | null
+  profileEmail?: string | null
+  role?: string | null
   companyMemberships: CompanyMembership[]
 }
 
@@ -54,16 +58,22 @@ export default function DashboardShell({
   const [switchingCompanyId, setSwitchingCompanyId] = useState<string | null>(null)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [activeCompany, setActiveCompany] = useState<ActiveCompanyPayload | null>(null)
+  const [activeCompanyLoading, setActiveCompanyLoading] = useState(true)
+  const [companySwitchError, setCompanySwitchError] = useState<string | null>(null)
   const { dictionary } = useI18n()
 
   useEffect(() => {
     let cancelled = false
 
     async function loadActiveCompany() {
+      setActiveCompanyLoading(true)
       try {
         const response = await fetch('/api/active-company', { cache: 'no-store' })
 
-        if (!response.ok) return
+        if (!response.ok) {
+          if (!cancelled) setCompanySwitchError('Aktivní firmu se nepodařilo načíst.')
+          return
+        }
 
         const payload = (await response.json()) as ActiveCompanyPayload
 
@@ -71,10 +81,18 @@ export default function DashboardShell({
           setActiveCompany({
             companyId: payload.companyId,
             companyName: payload.companyName?.trim() || null,
+            profileId: payload.profileId ?? null,
+            profileName: payload.profileName?.trim() || null,
+            profileEmail: payload.profileEmail?.trim() || null,
+            role: payload.role ?? null,
             companyMemberships: payload.companyMemberships ?? [],
           })
+          setCompanySwitchError(null)
         }
       } catch {
+        if (!cancelled) setCompanySwitchError('Aktivní firmu se nepodařilo načíst.')
+      } finally {
+        if (!cancelled) setActiveCompanyLoading(false)
       }
     }
 
@@ -109,6 +127,7 @@ export default function DashboardShell({
       return
     }
 
+    setCompanySwitchError(null)
     setSwitchingCompanyId(companyId)
 
     try {
@@ -121,7 +140,8 @@ export default function DashboardShell({
       })
 
       if (!response.ok) {
-        alert('Firmu se nepodařilo přepnout.')
+        const payload = (await response.json().catch(() => null)) as { error?: string } | null
+        setCompanySwitchError(payload?.error || 'Firmu se nepodařilo přepnout.')
         return
       }
 
@@ -136,6 +156,10 @@ export default function DashboardShell({
 
   const activeCompanyName = activeCompany?.companyName || dictionary.common.appName
   const companyMemberships = activeCompany?.companyMemberships ?? []
+  const userDisplayName =
+    activeCompany?.profileName || activeCompany?.profileEmail || 'Uzivatel'
+  const userSubtitle = activeCompany?.profileEmail || activeCompany?.role || ''
+  const userInitials = getUserInitials(activeCompany?.profileName, activeCompany?.profileEmail)
 
   return (
     <AdminAuthGuard>
@@ -250,7 +274,8 @@ export default function DashboardShell({
                           color: '#334155',
                           fontSize: '13px',
                           fontWeight: 850,
-                          cursor: 'pointer',
+                          cursor: activeCompanyLoading ? 'wait' : 'pointer',
+                          opacity: activeCompanyLoading ? 0.72 : 1,
                           boxShadow: companyMenuOpen ? '0 10px 22px rgba(37, 99, 235, 0.12)' : 'none',
                         }}
                       >
@@ -296,6 +321,21 @@ export default function DashboardShell({
                           >
                             Aktivní firma
                           </div>
+                          {companySwitchError ? (
+                            <div
+                              style={{
+                                margin: '0 8px 8px',
+                                padding: '8px 9px',
+                                borderRadius: '12px',
+                                background: '#fef2f2',
+                                color: '#991b1b',
+                                fontSize: '12px',
+                                fontWeight: 800,
+                              }}
+                            >
+                              {companySwitchError}
+                            </div>
+                          ) : null}
                           {companyMemberships.length > 0 ? (
                             companyMemberships.map((membership) => {
                               const isActive = membership.companyId === activeCompany?.companyId
@@ -307,7 +347,7 @@ export default function DashboardShell({
                                   type="button"
                                   role="menuitem"
                                   onClick={() => void handleCompanySwitch(membership.companyId)}
-                                  disabled={Boolean(switchingCompanyId)}
+                                  disabled={activeCompanyLoading || Boolean(switchingCompanyId)}
                                   className="topbar-company-menu-item"
                                   style={{
                                     width: '100%',
@@ -320,7 +360,7 @@ export default function DashboardShell({
                                     borderRadius: '12px',
                                     background: isActive ? '#eef5ff' : 'transparent',
                                     color: '#0f172a',
-                                    cursor: switchingCompanyId ? 'default' : 'pointer',
+                                    cursor: activeCompanyLoading || switchingCompanyId ? 'default' : 'pointer',
                                     textAlign: 'left',
                                   }}
                                 >
@@ -430,9 +470,9 @@ export default function DashboardShell({
                           fontWeight: 950,
                         }}
                       >
-                        AA
+                        {userInitials}
                       </span>
-                      <span>Adam Admin</span>
+                      <span>{userDisplayName}</span>
                         <span style={{ color: '#64748b', fontSize: '12px', lineHeight: 1 }}>
                           {userMenuOpen ? '▲' : '▼'}
                         </span>
@@ -456,8 +496,13 @@ export default function DashboardShell({
                       >
                         <div style={{ padding: '8px 9px 10px' }}>
                           <div style={{ color: '#0f172a', fontSize: '14px', fontWeight: 900 }}>
-                            Adam Admin
+                            {userDisplayName}
                           </div>
+                          {userSubtitle ? (
+                            <div style={{ marginTop: '2px', color: '#64748b', fontSize: '12px', fontWeight: 700 }}>
+                              {userSubtitle}
+                            </div>
+                          ) : null}
                         </div>
                         <div style={{ height: '1px', background: '#e2e8f0', margin: '4px 0 7px' }} />
                         <Link className="topbar-user-menu-item" href="/ucet" onClick={() => setUserMenuOpen(false)} style={topbarMenuItem}>
@@ -527,15 +572,16 @@ const topbarMenuItem = {
   boxSizing: 'border-box',
 } as const
 
-function getActiveLabel(activeItem: DashboardShellProps['activeItem']) {
-  if (activeItem === 'jobs') return 'Zakázky'
-  if (activeItem === 'customers') return 'Zákazníci'
-  if (activeItem === 'workers') return 'Pracovníci'
-  if (activeItem === 'calendar') return 'Kalendář'
-  if (activeItem === 'invoices') return 'Fakturace'
-  if (activeItem === 'account') return 'Můj účet'
-  if (activeItem === 'companySettings') return 'Nastavení společnosti'
-  if (activeItem === 'help') return 'Nápověda'
-  return 'Přehled'
+function getUserInitials(name?: string | null, email?: string | null) {
+  const parts = (name ?? '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+
+  if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase()
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+
+  const emailName = (email ?? '').split('@')[0]?.trim()
+  return emailName ? emailName.slice(0, 2).toUpperCase() : 'U'
 }
 

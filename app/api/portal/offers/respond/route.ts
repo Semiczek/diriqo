@@ -51,9 +51,10 @@ export async function POST(request: Request) {
   const admin = createSupabaseAdminClient()
   const { data: quote, error: quoteError } = await admin
     .from('quotes')
-    .select('id, title, customer_id, status, valid_until, accepted_at')
+    .select('id, title, company_id, customer_id, status, valid_until, accepted_at')
     .eq('id', offerId)
     .eq('customer_id', portalUser.customerId)
+    .eq('company_id', portalUser.companyId)
     .maybeSingle()
 
   if (quoteError || !quote) {
@@ -93,6 +94,7 @@ export async function POST(request: Request) {
           : 'portal_offer_not_interested'
 
   const responseInsert = await admin.from('offer_responses').insert({
+    company_id: quote.company_id,
     quote_id: offerId,
     action_type: actionType,
     customer_name: portalUser.fullName?.trim() || portalUser.customerName?.trim() || portalUser.email,
@@ -111,12 +113,14 @@ export async function POST(request: Request) {
     .update({ status: nextStatus })
     .eq('id', offerId)
     .eq('customer_id', portalUser.customerId)
+    .eq('company_id', quote.company_id)
 
   if (quoteUpdate.error) {
     return NextResponse.json({ ok: false, error: quoteUpdate.error.message }, { status: 400 })
   }
 
   await admin.from('offer_events').insert({
+    company_id: quote.company_id,
     quote_id: offerId,
     event_type: eventType,
     visitor_id: portalUser.portalUserId,

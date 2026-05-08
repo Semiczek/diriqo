@@ -6,7 +6,7 @@ import { getPortalOffers } from '@/lib/customer-portal/data'
 
 export default async function PortalOffersPage() {
   const portalUser = await requirePortalUserContext()
-  const offers = await getPortalOffers(portalUser.customerId)
+  const offers = await getPortalOffers(portalUser.customerId, portalUser.companyId ?? '')
 
   return (
     <PortalShell title="Nabídky" customerName={portalUser.customerName}>

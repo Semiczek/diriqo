@@ -32,7 +32,7 @@ function DetailBox({ label, value }: { label: string; value: string | null | und
 export default async function PortalInvoiceDetailPage({ params }: PortalInvoiceDetailPageProps) {
   const portalUser = await requirePortalUserContext()
   const { invoiceId } = await params
-  const invoice = await getPortalInvoiceDetail(portalUser.customerId, invoiceId)
+  const invoice = await getPortalInvoiceDetail(portalUser.customerId, portalUser.companyId ?? '', invoiceId)
 
   if (!invoice) {
     notFound()

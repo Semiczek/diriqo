@@ -123,6 +123,26 @@ async function loadJobScope(supabase: Awaited<ReturnType<typeof createSupabaseSe
   }
 }
 
+async function isProfileInCompany(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  companyId: string,
+  profileId: string
+) {
+  const membershipResponse = await supabase
+    .from('company_members')
+    .select('id')
+    .eq('company_id', companyId)
+    .eq('profile_id', profileId)
+    .eq('is_active', true)
+    .maybeSingle()
+
+  if (membershipResponse.error) {
+    throw new Error(`Failed to verify worker membership: ${membershipResponse.error.message}`)
+  }
+
+  return Boolean(membershipResponse.data?.id)
+}
+
 export async function POST(request: NextRequest, context: RouteContext) {
   const activeCompany = await getActiveCompanyContext()
 
@@ -147,6 +167,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
   try {
     const supabase = await createSupabaseServerClient()
     const scope = await loadJobScope(supabase, activeCompany.companyId, cleanJobId)
+    const workerBelongsToCompany = await isProfileInCompany(supabase, activeCompany.companyId, profileId)
+
+    if (!workerBelongsToCompany) {
+      return NextResponse.json({ error: 'Worker is not a member of this company.' }, { status: 403 })
+    }
+
     const laborHours = toNumber(payload.labor_hours)
     const hourlyRate = toNumber(payload.hourly_rate)
     const workerType = normalizeWorkerType(payload.worker_type_snapshot)
@@ -249,6 +275,21 @@ export async function PUT(request: NextRequest, context: RouteContext) {
   try {
     const supabase = await createSupabaseServerClient()
     const scope = await loadJobScope(supabase, activeCompany.companyId, cleanJobId)
+    const profileIds = Array.from(
+      new Set(
+        inputAssignments
+          .map((assignment) => (typeof assignment.profile_id === 'string' ? assignment.profile_id.trim() : ''))
+          .filter(Boolean)
+      )
+    )
+
+    for (const profileId of profileIds) {
+      const workerBelongsToCompany = await isProfileInCompany(supabase, activeCompany.companyId, profileId)
+      if (!workerBelongsToCompany) {
+        return NextResponse.json({ error: 'Worker is not a member of this company.' }, { status: 403 })
+      }
+    }
+
     const currentResponse = await supabase
       .from('job_assignments')
       .select('id, job_id, profile_id, labor_hours, hourly_rate, worker_type_snapshot, assignment_billing_type, external_amount, note')

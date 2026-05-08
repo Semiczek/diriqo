@@ -51,6 +51,7 @@ import {
   getWorkerType,
   getWorkerTypeLabel,
 } from '@/lib/payroll-settings'
+import { calculateQuotedJobEconomics } from '@/lib/economics'
 
 type AssignmentWorkState = 'not_started' | 'working' | 'completed'
 
@@ -221,17 +222,21 @@ type CostItemRow = {
 
 type JobEconomicsSummaryRow = {
   job_id: string
-  revenue_total: number | null
-  labor_hours_total: number | null
-  labor_cost_total: number | null
-  other_cost_total: number | null
-  total_cost_total: number | null
-  profit_total: number | null
+  quoted_revenue_total?: number | null
+  revenue_total: number
+  labor_hours_total: number
+  internal_labor_cost_total?: number | null
+  external_labor_cost_total?: number | null
+  labor_cost_total: number
+  other_cost_total: number
+  total_cost_total: number
+  profit_total: number
   margin_percent: number | null
 }
 
 type JobDetailPageClientProps = {
   jobId: string
+  canManageJobPhotos?: boolean
   initialJob: Job | null
   initialJobState: JobStateRow | null
   initialCustomer: Customer | null
@@ -982,6 +987,7 @@ function normalizeAssignmentRows(
 
 export default function JobDetailPageClient({
   jobId,
+  canManageJobPhotos = false,
   initialJob,
   initialJobState,
   initialCustomer,
@@ -1399,30 +1405,36 @@ export default function JobDetailPageClient({
   }, [groupMemberJobs, groupedJobsForDisplay, job?.id])
 
   const groupedEconomicsSummary = useMemo(() => {
+    const quotedRevenue = groupEconomicsSummaries.reduce(
+      (sum, item) => sum + toNumber(item.quoted_revenue_total),
+      0
+    )
+    const laborCost = groupEconomicsSummaries.reduce(
+      (sum, item) => sum + toNumber(item.labor_cost_total),
+      0
+    )
+    const otherCosts = groupEconomicsSummaries.reduce(
+      (sum, item) => sum + toNumber(item.other_cost_total),
+      0
+    )
+    const quotedEconomics = calculateQuotedJobEconomics({
+      quotedRevenue,
+      laborCost,
+      otherCost: otherCosts,
+    })
+
     return {
       totalHours: roundHours(
         groupEconomicsSummaries.reduce((sum, item) => sum + toNumber(item.labor_hours_total), 0)
       ),
-      laborCost: groupEconomicsSummaries.reduce(
-        (sum, item) => sum + toNumber(item.labor_cost_total),
-        0
-      ),
-      otherCosts: groupEconomicsSummaries.reduce(
-        (sum, item) => sum + toNumber(item.other_cost_total),
-        0
-      ),
-      totalCosts: groupEconomicsSummaries.reduce(
-        (sum, item) => sum + toNumber(item.total_cost_total),
-        0
-      ),
+      laborCost,
+      otherCosts,
+      totalCosts: quotedEconomics.totalCost,
       revenue: groupEconomicsSummaries.reduce(
         (sum, item) => sum + toNumber(item.revenue_total),
         0
       ),
-      profit: groupEconomicsSummaries.reduce(
-        (sum, item) => sum + toNumber(item.profit_total),
-        0
-      ),
+      profit: quotedEconomics.profit,
     }
   }, [groupEconomicsSummaries])
 
@@ -1431,19 +1443,12 @@ export default function JobDetailPageClient({
   }, [jobEconomicsSummary])
 
   const laborCost = useMemo(() => {
-    return toNumber(jobEconomicsSummary?.labor_cost_total)
+    return toNumber(jobEconomicsSummary?.internal_labor_cost_total ?? jobEconomicsSummary?.labor_cost_total)
   }, [jobEconomicsSummary])
 
   const otherCosts = useMemo(() => {
-    return costItems.reduce((sum, item) => {
-      const itemTotal =
-        item.total_price != null
-          ? toNumber(item.total_price)
-          : toNumber(item.quantity) * toNumber(item.unit_price)
-
-      return sum + itemTotal
-    }, 0)
-  }, [costItems])
+    return toNumber(jobEconomicsSummary?.other_cost_total)
+  }, [jobEconomicsSummary])
 
   const normalizedCostItems = useMemo<NormalizedCostItem[]>(() => {
     return costItems.map((item) => ({
@@ -1492,11 +1497,8 @@ export default function JobDetailPageClient({
   }, [normalizedAssignments])
 
   const externalLaborCost = useMemo(() => {
-    return normalizedAssignments.reduce(
-      (sum, assignment) => sum + assignment.computed_external_labor_cost,
-      0
-    )
-  }, [normalizedAssignments])
+    return toNumber(jobEconomicsSummary?.external_labor_cost_total)
+  }, [jobEconomicsSummary])
 
   const assignedWorkerNames = useMemo(() => {
     return normalizedAssignments
@@ -1515,9 +1517,17 @@ export default function JobDetailPageClient({
     return normalizedCostItems.length
   }, [normalizedCostItems])
 
+  const accountingRevenue = useMemo(() => {
+    return toNumber(jobEconomicsSummary?.revenue_total)
+  }, [jobEconomicsSummary])
+
   const assignmentProfit = useMemo(() => {
-    return toNumber(job?.price) - assignmentLaborCost - externalLaborCost - otherCosts
-  }, [assignmentLaborCost, externalLaborCost, job?.price, otherCosts])
+    return calculateQuotedJobEconomics({
+      quotedRevenue: job?.price,
+      laborCost,
+      otherCost: externalLaborCost + otherCosts,
+    }).profit
+  }, [externalLaborCost, job?.price, laborCost, otherCosts])
 
   const visibleBillingState = useMemo(() => {
     return getVisibleBillingState(resolvedWorkState, resolvedBillingState)
@@ -2072,10 +2082,11 @@ export default function JobDetailPageClient({
           marginBottom: '18px',
         }}
       >
-        <FinanceSummaryCard label="Cena" value={formatCurrency(job.price)} tone="blue" />
-        <FinanceSummaryCard label="Interní práce" value={formatCurrency(assignmentLaborCost)} tone="orange" />
+        <FinanceSummaryCard label="Fakturováno" value={formatCurrency(accountingRevenue)} tone="blue" />
+        <FinanceSummaryCard label="Cena zakázky" value={formatCurrency(job.price)} tone="gray" />
+        <FinanceSummaryCard label="Interní práce" value={formatCurrency(laborCost)} tone="orange" />
         <FinanceSummaryCard label="Externí práce" value={formatCurrency(externalLaborCost)} tone="gray" />
-        <FinanceSummaryCard label="Ostatní náklady" value={formatCurrency(otherCosts)} tone="gray" />
+        <FinanceSummaryCard label="Přímé náklady" value={formatCurrency(otherCosts)} tone="gray" />
         <FinanceSummaryCard
           label="Zisk"
           value={formatCurrency(assignmentProfit)}
@@ -2942,7 +2953,8 @@ export default function JobDetailPageClient({
             price={job.price != null ? Number(job.price) : null}
             assignments={normalizedAssignments}
             costItems={normalizedCostItems}
-            laborCost={assignmentLaborCost}
+            accountingRevenue={accountingRevenue}
+            laborCost={laborCost}
             externalLaborCost={externalLaborCost}
             otherCosts={otherCosts}
             profit={assignmentProfit}
@@ -2952,7 +2964,7 @@ export default function JobDetailPageClient({
           />
         </div>
         <div style={{ gridColumn: '1 / -1' }}>
-          <JobPhotosSection jobId={job.id} compact />
+          <JobPhotosSection jobId={job.id} compact canManage={canManageJobPhotos} />
         </div>
       </div>
 

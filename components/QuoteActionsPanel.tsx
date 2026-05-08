@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { createJobFromQuoteAction } from '@/app/business-actions'
 import { supabase } from '@/lib/supabase'
 
 function toLocalDateTimeInput(date: Date) {
@@ -141,7 +142,6 @@ export default function QuoteActionsPanel({
   sourceCalculationId,
   discountAmount,
   currentStatus,
-  totalPrice,
   workDescription,
   proposedSolution,
 }: QuoteActionsPanelProps) {
@@ -541,82 +541,25 @@ export default function QuoteActionsPanel({
     setCreatingJob(true)
 
     try {
-      const baseJobValues = {
-        company_id: companyId,
-        customer_id: customerId,
+      const result = await createJobFromQuoteAction({
+        quoteId,
         title: quoteTitle?.trim() || 'Zakázka z cenové nabídky',
         description: jobDescription.trim() || null,
         address: jobAddress.trim() || null,
-        status: 'planned',
-        is_paid: false,
-      }
-
-      const { data: insertedJobs, error: insertError } = shouldSplitIntoDailyJobs
-        ? await (async () => {
-            const { data: parentJob, error: parentError } = await supabase
-              .from('jobs')
-              .insert({
-                ...baseJobValues,
-                price: totalPrice != null ? Number(totalPrice) : null,
-                start_at: parsedStartAt.toISOString(),
-                end_at: parsedEndAt.toISOString(),
-                parent_job_id: null,
-              })
-              .select('id, parent_job_id')
-              .single()
-
-            if (parentError || !parentJob) {
-              return { data: null, error: parentError }
-            }
-
-            const childJobsToInsert = selectedDailyJobs.map((day) => ({
-              ...baseJobValues,
-              title: `${quoteTitle?.trim() || 'Zakázka z cenové nabídky'} - ${day.label}`,
-              price: null,
-              start_at: day.startAt.toISOString(),
-              end_at: day.endAt.toISOString(),
-              parent_job_id: parentJob.id,
+        startAt: parsedStartAt.toISOString(),
+        endAt: parsedEndAt.toISOString(),
+        splitDays: shouldSplitIntoDailyJobs
+          ? selectedDailyJobs.map((day) => ({
+              label: day.label,
+              startAt: day.startAt.toISOString(),
+              endAt: day.endAt.toISOString(),
             }))
+          : [],
+      })
 
-            const { data: childJobs, error: childError } = await supabase
-              .from('jobs')
-              .insert(childJobsToInsert)
-              .select('id, parent_job_id')
+      if (!result.ok) throw new Error(result.error)
 
-            if (childError || !childJobs) {
-              return { data: null, error: childError }
-            }
-
-            return { data: [parentJob, ...childJobs], error: null }
-          })()
-        : await supabase
-            .from('jobs')
-            .insert({
-              ...baseJobValues,
-              price: totalPrice != null ? Number(totalPrice) : null,
-              start_at: parsedStartAt.toISOString(),
-              end_at: parsedEndAt.toISOString(),
-              parent_job_id: null,
-            })
-            .select('id, parent_job_id')
-
-      if (insertError || !insertedJobs || insertedJobs.length === 0) {
-        throw new Error(insertError?.message ?? 'Zakázku se nepodařilo vytvořit.')
-      }
-
-      const createdJobId = insertedJobs[0].id
-      const acceptedAt = new Date().toISOString()
-      const { error: updateQuoteError } = await supabase
-        .from('quotes')
-        .update({
-          status: 'accepted',
-          accepted_at: acceptedAt,
-        })
-        .eq('id', quoteId)
-
-      if (updateQuoteError) {
-        throw new Error(updateQuoteError.message)
-      }
+      const createdJobId = result.data.jobId
 
       const formatter = new Intl.DateTimeFormat('cs-CZ', {
         dateStyle: 'medium',

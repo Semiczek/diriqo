@@ -165,6 +165,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
         'source_job_id, item_name, description, quantity, unit, unit_price_without_vat, vat_rate, vat_amount, total_without_vat, total_with_vat'
       )
       .eq('invoice_id', invoiceId)
+      .eq('company_id', activeCompany.companyId)
       .order('sort_order', { ascending: true })
       .order('created_at', { ascending: true }),
   ])

@@ -44,6 +44,22 @@ type MemberRow = {
   profiles?: ProfileRelation
 }
 
+type WorkerPaymentRow = {
+  profile_id: string | null
+  worker_type: string | null
+  pay_type_override: string | null
+  payday_day_override: number | null
+  payday_weekday_override: number | null
+  hourly_rate: number | null
+  fixed_rate_per_job: number | null
+  advances_enabled_override: boolean | null
+  advance_limit_amount_override: number | null
+  contractor_company_name: string | null
+  contractor_registration_no: string | null
+  contractor_vat_no: string | null
+  contractor_invoice_required: boolean | null
+}
+
 function asSingle<T>(value: T | T[] | null | undefined): T | null {
   if (!value) return null
   return Array.isArray(value) ? value[0] ?? null : value
@@ -69,7 +85,15 @@ export default async function CompanySettingsPage() {
 
   const supabase = await createSupabaseServerClient()
 
-  const [companyResponse, companySettings, payrollSettings, billingSettings, modules, membersResponse] =
+  const [
+    companyResponse,
+    companySettings,
+    payrollSettings,
+    billingSettings,
+    modules,
+    membersResponse,
+    workerPaymentResponse,
+  ] =
     await Promise.all([
       supabase
         .from('companies')
@@ -85,6 +109,12 @@ export default async function CompanySettingsPage() {
         .select('id, role, is_active, profile_id, profiles(id, full_name, email)')
         .eq('company_id', activeCompany.companyId)
         .order('created_at', { ascending: true }),
+      supabase
+        .from('worker_payment_settings')
+        .select(
+          'profile_id, worker_type, pay_type_override, payday_day_override, payday_weekday_override, hourly_rate, fixed_rate_per_job, advances_enabled_override, advance_limit_amount_override, contractor_company_name, contractor_registration_no, contractor_vat_no, contractor_invoice_required'
+        )
+        .eq('company_id', activeCompany.companyId),
     ])
 
   const company = ((companyResponse.data ?? null) as CompanyRow | null) ?? {
@@ -92,8 +122,15 @@ export default async function CompanySettingsPage() {
     name: activeCompany.companyName,
   }
 
+  const workerPayments = new Map(
+    ((workerPaymentResponse.data ?? []) as WorkerPaymentRow[])
+      .filter((row) => row.profile_id)
+      .map((row) => [row.profile_id as string, row])
+  )
+
   const members = ((membersResponse.data ?? []) as MemberRow[]).map((member) => {
     const profile = asSingle(member.profiles)
+    const paymentSettings = member.profile_id ? workerPayments.get(member.profile_id) ?? null : null
 
     return {
       id: member.id,
@@ -102,6 +139,7 @@ export default async function CompanySettingsPage() {
       email: profile?.email ?? null,
       role: member.role ?? 'worker',
       isActive: member.is_active !== false,
+      paymentSettings,
     }
   })
 

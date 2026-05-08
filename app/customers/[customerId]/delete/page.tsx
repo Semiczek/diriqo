@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import DashboardShell from '@/components/DashboardShell'
 import { useI18n } from '@/components/I18nProvider'
-import { supabase } from '@/lib/supabase'
+import { deleteCustomerAction } from './actions'
 
 export default function DeleteCustomerPage() {
   const params = useParams()
@@ -21,25 +21,10 @@ export default function DeleteCustomerPage() {
     setError(null)
 
     try {
-      const {
-        data: { session },
-        error: sessionError,
-      } = await supabase.auth.getSession()
+      const result = await deleteCustomerAction(customerId)
 
-      if (sessionError || !session) {
-        setError(dictionary.customers.customerDelete.notAuthenticated)
-        setLoading(false)
-        return
-      }
-
-      await supabase.from('job_customer_contacts').delete().eq('customer_id', customerId)
-      await supabase.from('customer_contacts').delete().eq('customer_id', customerId)
-      await supabase.from('jobs').update({ customer_id: null }).eq('customer_id', customerId)
-
-      const { error: deleteError } = await supabase.from('customers').delete().eq('id', customerId)
-
-      if (deleteError) {
-        setError(deleteError.message)
+      if (!result.ok) {
+        setError(result.error)
         setLoading(false)
         return
       }

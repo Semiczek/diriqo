@@ -3,8 +3,8 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
+import { createCalculationAction } from '@/app/business-actions'
 import { useI18n } from '@/components/I18nProvider'
-import { supabase } from '@/lib/supabase'
 
 type CalculationCreateFormProps = {
   customerId?: string | null
@@ -92,18 +92,8 @@ function formatCurrency(value: number) {
   }).format(value)
 }
 
-async function resolveProfileIdForUser(authUserId: string) {
-  const profileByAuth = await supabase.from('profiles').select('id').eq('auth_user_id', authUserId).maybeSingle()
-  if (profileByAuth.error) throw new Error(profileByAuth.error.message)
-  if (profileByAuth.data?.id) return profileByAuth.data.id
-  const profileByUser = await supabase.from('profiles').select('id').eq('user_id', authUserId).maybeSingle()
-  if (profileByUser.error) throw new Error(profileByUser.error.message)
-  return profileByUser.data?.id ?? null
-}
-
 export default function CalculationCreateForm({
   customerId,
-  companyId,
   customerName,
   cancelHref,
   detailHrefBase,
@@ -144,51 +134,25 @@ export default function CalculationCreateForm({
       if (validCustomerItems.length === 0) throw new Error(dictionary.customers.calculationForm.customerItemsRequired)
       if (validCostItems.length === 0) throw new Error(dictionary.customers.calculationForm.costItemsRequired)
 
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-      if (sessionError) throw new Error(sessionError.message)
-
-      const authUserId = session?.user?.id ?? null
-      let createdBy: string | null = null
-      if (authUserId) createdBy = await resolveProfileIdForUser(authUserId)
-
       const subtotalCost = validCostItems.reduce((sum, item) => sum + parseNumber(item.quantity) * parseNumber(item.unitCost), 0)
       const subtotalPrice = validCustomerItems.reduce((sum, item) => sum + parseNumber(item.quantity) * parseNumber(item.unitPrice), 0)
       const marginAmount = subtotalPrice - subtotalCost
-
-      const { data: calculationRow, error: calculationError } = await supabase.from('calculations').insert({
-        company_id: companyId,
-        customer_id: customerId ?? null,
-        title: title.trim(),
-        description: description.trim() || null,
-        status,
-        calculation_date: calculationDate,
-        internal_note: internalNote.trim() || null,
-        subtotal_cost: subtotalCost,
-        subtotal_price: subtotalPrice,
-        margin_amount: marginAmount,
-        total_price: subtotalPrice,
-        currency: 'CZK',
-        created_by: createdBy,
-      }).select('id').single()
-
-      if (calculationError || !calculationRow?.id) throw new Error(calculationError?.message ?? dictionary.customers.calculationForm.saveFailed)
 
       const customerPayload = validCustomerItems.map((item, index) => {
         const quantity = parseNumber(item.quantity)
         const unitPrice = parseNumber(item.unitPrice)
         return {
-          calculation_id: calculationRow.id,
-          sort_order: index,
-          item_type: 'customer',
+          sortOrder: index,
+          itemType: 'customer',
           name: item.name.trim(),
           description: item.description.trim() || null,
           quantity,
           unit: item.unit.trim() || null,
-          unit_cost: 0,
-          unit_price: unitPrice,
-          vat_rate: parseNumber(item.vatRate),
-          total_cost: 0,
-          total_price: quantity * unitPrice,
+          unitCost: 0,
+          unitPrice,
+          vatRate: parseNumber(item.vatRate),
+          totalCost: 0,
+          totalPrice: quantity * unitPrice,
           note: item.note.trim() || null,
         }
       })
@@ -197,26 +161,39 @@ export default function CalculationCreateForm({
         const quantity = parseNumber(item.quantity)
         const unitCost = parseNumber(item.unitCost)
         return {
-          calculation_id: calculationRow.id,
-          sort_order: validCustomerItems.length + index,
-          item_type: item.itemType,
+          sortOrder: validCustomerItems.length + index,
+          itemType: item.itemType,
           name: item.name.trim() || typeLabel(item.itemType),
           description: item.description.trim() || null,
           quantity,
           unit: item.unit.trim() || null,
-          unit_cost: unitCost,
-          unit_price: 0,
-          vat_rate: parseNumber(item.vatRate),
-          total_cost: quantity * unitCost,
-          total_price: 0,
+          unitCost,
+          unitPrice: 0,
+          vatRate: parseNumber(item.vatRate),
+          totalCost: quantity * unitCost,
+          totalPrice: 0,
           note: item.note.trim() || null,
         }
       })
 
-      const { error: itemsError } = await supabase.from('calculation_items').insert([...customerPayload, ...costPayload])
-      if (itemsError) throw new Error(itemsError.message)
+      const result = await createCalculationAction({
+        customerId: customerId ?? null,
+        title: title.trim(),
+        description: description.trim() || null,
+        status,
+        calculationDate,
+        internalNote: internalNote.trim() || null,
+        subtotalCost,
+        subtotalPrice,
+        marginAmount,
+        totalPrice: subtotalPrice,
+        currency: 'CZK',
+        items: [...customerPayload, ...costPayload],
+      })
 
-      router.push(detailHrefBase ? `${detailHrefBase}/${calculationRow.id}` : customerId ? `/customers/${customerId}/calculations/${calculationRow.id}` : `/kalkulace/${calculationRow.id}`)
+      if (!result.ok) throw new Error(result.error)
+
+      router.push(detailHrefBase ? `${detailHrefBase}/${result.data.calculationId}` : customerId ? `/customers/${customerId}/calculations/${result.data.calculationId}` : `/kalkulace/${result.data.calculationId}`)
       router.refresh()
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : dictionary.customers.calculationForm.saveFailed)

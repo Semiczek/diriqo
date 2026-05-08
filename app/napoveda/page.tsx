@@ -36,9 +36,9 @@ function parseManual(content: string) {
   const intro: string[] = []
   const sections: HelpSection[] = []
   let currentSection: HelpSection | null = null
-  let paragraphLines: string[] = []
+  const paragraphLines: string[] = []
   let listType: 'ordered-list' | 'unordered-list' | null = null
-  let listItems: string[] = []
+  const listItems: string[] = []
 
   function flushSectionState() {
     if (!currentSection) return
@@ -135,10 +135,17 @@ export default async function HelpPage() {
   const dictionary = await getRequestDictionary()
   const manualContent = await readManualForLocale(locale)
   const { intro, sections } = parseManual(manualContent)
+  const supportEmail = process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? 'support@diriqo.com'
 
   return (
     <DashboardShell activeItem="help">
-      <HelpCenterClient locale={locale} dictionary={dictionary} intro={intro} sections={sections} />
+      <HelpCenterClient
+        locale={locale}
+        dictionary={dictionary}
+        intro={intro}
+        sections={sections}
+        supportEmail={supportEmail}
+      />
     </DashboardShell>
   )
 }

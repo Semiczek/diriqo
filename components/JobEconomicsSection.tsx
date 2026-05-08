@@ -51,6 +51,7 @@ type JobEconomicsSectionProps = {
   price: number | null
   assignments: Assignment[]
   costItems: CostItem[]
+  accountingRevenue?: number
   laborCost: number
   externalLaborCost?: number
   otherCosts: number
@@ -80,6 +81,7 @@ export default function JobEconomicsSection({
   price,
   assignments,
   costItems,
+  accountingRevenue,
   laborCost,
   externalLaborCost = 0,
   otherCosts,
@@ -91,7 +93,8 @@ export default function JobEconomicsSection({
   const { dictionary } = useI18n()
   const [isEditing, setIsEditing] = useState(false)
 
-  const revenue = toNumber(price)
+  const revenue = toNumber(accountingRevenue)
+  const quotedPrice = toNumber(price)
 
   const sectionStyle: React.CSSProperties = {
     ...sectionCardStyle,
@@ -167,8 +170,13 @@ export default function JobEconomicsSection({
       {!isEditing ? (
         <div style={cardsWrapStyle}>
           <div style={cardStyle}>
-            <div style={labelStyle}>{dictionary.jobs.price}</div>
+            <div style={labelStyle}>Fakturováno</div>
             <div style={valueStyle}>{formatCurrency(revenue)}</div>
+          </div>
+
+          <div style={cardStyle}>
+            <div style={labelStyle}>Cena zakázky</div>
+            <div style={valueStyle}>{formatCurrency(quotedPrice)}</div>
           </div>
 
           <div style={cardStyle}>
@@ -182,7 +190,7 @@ export default function JobEconomicsSection({
           </div>
 
           <div style={cardStyle}>
-            <div style={labelStyle}>{dictionary.jobs.otherCosts}</div>
+            <div style={labelStyle}>Přímé náklady</div>
             <div style={valueStyle}>{formatCurrency(otherCosts)}</div>
           </div>
 

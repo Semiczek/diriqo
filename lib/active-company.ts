@@ -6,13 +6,15 @@ import { hasHubAccessRole } from '@/lib/hub-access'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 
 type CompanyRelation =
+    | {
+      id: string | null
+      name: string | null
+      timezone?: string | null
+    }[] 
   | {
       id: string | null
       name: string | null
-    }[]
-  | {
-      id: string | null
-      name: string | null
+      timezone?: string | null
     }
   | null
 
@@ -33,6 +35,7 @@ type ProfileRow = {
 export type ActiveCompanyContext = {
   companyId: string
   companyName: string | null
+  timeZone: string
   profileId: string
   profileName: string | null
   profileEmail: string | null
@@ -99,7 +102,8 @@ export async function getActiveCompanyContext(): Promise<ActiveCompanyContext | 
         role,
         companies (
           id,
-          name
+          name,
+          timezone
         )
       `
     )
@@ -170,6 +174,7 @@ export async function getActiveCompanyContext(): Promise<ActiveCompanyContext | 
   return {
     companyId: membership.company_id,
     companyName: company?.name ?? null,
+    timeZone: company?.timezone ?? 'Europe/Prague',
     profileId: membership.profile_id,
     profileName: profile?.full_name ?? null,
     profileEmail: profile?.email ?? null,

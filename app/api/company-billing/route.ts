@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 import { getActiveCompanyContext } from '@/lib/active-company'
+import { requireCompanyRole } from '@/lib/server-guards'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 
 type CompanyBillingRow = {
@@ -86,11 +87,13 @@ export async function GET() {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const activeCompany = await getActiveCompanyContext()
+    const activeCompanyResult = await requireCompanyRole('super_admin', 'company_admin')
 
-    if (!activeCompany) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    if (!activeCompanyResult.ok) {
+      return NextResponse.json({ error: activeCompanyResult.error }, { status: activeCompanyResult.status })
     }
+
+    const activeCompany = activeCompanyResult.value
 
     const body = (await request.json()) as {
       name?: string

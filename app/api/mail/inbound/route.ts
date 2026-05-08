@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { timingSafeEqual } from 'crypto'
 
 import { createSupabaseAdminClient } from '@/lib/supabase-admin'
 import { logMessageEvent } from '@/lib/email/logMessageEvent'
@@ -16,6 +17,13 @@ function getInboundSecret() {
   }
 
   return secret
+}
+
+function hasValidInboundSecret(receivedSecret: string, expectedSecret: string) {
+  const received = Buffer.from(receivedSecret)
+  const expected = Buffer.from(expectedSecret)
+
+  return received.length === expected.length && timingSafeEqual(received, expected)
 }
 
 async function updateThreadAfterInbound(
@@ -59,7 +67,7 @@ async function resolveMailboxByAddress(companyId: string, mailboxEmail: string) 
 export async function POST(request: NextRequest) {
   try {
     const headerSecret = request.headers.get('x-inbound-secret')?.trim() ?? ''
-    if (headerSecret !== getInboundSecret()) {
+    if (!hasValidInboundSecret(headerSecret, getInboundSecret())) {
       return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
     }
 

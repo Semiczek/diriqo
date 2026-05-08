@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-import { getActiveCompanyContext } from '@/lib/active-company'
+import { requireCompanyRole } from '@/lib/server-guards'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 
 type RouteContext = {
@@ -33,11 +33,13 @@ function normalizeReason(value: string | null | undefined) {
 }
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
-  const activeCompany = await getActiveCompanyContext()
+  const activeCompanyResult = await requireCompanyRole('company_admin', 'super_admin')
 
-  if (!activeCompany) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  if (!activeCompanyResult.ok) {
+    return NextResponse.json({ error: activeCompanyResult.error }, { status: activeCompanyResult.status })
   }
+
+  const activeCompany = activeCompanyResult.value
 
   const { assignmentId } = await context.params
   const cleanAssignmentId = assignmentId?.trim()
@@ -122,11 +124,13 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 }
 
 export async function DELETE(_request: NextRequest, context: RouteContext) {
-  const activeCompany = await getActiveCompanyContext()
+  const activeCompanyResult = await requireCompanyRole('company_admin', 'super_admin')
 
-  if (!activeCompany) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  if (!activeCompanyResult.ok) {
+    return NextResponse.json({ error: activeCompanyResult.error }, { status: activeCompanyResult.status })
   }
+
+  const activeCompany = activeCompanyResult.value
 
   const { assignmentId } = await context.params
   const cleanAssignmentId = assignmentId?.trim()

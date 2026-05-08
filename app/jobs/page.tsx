@@ -2,15 +2,15 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { CSSProperties } from 'react'
 
 import DashboardShell from '../../components/DashboardShell'
+import { resolveCompanyTimeZone } from '@/lib/company-timezone'
 import { useI18n } from '../../components/I18nProvider'
 import {
   getCurrentMonthValuePrague as getCurrentMonthValue,
   parseDateSafe,
-  PRAGUE_TZ,
 } from '@/lib/date/prague-time'
 import { formatDateTimePrague } from '@/lib/formatters'
 import {
@@ -34,6 +34,7 @@ import {
 import { buildJobGroups, type JobParentLinkRow } from '../../lib/job-grouping'
 import { supabase } from '../../lib/supabase'
 import { getContractorBillingType, getWorkerType } from '@/lib/payroll-settings'
+import { calculateQuotedJobEconomics } from '@/lib/economics'
 
 type FilterType = 'all' | 'today' | TimeState | WorkState | BillingStateResolved
 type SortType = 'date_asc' | 'date_desc' | 'customer_asc' | 'title_asc'
@@ -146,7 +147,8 @@ type GroupedJobBlock = JobWithComputed & {
 }
 
 function getMonthKeyFromJob(
-  job: Pick<JobRow, 'start_at' | 'end_at' | 'created_at'> & { sortAt?: string | null }
+  job: Pick<JobRow, 'start_at' | 'end_at' | 'created_at'> & { sortAt?: string | null },
+  timeZone: string
 ) {
   const baseDate =
     parseDateSafe(job.sortAt) ??
@@ -157,12 +159,12 @@ function getMonthKeyFromJob(
   if (!baseDate) return null
 
   const year = new Intl.DateTimeFormat('en-CA', {
-    timeZone: PRAGUE_TZ,
+    timeZone,
     year: 'numeric',
   }).format(baseDate)
 
   const month = new Intl.DateTimeFormat('en-CA', {
-    timeZone: PRAGUE_TZ,
+    timeZone,
     month: '2-digit',
   }).format(baseDate)
 
@@ -636,6 +638,8 @@ export default function JobsPage() {
   const [view, setView] = useState<ViewType>(() => parseViewParam(searchParams.get('view')))
   const [error, setError] = useState<string | null>(null)
   const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(false)
+  const [companyTimeZone, setCompanyTimeZone] = useState('Europe/Prague')
+  const dateLocale = locale === 'de' ? 'de-DE' : locale === 'en' ? 'en-GB' : 'cs-CZ'
 
   function formatCurrency(value: number) {
     return new Intl.NumberFormat(locale === 'de' ? 'de-DE' : locale === 'en' ? 'en-GB' : 'cs-CZ', {
@@ -776,6 +780,15 @@ export default function JobsPage() {
           setJobParentLinks([])
           setLoading(false)
           return
+        }
+
+        const activeCompanyResponse = await fetch('/api/active-company', { cache: 'no-store' })
+        const activeCompanyPayload = (await activeCompanyResponse.json().catch(() => null)) as {
+          timeZone?: string | null
+        } | null
+
+        if (mounted && activeCompanyResponse.ok) {
+          setCompanyTimeZone(resolveCompanyTimeZone(activeCompanyPayload?.timeZone))
         }
 
         const jobsSelectBase = `
@@ -983,7 +996,7 @@ export default function JobsPage() {
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
       setFilter(parseFilterParam(searchParams.get('filter')))
-      setSelectedMonth(searchParams.get('month') ?? getCurrentMonthValue())
+      setSelectedMonth(searchParams.get('month') ?? getCurrentMonthValue(companyTimeZone))
       setSelectedCustomerId(searchParams.get('customer') ?? '')
       setSearchTerm(searchParams.get('q') ?? '')
       setSort(parseSortParam(searchParams.get('sort')))
@@ -991,7 +1004,7 @@ export default function JobsPage() {
     }, 0)
 
     return () => window.clearTimeout(timeoutId)
-  }, [searchParams])
+  }, [companyTimeZone, searchParams])
 
   const jobsWithWorkers = useMemo<JobWithComputed[]>(() => {
     const assignmentsByJob = new Map<string, JobAssignmentRow[]>()
@@ -1091,7 +1104,11 @@ export default function JobsPage() {
       const startedCount =
         job.started_total !== null && job.started_total !== undefined ? toNumber(job.started_total) : 0
       const notStartedCount = Math.max(assignedCount - startedCount, 0)
-      const profit = toNumber(job.price) - laborCost - otherCost
+      const quotedEconomics = calculateQuotedJobEconomics({
+        quotedRevenue: job.price,
+        laborCost,
+        otherCost,
+      })
       const timeStateResolved = resolveJobTimeState(job.time_state)
       const workStateResolved = getEffectiveJobWorkState({
         timeState: timeStateResolved,
@@ -1114,7 +1131,7 @@ export default function JobsPage() {
         activeWorkerProfileIds,
         laborCost,
         otherCost,
-        profit,
+        profit: quotedEconomics.profit,
         customerName: customer?.name ?? null,
         assignedCount,
         activeCount,
@@ -1288,22 +1305,22 @@ export default function JobsPage() {
   }, [jobShiftActivity, jobsWithWorkers])
 
   const todayKey = new Intl.DateTimeFormat('en-CA', {
-    timeZone: PRAGUE_TZ,
+    timeZone: companyTimeZone,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
   }).format(new Date())
 
-  function isJobToday(job: GroupedJobBlock) {
+  const isJobToday = useCallback((job: GroupedJobBlock) => {
     const start = parseDateSafe(job.groupStartAt ?? job.start_at)
     if (!start) return false
     return new Intl.DateTimeFormat('en-CA', {
-      timeZone: PRAGUE_TZ,
+      timeZone: companyTimeZone,
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
     }).format(start) === todayKey
-  }
+  }, [companyTimeZone, todayKey])
 
   const filteredJobs = useMemo(() => {
     const normalizedQuery = normalizeSearchText(searchTerm)
@@ -1312,7 +1329,7 @@ export default function JobsPage() {
       .filter((job) => (filter === 'today' ? isJobToday(job) : matchesFilter(job, filter)))
       .filter((job) => {
         if (!selectedMonth) return true
-        return getMonthKeyFromJob(job) === selectedMonth
+        return getMonthKeyFromJob(job, companyTimeZone) === selectedMonth
       })
       .filter((job) => {
         if (!selectedCustomerId) return true
@@ -1365,7 +1382,7 @@ export default function JobsPage() {
 
         return sort === 'date_desc' ? rightFallback - leftFallback : leftFallback - rightFallback
       })
-  }, [dictionary.jobs.customerMissing, dictionary.jobs.untitledJob, filter, groupedJobBlocks, locale, searchTerm, selectedCustomerId, selectedMonth, sort, todayKey])
+  }, [companyTimeZone, dictionary.jobs.customerMissing, dictionary.jobs.untitledJob, filter, groupedJobBlocks, isJobToday, locale, searchTerm, selectedCustomerId, selectedMonth, sort])
 
   const jobsTodayCount = groupedJobBlocks.filter((job) => isJobToday(job)).length
   const jobsDoneCount = groupedJobBlocks.filter((job) => job.workStateResolved === 'done').length
@@ -1788,18 +1805,19 @@ export default function JobsPage() {
                       </div>
                       <div>
                         <strong>{dictionary.jobs.startLabel}:</strong>{' '}
-                        {formatDateTimePrague(job.start_at, locale === 'de' ? 'de-DE' : locale === 'en' ? 'en-GB' : 'cs-CZ')}
+                        {formatDateTimePrague(job.start_at, dateLocale, companyTimeZone)}
                       </div>
                       <div>
                         <strong>{dictionary.jobs.endLabel}:</strong>{' '}
-                        {formatDateTimePrague(job.end_at, locale === 'de' ? 'de-DE' : locale === 'en' ? 'en-GB' : 'cs-CZ')}
+                        {formatDateTimePrague(job.end_at, dateLocale, companyTimeZone)}
                       </div>
                       <div>
                         <strong>Nejbližší směna:</strong>{' '}
                         {job.nextShiftAt
                           ? formatDateTimePrague(
                               job.nextShiftAt,
-                              locale === 'de' ? 'de-DE' : locale === 'en' ? 'en-GB' : 'cs-CZ'
+                              dateLocale,
+                              companyTimeZone
                             )
                           : '—'}
                       </div>
@@ -1808,7 +1826,8 @@ export default function JobsPage() {
                         {job.lastShiftAt
                           ? formatDateTimePrague(
                               job.lastShiftAt,
-                              locale === 'de' ? 'de-DE' : locale === 'en' ? 'en-GB' : 'cs-CZ'
+                              dateLocale,
+                              companyTimeZone
                             )
                           : '—'}
                       </div>
@@ -1866,9 +1885,9 @@ export default function JobsPage() {
 
                 <div style={{ color: '#6b7280', fontSize: '14px', marginBottom: '10px' }}>
                   <strong>Rozsah skupiny:</strong>{' '}
-                  {formatDateTimePrague(job.groupStartAt, locale === 'de' ? 'de-DE' : locale === 'en' ? 'en-GB' : 'cs-CZ')}
+                  {formatDateTimePrague(job.groupStartAt, dateLocale, companyTimeZone)}
                   {' '}–{' '}
-                  {formatDateTimePrague(job.groupEndAt, locale === 'de' ? 'de-DE' : locale === 'en' ? 'en-GB' : 'cs-CZ')}
+                  {formatDateTimePrague(job.groupEndAt, dateLocale, companyTimeZone)}
                 </div>
 
                 <div style={{ color: '#6b7280', fontSize: '14px' }}>
@@ -1944,11 +1963,11 @@ export default function JobsPage() {
                           </div>
                           <div>
                             <strong>{dictionary.jobs.startLabel}:</strong>{' '}
-                            {formatDateTimePrague(childJob.start_at, locale === 'de' ? 'de-DE' : locale === 'en' ? 'en-GB' : 'cs-CZ')}
+                            {formatDateTimePrague(childJob.start_at, dateLocale, companyTimeZone)}
                           </div>
                           <div>
                             <strong>{dictionary.jobs.endLabel}:</strong>{' '}
-                            {formatDateTimePrague(childJob.end_at, locale === 'de' ? 'de-DE' : locale === 'en' ? 'en-GB' : 'cs-CZ')}
+                            {formatDateTimePrague(childJob.end_at, dateLocale, companyTimeZone)}
                           </div>
                         </div>
                       </div>
