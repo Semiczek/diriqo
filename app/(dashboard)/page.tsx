@@ -1,14 +1,17 @@
 ﻿import Link from 'next/link'
 import { unstable_noStore as noStore } from 'next/cache'
+import Image from 'next/image'
+import { redirect } from 'next/navigation'
 import type { CSSProperties, ReactNode } from 'react'
 import DashboardShell from '../../components/DashboardShell'
 import DashboardMonthPicker from '../../components/DashboardMonthPicker'
 import DashboardQuickNotes from '../../components/DashboardQuickNotes'
-import FirstRunChecklist from '@/components/FirstRunChecklist'
-import { getRequestDictionary } from '@/lib/i18n/server'
+import OnboardingChecklist from '@/components/onboarding/OnboardingChecklist'
+import { getIntlLocale, type Locale } from '@/lib/i18n/config'
+import { getRequestDictionary, getRequestLocale } from '@/lib/i18n/server'
 import { listJobEconomicsSummaries } from '@/lib/dal/economics'
 import { calculateQuotedJobEconomics, type JobEconomicsSummary } from '@/lib/economics'
-import { getFirstRunChecklist } from '@/lib/onboarding'
+import { getCompanyOnboardingChecklist } from '@/lib/onboarding'
 import { resolveCompanyTimeZone } from '@/lib/company-timezone'
 import { getActiveCompanyContext } from '../../lib/active-company'
 import {
@@ -57,9 +60,10 @@ import type {
   TimeState,
   WorkState,
 } from '../../lib/job-status'
-import { getQuoteStatusLabel, getQuoteStatusStyle, resolveQuoteStatus } from '../../lib/quote-status'
+import { getQuoteStatusStyle, resolveQuoteStatus, type QuoteStatus } from '../../lib/quote-status'
 import { createSupabaseServerClient } from '../../lib/supabase-server'
 import { buildJobGroups, getJobGroupRootId } from '../../lib/job-grouping'
+import { JOB_PHOTO_BUCKET, normalizeJobPhotoCategory, type JobPhotoCategory } from '@/lib/job-photo-storage'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -225,6 +229,44 @@ type JobAssignmentDashboardRow = {
     | null
 }
 
+type DashboardJobPhotoRow = {
+  id: string
+  job_id: string | null
+  photo_type: string | null
+  file_name: string | null
+  note: string | null
+  taken_at: string | null
+  created_at: string | null
+  storage_path: string | null
+  thumb_storage_path: string | null
+  jobs?:
+    | {
+        id: string
+        company_id: string | null
+        title: string | null
+        customer_id: string | null
+      }[]
+    | {
+        id: string
+        company_id: string | null
+        title: string | null
+        customer_id: string | null
+      }
+    | null
+}
+
+type DashboardLatestPhoto = {
+  id: string
+  jobId: string
+  jobTitle: string
+  customer: string
+  photoType: JobPhotoCategory
+  fileName: string
+  note: string | null
+  takenAt: string | null
+  previewUrl: string | null
+}
+
 type TodayWorkerStatusRow = {
   profileId: string | null
   name: string
@@ -269,6 +311,8 @@ type DashboardPageProps = {
     jobs_day?: string
     summary_month?: string
     summary_week?: string
+    onboarding?: string
+    onboarding_error?: string
   }>
 }
 
@@ -287,8 +331,8 @@ function roundHours(value: number): number {
   return Math.round(value * 100) / 100
 }
 
-function formatDateLabel(date: Date, timeZone: string): string {
-  return new Intl.DateTimeFormat('cs-CZ', {
+function formatDateLabel(date: Date, timeZone: string, locale = 'cs-CZ'): string {
+  return new Intl.DateTimeFormat(locale, {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
@@ -296,21 +340,21 @@ function formatDateLabel(date: Date, timeZone: string): string {
   }).format(date)
 }
 
-function formatTimeFromDate(value: Date | null, timeZone: string): string {
+function formatTimeFromDate(value: Date | null, timeZone: string, locale = 'cs-CZ'): string {
   if (!value) return '-'
 
-  return new Intl.DateTimeFormat('cs-CZ', {
+  return new Intl.DateTimeFormat(locale, {
     hour: '2-digit',
     minute: '2-digit',
     timeZone,
   }).format(value)
 }
 
-function formatShortDateTime(value: string | null, timeZone: string): string {
+function formatShortDateTime(value: string | null, timeZone: string, locale = 'cs-CZ'): string {
   const date = parseDateSafe(value, timeZone)
   if (!date) return '\u2014'
 
-  return new Intl.DateTimeFormat('cs-CZ', {
+  return new Intl.DateTimeFormat(locale, {
     weekday: 'short',
     day: '2-digit',
     month: '2-digit',
@@ -318,6 +362,20 @@ function formatShortDateTime(value: string | null, timeZone: string): string {
     minute: '2-digit',
     timeZone,
   }).format(date)
+}
+
+function formatMonthYearLabel(date: Date, timeZone: string, locale: string): string {
+  return new Intl.DateTimeFormat(locale, {
+    month: 'long',
+    year: 'numeric',
+    timeZone,
+  }).format(date)
+}
+
+function formatDashboardWeekLabel(value: string, locale: Locale): string {
+  if (locale === 'en') return `Week ${value}`
+  if (locale === 'de') return `${value}. Woche`
+  return `${value}. týden`
 }
 
 function buildDashboardHref({
@@ -369,7 +427,7 @@ function getWeekSegmentsForMonth(monthStart: Date, timeZone: string) {
 
     segments.push({
       value: String(weekIndex + 1),
-      label: `${weekIndex + 1}. týden`,
+      label: String(weekIndex + 1),
       start,
       end,
     })
@@ -402,7 +460,8 @@ function getRelevantTimeRangeForDay(
   endAt: string | null,
   dayStart: Date,
   dayEnd: Date,
-  timeZone: string
+  timeZone: string,
+  locale = 'cs-CZ'
 ) {
   const start = parseDateSafe(startAt)
   const end = parseDateSafe(endAt)
@@ -411,8 +470,8 @@ function getRelevantTimeRangeForDay(
   const effectiveEnd = end && end < dayEnd ? end : dayEnd
 
   return {
-    startLabel: formatTimeFromDate(effectiveStart, timeZone),
-    endLabel: formatTimeFromDate(effectiveEnd, timeZone),
+    startLabel: formatTimeFromDate(effectiveStart, timeZone, locale),
+    endLabel: formatTimeFromDate(effectiveEnd, timeZone, locale),
   }
 }
 
@@ -481,34 +540,6 @@ function getTodayWorkerStatusTone(statusSort: number): CSSProperties {
     color: '#374151',
     border: '1px solid #d1d5db',
   }
-}
-
-function getTimeStateLabel(state: TimeState | null | undefined) {
-  if (state === 'future') return 'Budoucí'
-  if (state === 'active') return 'V termínu'
-  if (state === 'finished') return 'Hotovo'
-  return 'Neznámý čas'
-}
-
-function getWorkStateLabel(state: WorkState | null | undefined) {
-  if (state === 'not_started') return 'Nezahájeno'
-  if (state === 'in_progress') return 'Probíhá'
-  if (state === 'partially_done') return 'Částečně hotovo'
-  if (state === 'done') return 'Hotovo'
-  return 'Neznámý provoz'
-}
-
-function getBillingStateLabel(state: BillingStateResolved | null | undefined) {
-  if (state === 'waiting_for_invoice') return 'Čeká na fakturaci'
-  if (state === 'due') return 'Ve splatnosti'
-  if (state === 'overdue') return 'Po splatnosti'
-  if (state === 'paid') return 'Zaplaceno'
-  return 'Neznámá fakturace'
-}
-
-function getDisplayTimeStateLabel(state: TimeState | null | undefined) {
-  if (state === 'finished') return 'Hotovo'
-  return getTimeStateLabel(state)
 }
 
 function getVisibleBillingState(
@@ -593,6 +624,8 @@ function getAbsenceTypeLabel(absenceType: string | null) {
 export default async function DashboardPage({ searchParams }: DashboardPageProps) {
   noStore()
   const dictionary = await getRequestDictionary()
+  const locale = await getRequestLocale()
+  const intlLocale = getIntlLocale(locale)
   const t = dictionary.dashboard
 
   const getTimeStateText = (state: TimeState | null | undefined) => {
@@ -628,6 +661,36 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     return t.otherAbsence
   }
 
+  const getQuoteStatusText = (status: QuoteStatus) => {
+    const labels = dictionary.customers.quotesList
+
+    if (status === 'ready') return labels.ready
+    if (status === 'sent') return labels.sent
+    if (status === 'viewed') return labels.viewed
+    if (status === 'waiting_followup') return labels.interested
+    if (status === 'revision_requested') return labels.revisionRequested
+    if (status === 'accepted') return labels.accepted
+    if (status === 'rejected') return labels.rejected
+    if (status === 'expired') return labels.expired
+    return labels.draft
+  }
+
+  const getTodayWorkerStatusText = (statusSort: number) => {
+    if (statusSort === 0) return t.inProgress
+    if (statusSort === 1) return t.inShift
+    return t.done
+  }
+
+  const getPhotoTypeText = (type: JobPhotoCategory) => {
+    const labels = dictionary.jobs.detail.photos
+
+    if (type === 'before') return labels.before
+    if (type === 'after') return labels.after
+    if (type === 'progress') return t.inProgress
+    if (type === 'issue') return t.attentionTitle
+    return t.detailColumn
+  }
+
   const resolvedSearchParams = searchParams ? await searchParams : undefined
   const selectedJobsDay =
     resolvedSearchParams?.jobs_day === 'tomorrow' ? 'tomorrow' : 'today'
@@ -635,32 +698,23 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const activeCompany = await getActiveCompanyContext()
 
   if (!activeCompany) {
-    return (
-      <DashboardShell activeItem="dashboard">
-        <div
-          style={{
-            padding: '20px',
-            borderRadius: '16px',
-            border: '1px solid #fdba74',
-            background: '#fff7ed',
-            color: '#9a3412',
-            fontWeight: 600,
-          }}
-        >
-          Nepodarilo se dohledat aktivni firmu pro dashboard.
-        </div>
-      </DashboardShell>
-    )
+    redirect('/onboarding/company')
   }
 
   const companyId = activeCompany.companyId
   const companyTimeZone = resolveCompanyTimeZone(activeCompany.timeZone)
   const summaryMonthConfig = getMonthRangeFromValue(resolvedSearchParams?.summary_month, companyTimeZone)
+  const summaryMonthLabel = formatMonthYearLabel(summaryMonthConfig.start, companyTimeZone, intlLocale)
   const selectedSummaryMonth = summaryMonthConfig.value
   const selectedSummaryWeekRaw = (resolvedSearchParams?.summary_week ?? '').trim()
   const payrollMonthConfig = getPayrollRangeFromMonthValue(selectedSummaryMonth, companyTimeZone)
   const supabase = await createSupabaseServerClient()
-  const firstRunChecklist = await getFirstRunChecklist(supabase, companyId)
+  const onboardingChecklist = await getCompanyOnboardingChecklist(
+    supabase,
+    companyId,
+    activeCompany.profileId
+  )
+  const forceOnboardingOpen = resolvedSearchParams?.onboarding === 'open'
 
   const todayStart = startOfTodayPrague(companyTimeZone)
   const todayEnd = endOfTodayPrague(companyTimeZone)
@@ -701,6 +755,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     quotesResponse,
     invoicesResponse,
     jobParentLinksResponse,
+    jobPhotosResponse,
   ] = await Promise.all([
     supabase
       .from('jobs_with_state')
@@ -785,6 +840,33 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       .from('jobs')
       .select('id, parent_job_id')
       .eq('company_id', companyId),
+
+    supabase
+      .from('job_photos')
+      .select(
+        `
+          id,
+          job_id,
+          photo_type,
+          file_name,
+          note,
+          taken_at,
+          created_at,
+          storage_path,
+          thumb_storage_path,
+          jobs!inner (
+            id,
+            company_id,
+            title,
+            customer_id
+          )
+        `
+      )
+      .eq('company_id', companyId)
+      .eq('jobs.company_id', companyId)
+      .order('taken_at', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(8),
   ])
   const parentByJobId = new Map(
     ((jobParentLinksResponse.data ?? []) as Array<{ id: string; parent_job_id: string | null }>)
@@ -924,7 +1006,67 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     (invoice) => !invoice.company_id || invoice.company_id === companyId
   )
 
-  const customerMap = new Map(customers.map((customer) => [customer.id, customer.name ?? 'Bez zákazníka']))
+  const customerMap = new Map(customers.map((customer) => [customer.id, customer.name ?? t.noCustomer]))
+  if (jobPhotosResponse.error) {
+    console.warn('[dashboard] Failed to load latest job photos', {
+      message: jobPhotosResponse.error.message,
+    })
+  }
+
+  const latestPhotoRows = ((jobPhotosResponse.error ? [] : jobPhotosResponse.data ?? []) as DashboardJobPhotoRow[])
+    .filter((photo) => {
+      const job = asSingleRelation(photo.jobs)
+      return Boolean(photo.id && photo.job_id && job?.id && job.company_id === companyId)
+    })
+  const latestPhotoPreviewPaths = Array.from(
+    new Set(
+      latestPhotoRows
+        .map((photo) => photo.thumb_storage_path ?? photo.storage_path ?? null)
+        .filter((value): value is string => Boolean(value))
+    )
+  )
+  const latestPhotoPreviewUrlByPath = new Map<string, string | null>()
+
+  if (latestPhotoPreviewPaths.length > 0) {
+    const { data: signedPreviews, error: signedPreviewError } = await supabase.storage
+      .from(JOB_PHOTO_BUCKET)
+      .createSignedUrls(latestPhotoPreviewPaths, 60 * 30)
+
+    if (signedPreviewError) {
+      console.warn('[dashboard] Failed to sign latest job photo previews', {
+        message: signedPreviewError.message,
+      })
+    } else {
+      for (let index = 0; index < latestPhotoPreviewPaths.length; index += 1) {
+        latestPhotoPreviewUrlByPath.set(
+          latestPhotoPreviewPaths[index],
+          signedPreviews?.[index]?.signedUrl ?? null
+        )
+      }
+    }
+  }
+
+  const latestPhotos = latestPhotoRows
+    .map((photo): DashboardLatestPhoto | null => {
+      const job = asSingleRelation(photo.jobs)
+      if (!photo.job_id || !job?.id) return null
+
+      const previewPath = photo.thumb_storage_path ?? photo.storage_path ?? null
+
+      return {
+        id: photo.id,
+        jobId: photo.job_id,
+        jobTitle: job.title ?? t.unnamedJob,
+        customer: customerMap.get(job.customer_id ?? '') ?? t.noCustomer,
+        photoType: normalizeJobPhotoCategory(photo.photo_type),
+        fileName: photo.file_name ?? t.photoFallbackFileName,
+        note: photo.note ?? null,
+        takenAt: photo.taken_at ?? photo.created_at ?? null,
+        previewUrl: previewPath ? latestPhotoPreviewUrlByPath.get(previewPath) ?? null : null,
+      }
+    })
+    .filter((photo): photo is DashboardLatestPhoto => Boolean(photo))
+
   const assignmentCountByJobId = allAssignments.reduce((map, assignment) => {
     if (!assignment.job_id) return map
     map.set(assignment.job_id, (map.get(assignment.job_id) ?? 0) + 1)
@@ -1009,7 +1151,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
       grouped.set(rootId, {
         id: rootJob.id,
-        title: rootJob.title ?? job.title ?? 'Bez názvu',
+        title: rootJob.title ?? job.title ?? t.unnamedJob,
         customer_id: rootJob.customer_id ?? job.customer_id ?? null,
         price: quotedEconomics.quotedRevenue,
         laborCost,
@@ -1089,9 +1231,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       !isCompletedJob(job.work_state) &&
       Math.max(toNumber(job.assigned_total), assignmentCountByJobId.get(job.id) ?? 0) === 0
   )
-  const inProgressJobs = operationalJobs.filter(
-    (job) => job.work_state === 'in_progress' || toNumber(job.active_workers) > 0
-  )
   const overdueQuotes = quotes.filter((quote) => resolveQuoteStatus(quote.status, quote.valid_until) === 'expired')
   const overdueInvoices = invoices.filter((invoice) => {
     const dueDate = parseDateSafe(invoice.due_date)
@@ -1137,8 +1276,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
     return {
       id: job.id,
-      title: job.title ?? 'Bez názvu',
-      customer: customerMap.get(job.customer_id ?? '') ?? 'Bez zákazníka',
+      title: job.title ?? t.unnamedJob,
+      customer: customerMap.get(job.customer_id ?? '') ?? t.noCustomer,
       profit,
       margin,
       laborCost,
@@ -1157,11 +1296,11 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       const laborRatio = job.revenue > 0 ? job.laborCost / job.revenue : 0
       const reasons: string[] = []
 
-      if (job.profit < 0) reasons.push('záporný zisk')
-      if (job.margin != null && job.margin <= 10) reasons.push('nízká marže')
-      if (laborRatio >= 0.65) reasons.push('vysoké mzdové náklady')
-      if (job.price <= 0) reasons.push('chybí cena')
-      if (job.price > 0 && job.laborCost === 0 && job.otherCost === 0) reasons.push('chybí náklady')
+      if (job.profit < 0) reasons.push(t.negativeProfit)
+      if (job.margin != null && job.margin <= 10) reasons.push(t.lowMargin)
+      if (laborRatio >= 0.65) reasons.push(t.highLaborCosts)
+      if (job.price <= 0) reasons.push(t.missingPrice)
+      if (job.price > 0 && job.laborCost === 0 && job.otherCost === 0) reasons.push(t.missingCosts)
 
       return { ...job, reasons }
     })
@@ -1264,20 +1403,20 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       const assignment = activeAssignmentByProfile.get(profileId) ?? null
       const assignmentJob = asSingleRelation(assignment?.jobs)
 
-      let statusLabel = 'Ukončil směnu'
+      let statusLabel = getTodayWorkerStatusText(2)
       let statusSort = 2
 
       if (assignment) {
-        statusLabel = 'Pracuje na zakázce'
+        statusLabel = getTodayWorkerStatusText(0)
         statusSort = 0
       } else if (shift?.started_at && !shift.ended_at) {
-        statusLabel = 'Na směně'
+        statusLabel = getTodayWorkerStatusText(1)
         statusSort = 1
       }
 
       return {
         profileId,
-        name: memberNameByProfileId.get(profileId) ?? 'Bez jména',
+        name: memberNameByProfileId.get(profileId) ?? t.unnamedWorker,
         statusLabel,
         statusSort,
         shiftStart: shift?.started_at ?? null,
@@ -1293,43 +1432,43 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const actionPanels = [
     {
       key: 'unassigned',
-      label: 'Zakázky bez pracovníků',
+      label: t.todayJobsWithoutAssignments,
       value: jobsWithoutAssignments.length,
       severity: jobsWithoutAssignments.length > 0 ? 'critical' : 'ok',
-      emptyText: 'Všechny aktuální zakázky mají pracovníky.',
+      emptyText: t.noTodayJobs,
       items: jobsWithoutAssignments.map((job) => ({
         id: job.id,
         title: job.title ?? t.unnamedJob,
         customer: customerMap.get(job.customer_id ?? '') ?? t.noCustomer,
-        meta: [formatShortDateTime(job.start_at, companyTimeZone), job.address].filter(Boolean).join(' • '),
+        meta: [formatShortDateTime(job.start_at, companyTimeZone, intlLocale), job.address].filter(Boolean).join(' • '),
         href: `/jobs/${job.id}`,
         actionHref: `/jobs/${job.id}`,
-        actionLabel: 'Přiřadit pracovníka',
+        actionLabel: t.workers,
       })),
     },
     {
       key: 'invoice',
-      label: 'Čeká na fakturaci',
+      label: t.jobsWaitingForInvoice,
       value: waitingInvoiceJobs.length,
       severity: waitingInvoiceJobs.length > 0 ? 'warning' : 'ok',
-      emptyText: 'Žádná hotová zakázka nečeká na fakturaci.',
+      emptyText: t.noTodayJobs,
       items: waitingInvoiceJobs.map((job) => ({
         id: job.id,
         title: job.title ?? t.unnamedJob,
         customer: customerMap.get(job.customer_id ?? '') ?? t.noCustomer,
-        meta: [formatShortDateTime(job.end_at ?? job.start_at, companyTimeZone), formatCurrency(toNumber(job.price))]
+        meta: [formatShortDateTime(job.end_at ?? job.start_at, companyTimeZone, intlLocale), formatCurrency(toNumber(job.price), intlLocale)]
           .filter(Boolean)
           .join(' • '),
         href: `/jobs/${job.id}`,
         actionHref: job.customer_id
           ? `/invoices/new?customerId=${job.customer_id}&month=${selectedSummaryMonth}`
           : `/invoices/new?month=${selectedSummaryMonth}`,
-        actionLabel: 'Vytvořit fakturu',
+        actionLabel: t.readyToInvoice,
       })),
     },
     {
       key: 'overdue',
-      label: 'Zakázky po splatnosti',
+      label: t.overdueJobs,
       value: overdueBillingJobs.length,
       severity: overdueBillingJobs.length > 0 ? 'critical' : 'ok',
       emptyText: 'Nic není po splatnosti.',
@@ -1337,84 +1476,84 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         id: job.id,
         title: job.title ?? t.unnamedJob,
         customer: customerMap.get(job.customer_id ?? '') ?? t.noCustomer,
-        meta: [formatShortDateTime(job.end_at ?? job.start_at, companyTimeZone), formatCurrency(toNumber(job.price))]
+        meta: [formatShortDateTime(job.end_at ?? job.start_at, companyTimeZone, intlLocale), formatCurrency(toNumber(job.price), intlLocale)]
           .filter(Boolean)
           .join(' • '),
         href: `/jobs/${job.id}`,
         actionHref: `/jobs/${job.id}`,
-        actionLabel: 'Označit zaplaceno',
+        actionLabel: t.paid,
       })),
     },
     {
       key: 'overdue-invoices',
-      label: 'Faktury po splatnosti',
+      label: t.overdue,
       value: overdueInvoices.length,
       severity: overdueInvoices.length > 0 ? 'critical' : 'ok',
-      emptyText: 'Žádná faktura není po splatnosti.',
+      emptyText: t.noLeads,
       items: overdueInvoices.map((invoice) => ({
         id: invoice.id,
-        title: invoice.invoice_number ?? 'Faktura',
+        title: invoice.invoice_number ?? t.invoiced,
         customer: customerMap.get(invoice.customer_id ?? '') ?? t.noCustomer,
-        meta: [formatShortDateTime(invoice.due_date, companyTimeZone), formatCurrency(toNumber(invoice.total_with_vat))]
+        meta: [formatShortDateTime(invoice.due_date, companyTimeZone, intlLocale), formatCurrency(toNumber(invoice.total_with_vat), intlLocale)]
           .filter(Boolean)
           .join(' • '),
         href: `/invoices/${invoice.id}`,
         actionHref: `/invoices/${invoice.id}`,
-        actionLabel: 'Otevřít fakturu',
+        actionLabel: t.open,
       })),
     },
     {
       key: 'overdue-quotes',
-      label: 'Prošlé nabídky',
+      label: t.quotesTitle,
       value: overdueQuotes.length,
       severity: overdueQuotes.length > 0 ? 'warning' : 'ok',
-      emptyText: 'Žádná nabídka není po platnosti.',
+      emptyText: t.noQuotes,
       items: overdueQuotes.map((quote) => ({
         id: quote.id,
         title: quote.title || quote.quote_number,
         customer: customerMap.get(quote.customer_id ?? '') ?? t.noCustomer,
-        meta: [quote.quote_number, formatShortDateTime(quote.valid_until, companyTimeZone), formatCurrency(toNumber(quote.total_price))]
+        meta: [quote.quote_number, formatShortDateTime(quote.valid_until, companyTimeZone, intlLocale), formatCurrency(toNumber(quote.total_price), intlLocale)]
           .filter(Boolean)
           .join(' • '),
         href: quote.customer_id ? `/customers/${quote.customer_id}/quotes/${quote.id}` : '/cenove-nabidky',
         actionHref: quote.customer_id ? `/customers/${quote.customer_id}/quotes/${quote.id}` : '/cenove-nabidky',
-        actionLabel: 'Otevřít nabídku',
+        actionLabel: t.open,
       })),
     },
     {
       key: 'advances',
-      label: 'Čekající zálohy',
+      label: t.pendingAdvanceRequests,
       value: pendingAdvances.length,
       severity: pendingAdvances.length > 0 ? 'warning' : 'ok',
-      emptyText: 'Žádné zálohy nečekají na zpracování.',
+      emptyText: t.pendingAdvanceRequests,
       items: pendingAdvances.map((advance) => ({
         id: advance.id,
-        title: memberNameByProfileId.get(advance.profile_id ?? '') ?? 'Pracovník',
-        customer: 'Žádost o zálohu',
-        meta: [formatCurrency(toNumber(advance.amount ?? advance.requested_amount)), formatShortDateTime(advance.requested_at ?? advance.created_at, companyTimeZone)]
+        title: memberNameByProfileId.get(advance.profile_id ?? '') ?? t.unnamedWorker,
+        customer: t.pendingAdvanceRequests,
+        meta: [formatCurrency(toNumber(advance.amount ?? advance.requested_amount), intlLocale), formatShortDateTime(advance.requested_at ?? advance.created_at, companyTimeZone, intlLocale)]
           .filter(Boolean)
           .join(' • '),
         href: '/advance-requests',
         actionHref: '/advance-requests',
-        actionLabel: 'Vyřídit zálohu',
+        actionLabel: t.open,
       })),
     },
     {
       key: 'absences',
-      label: 'Čekající absence',
+      label: t.pendingAbsences,
       value: pendingAbsences.length,
       severity: pendingAbsences.length > 0 ? 'warning' : 'ok',
-      emptyText: 'Žádné absence nečekají na schválení.',
+      emptyText: t.noWeekAbsences,
       items: pendingAbsences.map((absence) => ({
         id: absence.id,
-        title: memberNameByProfileId.get(absence.profile_id ?? '') ?? 'Pracovník',
-        customer: 'Žádost o nepřítomnost',
-        meta: [formatDateLabel(parseDateSafe(absence.start_at, companyTimeZone) ?? todayStart, companyTimeZone), formatDateLabel(parseDateSafe(absence.end_at, companyTimeZone) ?? parseDateSafe(absence.start_at, companyTimeZone) ?? todayStart, companyTimeZone)]
+        title: memberNameByProfileId.get(absence.profile_id ?? '') ?? t.unnamedWorker,
+        customer: t.pendingAbsences,
+        meta: [formatDateLabel(parseDateSafe(absence.start_at, companyTimeZone) ?? todayStart, companyTimeZone, intlLocale), formatDateLabel(parseDateSafe(absence.end_at, companyTimeZone) ?? parseDateSafe(absence.start_at, companyTimeZone) ?? todayStart, companyTimeZone, intlLocale)]
           .filter(Boolean)
           .join(' • '),
         href: '/absences',
         actionHref: '/absences',
-        actionLabel: 'Schválit / zamítnout',
+        actionLabel: t.open,
       })),
     },
   ] satisfies Array<{
@@ -1443,25 +1582,23 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     pendingAdvances.length +
     pendingAbsences.length
   const companyStateStyle = monthProfit < 0 ? companyStateCardLoss : companyStateCardProfit
-  const companyStateSentence =
-    monthProfit < 0
-      ? `Firma je ve ztrátě za ${summaryMonthConfig.label}.`
-      : `Firma je v zisku za ${summaryMonthConfig.label}.`
-  const companyStateNotes = [
-    monthInvoiced > 0 ? `Celkem vyfakturováno ${formatCurrency(monthInvoiced)}.` : null,
-    monthReadyToInvoice > 0 ? `Celkem k fakturaci ${formatCurrency(monthReadyToInvoice)}.` : null,
-    monthOrdered > 0 ? `Celkem objednáno tento měsíc ${formatCurrency(monthOrdered)}.` : null,
-    overdueBillingTotal > 0 ? `Celkem po splatnosti ${formatCurrency(overdueBillingTotal)}.` : null,
-    riskJobs.length > 0 ? 'Některé zakázky vyžadují kontrolu.' : null,
-    issueCount === 0 ? 'Dnes není nic kritického k řešení.' : null,
-  ].filter(Boolean)
   const firstChartValue = profitChartPoints.find((point) => point.value !== 0)?.value ?? 0
   const lastChartValue = [...profitChartPoints].reverse().find((point) => point.value !== 0)?.value ?? 0
   const chartComment = !hasProfitChartData
-    ? 'Zatím není dost dat pro graf.'
+    ? t.noChartData
     : lastChartValue >= firstChartValue
-      ? 'Zisk za měsíc zatím roste.'
-      : 'Zisk kolísá, zkontroluj rizikové zakázky.'
+      ? t.profitGrowing
+      : t.profitUnstable
+  const jobProfitLabels = {
+    margin: dictionary.customers.calculationDetail.margin,
+    labor: t.laborCosts,
+    other: t.otherCosts,
+    negativeProfit: t.negativeProfit,
+    lowMargin: t.lowMargin,
+    missingPrice: t.missingPrice,
+    missingCosts: t.missingCosts,
+    excellentJob: t.excellentJob,
+  }
 
   const summary = {
     jobs_total: selectedWeekJobs.length,
@@ -1499,12 +1636,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           <div style={companyStateMain}>
             <div style={heroLeftStack}>
               <div>
-                <h1 style={stateTitle}>Přehled firmy</h1>
+                <h1 style={stateTitle}>{t.title}</h1>
                 <div style={heroStatusRow}>
-                  <span style={heroDatePill}>{formatDateLabel(todayStart, companyTimeZone)}</span>
+                  <span style={heroDatePill}>{formatDateLabel(todayStart, companyTimeZone, intlLocale)}</span>
                 </div>
                 <p style={stateText}>
-                  Objednávky k odbavení za {summaryMonthConfig.label}: {formatCurrency(monthOrdered)}.
+                  {t.ordered} {summaryMonthLabel}: {formatCurrency(monthOrdered, intlLocale)}.
                 </p>
               </div>
 
@@ -1524,6 +1661,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                     selectedMonth={selectedSummaryMonth}
                     selectedJobsDay={selectedJobsDay}
                     inputStyle={monthInput}
+                    ariaLabel={t.selectMonth}
+                    displayLabel={summaryMonthLabel}
                   />
 
                   <Link
@@ -1548,70 +1687,108 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                 </div>
 
                 <div style={quickActions}>
-                  <QuickLink href="/jobs/new" label="Nová zakázka" primary />
-                  <QuickLink href="/jobs" label="Zakázky" />
+                  <QuickLink href="/jobs/new" label={t.newJob} primary />
+                  <QuickLink href="/jobs" label={t.jobs} />
                   <QuickLink href="/customers" label={t.customers} />
                 </div>
               </div>
             </div>
 
-            <DashboardQuickNotes storageKey={`diriqo:dashboard:quick-notes:${companyId}`} />
+            <DashboardQuickNotes
+              storageKey={`diriqo:dashboard:quick-notes:${companyId}`}
+              labels={{
+                title: t.quickNoteTitle,
+                placeholder: t.quickNotePlaceholder,
+                add: t.quickNoteAdd,
+                empty: t.quickNoteEmpty,
+                deleteNote: t.quickNoteDelete,
+                starterCallCustomer: t.quickNoteStarterCallCustomer,
+                starterCheckJobs: t.quickNoteStarterCheckJobs,
+              }}
+            />
           </div>
         </section>
 
-        <FirstRunChecklist checklist={firstRunChecklist} />
+        <OnboardingChecklist
+          checklist={onboardingChecklist}
+          forceOpen={forceOnboardingOpen}
+          errorCode={resolvedSearchParams?.onboarding_error ?? null}
+          labels={{
+            title: t.onboardingTitle,
+            intro: t.onboardingIntro,
+            progress: t.onboardingProgress,
+            minimize: t.onboardingMinimize,
+            continue: t.onboardingContinue,
+            skip: t.onboardingSkip,
+            completeSetup: t.onboardingCompleteSetup,
+            reopen: t.onboardingReopen,
+            bannerTitle: t.onboardingBannerTitle,
+            doneTitle: t.onboardingDoneTitle,
+            doneText: t.onboardingDoneText,
+            goDashboard: t.onboardingGoDashboard,
+            companyTitle: t.onboardingCompanyTitle,
+            companyText: t.onboardingCompanyText,
+            customerTitle: t.onboardingCustomerTitle,
+            customerText: t.onboardingCustomerText,
+            workerTitle: t.onboardingWorkerTitle,
+            workerText: t.onboardingWorkerText,
+            workerUseMe: t.onboardingUseMeAsWorker,
+            workerCreateNew: t.onboardingCreateWorkerInstead,
+            workerName: t.onboardingWorkerName,
+            hourlyRate: t.onboardingHourlyRate,
+            workerType: t.onboardingWorkerType,
+            workerTypeInternal: t.onboardingWorkerTypeInternal,
+            workerTypeExternal: t.onboardingWorkerTypeExternal,
+            jobTitle: t.onboardingJobTitle,
+            jobText: t.onboardingJobText,
+            errorWorkerRate: t.onboardingErrorWorkerRate,
+            errorWorkerSave: t.onboardingErrorWorkerSave,
+          }}
+        />
 
         <section style={kpiSection}>
           <div style={kpiHeader}>
             <div>
               <div style={summaryEyebrow}>KPI</div>
-              <div style={kpiTitle}>Čísla za {summaryMonthConfig.label}</div>
+              <div style={kpiTitle}>{t.summaryTitle} - {summaryMonthLabel}</div>
             </div>
           </div>
 
           <div style={statsGrid}>
             <StatCard
-              title="Dnešní zakázky"
+              title={t.todayJobsTitle}
               value={String(todayJobs.length)}
-              subvalue="Naplánované nebo běžící dnes"
-              detail="Rychlý stav dnešního provozu"
+              subvalue={t.today}
+              detail={t.operationsSubtitle}
               accent="#2563eb"
             />
             <StatCard
-              title="Aktivní pracovníci"
+              title={t.workers}
               value={String(todaysWorkers.length)}
-              subvalue="Lidé na směně nebo u zakázky"
-              detail="Kdo je právě k dispozici"
+              subvalue={t.activeShifts}
+              detail={t.workedTodaySubtitle}
               accent="#16a34a"
             />
             <StatCard
-              title="Rozdělané zakázky"
-              value={String(inProgressJobs.length)}
-              subvalue="Práce, která právě běží"
-              detail="Operativní kontrola rozpracované práce"
-              accent="#0ea5e9"
-              urgent={inProgressJobs.length > 0}
-            />
-            <StatCard
-              title="Hotovo tento měsíc"
+              title={t.done}
               value={String(monthCompletedJobs.length)}
-              subvalue={`Dokončené zakázky za ${summaryMonthConfig.label}`}
-              detail="Hotová práce v měsíci"
+              subvalue={`${t.completedJobs} - ${summaryMonthLabel}`}
+              detail={t.currentMonth}
               accent="#8b5cf6"
             />
             <StatCard
-              title="Čeká na fakturaci"
-              value={formatCurrency(waitingInvoiceTotal)}
-              subvalue={`${waitingInvoiceJobs.length} zakázky čekají na fakturu`}
-              detail="Hodnota hotové práce k vyfakturování"
+              title={t.waitingForInvoice}
+              value={formatCurrency(waitingInvoiceTotal, intlLocale)}
+              subvalue={`${waitingInvoiceJobs.length} ${t.jobsWaitingForInvoice}`}
+              detail={t.readyToInvoice}
               accent="#f97316"
               urgent={waitingInvoiceTotal > 0 || waitingInvoiceJobs.length > 0}
             />
             <StatCard
-              title="Zisk zakázek"
-              value={formatCurrency(monthProfit)}
-              subvalue="Cena zakázek minus práce a přímé náklady"
-              detail="Provozní ekonomika firmy"
+              title={t.profit}
+              value={formatCurrency(monthProfit, intlLocale)}
+              subvalue={t.monthEconomySubtitle}
+              detail={t.monthEconomyTitle}
               accent="#06b6d4"
               highlight
             />
@@ -1621,17 +1798,17 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         <section id="command-center" style={actionStrip}>
           <div style={actionStripHeader}>
             <div>
-              <div style={stripEyebrow}>Command center</div>
-              <div style={stripTitle}>Co potřebuje pozornost</div>
-              <div style={stripHint}>Klikni na problém, otevři seznam a vyřeš ho přímo odsud.</div>
+              <div style={stripEyebrow}>{t.commandCenterEyebrow}</div>
+              <div style={stripTitle}>{t.commandCenterTitle}</div>
+              <div style={stripHint}>{t.commandCenterSubtitle}</div>
             </div>
-            {issueCount === 0 ? <div style={attentionOkBadge}>Vše důležité je v klidu</div> : null}
+            {issueCount === 0 ? <div style={attentionOkBadge}>{t.commandCenterAllGood}</div> : null}
           </div>
           {issueCount === 0 ? (
             <EmptyState
               icon="✓"
-              title="Vše důležité je v klidu"
-              text="Dnes tu nejsou kritické provozní ani finanční věci k řešení."
+              title={t.commandCenterAllGood}
+              text={t.commandCenterEmptyText}
             />
           ) : (
             <div style={actionStripGrid}>
@@ -1643,6 +1820,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                   severity={item.severity}
                   items={item.items}
                   emptyText={item.emptyText}
+                  statusLabels={{
+                    openList: t.actionOpenList,
+                    review: t.actionReview,
+                  }}
                 />
               )}
             </div>
@@ -1652,25 +1833,25 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         <section id="dnesni-zakazky" style={operationsPanel}>
           <div style={operationsHeader}>
             <div>
-              <div style={panelTitle}>Dnes</div>
-              <div style={panelSubtitle}>Lidé v práci, dnešní zakázky a odpracované hodiny v jednom přehledu.</div>
+              <div style={panelTitle}>{t.today}</div>
+              <div style={panelSubtitle}>{t.workedTodaySubtitle}</div>
             </div>
-            <div style={monthBadge}>{formatDateLabel(todayStart, companyTimeZone)}</div>
+            <div style={monthBadge}>{formatDateLabel(todayStart, companyTimeZone, intlLocale)}</div>
           </div>
 
           <div style={operationsSummaryGrid}>
-            <OperationMetric label="V práci" value={todaysWorkers.length} />
-            <OperationMetric label="Dnešní zakázky" value={todayJobs.length} />
-            <OperationMetric label="Odpracováno" value={`${roundHours(workedTodayHours)} h`} />
+            <OperationMetric label={t.activeShifts} value={todaysWorkers.length} />
+            <OperationMetric label={t.todayJobsTitle} value={todayJobs.length} />
+            <OperationMetric label={t.workedTodayTitle} value={`${roundHours(workedTodayHours)} h`} />
           </div>
 
           {todaysWorkers.length === 0 ? (
             <EmptyState
               icon="P"
-              title="Zatím nikdo není v práci"
-              text="Až pracovník zahájí směnu nebo práci na zakázce, uvidíš ho tady."
+              title={t.noRunningShift}
+              text={t.shiftRunningSubtitle}
               actionHref="/jobs/new"
-              actionLabel="Nová zakázka"
+              actionLabel={t.newJob}
             />
           ) : (
             <div style={todayWorkerList}>
@@ -1683,7 +1864,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                   <div style={{ minWidth: 0 }}>
                     <div style={workerName}>{worker.name}</div>
                     <div style={todayWorkerMeta}>
-                      Začátek: {formatTime(worker.shiftStart)}
+                      {dictionary.jobs.detail.started}: {formatTime(worker.shiftStart, companyTimeZone, intlLocale)}
                       {worker.activeJobTitle ? ` • ${worker.activeJobTitle}` : ''}
                     </div>
                   </div>
@@ -1701,8 +1882,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           <div style={operationsPanel}>
             <div style={operationsHeader}>
               <div>
-                <div style={panelTitle}>Zakázky dnes</div>
-                <div style={panelSubtitle}>Rychlý plán na dnes nebo zítra.</div>
+                <div style={panelTitle}>{t.todayJobsTitle}</div>
+                <div style={panelSubtitle}>{t.operationsSubtitle}</div>
               </div>
               <div style={dayToggleWrap}>
                 <Link
@@ -1735,17 +1916,17 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             </div>
 
             <div style={operationsSummaryGrid}>
-              <OperationMetric label="Zakázky" value={selectedJobs.length} />
-              <OperationMetric label="Směny" value={selectedDayShifts.length} />
+              <OperationMetric label={t.jobs} value={selectedJobs.length} />
+              <OperationMetric label={t.activeShifts} value={selectedDayShifts.length} />
             </div>
 
             {selectedJobs.length === 0 ? (
               <EmptyState
                 icon="Z"
-                title={selectedJobsDay === 'today' ? 'Zatím žádné zakázky pro tento den.' : 'Na zítra nejsou žádné zakázky.'}
-                text="Vytvoř první zakázku a přiřaď pracovníka."
+                title={t.noTodayJobs}
+                text={t.operationsSubtitle}
                 actionHref="/jobs/new"
-                actionLabel="Nová zakázka"
+                actionLabel={t.newJob}
               />
             ) : (
               <div style={compactScrollWindow}>
@@ -1757,7 +1938,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                       job.end_at,
                       selectedDayStart,
                       selectedDayEnd,
-                      companyTimeZone
+                      companyTimeZone,
+                      intlLocale
                     )
                     const displayWorkState = getDisplayWorkStateForDay(
                       job,
@@ -1767,7 +1949,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                     const badgeTone = jobToneByWorkState(displayWorkState)
                     const selectedDayShiftCount = selectedDayShiftCountByJob.get(job.id) ?? 0
                     const selectedDayShiftLabel =
-                      selectedDayShiftCount > 0 ? ` | Směny: ${selectedDayShiftCount}` : ''
+                      selectedDayShiftCount > 0 ? ` | ${t.activeShifts}: ${selectedDayShiftCount}` : ''
 
                     return (
                       <Link key={job.id} href={`/jobs/${job.id}`} style={compactJobRow}>
@@ -1799,8 +1981,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           <div style={operationsPanel}>
             <div style={operationsHeader}>
               <div>
-                <div style={panelTitle}>Zakázky v měsíci</div>
-                <div style={panelSubtitle}>Naplánované zakázky rozdělené po týdnech.</div>
+                <div style={panelTitle}>{t.summaryTitle}</div>
+                <div style={panelSubtitle}>{t.monthlyOverviewSubtitle}</div>
               </div>
               <div style={weekToggleWrap}>
                 {summaryWeekSegments.map((segment) => (
@@ -1816,20 +1998,20 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                       ...(selectedSummaryWeek === segment.value ? weekToggleLinkActive : {}),
                     }}
                   >
-                    {segment.label}
+                    {formatDashboardWeekLabel(segment.value, locale)}
                   </Link>
                 ))}
               </div>
             </div>
 
             <div style={operationsSummaryGrid}>
-              <OperationMetric label="Zakázky v týdnu" value={selectedWeekJobs.length} />
-              <OperationMetric label="Dokončeno" value={summary.jobs_done} />
-              <OperationMetric label="K fakturaci" value={summary.jobs_waiting_for_invoice} />
+              <OperationMetric label={t.jobs} value={selectedWeekJobs.length} />
+              <OperationMetric label={t.done} value={summary.jobs_done} />
+              <OperationMetric label={t.waitingForInvoice} value={summary.jobs_waiting_for_invoice} />
             </div>
 
             {selectedWeekJobs.length === 0 ? (
-              <EmptyState text="V tomto týdnu nejsou žádné zakázky." />
+              <EmptyState text={t.noTodayJobs} />
             ) : (
               <div style={compactScrollWindow}>
                 <div style={stack10}>
@@ -1849,15 +2031,15 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                       return (
                         <Link key={job.id} href={`/jobs/${job.id}`} style={compactJobRow}>
                           <div style={jobTimeCol}>
-                            <div style={jobTime}>{formatDateLabel(parseDateSafe(job.start_at, companyTimeZone) ?? getNowPrague(), companyTimeZone)}</div>
-                            <div style={jobTimeMuted}>{formatShortDateTime(job.end_at, companyTimeZone)}</div>
+                            <div style={jobTime}>{formatDateLabel(parseDateSafe(job.start_at, companyTimeZone) ?? getNowPrague(), companyTimeZone, intlLocale)}</div>
+                            <div style={jobTimeMuted}>{formatShortDateTime(job.end_at, companyTimeZone, intlLocale)}</div>
                           </div>
 
                           <div style={jobMainCol}>
                             <div style={jobTitle}>{job.title ?? t.unnamedJob}</div>
                             <div style={jobMeta}>{customer}</div>
                             <div style={jobSubmeta}>
-                              {formatCurrency(toNumber(job.price))}
+                              {formatCurrency(toNumber(job.price), intlLocale)}
                               {visibleBillingState ? ` • ${getBillingStateText(job.billing_state_resolved)}` : ''}
                             </div>
                           </div>
@@ -1877,43 +2059,57 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         <section style={operationsPanel}>
           <div style={operationsHeader}>
             <div>
-              <div style={panelTitle}>Tento měsíc</div>
-              <div style={panelSubtitle}>Vývoj zisku a stručný rozpad peněz za {summaryMonthConfig.label}.</div>
+              <div style={panelTitle}>{t.currentMonth}</div>
+              <div style={panelSubtitle}>{t.monthEconomySubtitle}</div>
             </div>
-            <div style={monthBadge}>{summaryMonthConfig.label}</div>
+            <div style={monthBadge}>{summaryMonthLabel}</div>
           </div>
 
           <div style={monthOverviewGrid}>
             <div style={compactChartPanel}>
               <div style={chartCommentBox}>{chartComment}</div>
               {hasProfitChartData ? (
-                <MonthlyProfitChart points={profitChartPoints} />
+                <MonthlyProfitChart
+                  points={profitChartPoints}
+                  labels={{
+                    aria: t.monthEconomyTitle,
+                    profit: t.profit,
+                    revenue: t.revenue,
+                    costs: t.costs,
+                  }}
+                  formatCurrencyLabel={(value) => formatCurrency(value, intlLocale)}
+                />
               ) : (
-                <EmptyState text="Zatím není dost dat pro graf." />
+                <EmptyState text={t.noTopJobs} />
               )}
             </div>
 
             <div style={financeTable}>
-              <EconomyLine label="Objednáno" value={formatCurrency(monthOrdered)} />
-              <EconomyLine label={t.invoiced} value={formatCurrency(monthInvoiced)} />
-              <EconomyLine label="Nevyfakturováno" value={formatCurrency(monthReadyToInvoice)} />
-              <EconomyLine label="Práce" value={formatCurrency(monthLabor)} />
-              <EconomyLine label="Přímé náklady" value={formatCurrency(monthOther)} />
-              <EconomyLine label="Vyplacené zálohy" value={formatCurrency(payrollAdvanceTotal)} />
-              <EconomyLine label="Zisk" value={formatCurrency(monthProfit)} strong />
+              <EconomyLine label={t.ordered} value={formatCurrency(monthOrdered, intlLocale)} />
+              <EconomyLine label={t.invoiced} value={formatCurrency(monthInvoiced, intlLocale)} />
+              <EconomyLine label={t.readyToInvoice} value={formatCurrency(monthReadyToInvoice, intlLocale)} />
+              <EconomyLine label={t.laborCosts} value={formatCurrency(monthLabor, intlLocale)} />
+              <EconomyLine label={t.otherCosts} value={formatCurrency(monthOther, intlLocale)} />
+              <EconomyLine label={t.currentPayrollAdvances} value={formatCurrency(payrollAdvanceTotal, intlLocale)} />
+              <EconomyLine label={t.profit} value={formatCurrency(monthProfit, intlLocale)} strong />
             </div>
           </div>
         </section>
 
         <section style={jobDecisionGrid}>
-          <Panel title="Nejziskovější zakázky" subtitle="Zakázky, které ve vybraném měsíci nejvíc pomáhají výsledku.">
+          <Panel title={t.topJobsTitle} subtitle={t.topJobsSubtitle}>
             {topJobs.length === 0 ? (
-              <EmptyState text="Zatím tu nejsou ziskové zakázky." />
+              <EmptyState text={t.noTopJobs} />
             ) : (
               <div style={compactScrollWindow}>
                 <div style={stack10}>
                 {topJobs.map((job) => (
-                  <JobProfitRow key={job.id} job={job} />
+                  <JobProfitRow
+                    key={job.id}
+                    job={job}
+                    labels={jobProfitLabels}
+                    formatCurrencyLabel={(value) => formatCurrency(value, intlLocale)}
+                  />
                 ))}
                 </div>
               </div>
@@ -1921,14 +2117,20 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           </Panel>
 
           <div style={riskPanelWrap}>
-            <Panel title="Zakázky k prověření" subtitle="Nízká marže, vysoká práce nebo chybějící čísla.">
+            <Panel title={t.riskJobsTitle} subtitle={t.riskJobsSubtitle}>
               {riskJobs.length === 0 ? (
-                <EmptyState text="Nic akutního k prověření." />
+                <EmptyState text={t.noRiskJobs} />
               ) : (
                 <div style={compactScrollWindow}>
                   <div style={stack10}>
                   {riskJobs.map((job) => (
-                    <JobProfitRow key={job.id} job={job} warning={job.reasons.join(', ')} />
+                    <JobProfitRow
+                      key={job.id}
+                      job={job}
+                      warning={job.reasons.join(', ')}
+                      labels={jobProfitLabels}
+                      formatCurrencyLabel={(value) => formatCurrency(value, intlLocale)}
+                    />
                   ))}
                   </div>
                 </div>
@@ -1964,17 +2166,53 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                           {quote.quote_number} • {customer}
                         </div>
                         <div style={dashboardListSubmeta}>
-                          {formatShortDateTime(quote.created_at, companyTimeZone)} • {formatCurrency(quote.total_price)}
+                          {formatShortDateTime(quote.created_at, companyTimeZone, intlLocale)} • {formatCurrency(quote.total_price, intlLocale)}
                         </div>
                       </div>
 
                       <div style={{ ...pillBase, ...getQuoteStatusStyle(resolvedStatus) }}>
-                        {getQuoteStatusLabel(resolvedStatus)}
+                        {getQuoteStatusText(resolvedStatus)}
                       </div>
                     </Link>
                   )
                 })}
                 </div>
+              </div>
+            )}
+          </Panel>
+
+          <Panel title={t.latestPhotosTitle} subtitle={t.latestPhotosSubtitle}>
+            {latestPhotos.length === 0 ? (
+              <EmptyState text={t.noLatestPhotos} actionHref="/jobs" actionLabel={t.openJobs} />
+            ) : (
+              <div style={latestPhotosGrid}>
+                {latestPhotos.map((photo) => (
+                  <Link key={photo.id} href={`/jobs/${photo.jobId}`} style={latestPhotoCard}>
+                    <div style={latestPhotoThumb}>
+                      {photo.previewUrl ? (
+                        <Image
+                          src={photo.previewUrl}
+                          alt={`${photo.fileName} - ${photo.jobTitle}`}
+                          width={420}
+                          height={260}
+                          unoptimized
+                          style={latestPhotoImage}
+                        />
+                      ) : (
+                        <div style={latestPhotoPlaceholder}>{t.noPreview}</div>
+                      )}
+                      <span style={latestPhotoBadge}>{getPhotoTypeText(photo.photoType)}</span>
+                    </div>
+                    <div style={latestPhotoBody}>
+                      <div style={latestPhotoTitle}>{photo.jobTitle}</div>
+                      <div style={latestPhotoMeta}>{photo.customer}</div>
+                      <div style={latestPhotoSubmeta}>
+                        {formatShortDateTime(photo.takenAt, companyTimeZone, intlLocale)}
+                        {photo.note ? ` • ${photo.note}` : ''}
+                      </div>
+                    </div>
+                  </Link>
+                ))}
               </div>
             )}
           </Panel>
@@ -2009,7 +2247,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                       <div>
                         <div style={workerName}>{absence.name}</div>
                         <div style={profitJobMeta}>
-                          {formatShortDateTime(absence.startAt, companyTimeZone)} - {formatShortDateTime(absence.endAt, companyTimeZone)}
+                          {formatShortDateTime(absence.startAt, companyTimeZone, intlLocale)} - {formatShortDateTime(absence.endAt, companyTimeZone, intlLocale)}
                         </div>
                       </div>
                       <div
@@ -2271,6 +2509,7 @@ function ActionDisclosure({
   severity,
   items,
   emptyText,
+  statusLabels,
 }: {
   label: string
   value: number
@@ -2285,9 +2524,13 @@ function ActionDisclosure({
     actionLabel: string
   }>
   emptyText: string
+  statusLabels: {
+    openList: string
+    review: string
+  }
 }) {
   const tone = actionSeverityStyle(severity)
-  const statusLabel = value === 0 ? 'OK' : severity === 'critical' ? 'otevřít seznam' : 'zkontrolovat'
+  const statusLabel = value === 0 ? 'OK' : severity === 'critical' ? statusLabels.openList : statusLabels.review
 
   return (
     <details
@@ -2339,7 +2582,20 @@ function OperationMetric({ label, value }: { label: string; value: string | numb
   )
 }
 
-function MonthlyProfitChart({ points }: { points: ProfitChartPoint[] }) {
+function MonthlyProfitChart({
+  points,
+  labels,
+  formatCurrencyLabel,
+}: {
+  points: ProfitChartPoint[]
+  labels: {
+    aria: string
+    profit: string
+    revenue: string
+    costs: string
+  }
+  formatCurrencyLabel: (value: number) => string
+}) {
   const width = 640
   const height = 220
   const padding = 26
@@ -2361,7 +2617,7 @@ function MonthlyProfitChart({ points }: { points: ProfitChartPoint[] }) {
 
   return (
     <div style={chartWrap}>
-      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Vývoj zisku v měsíci" style={chartSvg}>
+      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={labels.aria} style={chartSvg}>
         <line x1={padding} y1={zeroY} x2={width - padding} y2={zeroY} stroke="#d1d5db" strokeWidth="1" />
         <path d={revenuePath} fill="none" stroke="#2563eb" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.55" />
         <path d={costsPath} fill="none" stroke="#f97316" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.65" />
@@ -2373,10 +2629,10 @@ function MonthlyProfitChart({ points }: { points: ProfitChartPoint[] }) {
         )}
       </svg>
       <div style={chartLegend}>
-        <span style={legendItem}><span style={{ ...legendDot, backgroundColor: '#166534' }} />Zisk</span>
-        <span style={legendItem}><span style={{ ...legendDot, backgroundColor: '#2563eb' }} />Obrat</span>
-        <span style={legendItem}><span style={{ ...legendDot, backgroundColor: '#f97316' }} />Náklady</span>
-        <span>{formatCurrency(min)} až {formatCurrency(max)}</span>
+        <span style={legendItem}><span style={{ ...legendDot, backgroundColor: '#166534' }} />{labels.profit}</span>
+        <span style={legendItem}><span style={{ ...legendDot, backgroundColor: '#2563eb' }} />{labels.revenue}</span>
+        <span style={legendItem}><span style={{ ...legendDot, backgroundColor: '#f97316' }} />{labels.costs}</span>
+        <span>{formatCurrencyLabel(min)} - {formatCurrencyLabel(max)}</span>
       </div>
     </div>
   )
@@ -2385,6 +2641,8 @@ function MonthlyProfitChart({ points }: { points: ProfitChartPoint[] }) {
 function JobProfitRow({
   job,
   warning,
+  labels,
+  formatCurrencyLabel,
 }: {
   job: {
     id: string
@@ -2397,8 +2655,19 @@ function JobProfitRow({
     revenue: number
   }
   warning?: string
+  labels: {
+    margin: string
+    labor: string
+    other: string
+    negativeProfit: string
+    lowMargin: string
+    missingPrice: string
+    missingCosts: string
+    excellentJob: string
+  }
+  formatCurrencyLabel: (value: number) => string
 }) {
-  const tags = getJobProfitTags(job, warning)
+  const tags = getJobProfitTags(job, labels, warning)
 
   return (
     <Link href={`/jobs/${job.id}`} style={profitJobLink}>
@@ -2406,7 +2675,7 @@ function JobProfitRow({
         <div style={profitJobTitle}>{job.title}</div>
         <div style={profitJobMeta}>{job.customer}</div>
         <div style={jobEconomyMeta}>
-          Marže {formatPercent(job.margin)} | práce {formatCurrency(job.laborCost)} | ostatní {formatCurrency(job.otherCost)}
+          {labels.margin} {formatPercent(job.margin)} | {labels.labor} {formatCurrencyLabel(job.laborCost)} | {labels.other} {formatCurrencyLabel(job.otherCost)}
         </div>
         <div style={tagRow}>
           {tags.map((tag) => (
@@ -2417,7 +2686,7 @@ function JobProfitRow({
         </div>
         {warning && <div style={riskReason}>{warning}</div>}
       </div>
-      <div style={job.profit < 0 ? riskValue : profitValue}>{formatCurrency(job.profit)}</div>
+      <div style={job.profit < 0 ? riskValue : profitValue}>{formatCurrencyLabel(job.profit)}</div>
     </Link>
   )
 }
@@ -2430,24 +2699,31 @@ function getJobProfitTags(
     otherCost: number
     revenue?: number
   },
+  labels: {
+    negativeProfit: string
+    lowMargin: string
+    missingPrice: string
+    missingCosts: string
+    excellentJob: string
+  },
   warning?: string
 ) {
   const tags: Array<{ label: string; style: CSSProperties }> = []
 
-  if (job.profit < 0 || warning?.includes('záporný')) {
-    tags.push({ label: 'Prodělává', style: tagDanger })
+  if (job.profit < 0 || warning?.includes(labels.negativeProfit)) {
+    tags.push({ label: labels.negativeProfit, style: tagDanger })
   }
   if (job.margin != null && job.margin <= 10) {
-    tags.push({ label: 'Nízká marže', style: tagWarning })
+    tags.push({ label: labels.lowMargin, style: tagWarning })
   }
   if ((job.revenue ?? 0) <= 0) {
-    tags.push({ label: 'Chybí cena', style: tagMuted })
+    tags.push({ label: labels.missingPrice, style: tagMuted })
   }
   if ((job.revenue ?? 0) > 0 && job.laborCost === 0 && job.otherCost === 0) {
-    tags.push({ label: 'Chybí náklady', style: tagMuted })
+    tags.push({ label: labels.missingCosts, style: tagMuted })
   }
   if (tags.length === 0 && job.profit > 0 && (job.margin ?? 0) >= 25) {
-    tags.push({ label: 'Výborná zakázka', style: tagSuccess })
+    tags.push({ label: labels.excellentJob, style: tagSuccess })
   }
 
   return tags
@@ -3497,6 +3773,95 @@ const dashboardListSubmeta: CSSProperties = {
   whiteSpace: 'nowrap',
   overflow: 'hidden',
   textOverflow: 'ellipsis',
+}
+
+const latestPhotosGrid: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+  gap: '10px',
+}
+
+const latestPhotoCard: CSSProperties = {
+  display: 'grid',
+  gap: '0',
+  overflow: 'hidden',
+  borderRadius: '16px',
+  backgroundColor: '#f9fafb',
+  border: '1px solid #e5e7eb',
+  color: '#111827',
+  textDecoration: 'none',
+}
+
+const latestPhotoThumb: CSSProperties = {
+  position: 'relative',
+  width: '100%',
+  aspectRatio: '4 / 3',
+  backgroundColor: '#e5e7eb',
+  overflow: 'hidden',
+}
+
+const latestPhotoImage: CSSProperties = {
+  width: '100%',
+  height: '100%',
+  objectFit: 'cover',
+  display: 'block',
+}
+
+const latestPhotoPlaceholder: CSSProperties = {
+  width: '100%',
+  height: '100%',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  color: '#64748b',
+  fontSize: '13px',
+  fontWeight: 800,
+}
+
+const latestPhotoBadge: CSSProperties = {
+  position: 'absolute',
+  left: '10px',
+  bottom: '10px',
+  display: 'inline-flex',
+  alignItems: 'center',
+  padding: '5px 8px',
+  borderRadius: '999px',
+  backgroundColor: 'rgba(15, 23, 42, 0.82)',
+  color: '#ffffff',
+  fontSize: '12px',
+  fontWeight: 900,
+}
+
+const latestPhotoBody: CSSProperties = {
+  display: 'grid',
+  gap: '4px',
+  padding: '11px 12px 12px',
+  minWidth: 0,
+}
+
+const latestPhotoTitle: CSSProperties = {
+  fontWeight: 850,
+  whiteSpace: 'nowrap',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+}
+
+const latestPhotoMeta: CSSProperties = {
+  color: '#4b5563',
+  fontSize: '13px',
+  whiteSpace: 'nowrap',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+}
+
+const latestPhotoSubmeta: CSSProperties = {
+  color: '#64748b',
+  fontSize: '12px',
+  lineHeight: 1.35,
+  overflow: 'hidden',
+  display: '-webkit-box',
+  WebkitLineClamp: 2,
+  WebkitBoxOrient: 'vertical',
 }
 
 const jobTimeCol: CSSProperties = {

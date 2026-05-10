@@ -2,9 +2,11 @@
 
 import type { ReactNode } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState } from 'react'
 
+import { useI18n } from '@/components/I18nProvider'
 import { supabase } from '@/lib/supabase'
 
 type PortalShellProps = {
@@ -23,9 +25,21 @@ const navItems = [
 export default function PortalShell({ children, title, customerName }: PortalShellProps) {
   const pathname = usePathname()
   const router = useRouter()
+  const { dictionary } = useI18n()
   const [loggingOut, setLoggingOut] = useState(false)
+  const localizedNavItems = navItems.map((item) => ({
+    ...item,
+    label:
+      item.href === '/portal'
+        ? dictionary.navigation.dashboard
+        : item.href === '/portal/jobs'
+          ? dictionary.navigation.jobs
+          : item.href === '/portal/offers'
+            ? dictionary.navigation.quotes
+            : dictionary.navigation.invoices,
+  }))
   const activeHref =
-    [...navItems]
+    [...localizedNavItems]
       .sort((left, right) => right.href.length - left.href.length)
       .find((item) =>
         item.href === '/portal'
@@ -79,12 +93,13 @@ export default function PortalShell({ children, title, customerName }: PortalShe
                 alignItems: 'center',
               }}
             >
-              <img
+              <Image
                 src="/diriqo-logo-full.png"
                 alt="Diriqo Portal"
+                fill
+                priority
+                sizes="178px"
                 style={{
-                  width: '100%',
-                  height: '100%',
                   objectFit: 'contain',
                   objectPosition: 'left center',
                   filter: 'drop-shadow(0 0 14px rgba(0, 214, 255, 0.28))',
@@ -92,12 +107,12 @@ export default function PortalShell({ children, title, customerName }: PortalShe
               />
             </div>
             <div style={{ fontSize: '22px', fontWeight: 800, lineHeight: 1.2 }}>
-              {customerName || 'Zákaznický portál'}
+              {customerName || dictionary.common.customerPortal}
             </div>
           </div>
 
           <nav style={{ display: 'grid', gap: '10px' }}>
-            {navItems.map((item) => {
+            {localizedNavItems.map((item) => {
               const isActive = item.href === activeHref
               return (
                 <Link
@@ -143,7 +158,7 @@ export default function PortalShell({ children, title, customerName }: PortalShe
               <div>
                 <h1 style={{ margin: 0, fontSize: '34px', lineHeight: 1.1 }}>{title}</h1>
                 <p style={{ margin: '8px 0 0 0', color: '#6b7280' }}>
-                  Přehled pouze customer-safe dat pro váš účet.
+                  {dictionary.common.customerSafeData}
                 </p>
               </div>
 
@@ -163,7 +178,7 @@ export default function PortalShell({ children, title, customerName }: PortalShe
                     fontWeight: 700,
                   }}
                 >
-                  Změnit heslo
+                  {dictionary.common.changePassword}
                 </Link>
                 <button
                   type="button"
@@ -180,7 +195,7 @@ export default function PortalShell({ children, title, customerName }: PortalShe
                     cursor: loggingOut ? 'default' : 'pointer',
                   }}
                 >
-                  {loggingOut ? 'Odhlašuji...' : 'Odhlásit se'}
+                  {loggingOut ? dictionary.common.loggingOut : dictionary.common.logout}
                 </button>
               </div>
             </div>

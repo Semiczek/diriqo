@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import Image from 'next/image'
 import { notFound } from 'next/navigation'
 
 import {
@@ -838,11 +839,12 @@ export default async function InvoiceDetailPage({ params, searchParams }: PagePr
         >
           {qrPaymentPayload ? (
             <>
-              <img
+              <Image
                 src={`/api/invoices/${invoice.id}/qr`}
                 alt="QR platba"
                 width={140}
                 height={140}
+                unoptimized
                 style={{
                   border: '1px solid #e5e7eb',
                   borderRadius: '8px',

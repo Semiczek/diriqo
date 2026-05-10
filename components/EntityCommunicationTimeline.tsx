@@ -1,6 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type CSSProperties } from 'react'
+import { useI18n } from '@/components/I18nProvider'
+import { getIntlLocale } from '@/lib/i18n/config'
+import type { TranslationDictionary } from '@/lib/i18n/dictionaries/types'
 import type { MessageFeedItem, RelatedEntityType } from '@/lib/email/types'
 
 type EntityCommunicationTimelineProps = {
@@ -20,14 +23,16 @@ type EmailFeedRefreshDetail = {
   preview?: string
 }
 
-function formatDateTime(value: string) {
+type CommunicationMessages = TranslationDictionary['jobs']['detail']['communication']
+
+function formatDateTime(value: string, locale: string) {
   const date = new Date(value)
 
   if (Number.isNaN(date.getTime())) {
     return value
   }
 
-  return new Intl.DateTimeFormat('cs-CZ', {
+  return new Intl.DateTimeFormat(locale, {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -36,11 +41,11 @@ function formatDateTime(value: string) {
   }).format(date)
 }
 
-function getDirectionLabel(direction: MessageFeedItem['direction']) {
-  return direction === 'outbound' ? 'Odesláno' : 'Přijato'
+function getDirectionLabel(direction: MessageFeedItem['direction'], t: CommunicationMessages) {
+  return direction === 'outbound' ? t.sent : t.received
 }
 
-function getDirectionStyles(direction: MessageFeedItem['direction']): React.CSSProperties {
+function getDirectionStyles(direction: MessageFeedItem['direction']): CSSProperties {
   if (direction === 'outbound') {
     return {
       backgroundColor: '#dbeafe',
@@ -56,26 +61,25 @@ function getDirectionStyles(direction: MessageFeedItem['direction']): React.CSSP
   }
 }
 
-function getStatusLabel(item: MessageFeedItem) {
+function getStatusLabel(item: MessageFeedItem, t: CommunicationMessages) {
   if (item.direction === 'inbound') {
-    if (item.status === 'fallback_matched') return 'Fallback match'
-    if (item.status === 'unmatched') return 'Nespárováno'
-    return 'Spárováno'
+    if (item.status === 'unmatched') return t.unmatched
+    return t.matched
   }
 
-  if (item.status === 'delivered') return 'Doručeno'
-  if (item.status === 'failed') return 'Chyba'
-  if (item.status === 'bounced') return 'Nedoručeno'
-  if (item.status === 'queued') return 'Ve frontě'
-  return 'Odesláno'
+  if (item.status === 'delivered') return t.delivered
+  if (item.status === 'failed') return t.failed
+  if (item.status === 'bounced') return t.bounced
+  if (item.status === 'queued') return t.queued
+  return t.sent
 }
 
-function getBodyText(item: MessageFeedItem) {
-  return item.bodyText?.trim() || item.preview?.trim() || 'Bez obsahu e-mailu.'
+function getBodyText(item: MessageFeedItem, t: CommunicationMessages) {
+  return item.bodyText?.trim() || item.preview?.trim() || t.noBody
 }
 
-function getAddressLabel(item: MessageFeedItem) {
-  return item.direction === 'outbound' ? 'Komu' : 'Od'
+function getAddressLabel(item: MessageFeedItem, t: CommunicationMessages) {
+  return item.direction === 'outbound' ? t.to : t.from
 }
 
 function getSenderLabel(item: MessageFeedItem) {
@@ -147,11 +151,14 @@ async function loadEntityFeedUntilMessageAppears(
 export default function EntityCommunicationTimeline({
   entityType,
   entityId,
-  title = 'Komunikace',
-  description = 'Uložené odchozí i příchozí emaily navázané na tuto položku.',
-  emptyLabel = 'Zatím tu není žádná emailová komunikace.',
+  title,
+  description,
+  emptyLabel,
   feedItems,
 }: EntityCommunicationTimelineProps) {
+  const { dictionary, locale } = useI18n()
+  const t = dictionary.jobs.detail.communication
+  const dateLocale = getIntlLocale(locale)
   const [localFeed, setLocalFeed] = useState<MessageFeedItem[] | null>(null)
   const feed = localFeed ?? feedItems
 
@@ -262,8 +269,8 @@ export default function EntityCommunicationTimeline({
       }}
     >
       <div style={{ marginBottom: '16px' }}>
-        <h2 style={{ margin: '0 0 6px 0', fontSize: '24px' }}>{title}</h2>
-        <p style={{ margin: 0, color: '#6b7280' }}>{description}</p>
+        <h2 style={{ margin: '0 0 6px 0', fontSize: '24px' }}>{title ?? t.title}</h2>
+        <p style={{ margin: 0, color: '#6b7280' }}>{description ?? t.description}</p>
       </div>
 
       {feed.length === 0 ? (
@@ -276,7 +283,7 @@ export default function EntityCommunicationTimeline({
             backgroundColor: '#f9fafb',
           }}
         >
-          {emptyLabel}
+          {emptyLabel ?? t.noMessages}
         </div>
       ) : (
         <div style={{ display: 'grid', gap: '12px' }}>
@@ -310,27 +317,29 @@ export default function EntityCommunicationTimeline({
                       fontWeight: 700,
                     }}
                   >
-                    {getDirectionLabel(item.direction)}
+                    {getDirectionLabel(item.direction, t)}
                   </span>
 
-                  <span style={{ color: '#6b7280', fontSize: '13px' }}>{getStatusLabel(item)}</span>
+                  <span style={{ color: '#6b7280', fontSize: '13px' }}>{getStatusLabel(item, t)}</span>
                 </div>
 
-                <div style={{ color: '#6b7280', fontSize: '13px' }}>{formatDateTime(item.happenedAt)}</div>
+                <div style={{ color: '#6b7280', fontSize: '13px' }}>
+                  {formatDateTime(item.happenedAt, dateLocale)}
+                </div>
               </div>
 
-              <div style={{ color: '#111827', fontWeight: 700 }}>{item.subject || '(Bez předmětu)'}</div>
+              <div style={{ color: '#111827', fontWeight: 700 }}>{item.subject || t.noSubject}</div>
               <div style={{ color: '#4b5563', fontSize: '14px' }}>
-                <strong>{getAddressLabel(item)}:</strong>{' '}
+                <strong>{getAddressLabel(item, t)}:</strong>{' '}
                 {item.name ? `${item.name} <${item.email}>` : item.email}
               </div>
               {getSenderLabel(item) ? (
                 <div style={{ color: '#6b7280', fontSize: '13px' }}>
-                  <strong>Odeslal:</strong> {getSenderLabel(item)}
+                  <strong>{t.from}:</strong> {getSenderLabel(item)}
                   {item.senderEmail ? ` | ${item.senderEmail}` : ''}
                 </div>
               ) : null}
-              <div style={{ color: '#374151', fontSize: '14px' }}>{item.preview || 'Bez náhledu obsahu.'}</div>
+              <div style={{ color: '#374151', fontSize: '14px' }}>{item.preview || t.noPreview}</div>
               <details
                 style={{
                   borderTop: '1px solid #e5e7eb',
@@ -338,7 +347,7 @@ export default function EntityCommunicationTimeline({
                 }}
               >
                 <summary style={{ cursor: 'pointer', fontWeight: 600, color: '#1f2937' }}>
-                  Zobrazit celý e-mail
+                  {t.showFullEmail}
                 </summary>
                 <div
                   style={{
@@ -352,7 +361,7 @@ export default function EntityCommunicationTimeline({
                     fontSize: '14px',
                   }}
                 >
-                  {getBodyText(item)}
+                  {getBodyText(item, t)}
                 </div>
               </details>
             </article>

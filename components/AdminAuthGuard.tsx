@@ -42,8 +42,8 @@ export default function AdminAuthGuard({ children }: AdminAuthGuardProps) {
           setAllowed(false)
           setLoading(false)
 
-          if (pathname !== '/login') {
-            router.replace('/login')
+          if (pathname !== '/sign-in') {
+            router.replace('/sign-in')
           }
 
           return
@@ -74,8 +74,8 @@ export default function AdminAuthGuard({ children }: AdminAuthGuardProps) {
             return
           }
 
-          if (pathname !== '/onboarding') {
-            router.replace('/onboarding')
+          if (pathname !== '/onboarding/company') {
+            router.replace('/onboarding/company')
           }
 
           return
@@ -93,8 +93,8 @@ export default function AdminAuthGuard({ children }: AdminAuthGuardProps) {
         setAllowed(false)
         setLoading(false)
 
-        if (pathname !== '/login') {
-          router.replace('/login')
+        if (pathname !== '/sign-in') {
+          router.replace('/sign-in')
         }
       }
     }
@@ -119,8 +119,8 @@ export default function AdminAuthGuard({ children }: AdminAuthGuardProps) {
       setAllowed(false)
       setLoading(false)
 
-      if (pathname !== '/login') {
-        router.replace('/login')
+      if (pathname !== '/sign-in') {
+        router.replace('/sign-in')
       }
     })
 

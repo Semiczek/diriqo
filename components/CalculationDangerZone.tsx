@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { deleteCalculationAction } from '@/app/kalkulace/actions'
 
 type CalculationDangerZoneProps = {
   calculationId: string
@@ -36,10 +36,10 @@ export default function CalculationDangerZone({
       setIsDeleting(true)
       setErrorMessage(null)
 
-      const { error } = await supabase.from('calculations').delete().eq('id', calculationId)
+      const result = await deleteCalculationAction(calculationId)
 
-      if (error) {
-        throw error
+      if (!result.ok) {
+        throw new Error(result.error)
       }
 
       router.push(backHref)

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { deleteCalendarEventAction } from '@/app/calendar/actions'
 
 type CalendarEventDangerZoneProps = {
   eventId: string
@@ -34,12 +34,10 @@ export default function CalendarEventDangerZone({
       setIsDeleting(true)
       setErrorMessage(null)
 
-      const { error } = await supabase.rpc('delete_calendar_event_safe', {
-        p_event_id: eventId,
-      })
+      const response = await deleteCalendarEventAction(eventId)
 
-      if (error) {
-        throw error
+      if (!response.ok) {
+        throw new Error(response.error)
       }
 
       router.push('/calendar')

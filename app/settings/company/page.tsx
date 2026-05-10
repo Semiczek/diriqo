@@ -12,11 +12,20 @@ import CompanySettingsClient from './CompanySettingsClient'
 type CompanyRow = {
   id: string
   name: string | null
+  country_code?: string | null
+  default_language?: string | null
+  default_currency?: string | null
+  registration_number?: string | null
+  tax_number?: string | null
+  vat_number?: string | null
+  company_number?: string | null
+  billing_country?: string | null
   ico?: string | null
   dic?: string | null
   email?: string | null
   phone?: string | null
   web?: string | null
+  logo_url?: string | null
   address?: string | null
   currency?: string | null
   locale?: string | null
@@ -97,7 +106,7 @@ export default async function CompanySettingsPage() {
     await Promise.all([
       supabase
         .from('companies')
-        .select('id, name, ico, dic, email, phone, web, address, currency, locale, timezone')
+        .select('id, name, country_code, default_language, default_currency, registration_number, tax_number, vat_number, company_number, billing_country, ico, dic, email, phone, web, logo_url, address, currency, locale, timezone')
         .eq('id', activeCompany.companyId)
         .maybeSingle(),
       getCompanySettings(activeCompany.companyId),

@@ -6,6 +6,7 @@ import { useParams, useRouter } from 'next/navigation'
 import DashboardShell from '@/components/DashboardShell'
 import { useI18n } from '@/components/I18nProvider'
 import { supabase } from '@/lib/supabase'
+import { updateCustomerContactAction } from '../actions'
 
 type CustomerContact = {
   id: string
@@ -74,20 +75,18 @@ export default function EditCustomerContactPage() {
     setSaving(true)
     setError(null)
 
-    const { error } = await supabase
-      .from('customer_contacts')
-      .update({
-        full_name: fullName.trim() || null,
-        role: role.trim() || null,
-        phone: phone.trim() || null,
-        email: email.trim() || null,
-        note: note.trim() || null,
-      })
-      .eq('id', contactId)
-      .eq('customer_id', customerId)
+    const updateResponse = await updateCustomerContactAction({
+      customerId,
+      contactId,
+      fullName,
+      role,
+      phone,
+      email,
+      note,
+    })
 
-    if (error) {
-      setError(dictionary.customers.contactEdit.saveFailed)
+    if (!updateResponse.ok) {
+      setError(updateResponse.error || dictionary.customers.contactEdit.saveFailed)
       setSaving(false)
       return
     }

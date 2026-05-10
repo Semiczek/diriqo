@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import DashboardShell from '@/components/DashboardShell'
 import { useI18n } from '@/components/I18nProvider'
-import { supabase } from '@/lib/supabase'
+import { deleteCustomerContactAction } from '../../actions'
 
 export default function DeleteCustomerContactPage() {
   const router = useRouter()
@@ -22,14 +22,10 @@ export default function DeleteCustomerContactPage() {
     setLoading(true)
     setError(null)
 
-    const { error } = await supabase
-      .from('customer_contacts')
-      .delete()
-      .eq('id', contactId)
-      .eq('customer_id', customerId)
+    const deleteResponse = await deleteCustomerContactAction({ customerId, contactId })
 
-    if (error) {
-      setError(error.message)
+    if (!deleteResponse.ok) {
+      setError(deleteResponse.error)
       setLoading(false)
       return
     }

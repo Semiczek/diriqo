@@ -59,6 +59,29 @@ export function getShiftLaborCalculation(shift: ShiftLike, hourlyRate: number): 
   }
 }
 
+export function getCappedJobShiftLaborCalculation(
+  shift: ShiftLike,
+  hourlyRate: number
+): LaborCalculation {
+  const shiftHours =
+    shift.hours_override != null
+      ? roundLaborHours(toFiniteNumber(shift.hours_override))
+      : getHoursFromRange(shift.started_at, shift.ended_at)
+  const requestedJobHours =
+    shift.job_hours_override != null
+      ? roundLaborHours(toFiniteNumber(shift.job_hours_override))
+      : shiftHours
+  const hours = roundLaborHours(Math.max(0, Math.min(requestedJobHours, shiftHours)))
+  const safeRate = toFiniteNumber(hourlyRate)
+
+  return {
+    hours,
+    hourlyRate: safeRate,
+    reward: roundLaborHours(hours * safeRate),
+    source: shift.job_hours_override != null ? 'manual_override' : 'shift',
+  }
+}
+
 export function getAssignmentFallbackLaborCalculation(
   assignment: AssignmentLike,
   defaultHourlyRate: number

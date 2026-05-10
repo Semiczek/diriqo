@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  hasAnyCompanyRole,
   hasAnyHubAccessRole,
+  hasCompanyMemberRole,
   hasHubAccessRole,
   normalizeCompanyRole,
 } from '../lib/hub-access'
@@ -17,5 +19,12 @@ describe('hub auth role helpers', () => {
     expect(hasAnyHubAccessRole(['worker', null, 'super_admin'])).toBe(true)
     expect(hasAnyHubAccessRole(['worker', 'manager'])).toBe(false)
   })
-})
 
+  it('keeps company membership roles separate from hub admin roles', () => {
+    expect(hasCompanyMemberRole('worker')).toBe(true)
+    expect(hasCompanyMemberRole('manager')).toBe(true)
+    expect(hasHubAccessRole('manager')).toBe(false)
+    expect(hasAnyCompanyRole(' Manager ', ['worker', 'manager'])).toBe(true)
+    expect(hasAnyCompanyRole('worker', ['company_admin', 'super_admin'])).toBe(false)
+  })
+})

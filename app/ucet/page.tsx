@@ -4,8 +4,10 @@ import Link from 'next/link'
 import { useEffect, useState } from 'react'
 
 import DashboardShell from '@/components/DashboardShell'
+import { getCompanyRoleLabel } from '@/lib/hub-access'
 import { supabase } from '@/lib/supabase'
 import { getAdvanceFrequencyLabel, getPayrollTypeLabel } from '@/lib/payroll-settings'
+import { updateAccountPayrollSettingsAction } from './actions'
 
 type AccountContext = {
   companyId?: string
@@ -54,16 +56,7 @@ type AresLookupPayload = {
 }
 
 function formatRole(role: string | null | undefined) {
-  const normalized = role?.trim().toLowerCase()
-
-  if (normalized === 'owner') return 'Vlastník'
-  if (normalized === 'admin') return 'Administrátor'
-  if (normalized === 'manager') return 'Manažer'
-  if (normalized === 'dispatcher') return 'Dispečer'
-  if (normalized === 'accountant') return 'Účetní'
-  if (normalized === 'worker') return 'Pracovník'
-
-  return role?.trim() || 'Role není dostupná'
+  return getCompanyRoleLabel(role)
 }
 
 function DetailItem({
@@ -466,31 +459,25 @@ export default function AccountPage() {
     setPayrollSettingsError(null)
     setPayrollSettingsMessage(null)
 
-    const payload = {
-      company_id: accountContext.companyId,
-      payroll_type: payrollType,
-      payroll_day_of_month: payrollType === 'monthly' ? dayOfMonth : null,
-      payroll_weekday: payrollType === 'weekly' || payrollType === 'biweekly' ? weekday : null,
-      payroll_anchor_date: payrollType === 'biweekly' && payrollAnchorDate ? payrollAnchorDate : null,
-      allow_advances: allowAdvances,
-      advance_limit_amount: advanceLimit,
-      advance_frequency: advanceFrequency || null,
-      updated_at: new Date().toISOString(),
-    }
+    const updateResponse = await updateAccountPayrollSettingsAction({
+      companyId: accountContext.companyId,
+      payrollType,
+      payrollDayOfMonth: dayOfMonth,
+      payrollWeekday: weekday,
+      payrollAnchorDate,
+      allowAdvances,
+      advanceLimitAmount: advanceLimit,
+      advanceFrequency,
+    })
+    const upsertError = { message: updateResponse.ok ? '' : updateResponse.error }
 
-    const { data, error: upsertError } = await supabase
-      .from('company_payroll_settings')
-      .upsert(payload, { onConflict: 'company_id' })
-      .select('company_id, payroll_type, payroll_day_of_month, payroll_weekday, payroll_anchor_date, allow_advances, advance_limit_amount, advance_frequency')
-      .single()
-
-    if (upsertError) {
+    if (!updateResponse.ok) {
       setPayrollSettingsError(upsertError.message || 'Nepodařilo se uložit výplatní nastavení.')
       setSavingPayrollSettings(false)
       return
     }
 
-    applyPayrollSettings(data as CompanyPayrollSettings)
+    applyPayrollSettings(updateResponse.settings as CompanyPayrollSettings)
     setPayrollSettingsMessage('Firemní nastavení výplat bylo uložené.')
     setSavingPayrollSettings(false)
   }

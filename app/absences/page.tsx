@@ -59,26 +59,6 @@ function normalizeAbsenceStatus(
   return 'pending'
 }
 
-function legacyFormatDateTime(value: string | null) {
-  if (!value) return '—'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return '—'
-
-  return date.toLocaleString('cs-CZ')
-}
-
-function legacyFormatMonthLabel(monthKey: string) {
-  const date = new Date(`${monthKey}T00:00:00`)
-  if (Number.isNaN(date.getTime())) return monthKey
-
-  const formatted = date.toLocaleDateString('cs-CZ', {
-    month: 'long',
-    year: 'numeric',
-  })
-
-  return formatted.charAt(0).toUpperCase() + formatted.slice(1)
-}
-
 function getMonthKeyFromDateString(value: string | null) {
   if (!value) return null
 
@@ -95,25 +75,6 @@ function getCurrentMonthKey() {
   const year = now.getFullYear()
   const month = String(now.getMonth() + 1).padStart(2, '0')
   return `${year}-${month}-01`
-}
-
-function legacyGetAbsenceModeLabel(mode: 'planned' | 'sick') {
-  return mode === 'planned' ? 'Plánovaná' : 'Akutní'
-}
-
-function legacyGetAbsenceTypeLabel(type: 'planned' | 'sick') {
-  return type === 'planned' ? 'Plánovaná absence' : 'Nemoc'
-}
-
-function legacyGetStatusLabel(status: 'pending' | 'approved' | 'rejected') {
-  switch (status) {
-    case 'approved':
-      return 'Schváleno'
-    case 'rejected':
-      return 'Zamítnuto'
-    default:
-      return 'Čeká na schválení'
-  }
 }
 
 function formatDateTime(value: string | null, locale: string) {
@@ -255,7 +216,7 @@ export default function AbsencesPage() {
 
       if (absencesError) {
         console.error('Absences load failed', absencesError)
-        setError('Data se nepodařilo načíst.')
+        setError(dictionary.common.dataLoadFailed)
         setLoading(false)
         return
       }
@@ -280,7 +241,7 @@ export default function AbsencesPage() {
 
         if (profilesError) {
           console.error('Absence profiles load failed', profilesError)
-          setError('Data se nepodařilo načíst.')
+          setError(dictionary.common.dataLoadFailed)
           setLoading(false)
           return
         }
@@ -318,7 +279,7 @@ export default function AbsencesPage() {
     }
 
     loadData()
-  }, [t.unknownWorker])
+  }, [dictionary.common.dataLoadFailed, t.unknownWorker])
 
   const yearOptions = useMemo(() => {
     const years = new Set<number>()
@@ -375,7 +336,7 @@ export default function AbsencesPage() {
 
     if (!result.ok) {
       console.error('Absence status update failed', result.error)
-      setError('Data se nepodarilo ulozit.')
+      setError(dictionary.common.dataSaveFailed)
       setSavingId(null)
       return
     }
@@ -430,7 +391,7 @@ export default function AbsencesPage() {
               fontWeight: 850,
             }}
           >
-            Tým
+            {dictionary.navigation.teamGroup}
           </div>
           <h1
             style={{
@@ -562,7 +523,7 @@ export default function AbsencesPage() {
             >
               {error}
               <div style={{ marginTop: '5px', color: '#b91c1c', fontSize: '12px', fontWeight: 600 }}>
-                Technický detail je v konzoli.
+                {dictionary.common.technicalDetailConsole}
               </div>
             </div>
           )}
@@ -584,7 +545,7 @@ export default function AbsencesPage() {
               }}
             >
               <div style={{ fontSize: '30px' }}>✓</div>
-              <strong style={{ color: '#0f172a', fontSize: '18px' }}>Žádné absence k zobrazení.</strong>
+              <strong style={{ color: '#0f172a', fontSize: '18px' }}>{t.emptyTitle}</strong>
               <span>{t.empty}</span>
             </div>
           ) : (

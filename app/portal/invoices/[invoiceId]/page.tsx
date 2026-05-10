@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import Image from 'next/image'
 import { notFound } from 'next/navigation'
 
 import PortalShell from '@/components/portal/PortalShell'
@@ -163,11 +164,12 @@ export default async function PortalInvoiceDetailPage({ params }: PortalInvoiceD
         >
           {invoice.hasQrPayment ? (
             <>
-              <img
+              <Image
                 src={`/api/portal/invoices/${invoice.id}/qr`}
                 alt="QR platba"
                 width={140}
                 height={140}
+                unoptimized
                 style={{
                   border: '1px solid #e5e7eb',
                   borderRadius: '12px',

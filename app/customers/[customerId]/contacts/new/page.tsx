@@ -6,7 +6,7 @@ import { useRouter, useParams } from 'next/navigation'
 
 import DashboardShell from '@/components/DashboardShell'
 import { useI18n } from '@/components/I18nProvider'
-import { supabase } from '@/lib/supabase'
+import { createCustomerContactAction } from '../actions'
 
 export default function NewCustomerContactPage() {
   const router = useRouter()
@@ -36,22 +36,18 @@ export default function NewCustomerContactPage() {
       return
     }
 
-    const insertResponse = await supabase
-      .from('customer_contacts')
-      .insert([
-        {
-          customer_id: customerId,
-          full_name: fullName.trim(),
-          role: role.trim() || null,
-          phone: phone.trim() || null,
-          email: email.trim().toLowerCase() || null,
-          note: note.trim() || null,
-        },
-      ])
-      .select('id, full_name, email')
-      .single()
+    const createResponse = await createCustomerContactAction({
+      customerId,
+      fullName,
+      role,
+      phone,
+      email,
+      note,
+      createPortalAccess,
+    })
+    const insertResponse = createResponse.ok ? { error: null } : { error: { message: createResponse.error } }
 
-    if (insertResponse.error || !insertResponse.data?.id) {
+    if (!createResponse.ok || !createResponse.contactId) {
       setError(insertResponse.error?.message || 'Nepodařilo se uložit kontakt.')
       setLoading(false)
       return
@@ -65,7 +61,7 @@ export default function NewCustomerContactPage() {
         },
         body: JSON.stringify({
           customerId,
-          contactId: insertResponse.data.id,
+          contactId: createResponse.contactId,
           email: email.trim().toLowerCase(),
           fullName: fullName.trim(),
         }),

@@ -8,6 +8,7 @@ import type { CSSProperties } from 'react'
 import DashboardShell from '../../components/DashboardShell'
 import { resolveCompanyTimeZone } from '@/lib/company-timezone'
 import { useI18n } from '../../components/I18nProvider'
+import type { JobsMessages } from '@/lib/i18n/dictionaries/types'
 import {
   getCurrentMonthValuePrague as getCurrentMonthValue,
   parseDateSafe,
@@ -169,6 +170,17 @@ function getMonthKeyFromJob(
   }).format(baseDate)
 
   return `${year}-${month}`
+}
+
+function formatMonthInputLabel(value: string, locale: string) {
+  const [year, month] = value.split('-').map(Number)
+
+  if (!year || !month) return value
+
+  return new Intl.DateTimeFormat(locale, {
+    month: 'long',
+    year: 'numeric',
+  }).format(new Date(year, month - 1, 1))
 }
 
 function toNumber(v: unknown) {
@@ -446,40 +458,44 @@ function getPremiumStatusTone(tone: PremiumStatusTone): CSSProperties {
   }
 }
 
-function getWorkStatusPanel(timeState: TimeState, workState: WorkState) {
+function getLocalizedWorkStatusPanel(
+  timeState: TimeState,
+  workState: WorkState,
+  messages: JobsMessages
+) {
   if (workState === 'done') {
-    return { label: 'Dokončeno', icon: '✓', tone: 'green' as const }
+    return { label: messages.done, icon: '✓', tone: 'green' as const }
   }
 
   if (workState === 'in_progress' || workState === 'partially_done' || timeState === 'active') {
-    return { label: 'Probíhá', icon: '↻', tone: 'orange' as const }
+    return { label: messages.inProgress, icon: '↻', tone: 'orange' as const }
   }
 
   if (timeState === 'future') {
-    return { label: 'Budoucí', icon: '●', tone: 'blue' as const }
+    return { label: messages.future, icon: '●', tone: 'blue' as const }
   }
 
-  return { label: 'Nezahájeno', icon: '●', tone: 'gray' as const }
+  return { label: messages.notStarted, icon: '●', tone: 'gray' as const }
 }
 
-function getBillingStatusPanel(state: BillingStateResolved) {
+function getLocalizedBillingStatusPanel(state: BillingStateResolved, messages: JobsMessages) {
   if (state === 'waiting_for_invoice') {
-    return { label: 'Čeká na fakturaci', icon: '▣', tone: 'amber' as const }
+    return { label: messages.waitingForInvoice, icon: '□', tone: 'amber' as const }
   }
 
   if (state === 'due') {
-    return { label: 'Ve splatnosti', icon: '◷', tone: 'blue' as const }
+    return { label: messages.due, icon: '◇', tone: 'blue' as const }
   }
 
   if (state === 'overdue') {
-    return { label: 'Po splatnosti', icon: '!', tone: 'red' as const }
+    return { label: messages.overdue, icon: '!', tone: 'red' as const }
   }
 
   if (state === 'paid') {
-    return { label: 'Uhrazeno', icon: '✓', tone: 'green' as const }
+    return { label: messages.paid, icon: '✓', tone: 'green' as const }
   }
 
-  return { label: 'Bez fakturace', icon: '●', tone: 'gray' as const }
+  return { label: messages.unknownBilling, icon: '●', tone: 'gray' as const }
 }
 
 function StatusPanel({
@@ -759,7 +775,7 @@ export default function JobsPage() {
 
         if (sessionError) {
           console.error('Jobs session error', sessionError)
-          setError('Data se nepodařilo načíst.')
+          setError(dictionary.jobs.loadError)
           setJobs([])
           setCustomers([])
           setAssignments([])
@@ -883,7 +899,7 @@ export default function JobsPage() {
 
         if (jobsResponse.error && !jobsFallbackHandled) {
           console.error('Jobs jobs_with_state error', jobsResponse.error)
-          setError('Data se nepodařilo načíst.')
+          setError(dictionary.jobs.loadError)
           setJobs([])
           setCustomers([])
           setAssignments([])
@@ -896,7 +912,7 @@ export default function JobsPage() {
 
         if (customersResponse.error) {
           console.error('Jobs customers error', customersResponse.error)
-          setError('Data se nepodařilo načíst.')
+          setError(dictionary.jobs.loadError)
           setJobs(jobsData)
           setCustomers([])
           setAssignments([])
@@ -909,7 +925,7 @@ export default function JobsPage() {
 
         if (assignmentsResponse.error) {
           console.error('Jobs job_assignments error', assignmentsResponse.error)
-          setError('Data se nepodařilo načíst.')
+          setError(dictionary.jobs.loadError)
           setJobs(jobsData)
           setCustomers(customersResponse.data ?? [])
           setAssignments([])
@@ -922,7 +938,7 @@ export default function JobsPage() {
 
         if (profilesResponse.error) {
           console.error('Jobs profiles error', profilesResponse.error)
-          setError('Data se nepodařilo načíst.')
+          setError(dictionary.jobs.loadError)
           setJobs(jobsData)
           setCustomers(customersResponse.data ?? [])
           setAssignments([])
@@ -947,7 +963,7 @@ export default function JobsPage() {
 
         if (economicsResponse.error) {
           console.error('Jobs job_economics_summary error', economicsResponse.error)
-          setError('Data se nepodařilo načíst.')
+          setError(dictionary.jobs.loadError)
           setJobs(jobsData)
           setCustomers(customersResponse.data ?? [])
           setAssignments(normalizedAssignments)
@@ -975,7 +991,7 @@ export default function JobsPage() {
 
         if (!mounted) return
 
-        setError('Data se nepodařilo načíst.')
+        setError(dictionary.jobs.loadError)
         setJobs([])
         setCustomers([])
         setAssignments([])
@@ -991,7 +1007,7 @@ export default function JobsPage() {
     return () => {
       mounted = false
     }
-  }, [dictionary.jobs.unauthenticated])
+  }, [dictionary.jobs.loadError, dictionary.jobs.unauthenticated])
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -1414,7 +1430,7 @@ export default function JobsPage() {
 
   const quickFilters: { label: string; value: FilterType }[] = [
     { label: dictionary.jobs.all, value: 'all' },
-    { label: 'Dnes', value: 'today' },
+    { label: dictionary.jobs.today, value: 'today' },
     { label: dictionary.jobs.inProgress, value: 'in_progress' },
     { label: dictionary.jobs.done, value: 'done' },
   ]
@@ -1470,13 +1486,13 @@ export default function JobsPage() {
       >
         <div>
           <div style={{ display: 'inline-flex', marginBottom: '12px', padding: '7px 11px', borderRadius: '999px', backgroundColor: 'rgba(255,255,255,0.72)', border: '1px solid rgba(124,58,237,0.2)', color: '#5b21b6', fontSize: '12px', fontWeight: 900 }}>
-            Provoz
+            {dictionary.jobs.eyebrow}
           </div>
           <h1 style={{ fontSize: '42px', margin: 0, color: '#0f172a', lineHeight: 1.05 }}>
-            Zakázky
+            {dictionary.jobs.title}
           </h1>
           <p style={{ margin: '10px 0 0', color: '#64748b', lineHeight: 1.6, fontSize: '15px' }}>
-            Plánuj práci, přiřazuj lidi a sleduj stav zakázek.
+            {dictionary.jobs.subtitle}
           </p>
         </div>
 
@@ -1489,10 +1505,10 @@ export default function JobsPage() {
         >
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(82px, 1fr))', gap: '8px' }}>
             {[
-              ['Celkem', groupedJobBlocks.length],
-              ['Dnes', jobsTodayCount],
-              ['Hotovo', jobsDoneCount],
-              ['K fakturaci', jobsWaitingInvoiceCount],
+              [dictionary.jobs.total, groupedJobBlocks.length],
+              [dictionary.jobs.today, jobsTodayCount],
+              [dictionary.jobs.done, jobsDoneCount],
+              [dictionary.jobs.readyForInvoice, jobsWaitingInvoiceCount],
             ].map(([label, value]) => (
               <div key={label} style={{ padding: '12px', borderRadius: '18px', backgroundColor: 'rgba(255,255,255,0.72)', border: '1px solid rgba(226,232,240,0.9)' }}>
                 <div style={{ color: '#64748b', fontSize: '12px', fontWeight: 800 }}>{label}</div>
@@ -1517,7 +1533,7 @@ export default function JobsPage() {
               justifySelf: 'end',
             }}
           >
-            Nová zakázka
+            {dictionary.jobs.newJob.replace(/^\+\s*/, '')}
           </Link>
         </div>
       </div>
@@ -1585,16 +1601,13 @@ export default function JobsPage() {
             ))}
           </select>
 
-          <input
-            type="month"
-            value={selectedMonth}
-            onChange={(event) => {
-              const nextValue = event.target.value
-              setSelectedMonth(nextValue)
-              updateSearchParams({ month: nextValue })
-            }}
-            aria-label={dictionary.jobs.month}
+          <label
             style={{
+              position: 'relative',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '10px',
               padding: '12px 14px',
               borderRadius: '10px',
               border: '1px solid #d1d5db',
@@ -1603,8 +1616,40 @@ export default function JobsPage() {
               fontSize: '14px',
               fontWeight: 700,
               minHeight: '44px',
+              cursor: 'pointer',
             }}
-          />
+          >
+            <span>{formatMonthInputLabel(selectedMonth, dateLocale)}</span>
+            <span
+              aria-hidden="true"
+              style={{
+                width: '14px',
+                height: '14px',
+                border: '2px solid currentColor',
+                borderRadius: '3px',
+                boxSizing: 'border-box',
+                opacity: 0.75,
+              }}
+            />
+            <input
+              type="month"
+              value={selectedMonth}
+              onChange={(event) => {
+                const nextValue = event.target.value
+                setSelectedMonth(nextValue)
+                updateSearchParams({ month: nextValue })
+              }}
+              aria-label={dictionary.jobs.month}
+              style={{
+                position: 'absolute',
+                inset: 0,
+                width: '100%',
+                height: '100%',
+                opacity: 0,
+                cursor: 'pointer',
+              }}
+            />
+          </label>
 
           <select
             value={sort}
@@ -1622,10 +1667,10 @@ export default function JobsPage() {
               fontSize: '14px',
             }}
           >
-            <option value="date_asc">Řazení: datum od nejstarší</option>
-            <option value="date_desc">Řazení: datum od nejnovější</option>
-            <option value="customer_asc">Řazení: zákazník A-Z</option>
-            <option value="title_asc">Řazení: název A-Z</option>
+            <option value="date_asc">{dictionary.jobs.sortDateAsc}</option>
+            <option value="date_desc">{dictionary.jobs.sortDateDesc}</option>
+            <option value="customer_asc">{dictionary.jobs.sortCustomerAsc}</option>
+            <option value="title_asc">{dictionary.jobs.sortTitleAsc}</option>
           </select>
 
           <button
@@ -1649,7 +1694,7 @@ export default function JobsPage() {
               cursor: 'pointer',
             }}
           >
-            Filtry ⚙
+            {dictionary.jobs.filters}
           </button>
 
         </div>
@@ -1713,7 +1758,7 @@ export default function JobsPage() {
             color: '#991b1b',
           }}
         >
-          <strong>Data se nepodařilo načíst.</strong>
+          <strong>{dictionary.jobs.loadError}</strong>
           {process.env.NODE_ENV === 'development' ? (
             <div style={{ marginTop: '6px', fontSize: '12px', opacity: 0.75 }}>{error}</div>
           ) : null}
@@ -1733,7 +1778,7 @@ export default function JobsPage() {
         >
           <div style={{ display: 'grid', gap: '12px', justifyItems: 'start' }}>
             <div style={{ fontSize: '18px', fontWeight: 900, color: '#0f172a' }}>
-              Zatím tu nic není. Vytvoř první zakázku.
+              {dictionary.jobs.emptyTitle}
             </div>
             <Link
               href="/jobs/new"
@@ -1747,7 +1792,7 @@ export default function JobsPage() {
                 fontWeight: 900,
               }}
             >
-              Vytvořit zakázku
+              {dictionary.jobs.createJob}
             </Link>
           </div>
         </div>
@@ -1793,7 +1838,7 @@ export default function JobsPage() {
                       {job.is_internal ? (
                         <div style={{ marginBottom: '8px' }}>
                           <span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 10px', borderRadius: '999px', backgroundColor: '#fff7ed', color: '#9a3412', border: '1px solid #fdba74', fontSize: '12px', fontWeight: 700 }}>
-                            Interní zakázka
+                            {dictionary.jobs.internalJob}
                           </span>
                         </div>
                       ) : null}
@@ -1812,7 +1857,7 @@ export default function JobsPage() {
                         {formatDateTimePrague(job.end_at, dateLocale, companyTimeZone)}
                       </div>
                       <div>
-                        <strong>Nejbližší směna:</strong>{' '}
+                        <strong>{dictionary.jobs.nextShift}:</strong>{' '}
                         {job.nextShiftAt
                           ? formatDateTimePrague(
                               job.nextShiftAt,
@@ -1822,7 +1867,7 @@ export default function JobsPage() {
                           : '—'}
                       </div>
                       <div>
-                        <strong>Poslední aktivita:</strong>{' '}
+                        <strong>{dictionary.jobs.lastActivity}:</strong>{' '}
                         {job.lastShiftAt
                           ? formatDateTimePrague(
                               job.lastShiftAt,
@@ -1836,23 +1881,23 @@ export default function JobsPage() {
 
                   <div style={statusPanelStack}>
                     {(() => {
-                      const workStatus = getWorkStatusPanel(job.timeStateResolved, job.workStateResolved)
+                      const workStatus = getLocalizedWorkStatusPanel(job.timeStateResolved, job.workStateResolved, dictionary.jobs)
                       const billingState = job.canShowBillingState
                         ? getVisibleBillingState(job.workStateResolved, job.billingStateResolvedFinal)
                         : null
-                      const billingStatus = billingState ? getBillingStatusPanel(billingState) : null
+                      const billingStatus = billingState ? getLocalizedBillingStatusPanel(billingState, dictionary.jobs) : null
 
                       return (
                         <>
                           <StatusPanel
-                            title="Práce"
+                            title={dictionary.jobs.work}
                             icon={workStatus.icon}
                             label={workStatus.label}
                             tone={workStatus.tone}
                           />
                           {billingStatus ? (
                             <StatusPanel
-                              title="Fakturace"
+                              title={dictionary.jobs.billing}
                               icon={billingStatus.icon}
                               label={billingStatus.label}
                               tone={billingStatus.tone}
@@ -1862,21 +1907,21 @@ export default function JobsPage() {
                       )
                     })()}
                     <div style={{ width: '100%', color: hasChildJobs ? '#1d4ed8' : '#64748b', fontSize: '13px', fontWeight: 900, textAlign: 'right' }}>
-                      {hasChildJobs ? 'Souhrnná zakázka' : 'Samostatná zakázka'}
+                      {hasChildJobs ? dictionary.jobs.summaryJob : dictionary.jobs.standaloneJob}
                     </div>
                   </div>
                 </div>
 
                 <div style={jobMetricGrid}>
                   <div style={jobMetricTile}><div style={jobMetricLabel}>{dictionary.jobs.price}</div><div style={{ ...jobMetricValue, fontSize: '20px' }}>{formatCurrency(toNumber(job.price))}</div></div>
-                  <div style={jobMetricTile}><div style={jobMetricLabel}>Práce</div><div style={{ ...jobMetricValue, color: '#334155' }}>{formatCurrency(job.laborCost)}</div></div>
+                  <div style={jobMetricTile}><div style={jobMetricLabel}>{dictionary.jobs.laborCosts}</div><div style={{ ...jobMetricValue, color: '#334155' }}>{formatCurrency(job.laborCost)}</div></div>
                   <div style={jobMetricTile}><div style={jobMetricLabel}>{dictionary.jobs.otherCosts}</div><div style={{ ...jobMetricValue, color: '#334155' }}>{formatCurrency(job.otherCost)}</div></div>
                   <div style={jobMetricTile}><div style={jobMetricLabel}>{dictionary.jobs.profit}</div><div style={{ ...jobMetricValue, fontSize: '21px', color: job.profit >= 0 ? '#047857' : '#b91c1c' }}>{formatCurrency(job.profit)}</div></div>
                 </div>
 
                 <div style={{ display: 'grid', gap: '12px', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', marginBottom: '12px' }}>
-                  <div><div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>Dílčí zakázky</div><div style={{ fontWeight: 700 }}>{job.memberJobsCount}</div></div>
-                  <div><div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>Směny ve skupině</div><div style={{ fontWeight: 700 }}>{job.shiftCount}</div></div>
+                  <div><div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>{dictionary.jobs.childJobs}</div><div style={{ fontWeight: 700 }}>{job.memberJobsCount}</div></div>
+                  <div><div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>{dictionary.jobs.shiftsInGroup}</div><div style={{ fontWeight: 700 }}>{job.shiftCount}</div></div>
                   <div><div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>{dictionary.jobs.assignedWorkers}</div><div style={{ fontWeight: 700 }}>{job.assignedCount}</div></div>
                   <div><div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>{dictionary.jobs.activelyWorking}</div><div style={{ fontWeight: 700 }}>{job.activeCount}</div></div>
                   <div><div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>{dictionary.jobs.completed}</div><div style={{ fontWeight: 700 }}>{job.completedCount}</div></div>
@@ -1884,7 +1929,7 @@ export default function JobsPage() {
                 </div>
 
                 <div style={{ color: '#6b7280', fontSize: '14px', marginBottom: '10px' }}>
-                  <strong>Rozsah skupiny:</strong>{' '}
+                  <strong>{dictionary.jobs.groupRange}:</strong>{' '}
                   {formatDateTimePrague(job.groupStartAt, dateLocale, companyTimeZone)}
                   {' '}–{' '}
                   {formatDateTimePrague(job.groupEndAt, dateLocale, companyTimeZone)}
@@ -1897,7 +1942,7 @@ export default function JobsPage() {
 
                 {job.memberJobsCount > 1 ? (
                   <div style={{ color: '#6b7280', fontSize: '14px', marginTop: '10px' }}>
-                    <strong>Seskupeno:</strong>{' '}
+                    <strong>{dictionary.jobs.grouped}:</strong>{' '}
                     {job.memberJobs
                       .map((memberJob) => memberJob.title ?? dictionary.jobs.untitledJob)
                       .join(', ')}
@@ -1952,7 +1997,7 @@ export default function JobsPage() {
                           {childJob.is_internal ? (
                             <div style={{ marginBottom: '8px' }}>
                               <span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 10px', borderRadius: '999px', backgroundColor: '#fff7ed', color: '#9a3412', border: '1px solid #fdba74', fontSize: '12px', fontWeight: 700 }}>
-                                Interní zakázka
+                                {dictionary.jobs.internalJob}
                               </span>
                             </div>
                           ) : null}
@@ -1974,21 +2019,21 @@ export default function JobsPage() {
 
                       <div style={statusPanelStack}>
                         {(() => {
-                          const workStatus = getWorkStatusPanel(childJob.timeStateResolved, childJob.workStateResolved)
+                          const workStatus = getLocalizedWorkStatusPanel(childJob.timeStateResolved, childJob.workStateResolved, dictionary.jobs)
                           const billingState = getVisibleBillingState(childJob.workStateResolved, childJob.billingStateResolvedFinal)
-                          const billingStatus = billingState ? getBillingStatusPanel(billingState) : null
+                          const billingStatus = billingState ? getLocalizedBillingStatusPanel(billingState, dictionary.jobs) : null
 
                           return (
                             <>
                               <StatusPanel
-                                title="Práce"
+                                title={dictionary.jobs.work}
                                 icon={workStatus.icon}
                                 label={workStatus.label}
                                 tone={workStatus.tone}
                               />
                               {billingStatus ? (
                                 <StatusPanel
-                                  title="Fakturace"
+                                  title={dictionary.jobs.billing}
                                   icon={billingStatus.icon}
                                   label={billingStatus.label}
                                   tone={billingStatus.tone}
@@ -1998,14 +2043,14 @@ export default function JobsPage() {
                           )
                         })()}
                         <div style={{ width: '100%', color: '#64748b', fontSize: '13px', fontWeight: 900, textAlign: 'right' }}>
-                          Přidružená zakázka
+                          {dictionary.jobs.relatedJob}
                         </div>
                       </div>
                     </div>
 
                     <div style={{ ...jobMetricGrid, gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
                       <div style={jobMetricTile}><div style={jobMetricLabel}>{dictionary.jobs.price}</div><div style={jobMetricValue}>{formatCurrency(toNumber(childJob.price))}</div></div>
-                      <div style={jobMetricTile}><div style={jobMetricLabel}>Práce</div><div style={{ ...jobMetricValue, color: '#334155' }}>{formatCurrency(childJob.laborCost)}</div></div>
+                      <div style={jobMetricTile}><div style={jobMetricLabel}>{dictionary.jobs.laborCosts}</div><div style={{ ...jobMetricValue, color: '#334155' }}>{formatCurrency(childJob.laborCost)}</div></div>
                       <div style={jobMetricTile}><div style={jobMetricLabel}>{dictionary.jobs.otherCosts}</div><div style={{ ...jobMetricValue, color: '#334155' }}>{formatCurrency(childJob.otherCost)}</div></div>
                       <div style={jobMetricTile}><div style={jobMetricLabel}>{dictionary.jobs.profit}</div><div style={{ ...jobMetricValue, color: childJob.profit >= 0 ? '#047857' : '#b91c1c' }}>{formatCurrency(childJob.profit)}</div></div>
                       <div><div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>{dictionary.jobs.assignedWorkers}</div><div style={{ fontWeight: 700 }}>{childJob.assignedCount}</div></div>

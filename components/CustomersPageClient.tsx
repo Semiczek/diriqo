@@ -125,7 +125,7 @@ export default function CustomersPageClient({
             {dictionary.customers.title}
           </h1>
           <p style={{ margin: '10px 0 0', color: '#475569', fontSize: '16px', lineHeight: 1.6 }}>
-            Přehled firem, kontaktů a obchodních vztahů na jednom místě.
+            {dictionary.customers.subtitle}
           </p>
         </div>
 
@@ -171,7 +171,7 @@ export default function CustomersPageClient({
       {error ? (
         <div style={cardStyle}>
           <p style={{ margin: 0, color: '#b91c1c', fontSize: '14px' }}>
-            {dictionary.customers.errorPrefix}: data se nepodařilo načíst.
+            {dictionary.customers.errorPrefix}: {dictionary.common.dataLoadFailed}
           </p>
         </div>
       ) : customers.length === 0 ? (
@@ -179,8 +179,8 @@ export default function CustomersPageClient({
           <div style={{ display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
             <div style={{ width: '42px', height: '42px', borderRadius: '16px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, rgba(124,58,237,0.14), rgba(6,182,212,0.16))', color: '#2563eb', fontWeight: 950 }}>K</div>
             <div>
-              <div style={{ color: '#0f172a', fontSize: '18px', fontWeight: 850, marginBottom: '4px' }}>Zatím tu nejsou zákazníci.</div>
-              <p style={{ margin: 0, ...mutedTextStyle }}>Přidej prvního zákazníka a začni k němu tvořit zakázky.</p>
+              <div style={{ color: '#0f172a', fontSize: '18px', fontWeight: 850, marginBottom: '4px' }}>{dictionary.customers.empty}</div>
+              <p style={{ margin: 0, ...mutedTextStyle }}>{dictionary.customers.emptyHint}</p>
               <Link href="/customers/new" style={{ display: 'inline-flex', marginTop: '12px', padding: '9px 12px', borderRadius: '999px', background: 'linear-gradient(135deg, #7c3aed 0%, #2563eb 52%, #06b6d4 100%)', color: '#ffffff', textDecoration: 'none', fontSize: '13px', fontWeight: 900 }}>
                 {dictionary.customers.newCustomer}
               </Link>

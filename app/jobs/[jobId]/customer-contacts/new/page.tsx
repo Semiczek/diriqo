@@ -1,10 +1,12 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import DashboardShell from '@/components/DashboardShell'
+import { useI18n } from '@/components/I18nProvider'
+import { assignJobCustomerContactAction } from '../actions'
 
 type CustomerContact = {
   id: string
@@ -24,6 +26,79 @@ type CustomerRow = {
 }
 
 export default function NewJobCustomerContactPage() {
+  const { dictionary, locale } = useI18n()
+  const text = useMemo(
+    () =>
+      locale === 'en'
+        ? {
+          loadJobFailed: 'Failed to load job',
+          loadCustomerFailed: 'Failed to load customer',
+          loadContactsFailed: 'Failed to load contacts',
+          unexpectedLoadFailed: 'Unexpected error while loading the page.',
+          unexpectedSaveFailed: 'Unexpected error while saving.',
+          jobHasNoCustomer: 'This job has no assigned customer.',
+          contactRequired: 'Select a contact person.',
+          duplicateCheckFailed: 'Failed to check duplicates',
+          contactAlreadyAssigned: 'This contact is already assigned to the job.',
+          saveFailed: 'Failed to save contact.',
+          loading: 'Loading...',
+          backToDetail: 'Back to job detail',
+          title: 'Assign contact to job',
+          roleOnJob: 'Role on job',
+          noContacts: '-- No contacts --',
+          selectContact: '-- Select contact --',
+          rolePlaceholder: 'E.g. site manager',
+          saveContact: 'Save contact',
+          saving: 'Saving...',
+          back: 'Back',
+          }
+        : locale === 'de'
+          ? {
+            loadJobFailed: 'Auftrag konnte nicht geladen werden',
+            loadCustomerFailed: 'Kunde konnte nicht geladen werden',
+            loadContactsFailed: 'Kontakte konnten nicht geladen werden',
+            unexpectedLoadFailed: 'Unerwarteter Fehler beim Laden der Seite.',
+            unexpectedSaveFailed: 'Unerwarteter Fehler beim Speichern.',
+            jobHasNoCustomer: 'Diesem Auftrag ist kein Kunde zugeordnet.',
+            contactRequired: 'Kontaktperson auswählen.',
+            duplicateCheckFailed: 'Duplikatprüfung fehlgeschlagen',
+            contactAlreadyAssigned: 'Dieser Kontakt ist dem Auftrag bereits zugewiesen.',
+            saveFailed: 'Kontakt konnte nicht gespeichert werden.',
+            loading: 'Wird geladen...',
+            backToDetail: 'Zurück zum Auftragsdetail',
+            title: 'Kontakt dem Auftrag zuweisen',
+            roleOnJob: 'Rolle im Auftrag',
+            noContacts: '-- Keine Kontakte --',
+            selectContact: '-- Kontakt auswählen --',
+            rolePlaceholder: 'Z. B. Bauleiter',
+            saveContact: 'Kontakt speichern',
+            saving: 'Wird gespeichert...',
+            back: 'Zurück',
+            }
+          : {
+            loadJobFailed: 'Nepodařilo se načíst zakázku',
+            loadCustomerFailed: 'Nepodařilo se načíst zákazníka',
+            loadContactsFailed: 'Nepodařilo se načíst kontakty',
+            unexpectedLoadFailed: 'Neočekávaná chyba při načítání stránky.',
+            unexpectedSaveFailed: 'Neočekávaná chyba při ukládání.',
+            jobHasNoCustomer: 'Tato zakázka nemá přiřazeného zákazníka.',
+            contactRequired: 'Vyber kontaktní osobu.',
+            duplicateCheckFailed: 'Nepodařilo se ověřit duplicitu',
+            contactAlreadyAssigned: 'Tento kontakt už je u zakázky přiřazen.',
+            saveFailed: 'Nepodařilo se uložit kontakt.',
+            loading: 'Načítám...',
+            backToDetail: 'Zpět na detail zakázky',
+            title: 'Přiřadit kontakt k zakázce',
+            roleOnJob: 'Role na zakázce',
+            noContacts: '-- Žádné kontakty --',
+            selectContact: '-- Vyber kontakt --',
+            rolePlaceholder: 'Např. stavbyvedoucí',
+            saveContact: 'Uložit kontakt',
+            saving: 'Ukládám...',
+            back: 'Zpět',
+            },
+    [locale]
+  )
   const params = useParams()
   const router = useRouter()
   const jobId = params.jobId as string
@@ -54,21 +129,21 @@ export default function NewJobCustomerContactPage() {
         if (!mounted) return
 
         if (jobError) {
-          setError(`Nepodařilo se načíst zakázku: ${jobError.message}`)
+          setError(`${text.loadJobFailed}: ${jobError.message}`)
           setPageLoading(false)
           return
         }
 
         if (!job) {
-          setError('Zakázka nebyla nalezena.')
+          setError(dictionary.jobs.detail.jobNotFound)
           setPageLoading(false)
           return
         }
 
-        setJobTitle(job.title || 'Bez názvu zakázky')
+        setJobTitle(job.title || dictionary.jobs.untitledJob)
 
         if (!job.customer_id) {
-          setError('Tato zakázka nemá přiřazeného zákazníka.')
+          setError(text.jobHasNoCustomer)
           setPageLoading(false)
           return
         }
@@ -90,18 +165,18 @@ export default function NewJobCustomerContactPage() {
         if (!mounted) return
 
         if (customerResponse.error) {
-          setError(`Nepodařilo se načíst zákazníka: ${customerResponse.error.message}`)
+          setError(`${text.loadCustomerFailed}: ${customerResponse.error.message}`)
           setPageLoading(false)
           return
         }
 
         if (contactsResponse.error) {
-          setError(`Nepodařilo se načíst kontakty: ${contactsResponse.error.message}`)
+          setError(`${text.loadContactsFailed}: ${contactsResponse.error.message}`)
           setPageLoading(false)
           return
         }
 
-        setCustomerName(customerResponse.data?.name || 'Bez názvu zákazníka')
+        setCustomerName(customerResponse.data?.name || dictionary.customers.detail.unnamedCustomer)
         setContacts((contactsResponse.data as CustomerContact[]) ?? [])
         setPageLoading(false)
       } catch (err) {
@@ -109,8 +184,8 @@ export default function NewJobCustomerContactPage() {
 
         setError(
           err instanceof Error
-            ? `Neočekávaná chyba: ${err.message}`
-            : 'Neočekávaná chyba při načítání stránky.'
+            ? `${dictionary.jobs.errorPrefix}: ${err.message}`
+            : text.unexpectedLoadFailed
         )
         setPageLoading(false)
       }
@@ -121,7 +196,14 @@ export default function NewJobCustomerContactPage() {
     return () => {
       mounted = false
     }
-  }, [jobId])
+  }, [
+    dictionary.customers.detail.unnamedCustomer,
+    dictionary.jobs.detail.jobNotFound,
+    dictionary.jobs.errorPrefix,
+    dictionary.jobs.untitledJob,
+    jobId,
+    text,
+  ])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -129,7 +211,7 @@ export default function NewJobCustomerContactPage() {
     setError(null)
 
     if (!customerContactId) {
-      setError('Vyber kontaktní osobu.')
+      setError(text.contactRequired)
       setLoading(false)
       return
     }
@@ -143,25 +225,26 @@ export default function NewJobCustomerContactPage() {
         .maybeSingle()
 
       if (existingResponse.error) {
-        setError(`Nepodařilo se ověřit duplicitu: ${existingResponse.error.message}`)
+        setError(`${text.duplicateCheckFailed}: ${existingResponse.error.message}`)
         setLoading(false)
         return
       }
 
       if (existingResponse.data) {
-        setError('Tento kontakt už je u zakázky přiřazen.')
+        setError(text.contactAlreadyAssigned)
         setLoading(false)
         return
       }
 
-      const insertResponse = await supabase.from('job_customer_contacts').insert({
-        job_id: jobId,
-        customer_contact_id: customerContactId,
-        role_label: roleLabel || null,
+      const result = await assignJobCustomerContactAction({
+        jobId,
+        customerContactId,
+        roleLabel,
       })
+      const insertResponse = { error: result.ok ? null : { message: result.error } }
 
       if (insertResponse.error) {
-        setError(insertResponse.error.message || 'Nepodařilo se uložit kontakt.')
+        setError(insertResponse.error.message || text.saveFailed)
         setLoading(false)
         return
       }
@@ -170,8 +253,8 @@ export default function NewJobCustomerContactPage() {
     } catch (err) {
       setError(
         err instanceof Error
-          ? `Neočekávaná chyba: ${err.message}`
-          : 'Neočekávaná chyba při ukládání.'
+          ? `${dictionary.jobs.errorPrefix}: ${err.message}`
+          : text.unexpectedSaveFailed
       )
       setLoading(false)
     }
@@ -187,7 +270,7 @@ export default function NewJobCustomerContactPage() {
             color: '#111827',
           }}
         >
-          <p>Načítám…</p>
+          <p>{text.loading}</p>
         </main>
       </DashboardShell>
     )
@@ -212,7 +295,7 @@ export default function NewJobCustomerContactPage() {
             fontWeight: '600',
           }}
         >
-          ← Zpět na detail zakázky
+          ← {text.backToDetail}
         </Link>
 
         <section
@@ -232,15 +315,15 @@ export default function NewJobCustomerContactPage() {
               color: '#111827',
             }}
           >
-            Přiřadit kontakt k zakázce
+            {text.title}
           </h1>
 
           <div style={{ display: 'grid', gap: '8px', fontSize: '16px', color: '#4b5563' }}>
             <div>
-              <strong style={{ color: '#111827' }}>Zakázka:</strong> {jobTitle}
+              <strong style={{ color: '#111827' }}>{dictionary.jobs.titleLabel}:</strong> {jobTitle}
             </div>
             <div>
-              <strong style={{ color: '#111827' }}>Zákazník:</strong> {customerName}
+              <strong style={{ color: '#111827' }}>{dictionary.jobs.customer}:</strong> {customerName}
             </div>
           </div>
         </section>
@@ -265,7 +348,7 @@ export default function NewJobCustomerContactPage() {
                 color: '#111827',
               }}
             >
-              Kontaktní osoba
+              {dictionary.jobs.contactPerson}
             </label>
             <select
               value={customerContactId}
@@ -281,12 +364,12 @@ export default function NewJobCustomerContactPage() {
               disabled={contacts.length === 0}
             >
               <option value="">
-                {contacts.length === 0 ? '-- Žádné kontakty --' : '-- Vyber kontakt --'}
+                {contacts.length === 0 ? text.noContacts : text.selectContact}
               </option>
 
               {contacts.map((contact) => (
                 <option key={contact.id} value={contact.id}>
-                  {contact.full_name || 'Bez jména'}
+                  {contact.full_name || dictionary.customers.unnamedContact}
                   {contact.role ? ` — ${contact.role}` : ''}
                 </option>
               ))}
@@ -303,7 +386,7 @@ export default function NewJobCustomerContactPage() {
                 color: '#111827',
               }}
             >
-              Role na zakázce
+              {text.roleOnJob}
             </label>
             <input
               value={roleLabel}
@@ -316,7 +399,7 @@ export default function NewJobCustomerContactPage() {
                 fontSize: '14px',
                 boxSizing: 'border-box',
               }}
-              placeholder="Např. stavbyvedoucí"
+              placeholder={text.rolePlaceholder}
             />
           </div>
 
@@ -352,7 +435,7 @@ export default function NewJobCustomerContactPage() {
                 opacity: loading || contacts.length === 0 ? 0.7 : 1,
               }}
             >
-              {loading ? 'Ukládám...' : 'Uložit kontakt'}
+              {loading ? text.saving : text.saveContact}
             </button>
 
             <Link
@@ -368,7 +451,7 @@ export default function NewJobCustomerContactPage() {
                 background: '#fff',
               }}
             >
-              Zpět
+              {text.back}
             </Link>
           </div>
         </form>

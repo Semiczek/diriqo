@@ -8,7 +8,7 @@ import {
   type SaveCalculationInput,
   updateCalculation,
 } from '@/lib/dal/calculations'
-import { DalAuthError, requireCompanyRoleDalContext } from '@/lib/dal/auth'
+import { DalAuthError, requireCompanyRoleDalContext, type DalContext } from '@/lib/dal/auth'
 import {
   createJobCostItem,
   deleteJobCostItem,
@@ -26,7 +26,7 @@ import {
   markReadyForInvoice,
 } from '@/lib/dal/flow'
 import { updateQuote } from '@/lib/dal/quotes'
-import { TenantScopeError } from '@/lib/dal/companies'
+import { assertCustomerInCompany, TenantScopeError } from '@/lib/dal/companies'
 import type { QuoteStatus } from '@/lib/quote-status'
 
 export type ActionResult<T = void> =
@@ -60,6 +60,26 @@ const costTypes: CostType[] = [
   'consumption',
   'other',
 ]
+
+type QuoteScopeRow = {
+  id: string
+  customer_id: string | null
+  status: string | null
+  source_calculation_id: string | null
+  discount_amount: number | string | null
+}
+
+type QuoteCalculationItemRow = {
+  sort_order: number | null
+  name: string | null
+  description: string | null
+  quantity: number | string | null
+  unit: string | null
+  unit_price: number | string | null
+  vat_rate: number | string | null
+  total_price: number | string | null
+  note: string | null
+}
 
 function actionError(error: unknown): ActionResult<never> {
   if (error instanceof DalAuthError || error instanceof TenantScopeError) {
@@ -106,6 +126,12 @@ function nonNegativeNumber(value: unknown, fieldName: string) {
   }
 
   return nextValue
+}
+
+function moneyValue(value: unknown) {
+  const parsed = Number(value ?? 0)
+  if (!Number.isFinite(parsed)) return 0
+  return Math.round(parsed * 100) / 100
 }
 
 function optionalNonNegativeNumber(value: unknown, fieldName: string) {
@@ -177,6 +203,31 @@ function parseCalculationInput(input: unknown): SaveCalculationInput {
   }
 }
 
+async function getScopedQuote(ctx: DalContext, quoteId: string, customerId: string): Promise<QuoteScopeRow> {
+  await assertCustomerInCompany(ctx, customerId)
+
+  const { data, error } = await ctx.supabase
+    .from('quotes')
+    .select('id, customer_id, status, source_calculation_id, discount_amount')
+    .eq('id', quoteId)
+    .eq('customer_id', customerId)
+    .eq('company_id', ctx.companyId)
+    .maybeSingle()
+
+  if (error || !data?.id) {
+    throw new TenantScopeError('Nabidka nepatri do aktivni firmy.')
+  }
+
+  return data as QuoteScopeRow
+}
+
+function revalidateQuotePaths(customerId: string, quoteId: string) {
+  revalidatePath(`/customers/${customerId}/quotes`)
+  revalidatePath(`/customers/${customerId}/quotes/${quoteId}`)
+  revalidatePath(`/customers/${customerId}/quotes/${quoteId}/edit`)
+  revalidatePath('/cenove-nabidky')
+}
+
 export async function updateQuoteAction(input: {
   quoteId: string
   customerId: string
@@ -206,8 +257,195 @@ export async function updateQuoteAction(input: {
       rejectedAt: optionalString(input.rejectedAt),
     })
 
-    revalidatePath(`/customers/${input.customerId}/quotes/${input.quoteId}`)
-    revalidatePath(`/customers/${input.customerId}/quotes/${input.quoteId}/edit`)
+    revalidateQuotePaths(input.customerId, input.quoteId)
+
+    return { ok: true, data: undefined }
+  } catch (error) {
+    return actionError(error)
+  }
+}
+
+export async function deleteQuoteAction(input: {
+  quoteId: string
+  customerId: string
+}): Promise<ActionResult> {
+  try {
+    const quoteId = requiredString(input.quoteId, 'Nabidka')
+    const customerId = requiredString(input.customerId, 'Zakaznik')
+    const ctx = await requireCompanyRoleDalContext('company_admin', 'super_admin')
+
+    await getScopedQuote(ctx, quoteId, customerId)
+
+    const itemsResponse = await ctx.supabase.from('quote_items').delete().eq('quote_id', quoteId)
+    if (itemsResponse.error) throw itemsResponse.error
+
+    const { data, error } = await ctx.supabase
+      .from('quotes')
+      .delete()
+      .eq('id', quoteId)
+      .eq('customer_id', customerId)
+      .eq('company_id', ctx.companyId)
+      .select('id')
+
+    if (error) throw error
+    if (!data || data.length === 0) throw new Error('Nabidku se nepodarilo smazat.')
+
+    revalidatePath(`/customers/${customerId}/quotes`)
+    revalidatePath(`/customers/${customerId}`)
+    revalidatePath('/cenove-nabidky')
+
+    return { ok: true, data: undefined }
+  } catch (error) {
+    return actionError(error)
+  }
+}
+
+export async function syncQuotePricingFromCalculationAction(input: {
+  quoteId: string
+  customerId: string
+  sourceCalculationId: string
+}): Promise<ActionResult<{ subtotalPrice: number; totalPrice: number }>> {
+  try {
+    const quoteId = requiredString(input.quoteId, 'Nabidka')
+    const customerId = requiredString(input.customerId, 'Zakaznik')
+    const sourceCalculationId = requiredString(input.sourceCalculationId, 'Zdrojova kalkulace')
+    const ctx = await requireCompanyRoleDalContext('company_admin', 'super_admin')
+    const quote = await getScopedQuote(ctx, quoteId, customerId)
+
+    if (quote.source_calculation_id && quote.source_calculation_id !== sourceCalculationId) {
+      throw new Error('Zdrojova kalkulace nepatri k teto nabidce.')
+    }
+
+    const { data: calculation, error: calculationError } = await ctx.supabase
+      .from('calculations')
+      .select('id, customer_id, subtotal_price, total_price')
+      .eq('id', sourceCalculationId)
+      .eq('company_id', ctx.companyId)
+      .maybeSingle()
+
+    if (calculationError || !calculation?.id) {
+      throw new TenantScopeError('Kalkulace nepatri do aktivni firmy.')
+    }
+
+    if (calculation.customer_id && calculation.customer_id !== customerId) {
+      throw new TenantScopeError('Kalkulace nepatri k zakaznikovi teto nabidky.')
+    }
+
+    const { data: items, error: itemsError } = await ctx.supabase
+      .from('calculation_items')
+      .select('sort_order, name, description, quantity, unit, unit_price, vat_rate, total_price, note')
+      .eq('calculation_id', sourceCalculationId)
+      .eq('item_type', 'customer')
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: true })
+
+    if (itemsError) throw itemsError
+
+    const customerItems = ((items ?? []) as QuoteCalculationItemRow[]).filter((item) => item.name?.trim())
+    if (customerItems.length === 0) {
+      throw new Error('Zdrojova kalkulace nema zadne zakaznicke polozky pro aktualizaci nabidky.')
+    }
+
+    const deleteResponse = await ctx.supabase.from('quote_items').delete().eq('quote_id', quoteId)
+    if (deleteResponse.error) throw deleteResponse.error
+
+    const quoteItems = customerItems.map((item) => ({
+      company_id: ctx.companyId,
+      quote_id: quoteId,
+      sort_order: item.sort_order ?? 0,
+      name: item.name?.trim() || 'Polozka',
+      description: item.description ?? null,
+      quantity: Number(item.quantity ?? 0),
+      unit: item.unit ?? null,
+      unit_price: moneyValue(item.unit_price),
+      vat_rate: Number(item.vat_rate ?? 0),
+      total_price: moneyValue(item.total_price),
+      note: item.note ?? null,
+    }))
+
+    const insertResponse = await ctx.supabase.from('quote_items').insert(quoteItems)
+    if (insertResponse.error) throw insertResponse.error
+
+    const subtotalPrice = moneyValue(calculation.subtotal_price ?? calculation.total_price)
+    const totalPrice = Math.max(0, subtotalPrice - moneyValue(quote.discount_amount))
+    const updateResponse = await ctx.supabase
+      .from('quotes')
+      .update({
+        subtotal_price: subtotalPrice,
+        total_price: totalPrice,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', quoteId)
+      .eq('customer_id', customerId)
+      .eq('company_id', ctx.companyId)
+
+    if (updateResponse.error) throw updateResponse.error
+
+    revalidateQuotePaths(customerId, quoteId)
+
+    return { ok: true, data: { subtotalPrice, totalPrice } }
+  } catch (error) {
+    return actionError(error)
+  }
+}
+
+export async function markQuoteSentAction(input: {
+  quoteId: string
+  customerId: string
+}): Promise<ActionResult<{ status: QuoteStatus }>> {
+  try {
+    const quoteId = requiredString(input.quoteId, 'Nabidka')
+    const customerId = requiredString(input.customerId, 'Zakaznik')
+    const ctx = await requireCompanyRoleDalContext('company_admin', 'super_admin')
+    const quote = await getScopedQuote(ctx, quoteId, customerId)
+    const currentStatus = quote.status === 'accepted' || quote.status === 'rejected' ? quote.status : 'sent'
+
+    const { error } = await ctx.supabase
+      .from('quotes')
+      .update({
+        sent_at: new Date().toISOString(),
+        status: currentStatus,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', quoteId)
+      .eq('customer_id', customerId)
+      .eq('company_id', ctx.companyId)
+
+    if (error) throw error
+
+    revalidateQuotePaths(customerId, quoteId)
+
+    return { ok: true, data: { status: currentStatus as QuoteStatus } }
+  } catch (error) {
+    return actionError(error)
+  }
+}
+
+export async function rejectQuoteAction(input: {
+  quoteId: string
+  customerId: string
+}): Promise<ActionResult> {
+  try {
+    const quoteId = requiredString(input.quoteId, 'Nabidka')
+    const customerId = requiredString(input.customerId, 'Zakaznik')
+    const ctx = await requireCompanyRoleDalContext('company_admin', 'super_admin')
+
+    await getScopedQuote(ctx, quoteId, customerId)
+
+    const { error } = await ctx.supabase
+      .from('quotes')
+      .update({
+        status: 'rejected',
+        rejected_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', quoteId)
+      .eq('customer_id', customerId)
+      .eq('company_id', ctx.companyId)
+
+    if (error) throw error
+
+    revalidateQuotePaths(customerId, quoteId)
 
     return { ok: true, data: undefined }
   } catch (error) {

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-import { getActiveCompanyContext } from '@/lib/active-company'
 import { markJobCompleted, markReadyForInvoice } from '@/lib/dal/flow'
+import { requireCompanyRole } from '@/lib/server-guards'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 
 type RouteContext = {
@@ -56,6 +56,11 @@ function normalizeNullableIso(value: unknown) {
   return date.toISOString()
 }
 
+function getScheduleDateKey(value: string | null) {
+  if (!value) return null
+  return value.slice(0, 10)
+}
+
 function normalizeNullableNumber(value: unknown) {
   if (value == null || value === '') return null
   if (typeof value !== 'number') return null
@@ -63,11 +68,13 @@ function normalizeNullableNumber(value: unknown) {
 }
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
-  const activeCompany = await getActiveCompanyContext()
+  const activeCompanyResult = await requireCompanyRole('company_admin', 'super_admin')
 
-  if (!activeCompany) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  if (!activeCompanyResult.ok) {
+    return NextResponse.json({ error: activeCompanyResult.error }, { status: activeCompanyResult.status })
   }
+
+  const activeCompany = activeCompanyResult.value
 
   const { jobId } = await context.params
   const cleanJobId = jobId?.trim()
@@ -153,10 +160,13 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     description,
     status,
     address,
-    price: parentJobId ? null : price,
+    price: parentJobId ? 0 : price ?? 0,
     is_internal: isInternal,
     start_at: startAt,
     end_at: endAt,
+    scheduled_start: startAt,
+    scheduled_end: endAt,
+    scheduled_date: getScheduleDateKey(startAt),
     is_paid: parentJobId ? false : isPaid,
     customer_id: customerId,
     contact_id: contactId,

@@ -1,6 +1,10 @@
 import 'server-only'
 
-import { getActiveCompanyContext, type ActiveCompanyContext } from '@/lib/active-company'
+import {
+  getActiveCompanyContext,
+  type ActiveCompanyContext,
+  type ActiveCompanyContextOptions,
+} from '@/lib/active-company'
 import { hasHubAccessRole, normalizeCompanyRole } from '@/lib/hub-access'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 
@@ -41,8 +45,8 @@ export async function requireAuthenticatedUser() {
   }>
 }
 
-export async function requireActiveCompanyContext() {
-  const activeCompany = await getActiveCompanyContext()
+export async function requireActiveCompanyContext(options: ActiveCompanyContextOptions = {}) {
+  const activeCompany = await getActiveCompanyContext(options)
 
   if (!activeCompany) {
     return {
@@ -59,7 +63,7 @@ export async function requireActiveCompanyContext() {
 }
 
 export async function requireCompanyRole(...roles: CompanyRole[]) {
-  const activeCompanyResult = await requireActiveCompanyContext()
+  const activeCompanyResult = await requireActiveCompanyContext({ allowedRoles: roles })
 
   if (!activeCompanyResult.ok) {
     return activeCompanyResult

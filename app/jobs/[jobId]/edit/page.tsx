@@ -6,6 +6,8 @@ import { useParams, useRouter } from 'next/navigation'
 import DashboardShell from '@/components/DashboardShell'
 import { useI18n } from '@/components/I18nProvider'
 import { supabase } from '@/lib/supabase'
+import { getIntlLocale } from '@/lib/i18n/config'
+import { createParentSummaryJobAction, detachJobFromParentAction } from '../../actions'
 
 type JobRow = {
   id: string
@@ -17,6 +19,9 @@ type JobRow = {
   address: string | null
   price: number | null
   is_internal: boolean | null
+  scheduled_start?: string | null
+  scheduled_end?: string | null
+  scheduled_date?: string | null
   start_at: string | null
   end_at: string | null
   is_paid: boolean | null
@@ -30,6 +35,9 @@ type ParentJobOption = {
   contact_id: string | null
   title: string | null
   description: string | null
+  scheduled_start?: string | null
+  scheduled_end?: string | null
+  scheduled_date?: string | null
   start_at: string | null
   end_at: string | null
   address: string | null
@@ -49,8 +57,6 @@ type CustomerContact = {
   email: string | null
   phone: string | null
 }
-
-const INTERNAL_JOB_LABEL = 'Interní zakázka / vnitřní náklad'
 
 const pageStyle: React.CSSProperties = {
   maxWidth: '1120px',
@@ -160,13 +166,21 @@ function toIsoOrNull(value: string) {
   return date.toISOString()
 }
 
-function formatParentJobDate(value: string | null) {
+function getJobStartAt(job: { start_at?: string | null; scheduled_start?: string | null; scheduled_date?: string | null }) {
+  return job.start_at ?? job.scheduled_start ?? job.scheduled_date ?? null
+}
+
+function getJobEndAt(job: { end_at?: string | null; scheduled_end?: string | null }) {
+  return job.end_at ?? job.scheduled_end ?? null
+}
+
+function formatParentJobDate(value: string | null, locale: string) {
   if (!value) return ''
 
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return ''
 
-  return new Intl.DateTimeFormat('cs-CZ', {
+  return new Intl.DateTimeFormat(locale, {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -174,7 +188,8 @@ function formatParentJobDate(value: string | null) {
 }
 
 export default function EditJobPage() {
-  const { dictionary } = useI18n()
+  const { dictionary, locale } = useI18n()
+  const dateLocale = getIntlLocale(locale)
   const params = useParams()
   const router = useRouter()
   const jobId = params.jobId as string
@@ -232,7 +247,7 @@ export default function EditJobPage() {
 
         const { data, error } = await supabase
           .from('jobs')
-          .select('id, company_id, parent_job_id, title, description, status, address, price, is_internal, start_at, end_at, is_paid, customer_id, contact_id')
+          .select('id, company_id, parent_job_id, title, description, status, address, price, is_internal, scheduled_start, scheduled_end, scheduled_date, start_at, end_at, is_paid, customer_id, contact_id')
           .eq('id', jobId)
           .single()
 
@@ -260,8 +275,8 @@ export default function EditJobPage() {
         setAddress(job.address ?? '')
         setPrice(job.price != null ? String(job.price) : '')
         setIsInternal(job.is_internal ?? false)
-        setStartAt(toDateTimeLocal(job.start_at))
-      setEndAt(toDateTimeLocal(job.end_at))
+        setStartAt(toDateTimeLocal(getJobStartAt(job)))
+      setEndAt(toDateTimeLocal(getJobEndAt(job)))
       setIsPaid(job.is_paid ?? false)
       setCustomerId(job.customer_id ?? '')
       setContactId(job.contact_id ?? '')
@@ -318,7 +333,7 @@ export default function EditJobPage() {
 
       const { data, error } = await supabase
         .from('jobs')
-        .select('id, customer_id, contact_id, title, description, start_at, end_at, address, price, is_paid')
+        .select('id, customer_id, contact_id, title, description, scheduled_start, scheduled_end, scheduled_date, start_at, end_at, address, price, is_paid')
         .eq('company_id', companyId)
         .is('parent_job_id', null)
         .neq('id', jobId)
@@ -347,7 +362,7 @@ export default function EditJobPage() {
 
       const { data, error } = await supabase
         .from('jobs')
-        .select('id, customer_id, contact_id, title, description, start_at, end_at, address, price, is_paid')
+        .select('id, customer_id, contact_id, title, description, scheduled_start, scheduled_end, scheduled_date, start_at, end_at, address, price, is_paid')
         .eq('parent_job_id', jobId)
         .order('start_at', { ascending: true })
 
@@ -382,7 +397,7 @@ export default function EditJobPage() {
     }
 
     if (isParentWithChildren) {
-      setErrorMessage('Tato zakázka už má navázané části. Nelze ji vložit pod další hlavní zakázku.')
+      setErrorMessage(dictionary.jobs.editPage.parentWithChildrenCannotBeChild)
       return
     }
 
@@ -392,48 +407,28 @@ export default function EditJobPage() {
     const startAtIso = toIsoOrNull(startAt)
     const endAtIso = toIsoOrNull(endAt)
 
-    const { data: createdParent, error: createError } = await supabase
-      .from('jobs')
-      .insert({
-        company_id: companyId,
-        customer_id: customerId || null,
-        contact_id: contactId || null,
-        title: title.trim() || null,
-        description: description.trim() || null,
-        address: address.trim() || null,
-        start_at: startAtIso,
-        end_at: endAtIso,
-        price: price !== '' ? Number(price) : null,
-        is_internal: isInternal,
-        status: dbStatus ?? 'future',
-        is_paid: isPaid,
-        parent_job_id: null,
-      })
-      .select('id, customer_id, contact_id, title, description, start_at, end_at, address, price, is_paid')
-      .single()
+    const createResponse = await createParentSummaryJobAction({
+      jobId,
+      customerId,
+      contactId,
+      title,
+      description,
+      address,
+      startAt: startAtIso,
+      endAt: endAtIso,
+      price,
+      isInternal,
+      status: dbStatus ?? 'future',
+      isPaid,
+    })
 
-    if (createError || !createdParent) {
-      setErrorMessage(`${dictionary.jobs.errorPrefix}: ${createError?.message ?? 'Nepodařilo se vytvořit hlavní zakázku.'}`)
+    if (!createResponse.ok) {
+      setErrorMessage(`${dictionary.jobs.errorPrefix}: ${createResponse.error}`)
       setCreatingParent(false)
       return
     }
 
-    const { error: linkError } = await supabase
-      .from('jobs')
-      .update({
-        parent_job_id: createdParent.id,
-        price: null,
-        is_paid: false,
-      })
-      .eq('id', jobId)
-
-    if (linkError) {
-      setErrorMessage(`${dictionary.jobs.errorPrefix}: ${linkError.message}`)
-      setCreatingParent(false)
-      return
-    }
-
-    const newParentOption = createdParent as ParentJobOption
+    const newParentOption = createResponse.parentJob as ParentJobOption
     setParentJobOptions((prev) => [newParentOption, ...prev.filter((item) => item.id !== newParentOption.id)])
     setParentJobId(newParentOption.id)
     setOriginalParentJobId(newParentOption.id)
@@ -470,13 +465,13 @@ export default function EditJobPage() {
     }
 
     if (parentJobId && parentJobId === jobId) {
-      setErrorMessage('Zakázka nemůže být sama sobě hlavní zakázkou.')
+      setErrorMessage(dictionary.jobs.editPage.cannotBeOwnParent)
       setSaving(false)
       return
     }
 
     if (isParentWithChildren && parentJobId) {
-      setErrorMessage('Zakázku s navázanými částmi nejde vložit pod další hlavní zakázku.')
+      setErrorMessage(dictionary.jobs.editPage.parentWithChildrenCannotMove)
       setSaving(false)
       return
     }
@@ -494,7 +489,7 @@ export default function EditJobPage() {
           description: description.trim() || null,
           status: dbStatus,
           address: address.trim() || null,
-          price: shouldBeChild ? null : price !== '' ? Number(price) : null,
+          price: shouldBeChild ? 0 : price !== '' ? Number(price) : 0,
           is_internal: isInternal,
           start_at: startAtIso,
           end_at: endAtIso,
@@ -520,19 +515,16 @@ export default function EditJobPage() {
   }
 
   async function handleDetachFromParent() {
-    const confirmed = window.confirm('Odpojit tuto zakázku od hlavní zakázky? Zůstane jako samostatná jednodenní zakázka.')
+    const confirmed = window.confirm(dictionary.jobs.editPage.detachConfirm)
     if (!confirmed) return
 
     setSaving(true)
     setErrorMessage(null)
 
-    const { error } = await supabase
-      .from('jobs')
-      .update({ parent_job_id: null })
-      .eq('id', jobId)
+    const detachResponse = await detachJobFromParentAction({ jobId })
 
-    if (error) {
-      setErrorMessage(`${dictionary.jobs.errorPrefix}: ${error.message}`)
+    if (!detachResponse.ok) {
+      setErrorMessage(`${dictionary.jobs.errorPrefix}: ${detachResponse.error}`)
       setSaving(false)
       return
     }
@@ -566,16 +558,16 @@ export default function EditJobPage() {
               fontWeight: 900,
             }}
           >
-            ← Zpět na detail
+            ← {dictionary.jobs.editPage.backToDetail}
           </Link>
           <div style={{ color: '#475569', fontSize: '13px', fontWeight: 900, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-            Zakázky
+            {dictionary.jobs.editPage.eyebrow}
           </div>
           <h1 style={{ margin: '8px 0 8px', color: '#0f172a', fontSize: '44px', lineHeight: 1.05 }}>
-            Upravit zakázku
+            {dictionary.jobs.editPage.title}
           </h1>
           <p style={{ margin: 0, color: '#475569', fontSize: '17px', fontWeight: 650 }}>
-            Uprav základní údaje, termín, místo a cenu bez zbytečné techniky.
+            {dictionary.jobs.editPage.subtitle}
           </p>
         </section>
 
@@ -587,7 +579,7 @@ export default function EditJobPage() {
 
         <form onSubmit={handleSubmit} style={{ display: 'grid', gap: '18px' }}>
           <section style={sectionCardStyle}>
-            <h2 style={sectionTitleStyle}>Nastavení zakázky</h2>
+            <h2 style={sectionTitleStyle}>{dictionary.jobs.editPage.settings}</h2>
             <div style={fieldGridStyle}>
           <label>
             <div style={labelTextStyle}>{dictionary.jobs.customer}</div>
@@ -628,7 +620,7 @@ export default function EditJobPage() {
           </section>
 
           <section style={sectionCardStyle}>
-            <h2 style={sectionTitleStyle}>Termín a místo</h2>
+            <h2 style={sectionTitleStyle}>{dictionary.jobs.editPage.scheduleAndPlace}</h2>
             <div style={fieldGridStyle}>
           <label>
             <div style={labelTextStyle}>{dictionary.jobs.startJob}</div>
@@ -648,7 +640,7 @@ export default function EditJobPage() {
           </section>
 
           <section style={sectionCardStyle}>
-            <h2 style={sectionTitleStyle}>Finance</h2>
+            <h2 style={sectionTitleStyle}>{dictionary.jobs.editPage.finance}</h2>
             <div style={fieldGridStyle}>
           <label>
             <div style={labelTextStyle}>{dictionary.jobs.price}</div>
@@ -661,7 +653,7 @@ export default function EditJobPage() {
             />
             {parentJobId ? (
               <div style={{ marginTop: '7px', color: '#64748b', fontSize: '13px', fontWeight: 700 }}>
-                Cena je vedená na hlavní zakázce.
+                {dictionary.jobs.editPage.parentOwnsPrice}
               </div>
             ) : null}
           </label>
@@ -685,7 +677,7 @@ export default function EditJobPage() {
                 listStyle: 'none',
               }}
             >
-              Pokročilé
+              {dictionary.jobs.editPage.advanced}
             </summary>
             <div style={{ display: 'grid', gap: '18px', padding: '0 22px 22px' }}>
           <label>
@@ -699,24 +691,24 @@ export default function EditJobPage() {
           </label>
 
           <label>
-            <div style={labelTextStyle}>Seskupení zakázky</div>
+            <div style={labelTextStyle}>{dictionary.jobs.editPage.grouping}</div>
             <div style={{ display: 'grid', gap: '10px' }}>
               {isParentWithChildren ? (
                 <div style={{ padding: '12px 14px', borderRadius: '14px', border: '1px solid #bfdbfe', backgroundColor: '#eff6ff', color: '#1f2937', fontSize: '14px', fontWeight: 700 }}>
-                  Tato zakázka má {childJobs.length} navázaných částí.
+                  {dictionary.jobs.editPage.hasChildJobs.replace('{count}', String(childJobs.length))}
                 </div>
               ) : null}
 
               {isGroupedChild ? (
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', padding: '12px 14px', borderRadius: '14px', border: '1px solid #e5e7eb', backgroundColor: '#fff' }}>
-                  <span style={{ color: '#4b5563', fontSize: '14px', fontWeight: 700 }}>Zakázka je připojená k hlavní zakázce.</span>
+                  <span style={{ color: '#4b5563', fontSize: '14px', fontWeight: 700 }}>{dictionary.jobs.editPage.connectedToParent}</span>
                   <button
                     type="button"
                     onClick={handleDetachFromParent}
                     disabled={saving}
                     style={{ ...secondaryButtonStyle, cursor: saving ? 'not-allowed' : 'pointer' }}
                   >
-                    Odpojit od sloučení
+                    {dictionary.jobs.editPage.detachFromGroup}
                   </button>
                 </div>
               ) : null}
@@ -725,7 +717,7 @@ export default function EditJobPage() {
                 type="text"
                 value={parentJobSearch}
                 onChange={(e) => setParentJobSearch(e.target.value)}
-                placeholder="Vyber hlavní zakázku níže"
+                placeholder={dictionary.jobs.editPage.parentSearchPlaceholder}
                 disabled
                 style={{ ...inputStyle, backgroundColor: '#f8fafc', color: '#64748b' }}
               />
@@ -739,15 +731,15 @@ export default function EditJobPage() {
                   fontSize: '14px',
                 }}
               >
-                <strong>Vybraná hlavní zakázka:</strong>{' '}
+                <strong>{dictionary.jobs.editPage.selectedParent}</strong>{' '}
                 {selectedParentJob ? (
                   <>
                     {selectedParentJob.title ?? dictionary.jobs.untitledJob}
-                    {selectedParentJob.start_at ? ` | ${formatParentJobDate(selectedParentJob.start_at)}` : ''}
+                    {getJobStartAt(selectedParentJob) ? ` | ${formatParentJobDate(getJobStartAt(selectedParentJob), dateLocale)}` : ''}
                     {selectedParentJob.address ? ` | ${selectedParentJob.address}` : ''}
                   </>
                 ) : (
-                  'Samostatná zakázka'
+                  <>{dictionary.jobs.standaloneJob}</>
                 )}
               </div>
 
@@ -758,10 +750,10 @@ export default function EditJobPage() {
                   disabled={isParentWithChildren}
                   style={secondaryButtonStyle}
                 >
-                  Bez seskupení
+                  {dictionary.jobs.editPage.noGrouping}
                 </button>
                 <div style={{ color: '#64748b', fontSize: '13px', display: 'flex', alignItems: 'center', fontWeight: 800 }}>
-                  Možností: {filteredParentJobOptions.length}
+                  {dictionary.jobs.editPage.availableCount.replace('{count}', String(filteredParentJobOptions.length))}
                 </div>
                 <button
                   type="button"
@@ -769,7 +761,7 @@ export default function EditJobPage() {
                   disabled={creatingParent || isParentWithChildren}
                   style={{ ...secondaryButtonStyle, backgroundColor: creatingParent || isParentWithChildren ? '#e2e8f0' : '#0f172a', color: creatingParent || isParentWithChildren ? '#64748b' : '#fff', cursor: creatingParent || isParentWithChildren ? 'not-allowed' : 'pointer' }}
                 >
-                  {creatingParent ? 'Vytvářím...' : 'Vytvořit hlavní zakázku'}
+                  {creatingParent ? dictionary.jobs.editPage.creatingParent : dictionary.jobs.editPage.createParent}
                 </button>
               </div>
 
@@ -784,7 +776,7 @@ export default function EditJobPage() {
               >
                 {filteredParentJobOptions.length === 0 ? (
                   <div style={{ padding: '12px', color: '#6b7280', fontSize: '14px' }}>
-                    Žádná hlavní zakázka není k dispozici.
+                    {dictionary.jobs.editPage.noParentAvailable}
                   </div>
                 ) : (
                   filteredParentJobOptions.map((parentJob, index) => {
@@ -816,7 +808,7 @@ export default function EditJobPage() {
                           {parentJob.title ?? dictionary.jobs.untitledJob}
                         </div>
                         <div style={{ fontSize: '13px', color: '#6b7280' }}>
-                          {parentJob.start_at ? formatParentJobDate(parentJob.start_at) : 'Bez data'}
+                          {getJobStartAt(parentJob) ? formatParentJobDate(getJobStartAt(parentJob), dateLocale) : dictionary.jobs.editPage.noDate}
                           {parentJob.address ? ` | ${parentJob.address}` : ''}
                         </div>
                       </button>
@@ -846,7 +838,7 @@ export default function EditJobPage() {
                   style={{ marginTop: '3px' }}
                 />
                 <div>
-                  <div style={{ fontWeight: 700 }}>Promítnout změny do dílčích částí</div>
+                  <div style={{ fontWeight: 700 }}>{dictionary.jobs.editPage.propagateToChildren}</div>
                 </div>
               </div>
             </label>
@@ -861,10 +853,10 @@ export default function EditJobPage() {
             </label>
 
             <label>
-              <div style={labelTextStyle}>{INTERNAL_JOB_LABEL}</div>
+              <div style={labelTextStyle}>{dictionary.jobs.internalJobLabel}</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px', borderRadius: '14px', border: '1px solid #d1d5db', backgroundColor: '#fff' }}>
                 <input type="checkbox" checked={isInternal} onChange={(e) => setIsInternal(e.target.checked)} />
-                <span>Označit jako interní práci firmy.</span>
+                <span>{dictionary.jobs.internalJobDescription}</span>
               </div>
             </label>
             </div>

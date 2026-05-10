@@ -270,7 +270,7 @@ export async function createJobFromQuote(
       const childJobs = splitDays.map((day) => ({
         ...baseJob,
         title: `${baseJob.title} - ${day.label}`,
-        price: null,
+        price: 0,
         start_at: day.startAt,
         end_at: day.endAt,
         parent_job_id: parentJob.id,

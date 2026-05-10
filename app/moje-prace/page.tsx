@@ -50,7 +50,7 @@ export default async function MyWorkPage() {
       <DashboardShell activeItem="jobs">
         <main style={{ display: 'grid', gap: 16, maxWidth: 760 }}>
           <section style={{ padding: 18, borderRadius: 16, border: '1px solid #fecaca', background: '#fef2f2' }}>
-            <h1 style={{ margin: 0, fontSize: 24 }}>Moje prace</h1>
+            <h1 style={{ margin: 0, fontSize: 24 }}>Moje práce</h1>
             <p style={{ margin: '8px 0 0', color: '#991b1b' }}>{access.error}</p>
           </section>
         </main>
@@ -111,7 +111,7 @@ export default async function MyWorkPage() {
       return {
         assignmentId: assignment.id,
         jobId: job.id,
-        title: job.title?.trim() || 'Zakazka bez nazvu',
+        title: job.title?.trim() || 'Zakázka bez názvu',
         address: job.address?.trim() || null,
         startAt: job.start_at,
         endAt: job.end_at,
@@ -141,14 +141,14 @@ export default async function MyWorkPage() {
             background: '#ffffff',
           }}
         >
-          <div style={{ color: '#64748b', fontSize: 13, fontWeight: 850 }}>Moje smena</div>
-          <h1 style={{ margin: 0, fontSize: 28, lineHeight: 1.1 }}>Moje prace</h1>
+          <div style={{ color: '#64748b', fontSize: 13, fontWeight: 850 }}>Moje směna</div>
+          <h1 style={{ margin: 0, fontSize: 28, lineHeight: 1.1 }}>Moje práce</h1>
           <p style={{ margin: 0, color: '#475569', lineHeight: 1.5 }}>
-            Start, stop, fotka a hotovo pro prirazene zakazky v aktivni firme.
+            Start, stop, fotka a hotovo pro přiřazené zakázky v aktivní firmě.
           </p>
           {assignmentsResponse.error || openShiftsResponse.error ? (
             <div style={{ padding: 12, borderRadius: 12, background: '#fef2f2', color: '#b91c1c', fontWeight: 750 }}>
-              Data se nepodarilo nacist.
+              Data se nepodařilo načíst.
             </div>
           ) : null}
         </section>

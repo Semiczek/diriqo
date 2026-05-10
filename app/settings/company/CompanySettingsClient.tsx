@@ -12,6 +12,12 @@ import {
   type CompanyPayrollSettings,
   type CompanySettings,
 } from '@/lib/company-settings-shared'
+import {
+  companyCountryOptions,
+  companyCurrencyOptions,
+  companyLanguageOptions,
+  getCompanyCountryConfig,
+} from '@/lib/company-country-config'
 import { COMPANY_TIME_ZONE_OPTIONS } from '@/lib/company-timezone'
 import {
   updateCompanyBasicInfo,
@@ -26,11 +32,20 @@ import {
 type CompanyRow = {
   id: string
   name: string | null
+  country_code?: string | null
+  default_language?: string | null
+  default_currency?: string | null
+  registration_number?: string | null
+  tax_number?: string | null
+  vat_number?: string | null
+  company_number?: string | null
+  billing_country?: string | null
   ico?: string | null
   dic?: string | null
   email?: string | null
   phone?: string | null
   web?: string | null
+  logo_url?: string | null
   address?: string | null
   currency?: string | null
   locale?: string | null
@@ -98,6 +113,49 @@ const moduleLabels: Record<CompanyModuleKey, string> = {
   payroll: 'Výplaty',
 }
 
+const languageLabels: Record<string, string> = {
+  cs: 'Čeština',
+  sk: 'Slovenčina',
+  en: 'English',
+  de: 'Deutsch',
+  pl: 'Polski',
+  hu: 'Magyar',
+  fr: 'Français',
+  it: 'Italiano',
+  es: 'Español',
+  pt: 'Português',
+  nl: 'Nederlands',
+  da: 'Dansk',
+  sv: 'Svenska',
+  fi: 'Suomi',
+  no: 'Norsk',
+}
+
+function countryCodeFromCompany(company: CompanyRow) {
+  const direct = company.country_code?.trim().toUpperCase()
+  if (direct) return direct
+
+  const legacyCountry = company.billing_country?.trim().toLowerCase()
+  if (legacyCountry === 'czech republic' || legacyCountry === 'ceska republika') return 'CZ'
+  if (legacyCountry === 'slovakia') return 'SK'
+  if (legacyCountry === 'germany') return 'DE'
+  if (legacyCountry === 'austria') return 'AT'
+  if (legacyCountry === 'united kingdom') return 'UK'
+  if (legacyCountry === 'united states') return 'US'
+
+  return 'ZZ'
+}
+
+function languageFromCompany(company: CompanyRow, fallback: string) {
+  if (company.default_language?.trim()) return company.default_language.trim().toLowerCase()
+  const locale = company.locale?.trim().toLowerCase()
+  if (locale?.startsWith('cs')) return 'cs'
+  if (locale?.startsWith('sk')) return 'sk'
+  if (locale?.startsWith('de')) return 'de'
+  if (locale?.startsWith('en')) return 'en'
+  return fallback
+}
+
 export default function CompanySettingsClient({
   company,
   companySettings,
@@ -110,6 +168,14 @@ export default function CompanySettingsClient({
   const [activeTab, setActiveTab] = useState<TabKey>('overview')
   const [message, setMessage] = useState<SettingsActionResult | null>(null)
   const [isPending, startTransition] = useTransition()
+  const initialCountryCode = countryCodeFromCompany(company)
+  const initialCountryConfig = getCompanyCountryConfig(initialCountryCode)
+  const [countryCode, setCountryCode] = useState(initialCountryConfig.countryCode)
+  const [language, setLanguage] = useState(languageFromCompany(company, initialCountryConfig.defaultLanguage))
+  const [currency, setCurrency] = useState(
+    company.default_currency?.trim() || company.currency?.trim() || initialCountryConfig.defaultCurrency,
+  )
+  const countryConfig = getCompanyCountryConfig(countryCode)
 
   function submitWith(action: (formData: FormData) => Promise<SettingsActionResult>) {
     return (event: FormEvent<HTMLFormElement>) => {
@@ -193,13 +259,51 @@ export default function CompanySettingsClient({
               <SectionHeader title="Základní údaje" description="Identita firmy pro aplikaci, faktury a komunikaci." />
               <div style={formGridStyle}>
                 <Field label="Název společnosti" name="name" defaultValue={company.name ?? ''} required />
-                <Field label="IČO" name="ico" defaultValue={company.ico ?? ''} />
-                <Field label="DIČ" name="dic" defaultValue={company.dic ?? ''} />
+                <SelectField
+                  label="Země"
+                  name="country_code"
+                  value={countryCode}
+                  onChange={(nextCountryCode) => {
+                    const nextConfig = getCompanyCountryConfig(nextCountryCode)
+                    setCountryCode(nextConfig.countryCode)
+
+                    if (window.confirm('Nabídnout jazyk a měnu podle vybrané země?')) {
+                      setLanguage(nextConfig.defaultLanguage)
+                      setCurrency(nextConfig.defaultCurrency)
+                    }
+                  }}
+                  options={companyCountryOptions.map((option) => [option.value, option.label])}
+                />
+                <SelectField
+                  label="Jazyk"
+                  name="default_language"
+                  value={language}
+                  onChange={setLanguage}
+                  options={companyLanguageOptions.map((option) => [option, languageLabels[option] ?? option.toUpperCase()])}
+                />
+                <SelectField
+                  label="Měna"
+                  name="default_currency"
+                  value={currency}
+                  onChange={setCurrency}
+                  options={companyCurrencyOptions.map((option) => [option, option])}
+                />
+                <Field
+                  label={countryConfig.registrationNumberLabel}
+                  name="registration_number"
+                  defaultValue={company.registration_number ?? company.company_number ?? company.ico ?? ''}
+                  maxLength={64}
+                />
+                <Field
+                  label={countryConfig.taxNumberLabel}
+                  name="tax_number"
+                  defaultValue={company.tax_number ?? company.vat_number ?? company.dic ?? ''}
+                  maxLength={64}
+                />
                 <Field label="E-mail" name="email" defaultValue={company.email ?? ''} type="email" />
                 <Field label="Telefon" name="phone" defaultValue={company.phone ?? ''} />
                 <Field label="Web" name="web" defaultValue={company.web ?? ''} />
-                <Field label="Měna" name="currency" defaultValue={company.currency ?? 'CZK'} />
-                <Field label="Jazyk" name="locale" defaultValue={company.locale ?? 'cs-CZ'} />
+                <Field label="Logo firmy (URL)" name="logo_url" defaultValue={company.logo_url ?? ''} wide />
                 <SelectField
                   label="Časové pásmo"
                   name="timezone"
@@ -435,6 +539,7 @@ function Field({
   type = 'text',
   required = false,
   wide = false,
+  maxLength,
 }: {
   label: string
   name: string
@@ -442,11 +547,19 @@ function Field({
   type?: string
   required?: boolean
   wide?: boolean
+  maxLength?: number
 }) {
   return (
     <label style={{ ...fieldStyle, gridColumn: wide ? '1 / -1' : undefined }}>
       <span style={labelStyle}>{label}</span>
-      <input name={name} type={type} defaultValue={defaultValue} required={required} style={inputStyle} />
+      <input
+        name={name}
+        type={type}
+        defaultValue={defaultValue}
+        required={required}
+        maxLength={maxLength}
+        style={inputStyle}
+      />
     </label>
   )
 }
@@ -455,17 +568,27 @@ function SelectField({
   label,
   name,
   defaultValue,
+  value,
+  onChange,
   options,
 }: {
   label: string
   name: string
-  defaultValue: string
+  defaultValue?: string
+  value?: string
+  onChange?: (value: string) => void
   options: Array<readonly [string, string]>
 }) {
   return (
     <label style={fieldStyle}>
       <span style={labelStyle}>{label}</span>
-      <select name={name} defaultValue={defaultValue} style={inputStyle}>
+      <select
+        name={name}
+        value={value}
+        defaultValue={value === undefined ? defaultValue : undefined}
+        onChange={onChange ? (event) => onChange(event.target.value) : undefined}
+        style={inputStyle}
+      >
         {options.map(([value, optionLabel]) => (
           <option key={value} value={value}>
             {optionLabel}

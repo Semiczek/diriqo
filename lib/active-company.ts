@@ -2,7 +2,7 @@ import 'server-only'
 
 import { cookies } from 'next/headers'
 
-import { hasHubAccessRole } from '@/lib/hub-access'
+import { hasAnyCompanyRole, hasHubAccessRole } from '@/lib/hub-access'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 
 type CompanyRelation =
@@ -49,13 +49,26 @@ export type ActiveCompanyContext = {
   }[]
 }
 
+export type ActiveCompanyContextOptions = {
+  allowedRoles?: readonly string[]
+}
+
 function asSingleRelation<T>(value: T[] | T | null | undefined): T | null {
   if (!value) return null
   if (Array.isArray(value)) return value[0] ?? null
   return value
 }
 
-export async function getActiveCompanyContext(): Promise<ActiveCompanyContext | null> {
+function membershipMatchesAllowedRole(
+  role: string | null | undefined,
+  allowedRoles: readonly string[] | undefined
+) {
+  return allowedRoles ? hasAnyCompanyRole(role, allowedRoles) : hasHubAccessRole(role)
+}
+
+export async function getActiveCompanyContext(
+  options: ActiveCompanyContextOptions = {}
+): Promise<ActiveCompanyContext | null> {
   const supabase = await createSupabaseServerClient()
   const cookieStore = await cookies()
 
@@ -111,7 +124,7 @@ export async function getActiveCompanyContext(): Promise<ActiveCompanyContext | 
     .eq('is_active', true)
 
   const memberships = ((membershipsResponse.data ?? []) as MembershipRow[]).filter((membership) =>
-    hasHubAccessRole(membership.role)
+    membershipMatchesAllowedRole(membership.role, options.allowedRoles)
   )
 
   if (memberships.length === 0) {

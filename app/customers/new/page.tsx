@@ -7,21 +7,7 @@ import { useRouter } from 'next/navigation'
 
 import DashboardShell from '@/components/DashboardShell'
 import { useI18n } from '@/components/I18nProvider'
-import { supabase } from '@/lib/supabase'
-
-function isMissingCustomerBillingColumns(error: { message?: string | null } | null | undefined) {
-  const message = error?.message ?? ''
-  return (
-    message.includes('billing_name') ||
-    message.includes('billing_street') ||
-    message.includes('billing_city') ||
-    message.includes('billing_postal_code') ||
-    message.includes('billing_country') ||
-    message.includes('company_number') ||
-    message.includes('vat_number') ||
-    message.includes('ares_last_checked_at')
-  )
-}
+import { createCustomerAction } from '@/app/customers/actions'
 
 type AresLookupPayload = {
   error?: string
@@ -219,35 +205,11 @@ export default function NewCustomerPage() {
     setLoadingAres(true)
 
     try {
-      let payload: AresLookupPayload | null = null
+      const response = await fetch(`/api/ares?ico=${normalizedCompanyNumber}`, { cache: 'no-store' })
+      const payload = (await response.json()) as AresLookupPayload
 
-      try {
-        const response = await fetch(`/api/ares?ico=${normalizedCompanyNumber}`, { cache: 'no-store' })
-        const routePayload = (await response.json()) as AresLookupPayload
-
-        if (response.ok) {
-          payload = routePayload
-        } else {
-          throw new Error(routePayload.error || 'ARES route failed')
-        }
-      } catch {
-        const directResponse = await fetch(
-          `https://ares.gov.cz/ekonomicke-subjekty-v-be/rest/ekonomicke-subjekty/${normalizedCompanyNumber}`,
-          { headers: { Accept: 'application/json' }, cache: 'no-store' }
-        )
-
-        if (!directResponse.ok) {
-          setError(dictionary.customers.aresLoadFailed)
-          setLoadingAres(false)
-          return
-        }
-
-        const directPayload = (await directResponse.json()) as BrowserAresSubject
-        payload = mapBrowserAresPayload(directPayload, normalizedCompanyNumber)
-      }
-
-      if (!payload) {
-        setError(dictionary.customers.aresLoadFailed)
+      if (!response.ok) {
+        setError(payload.error || dictionary.customers.aresLoadFailed)
         setLoadingAres(false)
         return
       }
@@ -298,43 +260,26 @@ export default function NewCustomerPage() {
 
     setLoading(true)
 
-    let { data, error: insertError } = await supabase
-      .from('customers')
-      .insert({
-        company_id: companyId,
-        name: trimmedName,
-        email: trimmedEmail || null,
-        phone: trimmedPhone || null,
-        billing_name: trimmedBillingName || null,
-        billing_street: trimmedBillingStreet || null,
-        billing_city: trimmedBillingCity || null,
-        billing_postal_code: trimmedBillingPostalCode || null,
-        billing_country: trimmedBillingCountry || null,
-        company_number: trimmedCompanyNumber || null,
-        vat_number: trimmedVatNumber || null,
-        ares_last_checked_at: trimmedCompanyNumber && isCzechBillingCountry(trimmedBillingCountry) ? new Date().toISOString() : null,
-      })
-      .select('id')
-      .single()
+    const result = await createCustomerAction({
+      name: trimmedName,
+      email: trimmedEmail,
+      phone: trimmedPhone,
+      billingName: trimmedBillingName,
+      billingStreet: trimmedBillingStreet,
+      billingCity: trimmedBillingCity,
+      billingPostalCode: trimmedBillingPostalCode,
+      billingCountry: trimmedBillingCountry,
+      companyNumber: trimmedCompanyNumber,
+      vatNumber: trimmedVatNumber,
+    })
 
-    if (insertError && isMissingCustomerBillingColumns(insertError)) {
-      const fallbackResult = await supabase
-        .from('customers')
-        .insert({ company_id: companyId, name: trimmedName, email: trimmedEmail || null, phone: trimmedPhone || null })
-        .select('id')
-        .single()
-
-      data = fallbackResult.data
-      insertError = fallbackResult.error
-    }
-
-    if (insertError || !data) {
-      setError(insertError?.message || dictionary.customers.errorPrefix)
+    if (!result.ok) {
+      setError(result.error || dictionary.customers.errorPrefix)
       setLoading(false)
       return
     }
 
-    router.push(shouldContinueToCalculation ? `/customers/${data.id}/calculations/new` : `/customers/${data.id}`)
+    router.push(shouldContinueToCalculation ? `/customers/${result.customerId}/calculations/new` : `/customers/${result.customerId}`)
     router.refresh()
   }
 
@@ -343,18 +288,18 @@ export default function NewCustomerPage() {
       <main style={pageStyle}>
         <header style={headerStyle}>
           <div>
-            <p style={eyebrowStyle}>{shouldContinueToCalculation ? 'Nová kalkulace' : dictionary.navigation.customers}</p>
+            <p style={eyebrowStyle}>{shouldContinueToCalculation ? dictionary.customers.calculationFlowEyebrow : dictionary.navigation.customers}</p>
             <h1 style={titleStyle}>
-              {shouldContinueToCalculation ? 'Nový zákazník pro kalkulaci' : dictionary.customers.newCustomerTitle}
+              {shouldContinueToCalculation ? dictionary.customers.calculationFlowTitle : dictionary.customers.newCustomerTitle}
             </h1>
             {shouldContinueToCalculation ? (
               <p style={{ margin: '10px 0 0', color: '#64748b', fontSize: '16px', lineHeight: 1.5 }}>
-                Nejdřív založ zákazníka. Po uložení tě Diriqo rovnou přesune na vytvoření kalkulace.
+                {dictionary.customers.calculationFlowDescription}
               </p>
             ) : null}
           </div>
-          <Link href={shouldContinueToCalculation ? '/kalkulace/nova' : '/customers'} style={backLinkStyle} aria-label={shouldContinueToCalculation ? 'Zpět na výběr zákazníka' : dictionary.customers.backToCustomers}>
-            {shouldContinueToCalculation ? 'Zpět na výběr zákazníka' : dictionary.customers.backToCustomers}
+          <Link href={shouldContinueToCalculation ? '/kalkulace/nova' : '/customers'} style={backLinkStyle} aria-label={shouldContinueToCalculation ? dictionary.customers.calculationFlowBack : dictionary.customers.backToCustomers}>
+            {shouldContinueToCalculation ? dictionary.customers.calculationFlowBack : dictionary.customers.backToCustomers}
           </Link>
         </header>
 
@@ -413,7 +358,7 @@ export default function NewCustomerPage() {
                 {loading
                   ? dictionary.customers.creatingCustomer
                   : shouldContinueToCalculation
-                    ? 'Založit a pokračovat na kalkulaci'
+                    ? dictionary.customers.calculationFlowCreate
                     : dictionary.customers.createCustomer}
               </button>
 

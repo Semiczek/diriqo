@@ -26,6 +26,8 @@ export type PublicOfferPageProps = {
   benefitsText: string | null
   contactName: string | null
   contactEmail: string | null
+  companyName?: string | null
+  companyLogoUrl?: string | null
   priceTotal: number | null
   pricingTitle: string
   pricingText: string | null

@@ -1,8 +1,10 @@
 ﻿import JobDetailPageClient from './JobDetailPageClient'
+import { redirect } from 'next/navigation'
 import { listEntityThreadMessages } from '@/lib/email/listEntityThreadMessages'
 import type { MessageFeedItem } from '@/lib/email/types'
 import { listJobEconomicsSummaries } from '@/lib/dal/economics'
-import { requireHubAccess } from '@/lib/require-hub-access'
+import { getActiveCompanyContext } from '@/lib/active-company'
+import { getRequestDictionary } from '@/lib/i18n/server'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 
 export const dynamic = 'force-dynamic'
@@ -21,6 +23,8 @@ type Job = {
   contact_id?: string | null
   address?: string | null
   scheduled_date?: string | null
+  scheduled_start?: string | null
+  scheduled_end?: string | null
   start_at: string | null
   end_at: string | null
   billing_status?: string | null
@@ -166,6 +170,8 @@ type GroupMemberJobRow = {
   description: string | null
   status: string | null
   address: string | null
+  scheduled_start?: string | null
+  scheduled_end?: string | null
   start_at: string | null
   end_at: string | null
   created_at: string | null
@@ -194,6 +200,8 @@ const emptyInitialDetail = {
 
 export default async function JobDetailPage({ params }: JobDetailPageProps) {
   const { jobId } = await params
+  const dictionary = await getRequestDictionary()
+  const detailMessages = dictionary.jobs.detail
 
   if (!jobId) {
     return (
@@ -206,12 +214,19 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
         {...emptyInitialDetail}
         initialJobEconomicsSummary={null}
         initialCommunicationFeed={[]}
-        initialError="Chybi ID zakazky."
+        initialError={detailMessages.missingJobId}
       />
     )
   }
 
-  const activeCompany = await requireHubAccess()
+  const activeCompany = await getActiveCompanyContext({
+    allowedRoles: ['super_admin', 'company_admin', 'manager'],
+  })
+
+  if (!activeCompany) {
+    redirect('/onboarding/company')
+  }
+
   const supabase = await createSupabaseServerClient()
 
   const jobResponse = await supabase
@@ -231,6 +246,8 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
         contact_id,
         address,
         scheduled_date,
+        scheduled_start,
+        scheduled_end,
         start_at,
         end_at,
         billing_status,
@@ -285,7 +302,7 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
         {...emptyInitialDetail}
         initialJobEconomicsSummary={null}
         initialCommunicationFeed={[]}
-        initialError={`Nepodarilo se nacist zakazku: ${jobResponse.error.message}`}
+        initialError={`${dictionary.common.dataLoadFailed}: ${jobResponse.error.message}`}
       />
     )
   }
@@ -299,10 +316,14 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
   const mainContact = Array.isArray(joinedMainContact)
     ? joinedMainContact[0] ?? null
     : joinedMainContact
+  const canManageCommunication =
+    activeCompany.role === 'super_admin' ||
+    activeCompany.role === 'company_admin' ||
+    activeCompany.role === 'manager'
   let communicationFeed: MessageFeedItem[] = []
   let communicationError: string | null = null
 
-  if (job.company_id) {
+  if (job.company_id && canManageCommunication) {
     try {
       const communication = await listEntityThreadMessages(
         supabase,
@@ -313,7 +334,7 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
       communicationFeed = communication.feedItems
     } catch (error) {
       communicationError =
-        error instanceof Error ? error.message : 'Nepodarilo se nacist komunikaci zakazky.'
+        error instanceof Error ? error.message : dictionary.common.dataLoadFailed
     }
   }
 
@@ -398,6 +419,8 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
           description,
           status,
           address,
+          scheduled_start,
+          scheduled_end,
           start_at,
           end_at,
           created_at,
@@ -523,6 +546,7 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
     <JobDetailPageClient
       jobId={jobId}
       canManageJobPhotos={activeCompany.role === 'super_admin' || activeCompany.role === 'company_admin'}
+      canManageCommunication={canManageCommunication}
       initialJob={job}
       initialJobState={jobState}
       initialCustomer={customer}
@@ -543,7 +567,7 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
       initialCommunicationFeed={communicationFeed}
       initialError={
         communicationError ??
-        (secondaryError ? `Nepodařilo se načíst detail zakázky: ${secondaryError}` : null)
+        (secondaryError ? `Failed to load job detail: ${secondaryError}` : null)
       }
     />
   )

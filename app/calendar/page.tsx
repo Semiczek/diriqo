@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from 'react'
 import DashboardShell from '../../components/DashboardShell'
 import { useI18n } from '../../components/I18nProvider'
 import { getIntlLocale } from '../../lib/i18n/config'
+import type { CalendarMessages } from '../../lib/i18n/dictionaries/types'
 import { supabase } from '../../lib/supabase'
 
 type CalendarView = 'list' | 'week' | 'month'
@@ -159,14 +160,14 @@ function isMultiDayItem(item: CalendarItem) {
   return !isSameDay(start, end)
 }
 
-function getItemTone(item: CalendarItem) {
+function getItemTone(item: CalendarItem, messages: CalendarMessages) {
   if (item.type === 'job') {
     return {
       accent: '#2563eb',
       accentSoft: 'rgba(37, 99, 235, 0.12)',
       chipBg: 'linear-gradient(135deg, rgba(37,99,235,0.14), rgba(6,182,212,0.14))',
       chipColor: '#1d4ed8',
-      label: 'Zakázka',
+      label: messages.itemJob,
     }
   }
 
@@ -175,19 +176,19 @@ function getItemTone(item: CalendarItem) {
     accentSoft: 'rgba(124, 58, 237, 0.12)',
     chipBg: 'linear-gradient(135deg, rgba(124,58,237,0.14), rgba(236,72,153,0.12))',
     chipColor: '#6d28d9',
-    label: 'Úkol / událost',
+    label: messages.itemEvent,
   }
 }
 
-function getStatusLabel(status: string | null) {
-  if (!status) return 'Bez stavu'
+function getStatusLabel(status: string | null, messages: CalendarMessages) {
+  if (!status) return messages.noStatus
   const labels: Record<string, string> = {
-    planned: 'Naplánováno',
-    in_progress: 'Probíhá',
-    waiting_check: 'Ke kontrole',
-    done: 'Hotovo',
-    cancelled: 'Zrušeno',
-    waiting_for_invoice: 'Čeká na fakturaci',
+    planned: messages.statusPlanned,
+    in_progress: messages.statusInProgress,
+    waiting_check: messages.statusWaitingCheck,
+    done: messages.statusDone,
+    cancelled: messages.statusCancelled,
+    waiting_for_invoice: messages.statusWaitingForInvoice,
   }
   return labels[status] || status
 }
@@ -243,9 +244,9 @@ export default function CalendarPage() {
     const startsToday = isSameDay(start, day)
     const endsToday = isSameDay(end, day)
     if (startsToday && endsToday) return `${formatTime(item.start_at)} - ${formatTime(item.end_at)}`
-    if (startsToday) return `Od ${formatTime(item.start_at)}`
-    if (endsToday) return `Do ${formatTime(item.end_at)}`
-    return 'Pokračuje celý den'
+    if (startsToday) return `${dictionary.calendar.startsAt} ${formatTime(item.start_at)}`
+    if (endsToday) return `${dictionary.calendar.endsAt} ${formatTime(item.end_at)}`
+    return dictionary.calendar.allDayOrContinues
   }
 
   useEffect(() => {
@@ -269,7 +270,7 @@ export default function CalendarPage() {
 
       if (jobsError) {
         console.error('Calendar jobs load error', jobsError)
-        setError('Data se nepodařilo načíst.')
+        setError(dictionary.calendar.loadError)
         setLoading(false)
         return
       }
@@ -285,7 +286,7 @@ export default function CalendarPage() {
 
       if (eventsError) {
         console.error('Calendar events load error', eventsError)
-        setError('Data se nepodařilo načíst.')
+        setError(dictionary.calendar.loadError)
         setLoading(false)
         return
       }
@@ -312,7 +313,7 @@ export default function CalendarPage() {
       const mappedEvents: CalendarItem[] = ((eventsData as CalendarEventRow[]) || []).map((event) => ({
         id: event.id,
         type: 'event',
-        title: event.title || 'Nový úkol',
+        title: event.title || dictionary.calendar.untitledEvent,
         description: event.description || '',
         status: null,
         start_at: event.start_at,
@@ -328,7 +329,7 @@ export default function CalendarPage() {
     }
 
     void loadCalendar()
-  }, [dictionary.calendar.untitledJob])
+  }, [dictionary.calendar.loadError, dictionary.calendar.untitledEvent, dictionary.calendar.untitledJob])
 
   const presetBounds = useMemo(() => getRangeBoundsFromPreset(view, range, anchorDate), [view, range, anchorDate])
   const customBounds = useMemo(() => {
@@ -402,7 +403,7 @@ export default function CalendarPage() {
   }
 
   function CalendarItemCard({ item, activeDay }: { item: CalendarItem; activeDay?: Date }) {
-    const tone = getItemTone(item)
+    const tone = getItemTone(item, dictionary.calendar)
     const multiDay = isMultiDayItem(item)
 
     return (
@@ -416,8 +417,8 @@ export default function CalendarPage() {
               <div className="calendar-card-title">{item.title}</div>
               <div className="calendar-card-meta">
                 {item.customerName ? <span>{item.customerName}</span> : null}
-                {item.type === 'job' && item.status ? <span>{getStatusLabel(item.status)}</span> : null}
-                {multiDay ? <span>Vícedenní</span> : null}
+                {item.type === 'job' && item.status ? <span>{getStatusLabel(item.status, dictionary.calendar)}</span> : null}
+                {multiDay ? <span>{dictionary.calendar.multiDay}</span> : null}
               </div>
               {item.description ? <p className="calendar-card-description">{item.description}</p> : null}
             </div>
@@ -431,7 +432,7 @@ export default function CalendarPage() {
   }
 
   function WeekItemCard({ item, day }: { item: CalendarItem; day: Date }) {
-    const tone = getItemTone(item)
+    const tone = getItemTone(item, dictionary.calendar)
 
     return (
       <Link href={getItemHref(item)} className="calendar-card-link">
@@ -445,7 +446,7 @@ export default function CalendarPage() {
   }
 
   function MonthItemChip({ item, day }: { item: CalendarItem; day: Date }) {
-    const tone = getItemTone(item)
+    const tone = getItemTone(item, dictionary.calendar)
 
     return (
       <Link
@@ -464,29 +465,29 @@ export default function CalendarPage() {
     <DashboardShell activeItem="calendar">
       <section className="calendar-hero">
         <div>
-          <div className="calendar-eyebrow">Plánování</div>
-          <h1>Kalendář</h1>
-          <p>Zakázky, interní úkoly a důležité termíny na jednom místě.</p>
+          <div className="calendar-eyebrow">{dictionary.calendar.planning}</div>
+          <h1>{dictionary.calendar.title}</h1>
+          <p>{dictionary.calendar.subtitle}</p>
         </div>
 
         <div className="calendar-hero-side">
           <div className="calendar-mini-stat">
-            <span>Dnes</span>
+            <span>{dictionary.calendar.today}</span>
             <strong>{stats.today}</strong>
           </div>
           <div className="calendar-mini-stat">
-            <span>Tento týden</span>
+            <span>{dictionary.calendar.thisWeek}</span>
             <strong>{stats.week}</strong>
           </div>
           <Link href="/calendar/new" className="calendar-primary-action">
-            + Nový úkol / událost
+            + {dictionary.calendar.addEvent}
           </Link>
         </div>
       </section>
 
       <section className="calendar-toolbar">
         <div className="calendar-toolbar-top">
-          <div className="calendar-tabs" aria-label="Zobrazení kalendáře">
+          <div className="calendar-tabs" aria-label={dictionary.calendar.calendarView}>
             {(['list', 'week', 'month'] as CalendarView[]).map((mode) => (
               <button
                 key={mode}
@@ -497,7 +498,7 @@ export default function CalendarPage() {
                 }}
                 className={view === mode ? 'active' : ''}
               >
-                {mode === 'list' ? 'Seznam' : mode === 'week' ? 'Týden' : 'Měsíc'}
+                {mode === 'list' ? dictionary.calendar.list : mode === 'week' ? dictionary.calendar.week : dictionary.calendar.month}
               </button>
             ))}
           </div>
@@ -513,65 +514,65 @@ export default function CalendarPage() {
 
         <div className="calendar-filter-grid">
           <select value={itemFilter} onChange={(e) => setItemFilter(e.target.value as ItemFilter)}>
-            <option value="all">Vše</option>
-            <option value="jobs">Jen zakázky</option>
-            <option value="events">Jen úkoly / události</option>
+            <option value="all">{dictionary.calendar.allItems}</option>
+            <option value="jobs">{dictionary.calendar.jobsOnly}</option>
+            <option value="events">{dictionary.calendar.eventsOnly}</option>
           </select>
 
           {view === 'list' ? (
             <div className="calendar-segment">
               <button type="button" onClick={() => setRangeMode('preset')} className={rangeMode === 'preset' ? 'active' : ''}>
-                Rychle
+                {dictionary.calendar.quickSelection}
               </button>
               <button type="button" onClick={() => setRangeMode('custom')} className={rangeMode === 'custom' ? 'active' : ''}>
-                Vlastní období
+                {dictionary.calendar.customRange}
               </button>
             </div>
           ) : null}
 
           {view === 'list' && rangeMode === 'preset' ? (
             <select value={range} onChange={(e) => setRange(e.target.value as RangeFilter)}>
-              <option value="today">Dnes</option>
-              <option value="7d">7 dní</option>
-              <option value="14d">14 dní</option>
-              <option value="30d">30 dní</option>
+              <option value="today">{dictionary.calendar.today}</option>
+              <option value="7d">{dictionary.calendar.days7}</option>
+              <option value="14d">{dictionary.calendar.days14}</option>
+              <option value="30d">{dictionary.calendar.days30}</option>
             </select>
           ) : null}
 
           {view === 'list' && rangeMode === 'custom' ? (
             <div className="calendar-date-range">
-              <input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} aria-label="Od" />
-              <input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} aria-label="Do" />
+              <input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} aria-label={dictionary.calendar.from} />
+              <input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} aria-label={dictionary.calendar.to} />
             </div>
           ) : null}
 
           {view === 'week' || view === 'month' ? (
             <div className="calendar-nav-buttons">
-              <button type="button" onClick={goPrev}>Předchozí</button>
-              <button type="button" onClick={goToday}>Dnes</button>
-              <button type="button" onClick={goNext}>Další</button>
+              <button type="button" onClick={goPrev}>{dictionary.calendar.previous}</button>
+              <button type="button" onClick={goToday}>{dictionary.calendar.today}</button>
+              <button type="button" onClick={goNext}>{dictionary.calendar.next}</button>
             </div>
           ) : null}
         </div>
 
         <div className="calendar-stat-row">
-          <div><span>V období</span><strong>{stats.total}</strong></div>
-          <div><span>Zakázky</span><strong>{stats.jobs}</strong></div>
-          <div><span>Úkoly</span><strong>{stats.tasks}</strong></div>
+          <div><span>{dictionary.calendar.inPeriod}</span><strong>{stats.total}</strong></div>
+          <div><span>{dictionary.navigation.jobs}</span><strong>{stats.jobs}</strong></div>
+          <div><span>{dictionary.calendar.tasks}</span><strong>{stats.tasks}</strong></div>
         </div>
       </section>
 
       {loading ? (
-        <div className="calendar-state-card">Načítám kalendář...</div>
+        <div className="calendar-state-card">{dictionary.calendar.loading}</div>
       ) : error ? (
         <div className="calendar-state-card error">{error}</div>
       ) : filteredItems.length === 0 ? (
         <div className="calendar-empty">
           <div className="calendar-empty-icon">K</div>
           <div>
-            <h2>V tomto období nic není.</h2>
-            <p>Přidej zakázku, úkol nebo interní připomínku.</p>
-            <Link href="/calendar/new">Přidat úkol / událost</Link>
+            <h2>{dictionary.calendar.empty}</h2>
+            <p>{dictionary.calendar.emptyDescription}</p>
+            <Link href="/calendar/new">{dictionary.calendar.addEvent}</Link>
           </div>
         </div>
       ) : view === 'list' ? (
@@ -587,7 +588,7 @@ export default function CalendarPage() {
                     <span>{new Intl.DateTimeFormat(intlLocale, { weekday: 'long' }).format(day)}</span>
                     <strong>{new Intl.DateTimeFormat(intlLocale, { day: '2-digit', month: '2-digit' }).format(day)}</strong>
                   </div>
-                  <em>{dayItems.length} položek</em>
+                  <em>{dayItems.length} {dictionary.calendar.itemsCount}</em>
                 </header>
                 <div className="calendar-list-stack">
                   {dayItems.map((item) => (
@@ -613,7 +614,7 @@ export default function CalendarPage() {
                 </header>
                 <div className="calendar-week-stack">
                   {dayItems.length === 0 ? (
-                    <div className="calendar-muted-empty">Volno</div>
+                    <div className="calendar-muted-empty">{dictionary.calendar.nothingPlanned}</div>
                   ) : (
                     dayItems.map((item) => (
                       <WeekItemCard key={`${item.type}-${item.id}-${day.toISOString()}`} item={item} day={day} />
@@ -656,7 +657,7 @@ export default function CalendarPage() {
                     {dayItems.slice(0, 3).map((item) => (
                       <MonthItemChip key={`${item.type}-${item.id}-${day.toISOString()}`} item={item} day={day} />
                     ))}
-                    {dayItems.length > 3 ? <div className="calendar-month-more">+{dayItems.length - 3} další</div> : null}
+                    {dayItems.length > 3 ? <div className="calendar-month-more">+{dayItems.length - 3} {dictionary.calendar.moreItems}</div> : null}
                   </div>
                 </section>
               )
@@ -665,7 +666,7 @@ export default function CalendarPage() {
         </div>
       )}
 
-      <style jsx>{`
+      <style jsx global>{`
         .calendar-hero {
           position: relative;
           overflow: hidden;

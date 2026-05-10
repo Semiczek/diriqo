@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useI18n } from '@/components/I18nProvider'
+import { getIntlLocale } from '@/lib/i18n/config'
 import JobEconomicsEditor from './JobEconomicsEditor'
 import {
   cardTitleStyle,
@@ -67,8 +68,8 @@ function toNumber(value: string | number | null | undefined) {
   return Number.isFinite(n) ? n : 0
 }
 
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat('cs-CZ', {
+function formatCurrency(value: number, locale: string) {
+  return new Intl.NumberFormat(locale, {
     style: 'currency',
     currency: 'CZK',
     maximumFractionDigits: 2,
@@ -90,7 +91,9 @@ export default function JobEconomicsSection({
   onCostItemAdded,
   onCostItemDeleted,
 }: JobEconomicsSectionProps) {
-  const { dictionary } = useI18n()
+  const { dictionary, locale } = useI18n()
+  const dateLocale = getIntlLocale(locale)
+  const detailMessages = dictionary.jobs.detail
   const [isEditing, setIsEditing] = useState(false)
 
   const revenue = toNumber(accountingRevenue)
@@ -158,45 +161,45 @@ export default function JobEconomicsSection({
     <section style={sectionStyle}>
       <div style={headerStyle}>
         <div>
-          <h2 style={titleStyle}>Náklady</h2>
-          <p style={descriptionStyle}>{dictionary.jobs.detail.costItemsByType}</p>
+          <h2 style={titleStyle}>{detailMessages.costsTitle}</h2>
+          <p style={descriptionStyle}>{detailMessages.costItemsByType}</p>
         </div>
 
         <button type="button" onClick={() => setIsEditing((prev) => !prev)} style={buttonStyle}>
-          {isEditing ? 'Zavřít úpravy' : costItems.length === 0 ? 'Přidat náklad' : 'Upravit náklady'}
+          {isEditing ? detailMessages.closeCostEditing : costItems.length === 0 ? detailMessages.addCost : detailMessages.editCosts}
         </button>
       </div>
 
       {!isEditing ? (
         <div style={cardsWrapStyle}>
           <div style={cardStyle}>
-            <div style={labelStyle}>Fakturováno</div>
-            <div style={valueStyle}>{formatCurrency(revenue)}</div>
+            <div style={labelStyle}>{detailMessages.accountingRevenue}</div>
+            <div style={valueStyle}>{formatCurrency(revenue, dateLocale)}</div>
           </div>
 
           <div style={cardStyle}>
-            <div style={labelStyle}>Cena zakázky</div>
-            <div style={valueStyle}>{formatCurrency(quotedPrice)}</div>
+            <div style={labelStyle}>{detailMessages.jobPrice}</div>
+            <div style={valueStyle}>{formatCurrency(quotedPrice, dateLocale)}</div>
           </div>
 
           <div style={cardStyle}>
-            <div style={labelStyle}>Interní práce</div>
-            <div style={valueStyle}>{formatCurrency(laborCost)}</div>
+            <div style={labelStyle}>{detailMessages.internalLabor}</div>
+            <div style={valueStyle}>{formatCurrency(laborCost, dateLocale)}</div>
           </div>
 
           <div style={cardStyle}>
-            <div style={labelStyle}>Externí práce</div>
-            <div style={valueStyle}>{formatCurrency(externalLaborCost)}</div>
+            <div style={labelStyle}>{detailMessages.externalLabor}</div>
+            <div style={valueStyle}>{formatCurrency(externalLaborCost, dateLocale)}</div>
           </div>
 
           <div style={cardStyle}>
-            <div style={labelStyle}>Přímé náklady</div>
-            <div style={valueStyle}>{formatCurrency(otherCosts)}</div>
+            <div style={labelStyle}>{detailMessages.directCosts}</div>
+            <div style={valueStyle}>{formatCurrency(otherCosts, dateLocale)}</div>
           </div>
 
           <div style={cardStyle}>
             <div style={labelStyle}>{dictionary.jobs.profit}</div>
-            <div style={profitStyle}>{formatCurrency(profit)}</div>
+            <div style={profitStyle}>{formatCurrency(profit, dateLocale)}</div>
           </div>
         </div>
       ) : (

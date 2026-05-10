@@ -4,6 +4,7 @@ import React, { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { updateJobAssignmentEconomicsAction } from '@/app/business-actions'
 import { useI18n } from '@/components/I18nProvider'
+import { getIntlLocale } from '@/lib/i18n/config'
 import {
   getEffectiveJobWorkState,
   isMultiDayJobRange,
@@ -40,28 +41,28 @@ type Props = {
   defaultRate: number
 }
 
-function formatHours(value: number) {
-  return new Intl.NumberFormat('cs-CZ', {
+function formatHours(value: number, locale: string) {
+  return new Intl.NumberFormat(locale, {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   }).format(value)
 }
 
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat('cs-CZ', {
+function formatCurrency(value: number, locale: string) {
+  return new Intl.NumberFormat(locale, {
     style: 'currency',
     currency: 'CZK',
     maximumFractionDigits: 0,
   }).format(value)
 }
 
-function formatDate(value: string | null | undefined) {
+function formatDate(value: string | null | undefined, locale: string) {
   if (!value) return '-'
 
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return '-'
 
-  return new Intl.DateTimeFormat('cs-CZ', {
+  return new Intl.DateTimeFormat(locale, {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -148,7 +149,8 @@ function getEffectiveRate(item: Props['item'], defaultRate: number) {
 }
 
 export default function JobAssignmentRowEditor({ item, defaultRate }: Props) {
-  const { dictionary } = useI18n()
+  const { dictionary, locale } = useI18n()
+  const dateLocale = getIntlLocale(locale)
   const t = dictionary.jobs.detail
   const [editing, setEditing] = useState(false)
   const fallbackHours = useMemo(() => getEffectiveHours(item), [item])
@@ -271,7 +273,7 @@ export default function JobAssignmentRowEditor({ item, defaultRate }: Props) {
 
   async function handleResetHours() {
     const confirmed = window.confirm(
-      'Resetovat ručně zadané hodiny u tohoto přiřazení? Směny zůstanou zachované.'
+      t.resetAssignmentHoursConfirm
     )
 
     if (!confirmed) return
@@ -310,7 +312,7 @@ export default function JobAssignmentRowEditor({ item, defaultRate }: Props) {
 
   async function handleRemoveAssignment() {
     const confirmed = window.confirm(
-      'Odebrat pracovníka z této zakázky? Smaže se jen plánované přiřazení, směny zůstanou zachované.'
+      t.removeWorkerConfirm
     )
 
     if (!confirmed) return
@@ -445,9 +447,9 @@ export default function JobAssignmentRowEditor({ item, defaultRate }: Props) {
         </td>
         <td style={tdStyle}>
           <div style={{ minWidth: 132 }}>
-            <div>{formatDate(item.jobs?.start_at ?? null)}</div>
+            <div>{formatDate(item.jobs?.start_at ?? null, dateLocale)}</div>
             <div style={{ marginTop: '4px', color: '#6b7280', fontSize: '13px' }}>
-              {dictionary.jobs.endLabel}: {formatDate(item.jobs?.end_at ?? null)}
+              {dictionary.jobs.endLabel}: {formatDate(item.jobs?.end_at ?? null, dateLocale)}
             </div>
           </div>
         </td>
@@ -458,9 +460,9 @@ export default function JobAssignmentRowEditor({ item, defaultRate }: Props) {
           </span>
         </td>
         <td style={tdStyle}>{getPaymentLabel(item.jobs?.is_paid ?? null)}</td>
-        <td style={tdStyle}>{formatHours(currentLaborHours)} h</td>
-        <td style={tdStyle}>{currentHourlyRate > 0 ? formatCurrency(currentHourlyRate) : '-'}</td>
-        <td style={tdStyle}>{formatCurrency(reward)}</td>
+        <td style={tdStyle}>{formatHours(currentLaborHours, dateLocale)} h</td>
+        <td style={tdStyle}>{currentHourlyRate > 0 ? formatCurrency(currentHourlyRate, dateLocale) : '-'}</td>
+        <td style={tdStyle}>{formatCurrency(reward, dateLocale)}</td>
         <td style={tdStyle}>
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
             <button type="button" onClick={() => { resetForm(); setEditing(true) }} style={primaryButtonStyle}>
@@ -472,7 +474,7 @@ export default function JobAssignmentRowEditor({ item, defaultRate }: Props) {
               disabled={resetting || removing}
               style={{ ...secondaryButtonStyle, opacity: resetting || removing ? 0.7 : 1 }}
             >
-              {resetting ? dictionary.jobs.saving : 'Reset hodin'}
+              {resetting ? t.resettingAssignmentHours : t.resetAssignmentHours}
             </button>
             <button
               type="button"
@@ -480,7 +482,7 @@ export default function JobAssignmentRowEditor({ item, defaultRate }: Props) {
               disabled={resetting || removing}
               style={{ ...dangerButtonStyle, opacity: resetting || removing ? 0.7 : 1 }}
             >
-              {removing ? dictionary.jobs.saving : 'Odebrat'}
+              {removing ? t.removingWorker : t.removeWorker}
             </button>
           </div>
           {error ? (
@@ -503,9 +505,9 @@ export default function JobAssignmentRowEditor({ item, defaultRate }: Props) {
         </td>
         <td style={tdStyle}>
           <div style={{ minWidth: 132 }}>
-            <div>{formatDate(item.jobs?.start_at ?? null)}</div>
+            <div>{formatDate(item.jobs?.start_at ?? null, dateLocale)}</div>
             <div style={{ marginTop: '4px', color: '#6b7280', fontSize: '13px' }}>
-              {dictionary.jobs.endLabel}: {formatDate(item.jobs?.end_at ?? null)}
+              {dictionary.jobs.endLabel}: {formatDate(item.jobs?.end_at ?? null, dateLocale)}
             </div>
           </div>
         </td>
@@ -517,7 +519,7 @@ export default function JobAssignmentRowEditor({ item, defaultRate }: Props) {
         <td style={tdStyle}>{getPaymentLabel(item.jobs?.is_paid ?? null)}</td>
         <td style={tdStyle}><input type="number" step="0.01" min="0" value={laborHoursInput} onChange={(e) => setLaborHoursInput(e.target.value)} style={inputStyle} /></td>
         <td style={tdStyle}><input type="number" step="0.01" min="0" value={hourlyRateInput} onChange={(e) => setHourlyRateInput(e.target.value)} style={inputStyle} /></td>
-        <td style={tdStyle}>{formatCurrency(previewReward)}</td>
+        <td style={tdStyle}>{formatCurrency(previewReward, dateLocale)}</td>
         <td style={tdStyle}>
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
             <button type="button" onClick={handleSave} disabled={saving} style={{ ...successButtonStyle, background: saving ? '#9ca3af' : '#16a34a', cursor: saving ? 'default' : 'pointer' }}>

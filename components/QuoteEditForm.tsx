@@ -125,7 +125,8 @@ export default function QuoteEditForm({ customerId, quoteId, initialValues }: Qu
   }
 
   return (
-    <form onSubmit={handleSubmit} style={{ display: 'grid', gap: '20px' }}>
+    <>
+    <form className="quote-edit-form" onSubmit={handleSubmit} style={{ display: 'grid', gap: '12px' }}>
       {error ? (
         <div style={{ padding: '14px 16px', borderRadius: '12px', border: '1px solid #fecaca', backgroundColor: '#fef2f2', color: '#b91c1c', fontWeight: 600 }}>
           {error}
@@ -283,5 +284,80 @@ export default function QuoteEditForm({ customerId, quoteId, initialValues }: Qu
         </Link>
       </div>
     </form>
+
+    <style jsx global>{`
+      .quote-edit-form {
+        color: #0f172a;
+      }
+
+      .quote-edit-form section {
+        padding: 16px !important;
+        border-radius: 16px !important;
+        gap: 12px !important;
+        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
+      }
+
+      .quote-edit-form section > div {
+        gap: 12px !important;
+      }
+
+      .quote-edit-form label {
+        gap: 5px !important;
+        color: #334155;
+        font-size: 13px;
+      }
+
+      .quote-edit-form label > span:first-child {
+        font-size: 13px;
+        font-weight: 800 !important;
+      }
+
+      .quote-edit-form input,
+      .quote-edit-form select,
+      .quote-edit-form textarea {
+        min-height: 42px;
+        padding: 10px 12px !important;
+        border-radius: 10px !important;
+        border-color: rgba(148, 163, 184, 0.45) !important;
+        color: #0f172a;
+        font-size: 14px;
+        outline: none;
+      }
+
+      .quote-edit-form textarea {
+        min-height: 92px;
+        line-height: 1.45;
+      }
+
+      .quote-edit-form input:focus,
+      .quote-edit-form select:focus,
+      .quote-edit-form textarea:focus {
+        border-color: rgba(37, 99, 235, 0.58) !important;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+      }
+
+      .quote-edit-form h2 {
+        font-size: 18px !important;
+        line-height: 1.2;
+      }
+
+      .quote-edit-form > div:last-child {
+        gap: 8px !important;
+      }
+
+      .quote-edit-form > div:last-child button,
+      .quote-edit-form > div:last-child a {
+        padding: 9px 12px !important;
+        border-radius: 10px !important;
+        font-size: 14px;
+      }
+
+      @media (max-width: 900px) {
+        .quote-edit-form section > div {
+          grid-template-columns: 1fr !important;
+        }
+      }
+    `}</style>
+    </>
   )
 }

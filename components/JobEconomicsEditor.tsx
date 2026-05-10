@@ -1,6 +1,8 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { useI18n } from '@/components/I18nProvider'
+import { getIntlLocale } from '@/lib/i18n/config'
 import {
   createJobCostItemAction,
   deleteJobCostItemAction,
@@ -52,29 +54,21 @@ type Props = {
   onCostItemDeleted?: (id: string) => void
 }
 
-const costTypeLabels: Record<CostType, string> = {
-  material: 'Materiál',
-  transport: 'Doprava',
-  accommodation: 'Ubytování',
-  other: 'Ostatní',
-  consumption: 'Spotřební materiál',
-}
-
 function toNumber(value: number | string | null | undefined) {
   if (value === null || value === undefined || value === '') return 0
   const n = Number(String(value).replace(',', '.'))
   return Number.isFinite(n) ? n : 0
 }
 
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat('cs-CZ', {
+function formatCurrency(value: number, locale: string) {
+  return new Intl.NumberFormat(locale, {
     style: 'currency',
     currency: 'CZK',
   }).format(value)
 }
 
-function formatHours(value: number) {
-  return new Intl.NumberFormat('cs-CZ', {
+function formatHours(value: number, locale: string) {
+  return new Intl.NumberFormat(locale, {
     maximumFractionDigits: 2,
   }).format(value)
 }
@@ -140,6 +134,124 @@ export default function JobEconomicsEditor({
   onCostItemAdded,
   onCostItemDeleted,
 }: Props) {
+  const { dictionary, locale } = useI18n()
+  const dateLocale = getIntlLocale(locale)
+  const detailMessages = dictionary.jobs.detail
+  const text =
+    locale === 'en'
+      ? {
+          savingPrice: 'Saving price...',
+          priceSaved: 'Job price was saved.',
+          priceSaveFailed: 'Failed to save price.',
+          costNameRequired: 'Enter the cost name.',
+          costPriceRequired: 'Enter the cost price. Price must be higher than 0 CZK.',
+          addingCost: 'Adding cost...',
+          costAdded: 'Cost was added.',
+          addCostFailed: 'Failed to add cost. Check permissions or the job_cost_items schema.',
+          deletingCost: 'Deleting cost...',
+          costDeleted: 'Cost was deleted.',
+          deleteCostFailed: 'Failed to delete cost.',
+          quickSummary: 'Quick summary',
+          plannedDifference: 'Planned difference',
+          priceDescription: 'Total customer price.',
+          savePrice: 'Save price',
+          addCostDescription:
+            'Add material, transport, or another direct cost. Internal worker labor comes from the worker assignments above.',
+          type: 'Type',
+          name: 'Name',
+          titlePlaceholder: 'E.g. chemicals, transport, machine rental',
+          quantity: 'Quantity',
+          unit: 'Unit',
+          unitPrice: 'Price / unit',
+          optional: 'Optional',
+          addCostDisabledTitle: 'Enter cost name and price',
+          costItemsTitle: 'Cost items',
+          noCostItems: 'No additional costs have been added yet.',
+          costFallback: 'Cost',
+          laborFromAssignments: 'Labor from assignments',
+          laborFromAssignmentsDescription:
+            'These costs are not edited here. They are changed in Workers and work.',
+          noAssignedWorkers: 'No workers are assigned to this job.',
+          total: 'Total',
+        }
+      : locale === 'de'
+        ? {
+            savingPrice: 'Preis wird gespeichert...',
+            priceSaved: 'Auftragspreis wurde gespeichert.',
+            priceSaveFailed: 'Preis konnte nicht gespeichert werden.',
+            costNameRequired: 'Bitte Kostenname eingeben.',
+            costPriceRequired: 'Bitte Kostenpreis eingeben. Der Preis muss höher als 0 CZK sein.',
+            addingCost: 'Kosten werden hinzugefügt...',
+            costAdded: 'Kosten wurden hinzugefügt.',
+            addCostFailed: 'Kosten konnten nicht hinzugefügt werden. Prüfe Berechtigungen oder das Schema job_cost_items.',
+            deletingCost: 'Kosten werden gelöscht...',
+            costDeleted: 'Kosten wurden gelöscht.',
+            deleteCostFailed: 'Kosten konnten nicht gelöscht werden.',
+            quickSummary: 'Kurzübersicht',
+            plannedDifference: 'Geplante Differenz',
+            priceDescription: 'Gesamtpreis für den Kunden.',
+            savePrice: 'Preis speichern',
+            addCostDescription:
+              'Füge Material, Transport oder andere direkte Kosten hinzu. Interne Arbeit kommt aus den Mitarbeiterzuweisungen oben.',
+            type: 'Typ',
+            name: 'Name',
+            titlePlaceholder: 'Z. B. Chemie, Transport, Maschinenmiete',
+            quantity: 'Menge',
+            unit: 'Einheit',
+            unitPrice: 'Preis / Einheit',
+            optional: 'Optional',
+            addCostDisabledTitle: 'Kostenname und Preis ausfüllen',
+            costItemsTitle: 'Kostenpositionen',
+            noCostItems: 'Es wurden noch keine weiteren Kosten hinzugefügt.',
+            costFallback: 'Kosten',
+            laborFromAssignments: 'Arbeit aus Zuweisungen',
+            laborFromAssignmentsDescription:
+              'Diese Kosten werden hier nicht bearbeitet. Sie werden unter Mitarbeiter und Arbeit geändert.',
+            noAssignedWorkers: 'Diesem Auftrag sind keine Mitarbeiter zugewiesen.',
+            total: 'Gesamt',
+          }
+        : {
+            savingPrice: 'Ukládám cenu...',
+            priceSaved: 'Cena zakázky byla uložena.',
+            priceSaveFailed: 'Nepodařilo se uložit cenu.',
+            costNameRequired: 'Vyplň název nákladu.',
+            costPriceRequired: 'Vyplň cenu nákladu. Cena musí být vyšší než 0 Kč.',
+            addingCost: 'Přidávám náklad...',
+            costAdded: 'Náklad byl přidán.',
+            addCostFailed: 'Nepodařilo se přidat náklad. Zkontroluj oprávnění nebo schema job_cost_items.',
+            deletingCost: 'Mažu náklad...',
+            costDeleted: 'Náklad byl smazán.',
+            deleteCostFailed: 'Nepodařilo se smazat náklad.',
+            quickSummary: 'Rychlý souhrn',
+            plannedDifference: 'Plánovaný rozdíl',
+            priceDescription: 'Celková cena pro zákazníka.',
+            savePrice: 'Uložit cenu',
+            addCostDescription:
+              'Přidej materiál, dopravu nebo jiný náklad. Práce interních pracovníků se bere z přiřazení pracovníků výše.',
+            type: 'Typ',
+            name: 'Název',
+            titlePlaceholder: 'Např. chemie, doprava, zapůjčení stroje',
+            quantity: 'Množství',
+            unit: 'Jednotka',
+            unitPrice: 'Cena / jednotka',
+            optional: 'Volitelné',
+            addCostDisabledTitle: 'Vyplň název a cenu nákladu',
+            costItemsTitle: 'Položky nákladů',
+            noCostItems: 'Zatím nejsou přidané žádné další náklady.',
+            costFallback: 'Náklad',
+            laborFromAssignments: 'Práce z přiřazení',
+            laborFromAssignmentsDescription:
+              'Tyto náklady se neupravují tady. Mění se v sekci Pracovníci a práce.',
+            noAssignedWorkers: 'K zakázce nejsou přiřazení žádní pracovníci.',
+            total: 'Celkem',
+          }
+  const costTypeLabels: Record<CostType, string> = {
+    material: detailMessages.materialCost,
+    transport: detailMessages.transportCost,
+    accommodation: detailMessages.accommodationCost,
+    other: detailMessages.otherCost,
+    consumption: detailMessages.consumptionCost,
+  }
   const [price, setPrice] = useState(String(initialPrice ?? 0))
   const [costItems, setCostItems] = useState<CostItem[]>(initialCostItems ?? [])
   const [savingPrice, setSavingPrice] = useState(false)
@@ -219,16 +331,16 @@ export default function JobEconomicsEditor({
   async function savePrice() {
     try {
       setSavingPrice(true)
-      setMessage('Ukládám cenu...')
+      setMessage(text.savingPrice)
 
       const result = await updateJobPriceAction({ jobId, price: toNumber(price) })
 
       if (!result.ok) throw new Error(result.error)
 
-      setMessage('Cena zakázky byla uložena.')
+      setMessage(text.priceSaved)
       onPriceSaved?.(toNumber(price))
     } catch {
-      setMessage('Nepodařilo se uložit cenu.')
+      setMessage(text.priceSaveFailed)
     } finally {
       setSavingPrice(false)
     }
@@ -238,18 +350,18 @@ export default function JobEconomicsEditor({
     setCostMessage('')
 
     if (!newCost.title.trim()) {
-      setCostMessage('Vyplň název nákladu.')
+      setCostMessage(text.costNameRequired)
       return
     }
 
     if (toNumber(newCost.unit_price) <= 0) {
-      setCostMessage('Vyplň cenu nákladu. Cena musí být vyšší než 0 Kč.')
+      setCostMessage(text.costPriceRequired)
       return
     }
 
     try {
       setAddingCost(true)
-      setCostMessage('Přidávám náklad...')
+      setCostMessage(text.addingCost)
 
       const quantity = Math.max(toNumber(newCost.quantity), 1)
       const unitPrice = toNumber(newCost.unit_price)
@@ -280,11 +392,11 @@ export default function JobEconomicsEditor({
         note: '',
       })
 
-      setMessage('Náklad byl přidán.')
-      setCostMessage('Náklad byl přidán.')
+      setMessage(text.costAdded)
+      setCostMessage(text.costAdded)
     } catch (error) {
       const detail = getSupabaseErrorDetail(error)
-      setCostMessage(`Nepodařilo se přidat náklad. Zkontroluj oprávnění nebo schema job_cost_items.${detail}`)
+      setCostMessage(`${text.addCostFailed}${detail ? ` ${detail}` : ''}`)
     } finally {
       setAddingCost(false)
     }
@@ -292,16 +404,16 @@ export default function JobEconomicsEditor({
 
   async function deleteCost(id: string) {
     try {
-      setMessage('Mažu náklad...')
+      setMessage(text.deletingCost)
 
       const result = await deleteJobCostItemAction({ id, jobId })
       if (!result.ok) throw new Error(result.error)
 
       setCostItems((prev) => prev.filter((item) => item.id !== id))
       onCostItemDeleted?.(id)
-      setMessage('Náklad byl smazán.')
+      setMessage(text.costDeleted)
     } catch {
-      setMessage('Nepodařilo se smazat náklad.')
+      setMessage(text.deleteCostFailed)
     }
   }
 
@@ -325,41 +437,41 @@ export default function JobEconomicsEditor({
       ) : null}
 
       <div style={panelStyle}>
-        <h3 style={{ margin: '0 0 14px 0', fontSize: '20px' }}>Rychlý souhrn</h3>
+        <h3 style={{ margin: '0 0 14px 0', fontSize: '20px' }}>{text.quickSummary}</h3>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px' }}>
-          <SummaryTile label="Cena zakázky" value={formatCurrency(toNumber(price))} />
-          <SummaryTile label="Interní práce" value={formatCurrency(actualLaborCost)} />
-          <SummaryTile label="Externí práce" value={formatCurrency(actualExternalLaborCost)} />
-          <SummaryTile label="Přímé náklady" value={formatCurrency(currentOtherCosts)} />
-          <SummaryTile label="Plánovaný rozdíl" value={formatCurrency(plannedProfit)} tone={plannedProfit >= 0 ? 'success' : 'danger'} />
+          <SummaryTile label={detailMessages.jobPrice} value={formatCurrency(toNumber(price), dateLocale)} />
+          <SummaryTile label={detailMessages.internalLabor} value={formatCurrency(actualLaborCost, dateLocale)} />
+          <SummaryTile label={detailMessages.externalLabor} value={formatCurrency(actualExternalLaborCost, dateLocale)} />
+          <SummaryTile label={detailMessages.directCosts} value={formatCurrency(currentOtherCosts, dateLocale)} />
+          <SummaryTile label={text.plannedDifference} value={formatCurrency(plannedProfit, dateLocale)} tone={plannedProfit >= 0 ? 'success' : 'danger'} />
         </div>
       </div>
 
       <div style={panelStyle}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
           <div>
-            <h3 style={{ margin: 0, fontSize: '20px' }}>Cena zakázky</h3>
-            <p style={{ margin: '6px 0 0 0', color: '#64748b', fontSize: '14px' }}>Celková cena pro zákazníka.</p>
+            <h3 style={{ margin: 0, fontSize: '20px' }}>{detailMessages.jobPrice}</h3>
+            <p style={{ margin: '6px 0 0 0', color: '#64748b', fontSize: '14px' }}>{text.priceDescription}</p>
           </div>
           <button type="button" onClick={savePrice} disabled={savingPrice} style={{ ...secondaryButtonStyle, opacity: savingPrice ? 0.7 : 1 }}>
-            {savingPrice ? 'Ukládám...' : 'Uložit cenu'}
+            {savingPrice ? dictionary.jobs.saving : text.savePrice}
           </button>
         </div>
 
         <div style={{ maxWidth: '340px', marginTop: '14px' }}>
-          <div style={fieldLabelStyle}>Cena zakázky</div>
-          <input value={price} onChange={(event) => setPrice(event.target.value)} style={inputStyle} placeholder="Cena zakázky" />
+          <div style={fieldLabelStyle}>{detailMessages.jobPrice}</div>
+          <input value={price} onChange={(event) => setPrice(event.target.value)} style={inputStyle} placeholder={detailMessages.jobPrice} />
         </div>
       </div>
 
       <div style={panelStyle}>
-        <h3 style={{ margin: '0 0 8px 0', fontSize: '20px' }}>Přidat náklad</h3>
+        <h3 style={{ margin: '0 0 8px 0', fontSize: '20px' }}>{detailMessages.addCost}</h3>
         <p style={{ margin: '0 0 16px 0', color: '#64748b', fontSize: '14px' }}>
-          Přidej materiál, dopravu nebo jiný náklad. Práce interních pracovníků se bere z přiřazení pracovníků výše.
+          {text.addCostDescription}
         </p>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
-          <Field label="Typ">
+          <Field label={text.type}>
             <select
               value={newCost.cost_type}
               onChange={(event) => setNewCost((current) => ({ ...current, cost_type: event.target.value as CostType }))}
@@ -373,16 +485,16 @@ export default function JobEconomicsEditor({
             </select>
           </Field>
 
-          <Field label="Název">
+          <Field label={text.name}>
             <input
-              placeholder="Např. chemie, doprava, zapůjčení stroje"
+              placeholder={text.titlePlaceholder}
               value={newCost.title}
               onChange={(event) => setNewCost((current) => ({ ...current, title: event.target.value }))}
               style={inputStyle}
             />
           </Field>
 
-          <Field label="Množství">
+          <Field label={text.quantity}>
             <input
               inputMode="decimal"
               value={newCost.quantity}
@@ -391,7 +503,7 @@ export default function JobEconomicsEditor({
             />
           </Field>
 
-          <Field label="Jednotka">
+          <Field label={text.unit}>
             <input
               value={newCost.unit}
               onChange={(event) => setNewCost((current) => ({ ...current, unit: event.target.value }))}
@@ -399,7 +511,7 @@ export default function JobEconomicsEditor({
             />
           </Field>
 
-          <Field label="Cena / jednotka">
+          <Field label={text.unitPrice}>
             <input
               inputMode="decimal"
               placeholder="0"
@@ -411,9 +523,9 @@ export default function JobEconomicsEditor({
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(240px, 1fr) auto', gap: '12px', marginTop: '12px', alignItems: 'end' }}>
-          <Field label="Poznámka">
+          <Field label={detailMessages.note}>
             <input
-              placeholder="Volitelné"
+              placeholder={text.optional}
               value={newCost.note}
               onChange={(event) => setNewCost((current) => ({ ...current, note: event.target.value }))}
               style={inputStyle}
@@ -424,10 +536,10 @@ export default function JobEconomicsEditor({
             type="button"
             onClick={addCost}
             disabled={addingCost}
-            title={canAddCost ? 'Přidat náklad' : 'Vyplň název a cenu nákladu'}
+            title={canAddCost ? detailMessages.addCost : text.addCostDisabledTitle}
             style={{ ...buttonStyle, opacity: addingCost ? 0.7 : 1 }}
           >
-            {addingCost ? 'Přidávám...' : `Přidat ${formatCurrency(liveNewCostTotal)}`}
+            {addingCost ? text.addingCost : `${detailMessages.addCost} ${formatCurrency(liveNewCostTotal, dateLocale)}`}
           </button>
         </div>
 
@@ -450,11 +562,11 @@ export default function JobEconomicsEditor({
       </div>
 
       <div style={panelStyle}>
-        <h3 style={{ margin: '0 0 12px 0', fontSize: '20px' }}>Položky nákladů</h3>
+        <h3 style={{ margin: '0 0 12px 0', fontSize: '20px' }}>{text.costItemsTitle}</h3>
 
         {costItems.length === 0 ? (
           <div style={{ border: '1px dashed #cbd5e1', borderRadius: '16px', padding: '18px', color: '#64748b', background: '#f8fafc' }}>
-            Zatím nejsou přidané žádné další náklady.
+            {text.noCostItems}
           </div>
         ) : (
           <div style={{ display: 'grid', gap: '10px' }}>
@@ -474,21 +586,21 @@ export default function JobEconomicsEditor({
               >
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                    <strong style={{ fontSize: '16px', color: '#0f172a' }}>{item.title || 'Náklad'}</strong>
+                    <strong style={{ fontSize: '16px', color: '#0f172a' }}>{item.title || text.costFallback}</strong>
                     <span style={{ borderRadius: '999px', background: '#f1f5f9', color: '#475569', padding: '4px 8px', fontSize: '12px', fontWeight: 800 }}>
-                      {costTypeLabels[item.cost_type] ?? 'Ostatní'}
+                      {costTypeLabels[item.cost_type] ?? detailMessages.otherCost}
                     </span>
                   </div>
                   <div style={{ marginTop: '6px', color: '#64748b', fontSize: '14px' }}>
-                    {formatHours(toNumber(item.quantity))} {item.unit || 'ks'} × {formatCurrency(toNumber(item.unit_price))}
+                    {formatHours(toNumber(item.quantity), dateLocale)} {item.unit || 'ks'} × {formatCurrency(toNumber(item.unit_price), dateLocale)}
                     {item.note ? ` · ${item.note}` : ''}
                   </div>
                 </div>
 
                 <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontWeight: 900, fontSize: '18px', color: '#0f172a' }}>{formatCurrency(getCostTotal(item))}</div>
+                  <div style={{ fontWeight: 900, fontSize: '18px', color: '#0f172a' }}>{formatCurrency(getCostTotal(item), dateLocale)}</div>
                   <button type="button" onClick={() => deleteCost(item.id)} style={{ ...secondaryButtonStyle, marginTop: '8px', color: '#b91c1c' }}>
-                    Smazat
+                    {dictionary.common.delete}
                   </button>
                 </div>
               </div>
@@ -498,13 +610,13 @@ export default function JobEconomicsEditor({
       </div>
 
       <div style={panelStyle}>
-        <h3 style={{ margin: '0 0 12px 0', fontSize: '20px' }}>Práce z přiřazení</h3>
+        <h3 style={{ margin: '0 0 12px 0', fontSize: '20px' }}>{text.laborFromAssignments}</h3>
         <p style={{ margin: '0 0 14px 0', color: '#64748b', fontSize: '14px' }}>
-          Tyto náklady se neupravují tady. Mění se v sekci Pracovníci a práce.
+          {text.laborFromAssignmentsDescription}
         </p>
 
         {initialAssignments.length === 0 ? (
-          <div style={{ color: '#64748b' }}>K zakázce nejsou přiřazení žádní pracovníci.</div>
+          <div style={{ color: '#64748b' }}>{text.noAssignedWorkers}</div>
         ) : (
           <div style={{ display: 'grid', gap: '10px' }}>
             {initialAssignments.map((assignment) => {
@@ -526,11 +638,11 @@ export default function JobEconomicsEditor({
                   }}
                 >
                   <div>
-                    <div style={{ fontWeight: 800, color: '#0f172a' }}>{assignment.profiles?.full_name || 'Neznámý pracovník'}</div>
+                    <div style={{ fontWeight: 800, color: '#0f172a' }}>{assignment.profiles?.full_name || detailMessages.unknownWorker}</div>
                     {assignment.note ? <div style={{ color: '#64748b', fontSize: '13px', marginTop: '4px' }}>{assignment.note}</div> : null}
                   </div>
                   <div style={{ fontWeight: 900, color: '#0f172a' }}>
-                    {formatHours(hours)} h × {formatCurrency(rate)} = {formatCurrency(cost)}
+                    {formatHours(hours, dateLocale)} h × {formatCurrency(rate, dateLocale)} = {formatCurrency(cost, dateLocale)}
                   </div>
                 </div>
               )
@@ -538,7 +650,7 @@ export default function JobEconomicsEditor({
           </div>
         )}
 
-        <div style={{ marginTop: '14px', fontWeight: 900, color: '#0f172a' }}>Celkem: {formatCurrency(plannedAssignmentCost)}</div>
+        <div style={{ marginTop: '14px', fontWeight: 900, color: '#0f172a' }}>{text.total}: {formatCurrency(plannedAssignmentCost, dateLocale)}</div>
       </div>
     </div>
   )

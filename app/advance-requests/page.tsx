@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import DashboardShell from '@/components/DashboardShell'
 import { useI18n } from '@/components/I18nProvider'
 import { supabase } from '@/lib/supabase'
@@ -134,7 +134,7 @@ function labelFromMonthKey(monthKey: string, locale: string) {
   return formatted.charAt(0).toUpperCase() + formatted.slice(1)
 }
 
-function normalizeRequest(row: AdvanceRequestRow): AdvanceRequestView {
+function normalizeRequest(row: AdvanceRequestRow, unknownWorker: string): AdvanceRequestView {
   const profile = getProfileObject(row.profiles)
   const status = normalizeStatus(row.status)
   const inferredStatus =
@@ -150,7 +150,7 @@ function normalizeRequest(row: AdvanceRequestRow): AdvanceRequestView {
     id: row.id,
     companyId: row.company_id,
     profileId: row.profile_id,
-    employeeName: profile?.full_name || 'Neznámý pracovník',
+    employeeName: profile?.full_name || unknownWorker,
     employeeEmail: profile?.email || '',
     requestedAmount: parseNumber(row.requested_amount ?? row.amount),
     amount: parseNumber(row.amount ?? row.requested_amount),
@@ -224,7 +224,7 @@ export default function AdvanceRequestsPage() {
     'all' | 'pending' | 'approved' | 'rejected' | 'paid'
   >('all')
 
-  async function loadData() {
+  const loadData = useCallback(async () => {
     setLoading(true)
     setError(null)
 
@@ -253,13 +253,13 @@ export default function AdvanceRequestsPage() {
 
     if (error) {
       console.error('Advance requests load failed', error)
-      setError('Data se nepodařilo načíst.')
+      setError(dictionary.common.dataLoadFailed)
       setLoading(false)
       return
     }
 
-    const normalized = (((data ?? []) as unknown) as AdvanceRequestRow[]).map(
-      normalizeRequest
+    const normalized = (((data ?? []) as unknown) as AdvanceRequestRow[]).map((row) =>
+      normalizeRequest(row, t.unknownWorker)
     )
 
     setItems(normalized)
@@ -269,11 +269,11 @@ export default function AdvanceRequestsPage() {
       )
     )
     setLoading(false)
-  }
+  }, [dictionary.common.dataLoadFailed, t.unknownWorker])
 
   useEffect(() => {
     loadData()
-  }, [])
+  }, [loadData])
 
   const yearOptions = useMemo(() => {
     const years = new Set<number>()
@@ -366,7 +366,7 @@ export default function AdvanceRequestsPage() {
       }))
     } catch (err: unknown) {
       console.error('Advance request update failed', err)
-      setError('Data se nepodarilo ulozit.')
+      setError(dictionary.common.dataSaveFailed)
     } finally {
       setSavingId(null)
     }
@@ -407,7 +407,7 @@ export default function AdvanceRequestsPage() {
               fontWeight: 850,
             }}
           >
-            Finance týmu
+            {dictionary.navigation.financeGroup}
           </div>
           <h1
             style={{
@@ -558,7 +558,7 @@ export default function AdvanceRequestsPage() {
             >
               {error}
               <div style={{ marginTop: '5px', color: '#b91c1c', fontSize: '12px', fontWeight: 600 }}>
-                Technický detail je v konzoli.
+                {dictionary.common.technicalDetailConsole}
               </div>
             </div>
           )}
@@ -580,7 +580,7 @@ export default function AdvanceRequestsPage() {
               }}
             >
               <div style={{ fontSize: '30px' }}>Kč</div>
-              <strong style={{ color: '#0f172a', fontSize: '18px' }}>Žádné žádosti o zálohu.</strong>
+              <strong style={{ color: '#0f172a', fontSize: '18px' }}>{t.emptyTitle}</strong>
               <span>{t.empty}</span>
             </div>
           ) : (

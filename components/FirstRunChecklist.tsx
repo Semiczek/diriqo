@@ -2,28 +2,36 @@ import Link from 'next/link'
 
 import type { FirstRunChecklist as FirstRunChecklistData } from '@/lib/onboarding'
 
-type Props = {
-  checklist: FirstRunChecklistData
+type FirstRunChecklistLabels = {
+  eyebrow: string
+  title: string
+  progressPrefix: string
+  progressSuffix: string
+  items: Record<FirstRunChecklistData['items'][number]['key'], string>
 }
 
-export default function FirstRunChecklist({ checklist }: Props) {
+type Props = {
+  checklist: FirstRunChecklistData
+  labels: FirstRunChecklistLabels
+}
+
+export default function FirstRunChecklist({ checklist, labels }: Props) {
   if (checklist.completed >= checklist.total) return null
 
   return (
     <section style={panelStyle}>
       <div>
-        <div style={eyebrowStyle}>První nastavení</div>
-        <h2 style={titleStyle}>Rozjeď firmu v Diriqo</h2>
+        <div style={eyebrowStyle}>{labels.eyebrow}</div>
+        <h2 style={titleStyle}>{labels.title}</h2>
         <p style={textStyle}>
-          Hotovo {checklist.completed}/{checklist.total}. Stačí projít pár základních kroků a provoz může běžet bez
-          ručních zásahů do databáze.
+          {labels.progressPrefix} {checklist.completed}/{checklist.total}. {labels.progressSuffix}
         </p>
       </div>
       <div style={itemsStyle}>
         {checklist.items.map((item) => (
           <Link key={item.key} href={item.href} style={item.done ? doneItemStyle : itemStyle}>
             <span style={item.done ? doneMarkStyle : markStyle}>{item.done ? '✓' : '•'}</span>
-            <span>{item.label}</span>
+            <span>{labels.items[item.key] ?? item.label}</span>
           </Link>
         ))}
       </div>

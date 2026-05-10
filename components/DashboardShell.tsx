@@ -9,6 +9,8 @@ import AdminAuthGuard from './AdminAuthGuard'
 import DashboardSidebar from './DashboardSidebar'
 import LanguageSwitcher from './LanguageSwitcher'
 import { useI18n } from './I18nProvider'
+import type { CompanyModuleKey } from '@/lib/company-settings-shared'
+import { getCompanyRoleLabel } from '@/lib/hub-access'
 
 type DashboardShellProps = {
   children: ReactNode
@@ -27,6 +29,8 @@ type DashboardShellProps = {
     | 'help'
     | 'account'
     | 'companySettings'
+    | 'billing'
+    | 'setupGuide'
 }
 
 type CompanyMembership = {
@@ -47,6 +51,10 @@ type ActiveCompanyPayload = {
   companyMemberships: CompanyMembership[]
 }
 
+type CompanyModulesPayload = {
+  modules?: Partial<Record<CompanyModuleKey, boolean>>
+}
+
 export default function DashboardShell({
   children,
   activeItem = 'dashboard',
@@ -58,6 +66,7 @@ export default function DashboardShell({
   const [switchingCompanyId, setSwitchingCompanyId] = useState<string | null>(null)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [activeCompany, setActiveCompany] = useState<ActiveCompanyPayload | null>(null)
+  const [companyModules, setCompanyModules] = useState<Partial<Record<CompanyModuleKey, boolean>> | null>(null)
   const [activeCompanyLoading, setActiveCompanyLoading] = useState(true)
   const [companySwitchError, setCompanySwitchError] = useState<string | null>(null)
   const { dictionary } = useI18n()
@@ -68,14 +77,20 @@ export default function DashboardShell({
     async function loadActiveCompany() {
       setActiveCompanyLoading(true)
       try {
-        const response = await fetch('/api/active-company', { cache: 'no-store' })
+        const [response, modulesResponse] = await Promise.all([
+          fetch('/api/active-company', { cache: 'no-store' }),
+          fetch('/api/company-modules', { cache: 'no-store' }),
+        ])
 
         if (!response.ok) {
-          if (!cancelled) setCompanySwitchError('Aktivní firmu se nepodařilo načíst.')
+          if (!cancelled) setCompanySwitchError(dictionary.common.activeCompanyLoadFailed)
           return
         }
 
         const payload = (await response.json()) as ActiveCompanyPayload
+        const modulesPayload = modulesResponse.ok
+          ? ((await modulesResponse.json().catch(() => null)) as CompanyModulesPayload | null)
+          : null
 
         if (!cancelled) {
           setActiveCompany({
@@ -87,10 +102,12 @@ export default function DashboardShell({
             role: payload.role ?? null,
             companyMemberships: payload.companyMemberships ?? [],
           })
+          setCompanyModules(modulesPayload?.modules ?? null)
           setCompanySwitchError(null)
         }
+
       } catch {
-        if (!cancelled) setCompanySwitchError('Aktivní firmu se nepodařilo načíst.')
+        if (!cancelled) setCompanySwitchError(dictionary.common.activeCompanyLoadFailed)
       } finally {
         if (!cancelled) setActiveCompanyLoading(false)
       }
@@ -101,7 +118,7 @@ export default function DashboardShell({
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [dictionary.common.activeCompanyLoadFailed])
 
   async function handleLogout() {
     setUserMenuOpen(false)
@@ -116,7 +133,7 @@ export default function DashboardShell({
       return
     }
 
-    router.replace('/login')
+    router.replace('/sign-in')
   }
 
   async function handleCompanySwitch(companyId: string) {
@@ -141,7 +158,7 @@ export default function DashboardShell({
 
       if (!response.ok) {
         const payload = (await response.json().catch(() => null)) as { error?: string } | null
-        setCompanySwitchError(payload?.error || 'Firmu se nepodařilo přepnout.')
+        setCompanySwitchError(payload?.error || dictionary.common.companySwitchFailed)
         return
       }
 
@@ -157,8 +174,8 @@ export default function DashboardShell({
   const activeCompanyName = activeCompany?.companyName || dictionary.common.appName
   const companyMemberships = activeCompany?.companyMemberships ?? []
   const userDisplayName =
-    activeCompany?.profileName || activeCompany?.profileEmail || 'Uzivatel'
-  const userSubtitle = activeCompany?.profileEmail || activeCompany?.role || ''
+    activeCompany?.profileName || activeCompany?.profileEmail || dictionary.common.userFallback
+  const userSubtitle = activeCompany?.profileEmail || (activeCompany ? getCompanyRoleLabel(activeCompany.role) : '')
   const userInitials = getUserInitials(activeCompany?.profileName, activeCompany?.profileEmail)
 
   return (
@@ -181,13 +198,14 @@ export default function DashboardShell({
             <button
               type="button"
               className="dashboard-sidebar-backdrop"
-              aria-label="Zavřít menu"
+              aria-label={dictionary.common.closeMenu}
               onClick={() => setMobileMenuOpen(false)}
             />
           ) : null}
 
           <DashboardSidebar
             activeItem={activeItem}
+            enabledModules={companyModules}
             mobileOpen={mobileMenuOpen}
             onNavigate={() => setMobileMenuOpen(false)}
           />
@@ -231,7 +249,7 @@ export default function DashboardShell({
                   <button
                     type="button"
                     className="dashboard-mobile-menu-button"
-                    aria-label="Otevřít menu"
+                    aria-label={dictionary.common.openMenu}
                     aria-expanded={mobileMenuOpen}
                     onClick={() => setMobileMenuOpen(true)}
                   >
@@ -319,7 +337,7 @@ export default function DashboardShell({
                               textTransform: 'uppercase',
                             }}
                           >
-                            Aktivní firma
+                            {dictionary.common.activeCompany}
                           </div>
                           {companySwitchError ? (
                             <div
@@ -375,7 +393,7 @@ export default function DashboardShell({
                                         fontWeight: 850,
                                       }}
                                     >
-                                      {membership.companyName || 'Firma bez názvu'}
+                                      {membership.companyName || dictionary.common.unnamedCompany}
                                     </span>
                                     {membership.role ? (
                                       <span
@@ -387,7 +405,7 @@ export default function DashboardShell({
                                           fontWeight: 700,
                                         }}
                                       >
-                                        {membership.role}
+                                        {getCompanyRoleLabel(membership.role)}
                                       </span>
                                     ) : null}
                                   </span>
@@ -422,7 +440,7 @@ export default function DashboardShell({
                                 fontWeight: 700,
                               }}
                             >
-                              Žádná další firma není k dispozici.
+                              {dictionary.common.noOtherCompanyAvailable}
                             </div>
                           )}
                         </div>
@@ -506,10 +524,10 @@ export default function DashboardShell({
                         </div>
                         <div style={{ height: '1px', background: '#e2e8f0', margin: '4px 0 7px' }} />
                         <Link className="topbar-user-menu-item" href="/ucet" onClick={() => setUserMenuOpen(false)} style={topbarMenuItem}>
-                          Můj účet
+                          {dictionary.navigation.account}
                         </Link>
                         <Link className="topbar-user-menu-item" href="/napoveda" onClick={() => setUserMenuOpen(false)} style={topbarMenuItem}>
-                          Nápověda
+                          {dictionary.navigation.help}
                         </Link>
                         <button
                           className="topbar-user-menu-item"
@@ -537,8 +555,8 @@ export default function DashboardShell({
               <Link
                 href="/napoveda"
                 className="floating-help-button"
-                aria-label="Nápověda"
-                title="Nápověda"
+                aria-label={dictionary.navigation.help}
+                title={dictionary.navigation.help}
               >
                 ?
               </Link>

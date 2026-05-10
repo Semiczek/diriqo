@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import https from 'node:https'
 
+import { requireHubAccess } from '@/lib/server-guards'
+
 export const runtime = 'nodejs'
+
+const RATE_LIMIT_WINDOW_MS = 60 * 1000
+const RATE_LIMIT_MAX_REQUESTS = 30
+const rateLimitByUser = new Map<string, { count: number; resetAt: number }>()
 
 type AresAddress = {
   textovaAdresa?: string | null
@@ -72,6 +78,30 @@ function normalizeText(value: unknown) {
   return normalized || null
 }
 
+function checkRateLimit(key: string, now = Date.now()) {
+  const existing = rateLimitByUser.get(key)
+
+  if (!existing || existing.resetAt <= now) {
+    rateLimitByUser.set(key, {
+      count: 1,
+      resetAt: now + RATE_LIMIT_WINDOW_MS,
+    })
+    return true
+  }
+
+  existing.count += 1
+
+  if (rateLimitByUser.size > 500) {
+    for (const [entryKey, entry] of rateLimitByUser.entries()) {
+      if (entry.resetAt <= now) {
+        rateLimitByUser.delete(entryKey)
+      }
+    }
+  }
+
+  return existing.count <= RATE_LIMIT_MAX_REQUESTS
+}
+
 function mapAddress(address: AresAddress | null | undefined) {
   if (!address) {
     return {
@@ -107,6 +137,22 @@ function mapAddress(address: AresAddress | null | undefined) {
 }
 
 export async function GET(request: NextRequest) {
+  const access = await requireHubAccess()
+
+  if (!access.ok) {
+    return NextResponse.json({ error: access.error }, { status: access.status })
+  }
+
+  const activeCompany = access.value
+  const rateLimitKey = `${activeCompany.companyId}:${activeCompany.profileId}`
+
+  if (!checkRateLimit(rateLimitKey)) {
+    return NextResponse.json(
+      { error: 'Prilis mnoho dotazu do ARES. Zkuste to prosim za chvili.' },
+      { status: 429 }
+    )
+  }
+
   const ico = sanitizeIco(request.nextUrl.searchParams.get('ico'))
 
   if (ico.length !== 8) {

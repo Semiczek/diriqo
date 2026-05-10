@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import type { CSSProperties, FormEvent } from 'react'
+import Image from 'next/image'
 import { useI18n } from '@/components/I18nProvider'
+import { getIntlLocale } from '@/lib/i18n/config'
 import {
   cardTitleStyle,
   emptyStateStyle,
@@ -40,6 +42,7 @@ type JobPhotosSectionProps = {
 }
 
 const PAGE_SIZE = 20
+const PHOTO_FETCH_TIMEOUT_MS = 15000
 const PHOTO_TYPES: JobPhotoType[] = ['before', 'after', 'progress', 'issue', 'document']
 
 type UploadFileDraft = {
@@ -48,13 +51,13 @@ type UploadFileDraft = {
   note: string
 }
 
-function formatDateTime(value: string | null) {
+function formatDateTime(value: string | null, locale: string) {
   if (!value) return '-'
 
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return '-'
 
-  return new Intl.DateTimeFormat('cs-CZ', {
+  return new Intl.DateTimeFormat(locale, {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -64,7 +67,8 @@ function formatDateTime(value: string | null) {
 }
 
 export default function JobPhotosSection({ jobId, compact = false, canManage = false }: JobPhotosSectionProps) {
-  const { dictionary } = useI18n()
+  const { dictionary, locale } = useI18n()
+  const dateLocale = getIntlLocale(locale)
   const t = dictionary.jobs.detail.photos
   const fileInputId = useId()
   const fileInputRef = useRef<HTMLInputElement | null>(null)
@@ -91,17 +95,17 @@ export default function JobPhotosSection({ jobId, compact = false, canManage = f
   const afterCount = useMemo(() => items.filter((item) => item.photoType === 'after').length, [items])
   const hasMore = items.length < total
   const selectedFilesLabel = uploadFiles.length === 0
-    ? 'Soubor nevybran'
+    ? t.noFileSelected
     : uploadFiles.length === 1
       ? uploadFiles[0].file.name
-      : `${uploadFiles.length} souboru vybrano`
+      : t.filesSelected.replace('{count}', String(uploadFiles.length))
 
   const photoTypeLabel = (type: JobPhotoType) => {
     if (type === 'before') return t.before
     if (type === 'after') return t.after
-    if (type === 'progress') return 'Prubeh'
-    if (type === 'issue') return 'Problem'
-    return 'Dokument'
+    if (type === 'progress') return t.progress
+    if (type === 'issue') return t.issue
+    return t.document
   }
 
   const photoTypeTone = (type: JobPhotoType): CSSProperties => {
@@ -155,10 +159,16 @@ export default function JobPhotosSection({ jobId, compact = false, canManage = f
       setMetadataInfo(null)
     }
 
+    let timeoutId: ReturnType<typeof setTimeout> | null = null
+
     try {
+      const controller = new AbortController()
+      timeoutId = setTimeout(() => controller.abort(), PHOTO_FETCH_TIMEOUT_MS)
+
       const response = await fetch(`/api/job-photos?jobId=${encodeURIComponent(jobId)}&offset=${offset}&limit=${PAGE_SIZE}`, {
         method: 'GET',
         cache: 'no-store',
+        signal: controller.signal,
       })
 
       const data = (await response.json()) as JobPhotosResponse & { error?: string }
@@ -178,12 +188,15 @@ export default function JobPhotosSection({ jobId, compact = false, canManage = f
           setMetadataInfo(null)
         }
       }
-      if (!append) {
-        setInitialLoadFinished(true)
-      }
     } catch (err) {
       setError(err instanceof Error ? err.message : t.loadError)
     } finally {
+      if (timeoutId) {
+        clearTimeout(timeoutId)
+      }
+      if (!append) {
+        setInitialLoadFinished(true)
+      }
       setLoading(false)
       setLoadingMore(false)
     }
@@ -258,7 +271,7 @@ export default function JobPhotosSection({ jobId, compact = false, canManage = f
     event.preventDefault()
 
     if (uploadFiles.length === 0) {
-      setUploadError('Vyberte alespon jednu fotografii.')
+      setUploadError(t.selectAtLeastOne)
       return
     }
 
@@ -281,7 +294,7 @@ export default function JobPhotosSection({ jobId, compact = false, canManage = f
       const data = (await response.json().catch(() => null)) as { error?: string } | null
 
       if (!response.ok) {
-        throw new Error(data?.error || 'Fotky se nepodarilo nahrat.')
+        throw new Error(data?.error || t.uploadFailed)
       }
 
     setUploadFiles([])
@@ -290,7 +303,7 @@ export default function JobPhotosSection({ jobId, compact = false, canManage = f
     }
     await loadPhotos(0, false)
     } catch (err) {
-      setUploadError(err instanceof Error ? err.message : 'Fotky se nepodarilo nahrat.')
+      setUploadError(err instanceof Error ? err.message : t.uploadFailed)
     } finally {
       setUploading(false)
     }
@@ -309,7 +322,7 @@ export default function JobPhotosSection({ jobId, compact = false, canManage = f
       const data = (await response.json().catch(() => null)) as { error?: string } | null
 
       if (!response.ok) {
-        throw new Error(data?.error || 'Fotku se nepodarilo smazat.')
+        throw new Error(data?.error || t.deleteFailed)
       }
 
       setItems((prev) => prev.filter((item) => item.id !== photoId))
@@ -318,7 +331,7 @@ export default function JobPhotosSection({ jobId, compact = false, canManage = f
         setSelectedPhoto(null)
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Fotku se nepodarilo smazat.')
+      setError(err instanceof Error ? err.message : t.deleteFailed)
     } finally {
       setDeletingPhotoId(null)
     }
@@ -357,7 +370,7 @@ export default function JobPhotosSection({ jobId, compact = false, canManage = f
               <form onSubmit={(event) => void handleUploadPhotos(event)} style={{ border: '1px solid #e5e7eb', borderRadius: '14px', padding: '14px', display: 'grid', gap: '12px', backgroundColor: '#f9fafb' }}>
                 <div style={{ display: 'grid', gap: '10px', gridTemplateColumns: 'minmax(180px, 240px) minmax(240px, 1fr)', alignItems: 'end' }}>
                   <label style={{ display: 'grid', gap: '6px', fontWeight: 700, color: '#111827' }}>
-                    Typ fotky
+                    {t.photoType}
                     <select
                       value={uploadPhotoType}
                       onChange={(event) => setUploadPhotoType(event.target.value as JobPhotoType)}
@@ -371,7 +384,7 @@ export default function JobPhotosSection({ jobId, compact = false, canManage = f
                   </label>
 
                   <div style={{ display: 'grid', gap: '6px', fontWeight: 700, color: '#111827' }}>
-                    Fotky
+                    {t.photosLabel}
                     <input
                       ref={fileInputRef}
                       id={fileInputId}
@@ -387,7 +400,7 @@ export default function JobPhotosSection({ jobId, compact = false, canManage = f
                         htmlFor={fileInputId}
                         style={{ ...secondaryButtonStyle, cursor: uploading ? 'default' : 'pointer', opacity: uploading ? 0.65 : 1, whiteSpace: 'nowrap' }}
                       >
-                        Zvolit soubory
+                        {t.chooseFiles}
                       </label>
                       <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: uploadFiles.length > 0 ? '#111827' : '#6b7280', fontWeight: 700 }}>
                         {selectedFilesLabel}
@@ -400,13 +413,13 @@ export default function JobPhotosSection({ jobId, compact = false, canManage = f
                   <div style={{ display: 'grid', gap: '10px' }}>
                     {uploadFiles.map((item) => (
                       <label key={item.key} style={{ display: 'grid', gap: '6px', color: '#374151', fontWeight: 700 }}>
-                        Poznamka k fotce: {item.file.name}
+                        {t.photoNote.replace('{fileName}', item.file.name)}
                         <textarea
                           value={item.note}
                           onChange={(event) => updateUploadNote(item.key, event.target.value)}
                           disabled={uploading}
                           rows={2}
-                          placeholder="Volitelna poznamka"
+                          placeholder={t.optionalNotePlaceholder}
                           style={{ border: '1px solid #d1d5db', borderRadius: '10px', padding: '10px 12px', font: 'inherit', resize: 'vertical', backgroundColor: '#fff' }}
                         />
                       </label>
@@ -422,7 +435,7 @@ export default function JobPhotosSection({ jobId, compact = false, canManage = f
                     disabled={uploading || uploadFiles.length === 0}
                     style={{ ...primaryButtonStyle, cursor: uploading || uploadFiles.length === 0 ? 'default' : 'pointer', opacity: uploading || uploadFiles.length === 0 ? 0.65 : 1 }}
                   >
-                    {uploading ? 'Nahravam...' : 'Nahrat fotky'}
+                    {uploading ? t.uploadingPhotos : t.uploadPhotos}
                   </button>
                 </div>
               </form>
@@ -456,7 +469,7 @@ export default function JobPhotosSection({ jobId, compact = false, canManage = f
                         </div>
                         <div style={{ fontWeight: 700, color: '#111827', fontSize: '14px' }}>{photo.fileName}</div>
                         {photo.note && <div style={{ color: '#4b5563', fontSize: '13px' }}>{photo.note}</div>}
-                        <div style={{ color: '#6b7280', fontSize: '13px' }}>{formatDateTime(photo.takenAt)}</div>
+                        <div style={{ color: '#6b7280', fontSize: '13px' }}>{formatDateTime(photo.takenAt, dateLocale)}</div>
                       </div>
                     </button>
 
@@ -468,7 +481,7 @@ export default function JobPhotosSection({ jobId, compact = false, canManage = f
                           disabled={deletingPhotoId === photo.id}
                           style={{ ...secondaryButtonStyle, width: '100%', justifyContent: 'center', cursor: deletingPhotoId === photo.id ? 'default' : 'pointer', opacity: deletingPhotoId === photo.id ? 0.65 : 1 }}
                         >
-                          {deletingPhotoId === photo.id ? 'Mazu...' : 'Smazat'}
+                          {deletingPhotoId === photo.id ? t.deletingPhoto : t.deletePhoto}
                         </button>
                       </div>
                     )}
@@ -499,7 +512,7 @@ export default function JobPhotosSection({ jobId, compact = false, canManage = f
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', alignItems: 'center', padding: '14px 16px', borderBottom: '1px solid #e5e7eb' }}>
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontWeight: 800, color: '#111827' }}>{selectedPhoto.fileName}</div>
-                <div style={{ color: '#6b7280', fontSize: '14px' }}>{photoTypeLabel(selectedPhoto.photoType)} | {formatDateTime(selectedPhoto.takenAt)}</div>
+                <div style={{ color: '#6b7280', fontSize: '14px' }}>{photoTypeLabel(selectedPhoto.photoType)} | {formatDateTime(selectedPhoto.takenAt, dateLocale)}</div>
                 {selectedPhoto.note && <div style={{ color: '#374151', fontSize: '14px', marginTop: '4px' }}>{selectedPhoto.note}</div>}
               </div>
 
@@ -522,7 +535,14 @@ export default function JobPhotosSection({ jobId, compact = false, canManage = f
               ) : selectedPhotoError ? (
                 <div style={{ color: '#fecaca' }}>{selectedPhotoError}</div>
               ) : selectedPhotoUrl ? (
-                <img src={selectedPhotoUrl} alt={selectedPhotoFileName ?? selectedPhoto.fileName} style={{ maxWidth: '100%', maxHeight: '70vh', objectFit: 'contain', display: 'block' }} />
+                <Image
+                  src={selectedPhotoUrl}
+                  alt={selectedPhotoFileName ?? selectedPhoto.fileName}
+                  width={1200}
+                  height={900}
+                  unoptimized
+                  style={{ maxWidth: '100%', width: 'auto', height: 'auto', maxHeight: '70vh', objectFit: 'contain', display: 'block' }}
+                />
               ) : (
                 <div style={{ color: '#fff' }}>{t.photoUnavailable}</div>
               )}

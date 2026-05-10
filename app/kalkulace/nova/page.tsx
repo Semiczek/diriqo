@@ -42,8 +42,8 @@ export default async function NewCalculationStartPage() {
         <section style={heroCardStyle}>
           <div style={heroContentStyle}>
             <div style={eyebrowStyle}>Nová kalkulace</div>
-            <h1 style={heroTitleStyle}>Vyber zákazníka</h1>
-            <p style={heroTextStyle}>Vyber existujícího zákazníka, založ nového, nebo vytvoř interní kalkulaci bez vazby.</p>
+            <h1 style={heroTitleStyle}>Nová kalkulace</h1>
+            <p style={heroTextStyle}>Nejdřív vyber zákazníka, pro kterého kalkulaci připravuješ.</p>
           </div>
           <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
             <PrimaryAction href="/customers/new?next=calculation">Nový zákazník</PrimaryAction>

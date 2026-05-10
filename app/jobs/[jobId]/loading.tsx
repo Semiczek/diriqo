@@ -12,7 +12,7 @@ export default function JobDetailLoading() {
             padding: '24px',
           }}
         >
-          Načítání detailu zakázky…
+          Loading job detail...
         </div>
       </div>
     </DashboardShell>

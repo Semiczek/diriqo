@@ -1,8 +1,10 @@
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 import type { CSSProperties } from 'react'
 
 import { createInvoiceFromJobs } from '@/app/invoices/actions'
 import DashboardShell from '@/components/DashboardShell'
+import InvoiceOverviewFilterForm from './InvoiceOverviewFilterForm'
 import {
   alertSurface as alertStyle,
   panelSurface as panelStyle,
@@ -207,8 +209,20 @@ const backLinkStyle: CSSProperties = {
 
 export default async function NewInvoicePage({ searchParams }: PageProps) {
   const activeCompany = await requireHubAccess()
-  const { customerId = '', month } = await searchParams
+  const params = await searchParams
+  const customerId = params.customerId?.trim() ?? ''
+  const { month } = params
   const selectedMonth = normalizeMonthValue(month)
+  if (params.customerId != null && !customerId) {
+    const cleanParams = new URLSearchParams()
+
+    if (month) {
+      cleanParams.set('month', selectedMonth)
+    }
+
+    const query = cleanParams.toString()
+    redirect(query ? `/invoices/new?${query}` : '/invoices/new')
+  }
   const previousMonth = getPreviousMonthValue(selectedMonth)
   const supabase = await createSupabaseServerClient()
 
@@ -400,9 +414,8 @@ export default async function NewInvoicePage({ searchParams }: PageProps) {
           </section>
         ) : null}
 
-        <form
+        <InvoiceOverviewFilterForm
           className="invoice-create-filter"
-          method="get"
           style={{
             ...panelStyle,
             padding: '18px',
@@ -487,10 +500,10 @@ export default async function NewInvoicePage({ searchParams }: PageProps) {
                 cursor: 'pointer',
               }}
             >
-              Zobrazit zakázky
+              Zobrazit přehled
             </button>
           </div>
-        </form>
+        </InvoiceOverviewFilterForm>
 
         {customersResponse.error ? (
           <div style={{ ...alertStyle, border: '1px solid #fecaca', backgroundColor: '#fef2f2', color: '#991b1b' }}>

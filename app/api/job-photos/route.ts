@@ -9,13 +9,16 @@ import {
   JOB_PHOTO_BUCKET,
   MAX_JOB_PHOTO_UPLOAD_BYTES,
   normalizeJobPhotoCategory,
+  resolveJobPhotoAccessScope,
   verifyJobPhotoAccess,
 } from '@/lib/job-photo-storage'
+import { createSupabaseAdminClient } from '@/lib/supabase-admin'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 
 const DEFAULT_LIMIT = 20
 const MAX_LIMIT = 50
 const RETRY_DELAYS_MS = [200, 700, 1500]
+const STORAGE_READ_TIMEOUT_MS = 8000
 
 type LogContext = {
   operation: string
@@ -50,6 +53,22 @@ function getErrorCode(error: unknown) {
 
 async function wait(ms: number) {
   await new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+async function withTimeout<T>(promise: PromiseLike<T>, timeoutMs: number) {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null
+
+  const timeoutPromise = new Promise<null>((resolve) => {
+    timeoutId = setTimeout(() => resolve(null), timeoutMs)
+  })
+
+  try {
+    return await Promise.race([promise, timeoutPromise])
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId)
+    }
+  }
 }
 
 async function withRetry<T>(
@@ -151,12 +170,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const supabase = await createSupabaseServerClient()
-
-  let hasJobAccess = false
+  let photoScope: Awaited<ReturnType<typeof resolveJobPhotoAccessScope>>
 
   try {
-    hasJobAccess = await verifyJobPhotoAccess(jobId, activeCompany)
+    photoScope = await resolveJobPhotoAccessScope(jobId, activeCompany)
   } catch (error) {
     logJobPhotoWarning({
       operation: 'job_access_verify',
@@ -170,9 +187,11 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  if (!hasJobAccess) {
+  if (!photoScope.hasAccess || photoScope.jobIds.length === 0) {
     return NextResponse.json({ error: 'Zakazka nebyla nalezena.' }, { status: 404 })
   }
+
+  const supabase = createSupabaseAdminClient()
 
   const { data, error, count } = await supabase
     .from('job_photos')
@@ -188,7 +207,7 @@ export async function GET(request: NextRequest) {
       `,
       { count: 'exact' }
     )
-    .eq('job_id', jobId)
+    .in('job_id', photoScope.jobIds)
     .eq('company_id', activeCompany.companyId)
     .order('taken_at', { ascending: false })
     .range(offset, offset + limit - 1)
@@ -209,37 +228,60 @@ export async function GET(request: NextRequest) {
   const signedPreviewMap = new Map<string, string | null>()
 
   if (previewPaths.length > 0) {
-    const { data: signedPreviews, error: signedPreviewError } = await supabase.storage
-      .from(JOB_PHOTO_BUCKET)
-      .createSignedUrls(previewPaths, 60 * 30)
+    const signedPreviewResponse = await withTimeout(
+      supabase.storage.from(JOB_PHOTO_BUCKET).createSignedUrls(previewPaths, 60 * 30),
+      STORAGE_READ_TIMEOUT_MS
+    )
 
-    if (signedPreviewError) {
+    if (!signedPreviewResponse) {
+      logJobPhotoWarning({
+        operation: 'preview_signed_urls',
+        status: 'timeout',
+      })
+    } else if (signedPreviewResponse.error) {
       return NextResponse.json(
-        { error: `Nepodarilo se vytvorit nahledy fotek: ${signedPreviewError.message}` },
+        { error: `Nepodarilo se vytvorit nahledy fotek: ${signedPreviewResponse.error.message}` },
         { status: 500 }
       )
-    }
+    } else {
+      const signedPreviews = signedPreviewResponse.data
 
-    for (let index = 0; index < previewPaths.length; index += 1) {
-      signedPreviewMap.set(previewPaths[index], signedPreviews?.[index]?.signedUrl ?? null)
+      for (let index = 0; index < previewPaths.length; index += 1) {
+        signedPreviewMap.set(previewPaths[index], signedPreviews?.[index]?.signedUrl ?? null)
+      }
     }
   }
 
   let storageObjectDetectedWithoutMetadata = false
   if (rows.length === 0) {
-    const { data: storageObjects, error: storageListError } = await supabase.storage
-      .from(JOB_PHOTO_BUCKET)
-      .list(jobId, { limit: 1 })
+    for (const scopedJobId of photoScope.jobIds.slice(0, 10)) {
+      const storageListResponse = await withTimeout(
+        supabase.storage.from(JOB_PHOTO_BUCKET).list(scopedJobId, { limit: 1 }),
+        STORAGE_READ_TIMEOUT_MS
+      )
 
-    if (storageListError) {
-      logJobPhotoWarning({
-        operation: 'metadata_orphan_check',
-        status: 'failed',
-        errorName: getErrorName(storageListError),
-        errorCode: getErrorCode(storageListError),
-      })
-    } else {
-      storageObjectDetectedWithoutMetadata = (storageObjects ?? []).some((item) => Boolean(item.name))
+      if (!storageListResponse) {
+        logJobPhotoWarning({
+          operation: 'metadata_orphan_check',
+          status: 'timeout',
+        })
+        break
+      }
+
+      if (storageListResponse.error) {
+        logJobPhotoWarning({
+          operation: 'metadata_orphan_check',
+          status: 'failed',
+          errorName: getErrorName(storageListResponse.error),
+          errorCode: getErrorCode(storageListResponse.error),
+        })
+        continue
+      }
+
+      storageObjectDetectedWithoutMetadata = (storageListResponse.data ?? []).some((item) => Boolean(item.name))
+      if (storageObjectDetectedWithoutMetadata) {
+        break
+      }
     }
   }
 

@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useI18n } from '@/components/I18nProvider'
-import { supabase } from '@/lib/supabase'
+import { deleteJobSafelyAction, detachCustomerFromJobAction } from '@/app/jobs/actions'
 import {
   cardTitleStyle,
   mutedTextStyle,
@@ -67,12 +67,10 @@ export default function JobDangerZone({
       setMessage(null)
       setErrorMessage(null)
 
-      const { error } = await supabase.rpc('detach_customer_from_job', {
-        p_job_id: jobId,
-      })
+      const response = await detachCustomerFromJobAction(jobId)
 
-      if (error) {
-        throw error
+      if (!response.ok) {
+        throw new Error(response.error)
       }
 
       setMessage(t.detachSuccess)
@@ -85,7 +83,7 @@ export default function JobDangerZone({
   }
 
   async function handleDeleteJob() {
-    const confirmed = window.confirm('Chceš opravdu smazat zakázku?')
+    const confirmed = window.confirm(t.deleteConfirm)
     if (!confirmed) return
 
     try {
@@ -93,12 +91,10 @@ export default function JobDangerZone({
       setMessage(null)
       setErrorMessage(null)
 
-      const { error } = await supabase.rpc('delete_job_safe', {
-        p_job_id: jobId,
-      })
+      const response = await deleteJobSafelyAction(jobId)
 
-      if (error) {
-        throw error
+      if (!response.ok) {
+        throw new Error(response.error)
       }
 
       const query = searchParams.toString()
@@ -114,8 +110,8 @@ export default function JobDangerZone({
     <div style={{ ...sectionCardStyle, marginTop: '20px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', alignItems: 'center', flexWrap: 'wrap', marginBottom: menuOpen ? '14px' : 0 }}>
         <div>
-          <h2 style={{ ...cardTitleStyle, fontSize: '20px', marginBottom: '6px' }}>Další akce</h2>
-          <div style={mutedTextStyle}>Méně časté akce k této zakázce.</div>
+          <h2 style={{ ...cardTitleStyle, fontSize: '20px', marginBottom: '6px' }}>{t.title}</h2>
+          <div style={mutedTextStyle}>{t.description}</div>
         </div>
 
         <button
@@ -124,7 +120,7 @@ export default function JobDangerZone({
           aria-expanded={menuOpen}
           style={{ ...secondaryButtonStyle, cursor: 'pointer' }}
         >
-          {menuOpen ? 'Skrýt akce' : 'Zobrazit akce'}
+          {menuOpen ? t.hideActions : t.showActions}
         </button>
       </div>
 
@@ -132,9 +128,9 @@ export default function JobDangerZone({
         <div style={{ display: 'grid', gap: '10px' }}>
           <div style={actionRowStyle}>
             <div>
-              <div style={actionTitleStyle}>Odebrat zákazníka</div>
+              <div style={actionTitleStyle}>{t.detachCustomer}</div>
               <div style={mutedTextStyle}>
-                {hasCustomer ? 'Zakázka zůstane zachovaná, jen bez vazby na zákazníka.' : t.noCustomerAssigned}
+                {hasCustomer ? t.detachCustomerDescription : t.noCustomerAssigned}
               </div>
             </div>
             <button
@@ -154,8 +150,8 @@ export default function JobDangerZone({
 
           <div style={actionRowStyle}>
             <div>
-              <div style={{ ...actionTitleStyle, color: '#991b1b' }}>Smazat zakázku</div>
-              <div style={mutedTextStyle}>Mazání je chráněné potvrzením.</div>
+              <div style={{ ...actionTitleStyle, color: '#991b1b' }}>{t.deleteJob}</div>
+              <div style={mutedTextStyle}>{t.deleteJobDescription}</div>
             </div>
             <button
               type="button"

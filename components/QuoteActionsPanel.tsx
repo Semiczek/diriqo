@@ -3,8 +3,13 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { FormEvent, useEffect, useMemo, useState } from 'react'
-import { createJobFromQuoteAction } from '@/app/business-actions'
-import { supabase } from '@/lib/supabase'
+import {
+  createJobFromQuoteAction,
+  deleteQuoteAction,
+  markQuoteSentAction,
+  rejectQuoteAction,
+  syncQuotePricingFromCalculationAction,
+} from '@/app/business-actions'
 
 function toLocalDateTimeInput(date: Date) {
   const pad = (value: number) => String(value).padStart(2, '0')
@@ -91,10 +96,10 @@ function buttonStyle(backgroundColor: string, color: string, border: string, dis
     border,
     backgroundColor,
     color,
-    borderRadius: '12px',
-    padding: '10px 14px',
-    fontSize: '14px',
-    fontWeight: 700,
+    borderRadius: '10px',
+    padding: '8px 10px',
+    fontSize: '13px',
+    fontWeight: 750,
     cursor: disabled ? 'not-allowed' : 'pointer',
     opacity: disabled ? 0.6 : 1,
     whiteSpace: 'nowrap' as const,
@@ -110,9 +115,6 @@ type QuoteActionsPanelProps = {
   contactEmail?: string | null
   quoteTitle?: string | null
   sourceCalculationId?: string | null
-  discountAmount?: number | null
-  currentStatus?: string | null
-  totalPrice?: number | null
   workDescription?: string | null
   proposedSolution?: string | null
 }
@@ -140,8 +142,6 @@ export default function QuoteActionsPanel({
   contactEmail,
   quoteTitle,
   sourceCalculationId,
-  discountAmount,
-  currentStatus,
   workDescription,
   proposedSolution,
 }: QuoteActionsPanelProps) {
@@ -248,34 +248,8 @@ export default function QuoteActionsPanel({
     setDeleting(true)
 
     try {
-      const {
-        data: { session },
-        error: sessionError,
-      } = await supabase.auth.getSession()
-
-      if (sessionError) {
-        throw new Error(sessionError.message)
-      }
-
-      if (!session) {
-        throw new Error('Nejste přihlášen. Obnovte prosím stránku a zkuste to znovu.')
-      }
-
-      const { data: deletedRows, error } = await supabase
-        .from('quotes')
-        .delete()
-        .eq('id', quoteId)
-        .select('id')
-
-      if (error) {
-        throw new Error(error.message)
-      }
-
-      if (!deletedRows || deletedRows.length === 0) {
-        throw new Error(
-          'Cenová nabídka se v databázi nesmazala. Nejdřív prosím ověřte, že je v Supabase spuštěný SQL skript pro mazání nabídek a jejich položek.',
-        )
-      }
+      const result = await deleteQuoteAction({ quoteId, customerId })
+      if (!result.ok) throw new Error(result.error)
 
       router.replace(`/customers/${customerId}/quotes`)
       router.refresh()
@@ -292,80 +266,13 @@ export default function QuoteActionsPanel({
     setSyncingPricing(true)
 
     try {
-      const [{ data: calculation, error: calculationError }, { data: calculationItems, error: calculationItemsError }] =
-        await Promise.all([
-          supabase
-            .from('calculations')
-            .select('subtotal_price, total_price')
-            .eq('id', sourceCalculationId)
-            .maybeSingle(),
-          supabase
-            .from('calculation_items')
-            .select('sort_order, name, description, quantity, unit, unit_price, vat_rate, total_price, note')
-            .eq('calculation_id', sourceCalculationId)
-            .eq('item_type', 'customer')
-            .order('sort_order', { ascending: true })
-            .order('created_at', { ascending: true }),
-        ])
+      const result = await syncQuotePricingFromCalculationAction({
+        quoteId,
+        customerId,
+        sourceCalculationId,
+      })
 
-      if (calculationError || !calculation) {
-        throw new Error(calculationError?.message ?? 'Nepodarilo se nacist zdrojovou kalkulaci.')
-      }
-
-      if (calculationItemsError) {
-        throw new Error(calculationItemsError.message)
-      }
-
-      const customerItems = (calculationItems ?? []).filter((item) => item.name?.trim())
-      if (customerItems.length === 0) {
-        throw new Error('Zdrojova kalkulace nema zadne zakaznicke polozky pro aktualizaci nabidky.')
-      }
-
-      const { error: deleteItemsError } = await supabase
-        .from('quote_items')
-        .delete()
-        .eq('quote_id', quoteId)
-
-      if (deleteItemsError) {
-        throw new Error(deleteItemsError.message)
-      }
-
-      const quoteItemsPayload = customerItems.map((item) => ({
-        company_id: companyId,
-        quote_id: quoteId,
-        sort_order: item.sort_order ?? 0,
-        name: item.name,
-        description: item.description ?? null,
-        quantity: Number(item.quantity ?? 0),
-        unit: item.unit ?? null,
-        unit_price: Number(item.unit_price ?? 0),
-        vat_rate: Number(item.vat_rate ?? 0),
-        total_price: Number(item.total_price ?? 0),
-        note: item.note ?? null,
-      }))
-
-      const { error: insertItemsError } = await supabase
-        .from('quote_items')
-        .insert(quoteItemsPayload)
-
-      if (insertItemsError) {
-        throw new Error(insertItemsError.message)
-      }
-
-      const subtotalPrice = Number(calculation.subtotal_price ?? calculation.total_price ?? 0)
-      const totalPrice = Math.max(0, subtotalPrice - Number(discountAmount ?? 0))
-
-      const { error: updateQuoteError } = await supabase
-        .from('quotes')
-        .update({
-          subtotal_price: subtotalPrice,
-          total_price: totalPrice,
-        })
-        .eq('id', quoteId)
-
-      if (updateQuoteError) {
-        throw new Error(updateQuoteError.message)
-      }
+      if (!result.ok) throw new Error(result.error)
 
       alert('Cenova kalkulace v nabidce byla aktualizovana podle posledni verze kalkulace.')
       router.refresh()
@@ -423,20 +330,8 @@ export default function QuoteActionsPanel({
         throw new Error(payload?.error ?? 'Nepodařilo se odeslat aktualizovanou nabídku.')
       }
 
-      const nextStatus =
-        currentStatus === 'accepted' || currentStatus === 'rejected' ? currentStatus : 'sent'
-
-      const { error: updateError } = await supabase
-        .from('quotes')
-        .update({
-          sent_at: new Date().toISOString(),
-          status: nextStatus,
-        })
-        .eq('id', quoteId)
-
-      if (updateError) {
-        throw new Error(updateError.message)
-      }
+      const updateResult = await markQuoteSentAction({ quoteId, customerId })
+      if (!updateResult.ok) throw new Error(updateResult.error)
 
       window.dispatchEvent(
         new CustomEvent('diriqo:email-feed-refresh', {
@@ -469,17 +364,8 @@ export default function QuoteActionsPanel({
     setRejecting(true)
 
     try {
-      const { error } = await supabase
-        .from('quotes')
-        .update({
-          status: 'rejected',
-          rejected_at: new Date().toISOString(),
-        })
-        .eq('id', quoteId)
-
-      if (error) {
-        throw new Error(error.message)
-      }
+      const result = await rejectQuoteAction({ quoteId, customerId })
+      if (!result.ok) throw new Error(result.error)
 
       alert('Nabídka byla označená jako "Nemá zájem".')
       router.refresh()
@@ -624,7 +510,7 @@ Diriqo`
 
   return (
     <>
-      <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-start' }}>
       <Link
         href={`/customers/${customerId}/quotes/${quoteId}/edit`}
         style={{
@@ -633,9 +519,9 @@ Diriqo`
           color: '#ffffff',
           textDecoration: 'none',
           fontWeight: '700',
-          fontSize: '14px',
-          padding: '10px 14px',
-          borderRadius: '12px',
+          fontSize: '13px',
+          padding: '8px 10px',
+          borderRadius: '10px',
           whiteSpace: 'nowrap',
         }}
       >
@@ -653,9 +539,9 @@ Diriqo`
             color: '#1d4ed8',
             textDecoration: 'none',
             fontWeight: '700',
-            fontSize: '14px',
-            padding: '10px 14px',
-            borderRadius: '12px',
+            fontSize: '13px',
+            padding: '8px 10px',
+            borderRadius: '10px',
             border: '1px solid #bfdbfe',
             whiteSpace: 'nowrap',
           }}
@@ -680,9 +566,9 @@ Diriqo`
           color: '#111827',
           textDecoration: 'none',
           fontWeight: '700',
-          fontSize: '14px',
-          padding: '10px 14px',
-          borderRadius: '12px',
+          fontSize: '13px',
+          padding: '8px 10px',
+          borderRadius: '10px',
           border: '1px solid #d1d5db',
           whiteSpace: 'nowrap',
         }}

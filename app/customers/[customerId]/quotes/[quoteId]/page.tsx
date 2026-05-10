@@ -1,15 +1,10 @@
 import Link from 'next/link'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import type { CSSProperties } from 'react'
 import DashboardShell from '@/components/DashboardShell'
 import EntityCommunicationTimeline from '@/components/EntityCommunicationTimeline'
 import QuoteActionsPanel from '@/components/QuoteActionsPanel'
 import {
-  SecondaryAction,
-  StatusPill,
-  eyebrowStyle,
-  heroCardStyle,
-  heroContentStyle,
-  heroTextStyle,
-  heroTitleStyle,
   pageShellStyle,
 } from '@/components/SaasPageLayout'
 import { getActiveCompanyContext } from '@/lib/active-company'
@@ -17,6 +12,7 @@ import { listEntityThreadMessages } from '@/lib/email/listEntityThreadMessages'
 import { getRequestDictionary } from '@/lib/i18n/server'
 import { getPublicAppBaseUrl } from '@/lib/public-app-url'
 import { getQuoteStatusLabel, getQuoteStatusStyle, resolveQuoteStatus } from '@/lib/quote-status'
+import { createSupabaseAdminClient } from '@/lib/supabase-admin'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 
 type PageProps = {
@@ -181,6 +177,111 @@ function buildShareTokenExpiresAt(validUntil: string | null | undefined) {
   return expiresAt.toISOString()
 }
 
+function getQuoteShareTokenErrorLog(error: unknown) {
+  if (error instanceof Error) {
+    return {
+      message: error.message,
+      details: null,
+      hint: null,
+      code: null,
+    }
+  }
+
+  if (error && typeof error === 'object') {
+    const errorRecord = error as {
+      message?: unknown
+      details?: unknown
+      hint?: unknown
+      code?: unknown
+    }
+
+    return {
+      message:
+        typeof errorRecord.message === 'string'
+          ? errorRecord.message
+          : 'Unknown Supabase quote share token backfill error',
+      details: typeof errorRecord.details === 'string' ? errorRecord.details : null,
+      hint: typeof errorRecord.hint === 'string' ? errorRecord.hint : null,
+      code: typeof errorRecord.code === 'string' ? errorRecord.code : null,
+    }
+  }
+
+  return {
+    message: 'Unknown Supabase quote share token backfill error',
+    details: null,
+    hint: null,
+    code: null,
+  }
+}
+
+function isMissingQuoteShareMetadataError(error: unknown) {
+  const errorLog = getQuoteShareTokenErrorLog(error)
+  const searchableText = [
+    errorLog.message,
+    errorLog.details,
+    errorLog.hint,
+    errorLog.code,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase()
+
+  return (
+    searchableText.includes('share_token_scope') ||
+    searchableText.includes('share_token_expires_at') ||
+    searchableText.includes('share_token_revoked_at') ||
+    searchableText.includes('schema cache') ||
+    searchableText.includes('column')
+  )
+}
+
+async function backfillQuoteShareToken(input: {
+  client: SupabaseClient
+  quoteId: string
+  companyId: string
+  generatedShareToken: string
+  validUntil: string | null
+}) {
+  const fullPayload = {
+    share_token: input.generatedShareToken,
+    share_token_scope: 'quote_public_offer',
+    share_token_expires_at: buildShareTokenExpiresAt(input.validUntil),
+    share_token_revoked_at: null,
+  }
+
+  const fullUpdate = await input.client
+    .from('quotes')
+    .update(fullPayload)
+    .eq('id', input.quoteId)
+    .eq('company_id', input.companyId)
+
+  if (!fullUpdate.error) {
+    return { ok: true as const, mode: 'metadata' as const }
+  }
+
+  const tokenOnlyUpdate = await input.client
+    .from('quotes')
+    .update({ share_token: input.generatedShareToken })
+    .eq('id', input.quoteId)
+    .eq('company_id', input.companyId)
+
+  if (!tokenOnlyUpdate.error) {
+    return {
+      ok: true as const,
+      mode: isMissingQuoteShareMetadataError(fullUpdate.error)
+        ? ('token-only-missing-metadata' as const)
+        : ('token-only' as const),
+      metadataError: fullUpdate.error,
+    }
+  }
+
+  return {
+    ok: false as const,
+    metadataError: fullUpdate.error,
+    tokenError: tokenOnlyUpdate.error,
+  }
+}
+
 function getSectionLabel(
   sectionKey: string | null,
   quote: QuoteRow,
@@ -269,6 +370,143 @@ function getOfferResponseStyle(actionType: string) {
     color: '#1d4ed8',
     border: '1px solid #bfdbfe',
   }
+}
+
+const detailShellStyle: CSSProperties = {
+  ...pageShellStyle,
+  gap: '12px',
+  maxWidth: '1180px',
+}
+
+const backLinkStyle: CSSProperties = {
+  justifySelf: 'start',
+  display: 'inline-flex',
+  alignItems: 'center',
+  minHeight: '36px',
+  padding: '8px 12px',
+  borderRadius: '999px',
+  border: '1px solid rgba(148, 163, 184, 0.35)',
+  backgroundColor: '#ffffff',
+  color: '#0f172a',
+  textDecoration: 'none',
+  fontSize: '14px',
+  fontWeight: 820,
+  boxShadow: '0 8px 18px rgba(15, 23, 42, 0.04)',
+}
+
+const quoteHeaderStyle: CSSProperties = {
+  display: 'flex',
+  flexWrap: 'wrap',
+  justifyContent: 'space-between',
+  gap: '16px',
+  alignItems: 'stretch',
+  padding: '18px 20px',
+  borderRadius: '20px',
+  border: '1px solid rgba(148, 163, 184, 0.24)',
+  background:
+    'linear-gradient(135deg, rgba(250,245,255,0.96) 0%, rgba(239,246,255,0.94) 52%, rgba(236,254,255,0.9) 100%)',
+  boxShadow: '0 12px 32px rgba(15, 23, 42, 0.065)',
+}
+
+const quoteNumberPillStyle: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  width: 'fit-content',
+  marginBottom: '9px',
+  padding: '4px 9px',
+  borderRadius: '999px',
+  border: '1px solid rgba(124, 58, 237, 0.22)',
+  backgroundColor: 'rgba(255, 255, 255, 0.72)',
+  color: '#5b21b6',
+  fontSize: '12px',
+  fontWeight: 900,
+}
+
+const quoteTitleStyle: CSSProperties = {
+  margin: 0,
+  color: '#0f172a',
+  fontSize: '34px',
+  lineHeight: 1.08,
+  fontWeight: 900,
+}
+
+const quoteCustomerStyle: CSSProperties = {
+  marginTop: '8px',
+  color: '#475569',
+  fontSize: '15px',
+  lineHeight: 1.35,
+  fontWeight: 650,
+}
+
+const quoteSummaryPanelStyle: CSSProperties = {
+  display: 'grid',
+  gap: '10px',
+  alignContent: 'start',
+  flex: '0 1 420px',
+  minWidth: 'min(100%, 320px)',
+  padding: '12px',
+  borderRadius: '16px',
+  border: '1px solid rgba(226, 232, 240, 0.88)',
+  backgroundColor: 'rgba(255, 255, 255, 0.7)',
+}
+
+const quoteMetricGridStyle: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+  gap: '8px',
+}
+
+const quoteMetricStyle: CSSProperties = {
+  minWidth: 0,
+  padding: '9px 10px',
+  borderRadius: '12px',
+  border: '1px solid rgba(226, 232, 240, 0.92)',
+  backgroundColor: '#ffffff',
+}
+
+const quoteMetricLabelStyle: CSSProperties = {
+  display: 'block',
+  marginBottom: '3px',
+  color: '#64748b',
+  fontSize: '11px',
+  fontWeight: 820,
+}
+
+const quoteMetricValueStyle: CSSProperties = {
+  display: 'block',
+  overflowWrap: 'anywhere',
+  color: '#0f172a',
+  fontSize: '15px',
+  fontWeight: 900,
+}
+
+const actionBarStyle: CSSProperties = {
+  padding: '10px',
+  borderRadius: '16px',
+  border: '1px solid rgba(226, 232, 240, 0.9)',
+  backgroundColor: '#ffffff',
+  boxShadow: '0 8px 20px rgba(15, 23, 42, 0.045)',
+}
+
+const quoteInfoCardStyle: CSSProperties = {
+  padding: '14px 16px',
+  borderRadius: '16px',
+  border: '1px solid rgba(226, 232, 240, 0.9)',
+  backgroundColor: '#ffffff',
+}
+
+const quoteInfoGridStyle: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+  gap: '8px 16px',
+  color: '#0f172a',
+  fontSize: '13px',
+  lineHeight: 1.45,
+}
+
+const quoteInfoLabelStyle: CSSProperties = {
+  color: '#475569',
+  fontWeight: 850,
 }
 
 export default async function QuoteDetailPage({ params }: PageProps) {
@@ -501,30 +739,68 @@ export default async function QuoteDetailPage({ params }: PageProps) {
 
   if (!effectiveShareToken) {
     const generatedShareToken = buildShareToken()
-    const { error: shareTokenError } = await supabase
-      .from('quotes')
-      .update({
-        share_token: generatedShareToken,
-        share_token_scope: 'quote_public_offer',
-        share_token_expires_at: buildShareTokenExpiresAt(normalizedQuote.valid_until),
-        share_token_revoked_at: null,
-      })
-      .eq('id', quoteId)
-      .eq('company_id', activeCompany.companyId)
 
-    if (shareTokenError) {
-      console.error('[QUOTES] Failed to backfill quote share token', {
+    try {
+      const supabaseAdmin = createSupabaseAdminClient()
+      const shareTokenResult = await backfillQuoteShareToken({
+        client: supabaseAdmin,
         quoteId,
-        customerId: quoteCustomerId,
         companyId: activeCompany.companyId,
-        message: shareTokenError.message,
-        details: shareTokenError.details,
-        hint: shareTokenError.hint,
-        code: shareTokenError.code,
+        generatedShareToken,
+        validUntil: normalizedQuote.valid_until,
       })
-    } else {
-      effectiveShareToken = generatedShareToken
-      normalizedQuote.share_token = generatedShareToken
+
+      if (shareTokenResult.ok) {
+        effectiveShareToken = generatedShareToken
+        normalizedQuote.share_token = generatedShareToken
+      } else {
+        const fallbackShareTokenResult = await backfillQuoteShareToken({
+          client: supabase,
+          quoteId,
+          companyId: activeCompany.companyId,
+          generatedShareToken,
+          validUntil: normalizedQuote.valid_until,
+        })
+
+        if (fallbackShareTokenResult.ok) {
+          effectiveShareToken = generatedShareToken
+          normalizedQuote.share_token = generatedShareToken
+        } else {
+          console.warn('[QUOTES] Failed to backfill quote share token', {
+            quoteId,
+            customerId: quoteCustomerId,
+            companyId: activeCompany.companyId,
+            adminMetadataError: getQuoteShareTokenErrorLog(shareTokenResult.metadataError),
+            adminTokenError: getQuoteShareTokenErrorLog(shareTokenResult.tokenError),
+            fallbackMetadataError: getQuoteShareTokenErrorLog(
+              fallbackShareTokenResult.metadataError,
+            ),
+            fallbackTokenError: getQuoteShareTokenErrorLog(fallbackShareTokenResult.tokenError),
+          })
+        }
+      }
+    } catch (error: unknown) {
+      const shareTokenResult = await backfillQuoteShareToken({
+        client: supabase,
+        quoteId,
+        companyId: activeCompany.companyId,
+        generatedShareToken,
+        validUntil: normalizedQuote.valid_until,
+      })
+
+      if (shareTokenResult.ok) {
+        effectiveShareToken = generatedShareToken
+        normalizedQuote.share_token = generatedShareToken
+      } else {
+        console.warn('[QUOTES] Failed to initialize quote share token backfill', {
+          quoteId,
+          customerId: quoteCustomerId,
+          companyId: activeCompany.companyId,
+          adminClientError: getQuoteShareTokenErrorLog(error),
+          metadataError: getQuoteShareTokenErrorLog(shareTokenResult.metadataError),
+          tokenError: getQuoteShareTokenErrorLog(shareTokenResult.tokenError),
+        })
+      }
     }
   }
 
@@ -585,130 +861,112 @@ export default async function QuoteDetailPage({ params }: PageProps) {
 
   return (
     <DashboardShell activeItem="quotes">
-      <main style={pageShellStyle}>
-        <SecondaryAction href={`/customers/${quoteCustomerId}/quotes`}>
+      <main style={detailShellStyle}>
+        <Link href={`/customers/${quoteCustomerId}/quotes`} style={backLinkStyle}>
           {dictionary.customers.quoteDetail.backToQuotes}
-        </SecondaryAction>
+        </Link>
 
-        <section
-          style={heroCardStyle}
-        >
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              gap: '16px',
-              flexWrap: 'wrap',
-              marginBottom: '16px',
-            }}
-          >
-            <div>
-              <div style={eyebrowStyle}>
-                {normalizedQuote.quote_number}
-              </div>
-              <h1 style={heroTitleStyle}>{normalizedQuote.title}</h1>
-              <div style={heroTextStyle}>
-                {customer?.name || dictionary.customers.quoteDetail.customerFallback}
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gap: '12px', justifyItems: 'end' }}>
-              <div
-                style={{
-                  ...getQuoteStatusStyle(resolvedStatus),
-                  display: 'inline-block',
-                  height: 'fit-content',
-                  padding: '8px 12px',
-                  borderRadius: '999px',
-                  fontSize: '14px',
-                  fontWeight: 700,
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {getQuoteStatusLabel(resolvedStatus)}
-              </div>
-
-              <QuoteActionsPanel
-                customerId={quoteCustomerId}
-                quoteId={quoteId}
-                companyId={normalizedQuote.company_id}
-                shareUrl={shareUrl}
-                contactName={normalizedQuote.contact_name}
-                contactEmail={normalizedQuote.contact_email}
-                quoteTitle={normalizedQuote.title}
-                sourceCalculationId={normalizedQuote.source_calculation_id}
-                discountAmount={normalizedQuote.discount_amount}
-                currentStatus={normalizedQuote.status}
-                totalPrice={normalizedQuote.total_price}
-                workDescription={normalizedQuote.work_description}
-                proposedSolution={normalizedQuote.proposed_solution}
-              />
+        <section style={quoteHeaderStyle}>
+          <div style={{ flex: '1 1 420px', minWidth: 0 }}>
+            <div style={quoteNumberPillStyle}>{normalizedQuote.quote_number}</div>
+            <h1 style={quoteTitleStyle}>{normalizedQuote.title}</h1>
+            <div style={quoteCustomerStyle}>
+              {customer?.name || dictionary.customers.quoteDetail.customerFallback}
             </div>
           </div>
 
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
-              gap: '14px',
-              marginBottom: '16px',
-            }}
-          >
-            <div style={{ padding: '14px', borderRadius: '12px', backgroundColor: '#f9fafb' }}>
-              <div style={{ color: '#6b7280', marginBottom: '6px' }}>
-                {dictionary.customers.quoteDetail.date}
-              </div>
-              <strong>{formatDate(normalizedQuote.quote_date)}</strong>
+          <aside style={quoteSummaryPanelStyle}>
+            <div
+              style={{
+                ...getQuoteStatusStyle(resolvedStatus),
+                display: 'inline-flex',
+                width: 'fit-content',
+                justifySelf: 'end',
+                padding: '6px 10px',
+                borderRadius: '999px',
+                fontSize: '12px',
+                fontWeight: 850,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {getQuoteStatusLabel(resolvedStatus)}
             </div>
-            <div style={{ padding: '14px', borderRadius: '12px', backgroundColor: '#f9fafb' }}>
-              <div style={{ color: '#6b7280', marginBottom: '6px' }}>
-                {dictionary.customers.quoteDetail.validUntil}
-              </div>
-              <strong>{formatDate(normalizedQuote.valid_until)}</strong>
-            </div>
-            <div style={{ padding: '14px', borderRadius: '12px', backgroundColor: '#f9fafb' }}>
-              <div style={{ color: '#6b7280', marginBottom: '6px' }}>
-                {dictionary.customers.quoteDetail.subtotal}
-              </div>
-              <strong>{formatCurrency(normalizedQuote.subtotal_price)}</strong>
-            </div>
-            <div style={{ padding: '14px', borderRadius: '12px', backgroundColor: '#f9fafb' }}>
-              <div style={{ color: '#6b7280', marginBottom: '6px' }}>
-                {dictionary.customers.quoteDetail.totalPrice}
-              </div>
-              <strong>{formatCurrency(normalizedQuote.total_price)}</strong>
-            </div>
-          </div>
 
-          <div style={{ display: 'grid', gap: '10px' }}>
+            <div style={quoteMetricGridStyle}>
+              <div style={quoteMetricStyle}>
+                <span style={quoteMetricLabelStyle}>{dictionary.customers.quoteDetail.date}</span>
+                <strong style={quoteMetricValueStyle}>{formatDate(normalizedQuote.quote_date)}</strong>
+              </div>
+              <div style={quoteMetricStyle}>
+                <span style={quoteMetricLabelStyle}>{dictionary.customers.quoteDetail.validUntil}</span>
+                <strong style={quoteMetricValueStyle}>{formatDate(normalizedQuote.valid_until)}</strong>
+              </div>
+              <div style={quoteMetricStyle}>
+                <span style={quoteMetricLabelStyle}>{dictionary.customers.quoteDetail.subtotal}</span>
+                <strong style={quoteMetricValueStyle}>{formatCurrency(normalizedQuote.subtotal_price)}</strong>
+              </div>
+              <div style={quoteMetricStyle}>
+                <span style={quoteMetricLabelStyle}>{dictionary.customers.quoteDetail.totalPrice}</span>
+                <strong style={quoteMetricValueStyle}>{formatCurrency(normalizedQuote.total_price)}</strong>
+              </div>
+            </div>
+          </aside>
+        </section>
+
+        <section style={actionBarStyle}>
+          <QuoteActionsPanel
+            customerId={quoteCustomerId}
+            quoteId={quoteId}
+            companyId={normalizedQuote.company_id}
+            shareUrl={shareUrl}
+            contactName={normalizedQuote.contact_name}
+            contactEmail={normalizedQuote.contact_email}
+            quoteTitle={normalizedQuote.title}
+            sourceCalculationId={normalizedQuote.source_calculation_id}
+            workDescription={normalizedQuote.work_description}
+            proposedSolution={normalizedQuote.proposed_solution}
+          />
+        </section>
+
+        <section style={quoteInfoCardStyle}>
+          <div style={quoteInfoGridStyle}>
             <div>
-              <strong>{dictionary.customers.quoteDetail.contactPerson}:</strong>{' '}
+              <span style={quoteInfoLabelStyle}>{dictionary.customers.quoteDetail.contactPerson}:</span>{' '}
               {normalizedQuote.contact_name || '-'}
             </div>
             <div>
-              <strong>{dictionary.customers.quoteDetail.contactEmail}:</strong>{' '}
+              <span style={quoteInfoLabelStyle}>{dictionary.customers.quoteDetail.contactEmail}:</span>{' '}
               {normalizedQuote.contact_email || '-'}
             </div>
             <div>
-              <strong>{dictionary.customers.quoteDetail.discount}:</strong>{' '}
+              <span style={quoteInfoLabelStyle}>{dictionary.customers.quoteDetail.discount}:</span>{' '}
               {formatCurrency(normalizedQuote.discount_amount)}
             </div>
             <div>
-              <strong>{dictionary.customers.quoteDetail.customerNote}:</strong>{' '}
-              {normalizedQuote.customer_note || '-'}
+              <span style={quoteInfoLabelStyle}>{dictionary.customers.quoteDetail.sentAt}:</span>{' '}
+              {formatDateTime(normalizedQuote.sent_at)}
             </div>
             <div>
-              <strong>{dictionary.customers.quoteDetail.internalNote}:</strong>{' '}
-              {normalizedQuote.internal_note || '-'}
+              <span style={quoteInfoLabelStyle}>{dictionary.customers.quoteDetail.sourceCalculation}:</span>{' '}
+              {normalizedQuote.source_calculation_id ? (
+                <Link
+                  href={`/customers/${quoteCustomerId}/calculations/${normalizedQuote.source_calculation_id}`}
+                  style={{ color: '#2563eb', textDecoration: 'none', fontWeight: 750 }}
+                >
+                  {dictionary.customers.quoteDetail.openCalculation}
+                </Link>
+              ) : (
+                '-'
+              )}
             </div>
-            <div>
-              <strong>{dictionary.customers.quoteDetail.sharedLink}:</strong>{' '}
+            <div style={{ minWidth: 0 }}>
+              <span style={quoteInfoLabelStyle}>{dictionary.customers.quoteDetail.sharedLink}:</span>{' '}
               {shareUrl ? (
                 <a
                   href={shareUrl}
                   target="_blank"
                   rel="noreferrer"
-                  style={{ color: '#2563eb', textDecoration: 'none' }}
+                  style={{ color: '#2563eb', textDecoration: 'none', overflowWrap: 'anywhere' }}
                 >
                   {shareUrl}
                 </a>
@@ -717,21 +975,12 @@ export default async function QuoteDetailPage({ params }: PageProps) {
               )}
             </div>
             <div>
-              <strong>{dictionary.customers.quoteDetail.sentAt}:</strong>{' '}
-              {formatDateTime(normalizedQuote.sent_at)}
+              <span style={quoteInfoLabelStyle}>{dictionary.customers.quoteDetail.customerNote}:</span>{' '}
+              {normalizedQuote.customer_note || '-'}
             </div>
             <div>
-              <strong>{dictionary.customers.quoteDetail.sourceCalculation}:</strong>{' '}
-              {normalizedQuote.source_calculation_id ? (
-                <Link
-                  href={`/customers/${quoteCustomerId}/calculations/${normalizedQuote.source_calculation_id}`}
-                  style={{ color: '#2563eb', textDecoration: 'none' }}
-                >
-                  {dictionary.customers.quoteDetail.openCalculation}
-                </Link>
-              ) : (
-                '-'
-              )}
+              <span style={quoteInfoLabelStyle}>{dictionary.customers.quoteDetail.internalNote}:</span>{' '}
+              {normalizedQuote.internal_note || '-'}
             </div>
           </div>
         </section>

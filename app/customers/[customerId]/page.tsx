@@ -37,6 +37,11 @@ import type {
   TimeState,
   WorkState,
 } from '@/lib/job-status'
+import { getActiveCompanyContext } from '@/lib/active-company'
+import { listEntityThreadMessages } from '@/lib/email/listEntityThreadMessages'
+import type { MessageFeedItem } from '@/lib/email/types'
+import { getIntlLocale } from '@/lib/i18n/config'
+import { getRequestDictionary, getRequestLocale } from '@/lib/i18n/server'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 
 type CustomerDetailPageProps = {
@@ -123,42 +128,74 @@ function isMissingCustomerBillingColumns(error: { message?: string | null } | nu
   )
 }
 
-function formatPrice(value: number | null | undefined) {
+function formatPrice(value: number | null | undefined, locale = 'cs-CZ') {
   if (value == null) return '—'
 
-  return new Intl.NumberFormat('cs-CZ', {
+  return new Intl.NumberFormat(locale, {
     style: 'currency',
     currency: 'CZK',
     maximumFractionDigits: 0,
   }).format(value)
 }
 
-function getTimeStateLabel(state: TimeState) {
-  if (state === 'future') return 'Budoucí'
-  if (state === 'active') return 'V termínu'
-  if (state === 'finished') return 'Hotovo'
-  return 'Neznámý čas'
+function formatDateTime(value: string | null | undefined, locale = 'cs-CZ') {
+  if (!value) return 'â€”'
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+
+  return new Intl.DateTimeFormat(locale, {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date)
 }
 
-function getWorkStateLabel(state: WorkState) {
-  if (state === 'not_started') return 'Nezahájeno'
-  if (state === 'in_progress') return 'Probíhá'
-  if (state === 'partially_done') return 'Částečně hotovo'
-  if (state === 'done') return 'Hotovo'
-  return 'Neznámý provoz'
+type JobStateLabels = {
+  future: string
+  active: string
+  finished: string
+  notStarted: string
+  inProgress: string
+  partiallyDone: string
+  done: string
+  waitingForInvoice: string
+  due: string
+  overdue: string
+  paid: string
+  unknownTime: string
+  unknownWork: string
+  unknownBilling: string
 }
 
-function getBillingStateLabel(state: BillingStateResolved) {
-  if (state === 'waiting_for_invoice') return 'Čeká na fakturaci'
-  if (state === 'due') return 'Ve splatnosti'
-  if (state === 'overdue') return 'Po splatnosti'
-  if (state === 'paid') return 'Zaplaceno'
-  return 'Neznámá fakturace'
+function getTimeStateLabel(state: TimeState, labels: JobStateLabels) {
+  if (state === 'future') return labels.future
+  if (state === 'active') return labels.active
+  if (state === 'finished') return labels.finished
+  return labels.unknownTime
 }
 
-function getDisplayTimeStateLabel(state: TimeState) {
-  if (state === 'finished') return 'Hotovo'
-  return getTimeStateLabel(state)
+function getWorkStateLabel(state: WorkState, labels: JobStateLabels) {
+  if (state === 'not_started') return labels.notStarted
+  if (state === 'in_progress') return labels.inProgress
+  if (state === 'partially_done') return labels.partiallyDone
+  if (state === 'done') return labels.done
+  return labels.unknownWork
+}
+
+function getBillingStateLabel(state: BillingStateResolved, labels: JobStateLabels) {
+  if (state === 'waiting_for_invoice') return labels.waitingForInvoice
+  if (state === 'due') return labels.due
+  if (state === 'overdue') return labels.overdue
+  if (state === 'paid') return labels.paid
+  return labels.unknownBilling
+}
+
+function getDisplayTimeStateLabel(state: TimeState, labels: JobStateLabels) {
+  if (state === 'finished') return labels.done
+  return getTimeStateLabel(state, labels)
 }
 
 function getTimeStateStyles(state: TimeState): React.CSSProperties {
@@ -285,55 +322,72 @@ function badgeStyle(style: React.CSSProperties): React.CSSProperties {
   }
 }
 
-function getJobStatusLabel(job: {
-  status: string | null
-  start_at: string | null
-  end_at: string | null
-}) {
-  const now = new Date()
-
-  const start = job.start_at ? new Date(job.start_at) : null
-  const end = job.end_at ? new Date(job.end_at) : null
-  const rawStatus = (job.status ?? '').toLowerCase()
-
-  if (end && end < now) return 'Hotovo'
-  if (start && start > now) return 'Budoucí'
-  if (start && (!end || end >= now)) return 'Probíhá'
-
-  if (rawStatus === 'done') return 'Hotovo'
-  if (rawStatus === 'in_progress') return 'Probíhá'
-  if (rawStatus === 'future') return 'Budoucí'
-
-  if (end && end < now) return 'Hotovo'
-  if (start && start > now) return 'Budoucí'
-  if (start && (!end || end >= now)) return 'Probíhá'
-
-  return job.status ?? '—'
+function getCalculationStatusLabel(
+  status: CustomerCalculationRow['status'],
+  labels: { ready: string; draft: string; archived: string }
+) {
+  if (status === 'ready') return labels.ready
+  if (status === 'archived') return labels.archived
+  return labels.draft
 }
 
-function getCalculationStatusLabel(status: CustomerCalculationRow['status']) {
-  if (status === 'ready') return 'Hotovo'
-  if (status === 'archived') return 'Archiv'
-  return 'Koncept'
+function getQuoteStatusLabel(
+  status: CustomerQuoteRow['status'],
+  labels: { draft: string; ready: string; sent: string; accepted: string; rejected: string }
+) {
+  if (status === 'ready') return labels.ready
+  if (status === 'sent') return labels.sent
+  if (status === 'accepted') return labels.accepted
+  if (status === 'rejected') return labels.rejected
+  return labels.draft
 }
 
-function getQuoteStatusLabel(status: CustomerQuoteRow['status']) {
-  if (status === 'ready') return 'Připraveno'
-  if (status === 'sent') return 'Odesláno'
-  if (status === 'accepted') return 'Schváleno'
-  if (status === 'rejected') return 'Zamítnuto'
-  return 'Koncept'
-}
-
-function getResolvedJobStatusLabel(workState: WorkState) {
-  return getWorkStateLabel(workState)
+function getResolvedJobStatusLabel(workState: WorkState, labels: JobStateLabels) {
+  return getWorkStateLabel(workState, labels)
 }
 
 export default async function CustomerDetailPage({
   params,
 }: CustomerDetailPageProps) {
   const { customerId } = await params
+  const locale = await getRequestLocale()
+  const dictionary = await getRequestDictionary()
+  const intlLocale = getIntlLocale(locale)
+  const t = dictionary.customers
+  const detail = t.detail
+  const jobsText = dictionary.jobs
+  const jobStateLabels: JobStateLabels = {
+    future: jobsText.future,
+    active: jobsText.active,
+    finished: jobsText.done,
+    notStarted: jobsText.notStarted,
+    inProgress: jobsText.inProgress,
+    partiallyDone: jobsText.partiallyDone,
+    done: jobsText.done,
+    waitingForInvoice: jobsText.waitingForInvoice,
+    due: jobsText.due,
+    overdue: jobsText.overdue,
+    paid: jobsText.paid,
+    unknownTime: jobsText.unknownTime,
+    unknownWork: jobsText.unknownWork,
+    unknownBilling: jobsText.unknownBilling,
+  }
+  const calculationStatusLabels = {
+    ready: t.calculationForm.ready,
+    draft: t.calculationForm.draft,
+    archived: detail.calculationArchived,
+  }
+  const quoteStatusLabels = {
+    draft: t.quotesList.draft,
+    ready: t.quotesList.ready,
+    sent: t.quotesList.sent,
+    accepted: t.quotesList.accepted,
+    rejected: t.quotesList.rejected,
+  }
   const supabase = await createSupabaseServerClient()
+  const activeCompany = await getActiveCompanyContext({
+    allowedRoles: ['super_admin', 'company_admin', 'manager'],
+  })
 
   const customerQuery = supabase
     .from('customers')
@@ -381,7 +435,7 @@ export default async function CustomerDetailPage({
     return (
       <DashboardShell activeItem="customers">
         <main style={pageShellStyle}>
-          <div style={errorStateStyle}>Zákazník nebyl nalezen.</div>
+          <div style={errorStateStyle}>{t.customerNotFound}</div>
         </main>
       </DashboardShell>
     )
@@ -416,6 +470,23 @@ export default async function CustomerDetailPage({
     .order('quote_date', { ascending: false })
     .order('created_at', { ascending: false })
     .limit(3)
+
+  let communicationFeed: MessageFeedItem[] = []
+  let communicationError: string | null = null
+
+  if (activeCompany?.companyId) {
+    try {
+      const communication = await listEntityThreadMessages(
+        supabase,
+        activeCompany.companyId,
+        'customer',
+        customerId
+      )
+      communicationFeed = communication.feedItems.slice(-6).reverse()
+    } catch (error) {
+      communicationError = error instanceof Error ? error.message : dictionary.common.dataLoadFailed
+    }
+  }
 
   const resolvedJobs = ((jobs ?? []) as CustomerJobRow[]).map((job) => {
     const timeState = resolveJobTimeState(job.time_state)
@@ -504,7 +575,7 @@ export default async function CustomerDetailPage({
   return (
     <DashboardShell activeItem="customers">
       <main style={pageShellStyle}>
-        <SecondaryAction href="/customers">Zpět na zákazníky</SecondaryAction>
+        <SecondaryAction href="/customers">{t.backToCustomers}</SecondaryAction>
 
         <section
           style={heroCardStyle}
@@ -520,9 +591,9 @@ export default async function CustomerDetailPage({
             }}
           >
             <div style={heroContentStyle}>
-              <div style={eyebrowStyle}>Zákazník</div>
-              <h1 style={heroTitleStyle}>{customer.name || 'Bez názvu zákazníka'}</h1>
-              <p style={heroTextStyle}>Kontakty, zakázky, kalkulace a nabídky na jednom místě.</p>
+              <div style={eyebrowStyle}>{dictionary.navigation.customers}</div>
+              <h1 style={heroTitleStyle}>{customer.name || detail.unnamedCustomer}</h1>
+              <p style={heroTextStyle}>{detail.subtitle}</p>
             </div>
 
             <div
@@ -536,7 +607,7 @@ export default async function CustomerDetailPage({
                 href={`/customers/${customerId}/edit`}
                 style={primaryButtonStyle}
               >
-                Upravit zákazníka
+                {t.editCustomer}
               </Link>
 
               <Link
@@ -548,18 +619,18 @@ export default async function CustomerDetailPage({
                   border: '1px solid #fecaca',
                 }}
               >
-                Smazat zákazníka
+                {t.deleteCustomer}
               </Link>
             </div>
           </div>
 
           <div style={metaGridStyle}>
             <div style={metaItemStyle}>
-              <span style={metaLabelStyle}>Hlavní e-mail</span>
+              <span style={metaLabelStyle}>{t.mainEmail}</span>
               <span style={metaValueStyle}>{customer.email || '—'}</span>
             </div>
             <div style={metaItemStyle}>
-              <span style={metaLabelStyle}>Hlavní telefon</span>
+              <span style={metaLabelStyle}>{t.mainPhone}</span>
               <span style={metaValueStyle}>{customer.phone || '—'}</span>
             </div>
           </div>
@@ -582,10 +653,10 @@ export default async function CustomerDetailPage({
               <h2
                 style={cardTitleStyle}
               >
-                Fakturační údaje
+                {detail.billingSectionTitle}
               </h2>
               <p style={{ ...mutedTextStyle, margin: '8px 0 0 0' }}>
-                Údaje pro fakturaci a měsíční soupis zakázek.
+                {detail.billingSectionDescription}
               </p>
             </div>
 
@@ -593,43 +664,43 @@ export default async function CustomerDetailPage({
               href={`/customers/${customerId}/edit`}
               style={secondaryButtonStyle}
             >
-              Upravit fakturaci
+              {detail.editBilling}
             </Link>
           </div>
 
           <div style={{ display: 'grid', gap: '8px', fontSize: '16px', color: '#4b5563' }}>
             <div>
-              <strong style={{ color: '#111827' }}>Fakturacni nazev:</strong>{' '}
+              <strong style={{ color: '#111827' }}>{t.billingName}:</strong>{' '}
               {customer.billing_name || customer.name || '—'}
             </div>
             <div>
-              <strong style={{ color: '#111827' }}>ICO:</strong>{' '}
+              <strong style={{ color: '#111827' }}>{t.companyNumber}:</strong>{' '}
               {customer.company_number || '—'}
             </div>
             <div>
-              <strong style={{ color: '#111827' }}>DIC:</strong>{' '}
+              <strong style={{ color: '#111827' }}>{t.vatNumber}:</strong>{' '}
               {customer.vat_number || '—'}
             </div>
             <div>
-              <strong style={{ color: '#111827' }}>Ulice a cislo:</strong>{' '}
+              <strong style={{ color: '#111827' }}>{t.street}:</strong>{' '}
               {customer.billing_street || '—'}
             </div>
             <div>
-              <strong style={{ color: '#111827' }}>Mesto:</strong>{' '}
+              <strong style={{ color: '#111827' }}>{t.city}:</strong>{' '}
               {customer.billing_city || '—'}
             </div>
             <div>
-              <strong style={{ color: '#111827' }}>PSC:</strong>{' '}
+              <strong style={{ color: '#111827' }}>{t.postalCode}:</strong>{' '}
               {customer.billing_postal_code || '—'}
             </div>
             <div>
-              <strong style={{ color: '#111827' }}>Stat:</strong>{' '}
+              <strong style={{ color: '#111827' }}>{t.country}:</strong>{' '}
               {customer.billing_country || '—'}
             </div>
             <div>
-              <strong style={{ color: '#111827' }}>ARES naposledy:</strong>{' '}
+              <strong style={{ color: '#111827' }}>{t.aresLastChecked}:</strong>{' '}
               {customer.ares_last_checked_at
-                ? new Date(customer.ares_last_checked_at).toLocaleString('cs-CZ')
+                ? new Date(customer.ares_last_checked_at).toLocaleString(intlLocale)
                 : '—'}
             </div>
           </div>
@@ -647,38 +718,38 @@ export default async function CustomerDetailPage({
               <h2
                 style={cardTitleStyle}
               >
-                Webová poptávka
+                {detail.webLead}
               </h2>
               <p style={{ ...mutedTextStyle, margin: '8px 0 0 0' }}>
-                Poptávka přijatá z veřejného webu Diriqo.
+                {detail.webLeadDescription}
               </p>
             </div>
 
             <div style={{ display: 'grid', gap: '8px', fontSize: '16px', color: '#4b5563' }}>
               <div>
-                <strong style={{ color: '#111827' }}>Kontaktni osoba:</strong>{' '}
+                <strong style={{ color: '#111827' }}>{t.contactName}:</strong>{' '}
                 {customer.lead_contact_name || '—'}
               </div>
               <div>
-                <strong style={{ color: '#111827' }}>Zdroj:</strong>{' '}
+                <strong style={{ color: '#111827' }}>{t.source}:</strong>{' '}
                 {customer.lead_source || '—'}
               </div>
               <div>
-                <strong style={{ color: '#111827' }}>Jazyk webu:</strong>{' '}
+                <strong style={{ color: '#111827' }}>{t.websiteLanguage}:</strong>{' '}
                 {customer.lead_locale || '—'}
               </div>
               <div>
-                <strong style={{ color: '#111827' }}>Sluzba:</strong>{' '}
+                <strong style={{ color: '#111827' }}>{t.service}:</strong>{' '}
                 {customer.lead_service_slug || '—'}
               </div>
               <div>
-                <strong style={{ color: '#111827' }}>Odeslano:</strong>{' '}
+                <strong style={{ color: '#111827' }}>{t.submittedAt}:</strong>{' '}
                 {customer.lead_submitted_at
-                  ? new Date(customer.lead_submitted_at).toLocaleString('cs-CZ')
+                  ? new Date(customer.lead_submitted_at).toLocaleString(intlLocale)
                   : '—'}
               </div>
               <div>
-                <strong style={{ color: '#111827' }}>URL stranky:</strong>{' '}
+                <strong style={{ color: '#111827' }}>{t.pageUrl}:</strong>{' '}
                 {customer.lead_page_url ? (
                   <a
                     href={customer.lead_page_url}
@@ -693,11 +764,11 @@ export default async function CustomerDetailPage({
                 )}
               </div>
               <div>
-                <strong style={{ color: '#111827' }}>Referrer:</strong>{' '}
+                <strong style={{ color: '#111827' }}>{t.referrer}:</strong>{' '}
                 {customer.lead_referrer || '—'}
               </div>
               <div>
-                <strong style={{ color: '#111827' }}>Poptavka:</strong>
+                <strong style={{ color: '#111827' }}>{t.leadMessage}:</strong>
                 <div
                   style={{
                     marginTop: '8px',
@@ -727,8 +798,8 @@ export default async function CustomerDetailPage({
             }}
           >
             <div>
-              <h2 style={{ ...sectionTitleStyle, marginBottom: 0 }}>Kalkulace</h2>
-              <p style={sectionIntroStyle}>Rychlý přehled rozpracovaných a hotových výpočtů pro zákazníka.</p>
+              <h2 style={{ ...sectionTitleStyle, marginBottom: 0 }}>{detail.calculations}</h2>
+              <p style={sectionIntroStyle}>{detail.calculationsDescription}</p>
             </div>
 
             <div style={inlineActionsStyle}>
@@ -736,14 +807,14 @@ export default async function CustomerDetailPage({
                 href={`/customers/${customerId}/calculations`}
                 style={secondaryButtonStyle}
               >
-                Zobrazit vše
+                {detail.showAll}
               </Link>
 
               <Link
                 href={`/customers/${customerId}/calculations/new`}
                 style={primaryButtonStyle}
               >
-                + Nová kalkulace
+                {detail.addCalculation}
               </Link>
             </div>
           </div>
@@ -781,18 +852,19 @@ export default async function CustomerDetailPage({
                       </div>
 
                       <div style={{ marginBottom: '6px', color: '#4b5563' }}>
-                        <strong style={{ color: '#111827' }}>Datum:</strong>{' '}
+                        <strong style={{ color: '#111827' }}>{t.date}:</strong>{' '}
                         {calculation.calculation_date
-                          ? new Date(calculation.calculation_date).toLocaleDateString('cs-CZ')
+                          ? new Date(calculation.calculation_date).toLocaleDateString(intlLocale)
                           : '—'}
                       </div>
 
                       <div style={{ color: '#4b5563' }}>
-                        <strong style={{ color: '#111827' }}>Cena:</strong>{' '}
+                        <strong style={{ color: '#111827' }}>{jobsText.price}:</strong>{' '}
                         {formatPrice(
                           calculation.total_price != null
                             ? Number(calculation.total_price)
-                            : null
+                            : null,
+                          intlLocale
                         )}
                       </div>
                     </div>
@@ -820,7 +892,7 @@ export default async function CustomerDetailPage({
                         ),
                       }}
                     >
-                      {getCalculationStatusLabel(calculation.status)}
+                      {getCalculationStatusLabel(calculation.status, calculationStatusLabels)}
                     </div>
                   </div>
                 </Link>
@@ -831,9 +903,9 @@ export default async function CustomerDetailPage({
               <span style={emptyIconStyle}>+</span>
               <div>
                 <strong style={{ display: 'block', color: '#0f172a', marginBottom: '3px' }}>
-                  Zatím tu nic není
+                  {detail.emptySectionTitle}
                 </strong>
-                <span>Tento zákazník zatím nemá žádné kalkulace.</span>
+                <span>{t.calculationsEmpty}</span>
               </div>
             </div>
           )}
@@ -849,13 +921,13 @@ export default async function CustomerDetailPage({
               marginBottom: '16px',
             }}
           >
-            <h2 style={{ ...sectionTitleStyle, marginBottom: 0 }}>Cenové nabídky</h2>
+            <h2 style={{ ...sectionTitleStyle, marginBottom: 0 }}>{detail.quotes}</h2>
 
             <Link
               href={`/customers/${customerId}/quotes`}
               style={secondaryButtonStyle}
             >
-              Zobrazit vše
+              {detail.showAll}
             </Link>
           </div>
 
@@ -896,15 +968,15 @@ export default async function CustomerDetailPage({
                       </div>
 
                       <div style={{ marginBottom: '6px', color: '#4b5563' }}>
-                        <strong style={{ color: '#111827' }}>Datum:</strong>{' '}
+                        <strong style={{ color: '#111827' }}>{t.date}:</strong>{' '}
                         {quote.quote_date
-                          ? new Date(quote.quote_date).toLocaleDateString('cs-CZ')
+                          ? new Date(quote.quote_date).toLocaleDateString(intlLocale)
                           : '—'}
                       </div>
 
                       <div style={{ color: '#4b5563' }}>
-                        <strong style={{ color: '#111827' }}>Cena:</strong>{' '}
-                        {formatPrice(quote.total_price != null ? Number(quote.total_price) : null)}
+                        <strong style={{ color: '#111827' }}>{jobsText.price}:</strong>{' '}
+                        {formatPrice(quote.total_price != null ? Number(quote.total_price) : null, intlLocale)}
                       </div>
                     </div>
 
@@ -943,7 +1015,7 @@ export default async function CustomerDetailPage({
                         ),
                       }}
                     >
-                      {getQuoteStatusLabel(quote.status)}
+                      {getQuoteStatusLabel(quote.status, quoteStatusLabels)}
                     </div>
                   </div>
                 </Link>
@@ -954,9 +1026,9 @@ export default async function CustomerDetailPage({
               <span style={emptyIconStyle}>+</span>
               <div>
                 <strong style={{ display: 'block', color: '#0f172a', marginBottom: '3px' }}>
-                  Zatím tu nic není
+                  {detail.emptySectionTitle}
                 </strong>
-                <span>Tento zákazník zatím nemá žádné cenové nabídky.</span>
+                <span>{t.quotesEmpty}</span>
               </div>
             </div>
           )}
@@ -972,13 +1044,13 @@ export default async function CustomerDetailPage({
               marginBottom: '16px',
             }}
           >
-            <h2 style={{ ...sectionTitleStyle, marginBottom: 0 }}>Kontaktní osoby</h2>
+            <h2 style={{ ...sectionTitleStyle, marginBottom: 0 }}>{detail.contacts}</h2>
 
             <Link
               href={`/customers/${customerId}/contacts/new`}
               style={primaryButtonStyle}
             >
-              + Přidat kontakt
+              {t.addContact}
             </Link>
           </div>
 
@@ -1005,7 +1077,7 @@ export default async function CustomerDetailPage({
                         href={`/customers/${customerId}/contacts/${contact.id}/edit`}
                         style={{ ...secondaryButtonStyle, minHeight: '36px', padding: '8px 12px', fontSize: '13px' }}
                       >
-                        Upravit
+                        {t.edit}
                       </Link>
 
                       <Link
@@ -1023,17 +1095,17 @@ export default async function CustomerDetailPage({
                           whiteSpace: 'nowrap',
                         }}
                       >
-                        Smazat
+                        {dictionary.common.delete}
                       </Link>
                     </div>
                   </div>
 
                   <div style={{ marginBottom: '6px' }}>
-                    <strong>Funkce:</strong> {contact.role || '—'}
+                    <strong>{t.role}:</strong> {contact.role || '—'}
                   </div>
 
                   <div style={{ marginBottom: '6px' }}>
-                    <strong>Telefon:</strong> {contact.phone || '—'}
+                    <strong>{t.phoneLabel}:</strong> {contact.phone || '—'}
                   </div>
 
                   <div style={{ marginBottom: '6px' }}>
@@ -1041,7 +1113,7 @@ export default async function CustomerDetailPage({
                   </div>
 
                   <div>
-                    <strong>Poznámka:</strong> {contact.note || '—'}
+                    <strong>{t.note}:</strong> {contact.note || '—'}
                   </div>
                 </div>
               ))}
@@ -1051,16 +1123,68 @@ export default async function CustomerDetailPage({
               <span style={emptyIconStyle}>+</span>
               <div>
                 <strong style={{ display: 'block', color: '#0f172a', marginBottom: '3px' }}>
-                  Zatím tu nic není
+                  {detail.emptySectionTitle}
                 </strong>
-                <span>Zatím nejsou přidané žádné kontaktní osoby.</span>
+                <span>{t.noContactsYet}</span>
               </div>
             </div>
           )}
         </section>
 
+        {activeCompany ? (
+          <section style={customerSectionStyle}>
+            <div style={sectionHeaderStyle}>
+              <div>
+                <h2 style={{ ...sectionTitleStyle, marginBottom: 0 }}>Komunikace</h2>
+                <p style={sectionIntroStyle}>Poslední e-maily spárované s tímto zákazníkem.</p>
+              </div>
+            </div>
+
+            {communicationError ? (
+              <div style={errorStateStyle}>{communicationError}</div>
+            ) : communicationFeed.length === 0 ? (
+              <div style={emptyInlineStyle}>
+                <span style={emptyIconStyle}>@</span>
+                <div>
+                  <strong style={{ display: 'block', color: '#0f172a', marginBottom: '3px' }}>
+                    Zatím bez e-mailů
+                  </strong>
+                  <span>Nové zprávy se zobrazí po odeslání ze zakázky nebo po odpovědi zákazníka.</span>
+                </div>
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gap: '12px' }}>
+                {communicationFeed.map((item) => (
+                  <div key={`${item.direction}-${item.id}`} style={cardStyle}>
+                    <div
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        gap: '12px',
+                        flexWrap: 'wrap',
+                        marginBottom: '8px',
+                      }}
+                    >
+                      <strong>{item.subject || 'Bez předmětu'}</strong>
+                      <span style={{ color: '#64748b', fontSize: '13px' }}>
+                        {formatDateTime(item.happenedAt, intlLocale)}
+                      </span>
+                    </div>
+                    <div style={{ color: '#475569', fontSize: '14px', marginBottom: '6px' }}>
+                      {item.direction === 'outbound' ? 'Komu' : 'Od'}: {item.email}
+                    </div>
+                    <div style={{ color: '#374151', fontSize: '14px' }}>
+                      {item.preview || item.bodyText || 'Bez náhledu'}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        ) : null}
+
         <section style={customerSectionStyle}>
-          <h2 style={sectionTitleStyle}>Zakázky zákazníka</h2>
+          <h2 style={sectionTitleStyle}>{t.customerJobs}</h2>
 
           {resolvedJobs.length > 0 ? (
             <div style={{ display: 'grid', gap: '12px' }}>
@@ -1091,17 +1215,17 @@ export default async function CustomerDetailPage({
                           color: '#111827',
                         }}
                       >
-                        {job.title || 'Bez názvu zakázky'}
+                        {job.title || jobsText.untitledJob}
                       </div>
 
                       <div style={{ marginBottom: '6px', color: '#4b5563' }}>
-                        <strong style={{ color: '#111827' }}>Stav:</strong>{' '}
-                        {getResolvedJobStatusLabel(job.work_state)}
+                        <strong style={{ color: '#111827' }}>{t.status}:</strong>{' '}
+                        {getResolvedJobStatusLabel(job.work_state, jobStateLabels)}
                       </div>
 
                       <div style={{ marginBottom: '6px', color: '#4b5563' }}>
-                        <strong style={{ color: '#111827' }}>Cena:</strong>{' '}
-                        {formatPrice(job.price != null ? Number(job.price) : null)}
+                        <strong style={{ color: '#111827' }}>{jobsText.price}:</strong>{' '}
+                        {formatPrice(job.price != null ? Number(job.price) : null, intlLocale)}
                       </div>
                     </div>
 
@@ -1114,16 +1238,16 @@ export default async function CustomerDetailPage({
                       }}
                     >
                       <div style={badgeStyle(getTimeStateStyles(job.time_state))}>
-                        {getDisplayTimeStateLabel(job.time_state)}
+                        {getDisplayTimeStateLabel(job.time_state, jobStateLabels)}
                       </div>
                       <div style={badgeStyle(getWorkStateStyles(job.work_state))}>
-                        {getWorkStateLabel(job.work_state)}
+                        {getWorkStateLabel(job.work_state, jobStateLabels)}
                       </div>
                       {getVisibleBillingState(job.work_state, job.billing_state_resolved) && (
                         <div
                           style={badgeStyle(getBillingStateStyles(job.billing_state_resolved))}
                         >
-                          {getBillingStateLabel(job.billing_state_resolved)}
+                          {getBillingStateLabel(job.billing_state_resolved, jobStateLabels)}
                         </div>
                       )}
                     </div>
@@ -1136,9 +1260,9 @@ export default async function CustomerDetailPage({
               <span style={emptyIconStyle}>+</span>
               <div>
                 <strong style={{ display: 'block', color: '#0f172a', marginBottom: '3px' }}>
-                  Zatím tu nic není
+                  {detail.emptySectionTitle}
                 </strong>
-                <span>Tento zákazník zatím nemá žádné zakázky.</span>
+                <span>{t.customerJobsEmpty}</span>
               </div>
             </div>
           )}

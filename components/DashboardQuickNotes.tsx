@@ -11,14 +11,31 @@ type QuickNote = {
 
 type DashboardQuickNotesProps = {
   storageKey: string
+  labels: {
+    title: string
+    placeholder: string
+    add: string
+    empty: string
+    deleteNote: string
+    starterCallCustomer: string
+    starterCheckJobs: string
+  }
 }
 
-const starterNotes: QuickNote[] = [
-  { id: 'starter-call-customer', text: 'Zavolat zákazníkovi', done: false },
-  { id: 'starter-check-jobs', text: 'Zkontrolovat dnešní zakázky', done: false },
-]
+function getStarterNotes(labels: DashboardQuickNotesProps['labels']): QuickNote[] {
+  return [
+    { id: 'starter-call-customer', text: labels.starterCallCustomer, done: false },
+    { id: 'starter-check-jobs', text: labels.starterCheckJobs, done: false },
+  ]
+}
 
-export default function DashboardQuickNotes({ storageKey }: DashboardQuickNotesProps) {
+function localizeStarterNote(note: QuickNote, labels: DashboardQuickNotesProps['labels']): QuickNote {
+  if (note.id === 'starter-call-customer') return { ...note, text: labels.starterCallCustomer }
+  if (note.id === 'starter-check-jobs') return { ...note, text: labels.starterCheckJobs }
+  return note
+}
+
+export default function DashboardQuickNotes({ storageKey, labels }: DashboardQuickNotesProps) {
   const [notes, setNotes] = useState<QuickNote[]>([])
   const [draft, setDraft] = useState('')
   const [loaded, setLoaded] = useState(false)
@@ -29,18 +46,18 @@ export default function DashboardQuickNotes({ storageKey }: DashboardQuickNotesP
     try {
       const stored = window.localStorage.getItem(storageKey)
       if (!stored) {
-        setNotes(starterNotes)
+        setNotes(getStarterNotes(labels))
         return
       }
 
       const parsed = JSON.parse(stored) as QuickNote[]
-      setNotes(Array.isArray(parsed) ? parsed : starterNotes)
+      setNotes(Array.isArray(parsed) ? parsed.map((note) => localizeStarterNote(note, labels)) : getStarterNotes(labels))
     } catch {
-      setNotes(starterNotes)
+      setNotes(getStarterNotes(labels))
     } finally {
       setLoaded(true)
     }
-  }, [storageKey])
+  }, [labels, storageKey])
 
   useEffect(() => {
     if (!loaded) return
@@ -76,23 +93,23 @@ export default function DashboardQuickNotes({ storageKey }: DashboardQuickNotesP
   }
 
   return (
-    <aside style={quickNotesWrap} aria-label="Rychlá poznámka">
-      <div style={quickNotesTitle}>Rychlá poznámka</div>
+    <aside style={quickNotesWrap} aria-label={labels.title}>
+      <div style={quickNotesTitle}>{labels.title}</div>
       <form onSubmit={addNote} style={quickNotesForm}>
         <input
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
-          placeholder="Napsat, co chci udělat..."
+          placeholder={labels.placeholder}
           style={quickNotesInput}
         />
         <button type="submit" style={quickNotesAddButton}>
-          Přidat
+          {labels.add}
         </button>
       </form>
 
       <div style={quickNotesList}>
         {visibleNotes.length === 0 ? (
-          <div style={quickNotesEmpty}>Zatím žádná poznámka.</div>
+          <div style={quickNotesEmpty}>{labels.empty}</div>
         ) : (
           visibleNotes.map((note) => (
             <div key={note.id} style={quickNoteRow}>
@@ -108,7 +125,7 @@ export default function DashboardQuickNotes({ storageKey }: DashboardQuickNotesP
               <button
                 type="button"
                 onClick={() => deleteNote(note.id)}
-                aria-label={`Smazat poznámku ${note.text}`}
+                aria-label={`${labels.deleteNote}: ${note.text}`}
                 style={quickNoteDelete}
               >
                 ×

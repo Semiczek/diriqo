@@ -19,6 +19,7 @@ import {
   sectionCardStyle,
 } from '@/components/SaasPageLayout'
 import { supabase } from '@/lib/supabase'
+import { updateCustomerAction } from '../../actions'
 
 type Customer = {
   id: string
@@ -250,40 +251,22 @@ export default function EditCustomerPage() {
     setSaving(true)
     setError(null)
 
-    let { error } = await supabase
-      .from('customers')
-      .update({
-        name: name.trim() || null,
-        email: email.trim() || null,
-        phone: phone.trim() || null,
-        billing_name: billingName.trim() || null,
-        billing_street: billingStreet.trim() || null,
-        billing_city: billingCity.trim() || null,
-        billing_postal_code: billingPostalCode.trim() || null,
-        billing_country: billingCountry.trim() || null,
-        company_number: companyNumber.replace(/\D/g, '') || null,
-        vat_number: vatNumber.trim() || null,
-        ares_last_checked_at: companyNumber.replace(/\D/g, '')
-          ? new Date().toISOString()
-          : null,
-      })
-      .eq('id', customerId)
+    const updateResponse = await updateCustomerAction({
+      customerId,
+      name,
+      email,
+      phone,
+      billingName,
+      billingStreet,
+      billingCity,
+      billingPostalCode,
+      billingCountry,
+      companyNumber,
+      vatNumber,
+    })
 
-    if (error && isMissingCustomerBillingColumns(error)) {
-      const fallbackResult = await supabase
-        .from('customers')
-        .update({
-          name: name.trim() || null,
-          email: email.trim() || null,
-          phone: phone.trim() || null,
-        })
-        .eq('id', customerId)
-
-      error = fallbackResult.error
-    }
-
-    if (error) {
-      setError(dictionary.customers.customerEdit.saveFailed)
+    if (!updateResponse.ok) {
+      setError(updateResponse.error || dictionary.customers.customerEdit.saveFailed)
       setSaving(false)
       return
     }

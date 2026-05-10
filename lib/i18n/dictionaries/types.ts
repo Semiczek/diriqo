@@ -1,4 +1,9 @@
 export type NavigationMessages = {
+  mainGroup: string
+  teamGroup: string
+  financeGroup: string
+  settingsGroup: string
+  supportGroup: string
   dashboard: string
   jobs: string
   customers: string
@@ -9,6 +14,11 @@ export type NavigationMessages = {
   leads: string
   calculations: string
   quotes: string
+  invoices: string
+  companySettings: string
+  billing: string
+  setupGuide: string
+  account: string
   help: string
 }
 
@@ -19,12 +29,29 @@ export type CommonMessages = {
   loggingOut: string
   logoutFailed: string
   openHelp: string
+  customerPortal: string
+  customerSafeData: string
+  changePassword: string
   save: string
   cancel: string
   delete: string
   search: string
   loading: string
   notSpecified: string
+  dataLoadFailed: string
+  dataSaveFailed: string
+  technicalDetailConsole: string
+  activeCompanyLoadFailed: string
+  companySwitchFailed: string
+  billingGraceWarning: string
+  billingTrialEndsIn: string
+  billingInactiveWarning: string
+  userFallback: string
+  openMenu: string
+  closeMenu: string
+  activeCompany: string
+  unnamedCompany: string
+  noOtherCompanyAvailable: string
 }
 
 export type AuthMessages = {
@@ -32,8 +59,61 @@ export type AuthMessages = {
   subtitle: string
   email: string
   password: string
+  fullName: string
+  fullNamePlaceholder: string
+  signInTitle: string
+  signInSubtitle: string
+  signUpTitle: string
+  createAccountHelper: string
+  continue: string
+  startFree: string
+  dontHaveAccountStartFree: string
+  alreadyHaveAccountSignIn: string
+  companyOnboardingEyebrow: string
+  companyOnboardingTitle: string
+  companyOnboardingSubtitle: string
+  companyName: string
+  country: string
+  language: string
+  currency: string
+  registrationNumber: string
+  taxNumber: string
+  companyDetails: string
+  companyDetailsLater: string
+  phone: string
+  address: string
+  companyNameMinLength: string
+  requiredFields: string
+  companyCreateFailed: string
+  companyOnboardingSubmit: string
+  companyOnboardingSaving: string
   signIn: string
   signingIn: string
+  createAccount: string
+  creatingAccount: string
+  createAccountFailed: string
+  accountCreatedCheckEmail: string
+  alreadyHaveAccount: string
+  createNewCompany: string
+  invalidCredentials: string
+  invalidEmail: string
+  forgotPassword: string
+  forgotPasswordTitle: string
+  forgotPasswordSubtitle: string
+  sendResetLink: string
+  sendingResetLink: string
+  resetEmailSent: string
+  resetPasswordFailed: string
+  backToSignIn: string
+  resetPasswordTitle: string
+  resetPasswordSubtitle: string
+  newPassword: string
+  confirmPassword: string
+  saveNewPassword: string
+  savingNewPassword: string
+  passwordMinLength: string
+  passwordsDoNotMatch: string
+  passwordSaved: string
   loading: string
   verifyingSession: string
   noHubAccess: string
@@ -49,11 +129,13 @@ export type AuthMessages = {
 
 export type CustomersMessages = {
   title: string
+  subtitle: string
   newCustomer: string
   backToCustomers: string
   searchPlaceholder: string
   errorPrefix: string
   empty: string
+  emptyHint: string
   noResults: string
   unnamedCustomer: string
   emailLabel: string
@@ -109,6 +191,11 @@ export type CustomersMessages = {
   createCustomer: string
   creatingCustomer: string
   newCustomerTitle: string
+  calculationFlowEyebrow: string
+  calculationFlowTitle: string
+  calculationFlowDescription: string
+  calculationFlowBack: string
+  calculationFlowCreate: string
   customerNameRequiredLabel: string
   customerNamePlaceholder: string
   emailPlaceholder: string
@@ -125,14 +212,19 @@ export type CustomersMessages = {
   customerNotFound: string
   detail: {
     unnamedCustomer: string
+    subtitle: string
     billingSectionTitle: string
     billingSectionDescription: string
     editBilling: string
     webLead: string
+    webLeadDescription: string
     calculations: string
+    calculationsDescription: string
     quotes: string
     contacts: string
     jobs: string
+    emptySectionTitle: string
+    calculationArchived: string
     addCalculation: string
     showAll: string
   }
@@ -482,6 +574,8 @@ export type CustomersMessages = {
 
 export type JobsMessages = {
   title: string
+  eyebrow: string
+  subtitle: string
   newJob: string
   newJobTitle: string
   backToJobs: string
@@ -489,8 +583,12 @@ export type JobsMessages = {
   currentMonth: string
   allMonths: string
   all: string
+  today: string
+  total: string
+  readyForInvoice: string
   timeState: string
   workState: string
+  work: string
   billing: string
   future: string
   active: string
@@ -504,8 +602,15 @@ export type JobsMessages = {
   overdue: string
   paid: string
   errorPrefix: string
+  loadError: string
   loading: string
+  emptyTitle: string
   empty: string
+  filters: string
+  sortDateAsc: string
+  sortDateDesc: string
+  sortCustomerAsc: string
+  sortTitleAsc: string
   searchPlaceholder: string
   allCustomers: string
   untitledJob: string
@@ -517,6 +622,16 @@ export type JobsMessages = {
   laborCosts: string
   otherCosts: string
   profit: string
+  internalJob: string
+  nextShift: string
+  lastActivity: string
+  childJobs: string
+  shiftsInGroup: string
+  groupRange: string
+  grouped: string
+  summaryJob: string
+  standaloneJob: string
+  relatedJob: string
   assignedWorkers: string
   activelyWorking: string
   completed: string
@@ -559,17 +674,80 @@ export type JobsMessages = {
   workersSaveError: string
   untitledWorker: string
   noName: string
+  internalJobLabel: string
+  internalJobDescription: string
+  newPage: {
+    titleRequired: string
+    customerRequiredCreateFirst: string
+    customerRequiredSelect: string
+    workerRequiredCreateFirst: string
+    workerRequiredSelect: string
+    startEndRequired: string
+    priceInvalid: string
+    workDatesRequired: string
+    createCustomerFirst: string
+    addCustomer: string
+    createWorkerNext: string
+    addWorker: string
+    workDaysInRange: string
+    workDaysDescription: string
+    selectAll: string
+    clearAll: string
+  }
+  editPage: {
+    backToDetail: string
+    eyebrow: string
+    title: string
+    subtitle: string
+    settings: string
+    scheduleAndPlace: string
+    finance: string
+    parentOwnsPrice: string
+    advanced: string
+    grouping: string
+    parentWithChildrenCannotBeChild: string
+    cannotBeOwnParent: string
+    parentWithChildrenCannotMove: string
+    detachConfirm: string
+    hasChildJobs: string
+    connectedToParent: string
+    detachFromGroup: string
+    parentSearchPlaceholder: string
+    selectedParent: string
+    noGrouping: string
+    availableCount: string
+    creatingParent: string
+    createParent: string
+    noParentAvailable: string
+    noDate: string
+    propagateToChildren: string
+  }
   detail: {
-      missingJobId: string
-      jobNotFound: string
-      backToJobs: string
+    missingJobId: string
+    jobNotFound: string
+    backToJobs: string
     editJob: string
+    detailEyebrow: string
     errorPrefix: string
     timeState: string
     workState: string
     billingState: string
     jobStatus: string
+    mainStatus: string
+    internalJobBadge: string
+    markDone: string
+    markingDone: string
+    markDoneError: string
+    markDoneSuccess: string
+    accountingRevenue: string
+    jobPrice: string
+    internalLabor: string
+    externalLabor: string
+    directCosts: string
     billingInfo: string
+    createInvoice: string
+    noInvoiceYet: string
+    status: string
     invoicedAt: string
     dueDate: string
     paidAt: string
@@ -589,25 +767,109 @@ export type JobsMessages = {
     manuallyEnteredHours: string
     timeOnJob: string
     noHours: string
-      note: string
-      edit: string
-      unpaid: string
-      saveFailed: string
-      missingAssignmentIds: string
-      hoursValidation: string
-      rateValidation: string
-      shiftEndValidation: string
-      shiftHoursOverrideValidation: string
-      shiftJobHoursValidation: string
-      shiftRequiresJobHours: string
-      shiftJobHoursTooHigh: string
-      updatedDataMissing: string
-      workLogs: string
+    note: string
+    edit: string
+    unpaid: string
+    saveFailed: string
+    missingAssignmentIds: string
+    hoursValidation: string
+    rateValidation: string
+    resetAssignmentHours: string
+    resettingAssignmentHours: string
+    resetAssignmentHoursConfirm: string
+    shiftEndValidation: string
+    shiftHoursOverrideValidation: string
+    shiftJobHoursValidation: string
+    shiftRequiresJobHours: string
+    shiftJobHoursTooHigh: string
+    updatedDataMissing: string
+    workLogs: string
     date: string
     costItemsByType: string
+    costsTitle: string
+    closeCostEditing: string
+    addCost: string
+    editCosts: string
     noItems: string
     itemName: string
     total: string
+    loadingSections: string
+    unknownWorker: string
+    shiftSource: string
+    assignmentFallbackSource: string
+    manualHoursSource: string
+    materialCost: string
+    transportCost: string
+    accommodationCost: string
+    otherCost: string
+    consumptionCost: string
+    mainStatusDone: string
+    mainStatusInProgress: string
+    mainStatusUpcoming: string
+    mainStatusNotStarted: string
+    notScheduled: string
+    noInvoice: string
+    groupCostSummary: string
+    groupHours: string
+    groupLabor: string
+    groupOtherCosts: string
+    groupTotalCosts: string
+    groupRevenue: string
+    groupProfit: string
+    dailyJobs: string
+    dailyJobsDescription: string
+    noConcreteShifts: string
+    jobScheduleDescription: string
+    daysCount: string
+    loadingShifts: string
+    noShiftsForJob: string
+    shiftCount: string
+    jobHours: string
+    mainContact: string
+    mainContactEmail: string
+    mainContactPhone: string
+    manageWorkers: string
+    hideWorkerManagement: string
+    noWorkersAssignedShort: string
+    activeWorkersLine: string
+    nobody: string
+    workerRequired: string
+    workerAlreadyAssigned: string
+    validHoursRequired: string
+    validRateRequired: string
+    validExternalAmountRequired: string
+    addingWorker: string
+    addWorker: string
+    loadingWorkers: string
+    chooseWorker: string
+    unnamedWorker: string
+    hourlyRatePlaceholder: string
+    expectedAmountPlaceholder: string
+    fixedAmountPlaceholder: string
+    addWorkerFailed: string
+    workerAdded: string
+    savingWorker: string
+    saveWorkerFailed: string
+    workerSaved: string
+    removeWorkerConfirm: string
+    removingWorker: string
+    removeWorkerFailed: string
+    workerRemoved: string
+    assignmentSummary: string
+    noWorkerAssignedTitle: string
+    noWorkerAssignedText: string
+    contractorWorker: string
+    employeeWorker: string
+    contractorHourly: string
+    contractorFixed: string
+    contractorInvoice: string
+    removeWorker: string
+    savingShort: string
+    costAfterEdit: string
+    communicationJobSubject: string
+    communicationFallbackSubject: string
+    photosEmptyInline: string
+    photoAlt: string
     dangerZone: {
       title: string
       description: string
@@ -615,7 +877,11 @@ export type JobsMessages = {
       detachingCustomer: string
       deleteJob: string
       deletingJob: string
+      showActions: string
+      hideActions: string
       noCustomerAssigned: string
+      detachCustomerDescription: string
+      deleteJobDescription: string
       detachConfirm: string
       detachSuccess: string
       detachError: string
@@ -643,6 +909,56 @@ export type JobsMessages = {
       loadPhotoError: string
       metadataMissing: string
       metadataIncomplete: string
+      progress: string
+      issue: string
+      document: string
+      photoType: string
+      photosLabel: string
+      chooseFiles: string
+      noFileSelected: string
+      filesSelected: string
+      photoNote: string
+      optionalNotePlaceholder: string
+      uploadPhotos: string
+      uploadingPhotos: string
+      deletePhoto: string
+      deletingPhoto: string
+      selectAtLeastOne: string
+      uploadFailed: string
+      deleteFailed: string
+    }
+    communication: {
+      title: string
+      description: string
+      emptySummary: string
+      countSummary: string
+      hide: string
+      writeEmail: string
+      sendEmailTitle: string
+      to: string
+      from: string
+      name: string
+      namePlaceholder: string
+      subject: string
+      message: string
+      messagePlaceholder: string
+      sending: string
+      sendEmail: string
+      noMessages: string
+      sendFailed: string
+      sendSuccess: string
+      sent: string
+      received: string
+      unmatched: string
+      matched: string
+      delivered: string
+      failed: string
+      bounced: string
+      queued: string
+      noBody: string
+      noSubject: string
+      noPreview: string
+      showFullEmail: string
     }
   }
 }
@@ -802,6 +1118,7 @@ export type WorkersMessages = {
 
 export type CalendarMessages = {
   title: string
+  planning: string
   subtitle: string
   newInternalEvent: string
   list: string
@@ -820,10 +1137,18 @@ export type CalendarMessages = {
   to: string
   previous: string
   next: string
+  thisWeek: string
+  inPeriod: string
+  tasks: string
+  calendarView: string
+  itemsCount: string
+  addEvent: string
+  emptyDescription: string
   displayedPeriod: string
   weekLabel: string
   monthLabel: string
   loading: string
+  loadError: string
   empty: string
   nothingPlanned: string
   moreItems: string
@@ -845,6 +1170,12 @@ export type CalendarMessages = {
   eventsLoadError: string
   untitledJob: string
   untitledEvent: string
+  statusPlanned: string
+  statusInProgress: string
+  statusWaitingCheck: string
+  statusDone: string
+  statusCancelled: string
+  statusWaitingForInvoice: string
   eventDetail: {
     missingEventId: string
     loading: string
@@ -900,6 +1231,20 @@ export type CalendarMessages = {
     createFailed: string
     workerAssignFailed: string
     unexpectedError: string
+    pageSubtitle: string
+    backToCalendar: string
+    mainSectionTitle: string
+    mainSectionDescription: string
+    titlePlaceholder: string
+    notePlaceholder: string
+    scheduleTitle: string
+    scheduleDescription: string
+    relationsTitle: string
+    relationsDescription: string
+    quickPaySupplier: string
+    quickCallCustomer: string
+    quickOrderMaterial: string
+    quickQualityCheck: string
     title: string
     eventTitle: string
     description: string
@@ -929,6 +1274,7 @@ export type AbsencesMessages = {
   status: string
   all: string
   loading: string
+  emptyTitle: string
   empty: string
   mode: string
   type: string
@@ -966,6 +1312,7 @@ export type AdvanceRequestsMessages = {
   paid: string
   paidCount: string
   loading: string
+  emptyTitle: string
   empty: string
   amount: string
   requestedAmount: string
@@ -1016,8 +1363,10 @@ export type LeadsMessages = {
 }
 
 export type QuotesOverviewMessages = {
+  eyebrow: string
   title: string
   subtitle: string
+  createFromCalculation: string
   customer: string
   allCustomers: string
   unnamedCustomer: string
@@ -1029,6 +1378,8 @@ export type QuotesOverviewMessages = {
   all: string
   filter: string
   loadFailed: string
+  emptyDescription: string
+  goToCalculations: string
   empty: string
   date: string
   validUntil: string
@@ -1047,6 +1398,8 @@ export type WorkersNewPageMessages = {
   authCreateFailed: string
   profileCreateFailed: string
   membershipCreateFailed: string
+  authNotConfigured: string
+  authNotConfiguredDetails: string
   unexpectedError: string
   genericError: string
   backToWorkers: string
@@ -1224,6 +1577,80 @@ export type DashboardMessages = {
   detailColumn: string
   todayShiftsOnly: string
   open: string
+  firstRunEyebrow: string
+  firstRunTitle: string
+  firstRunProgressPrefix: string
+  firstRunProgressSuffix: string
+  firstRunItemCompany: string
+  firstRunItemCurrency: string
+  firstRunItemWorkers: string
+  firstRunItemCustomers: string
+  firstRunItemQuote: string
+  firstRunItemJob: string
+  onboardingTitle: string
+  onboardingIntro: string
+  onboardingProgress: string
+  onboardingMinimize: string
+  onboardingContinue: string
+  onboardingSkip: string
+  onboardingCompleteSetup: string
+  onboardingReopen: string
+  onboardingBannerTitle: string
+  onboardingDoneTitle: string
+  onboardingDoneText: string
+  onboardingGoDashboard: string
+  onboardingCompanyTitle: string
+  onboardingCompanyText: string
+  onboardingCustomerTitle: string
+  onboardingCustomerText: string
+  onboardingWorkerTitle: string
+  onboardingWorkerText: string
+  onboardingUseMeAsWorker: string
+  onboardingCreateWorkerInstead: string
+  onboardingWorkerName: string
+  onboardingHourlyRate: string
+  onboardingWorkerType: string
+  onboardingWorkerTypeInternal: string
+  onboardingWorkerTypeExternal: string
+  onboardingJobTitle: string
+  onboardingJobText: string
+  onboardingErrorWorkerRate: string
+  onboardingErrorWorkerSave: string
+  quickNoteTitle: string
+  quickNotePlaceholder: string
+  quickNoteAdd: string
+  quickNoteEmpty: string
+  quickNoteDelete: string
+  quickNoteStarterCallCustomer: string
+  quickNoteStarterCheckJobs: string
+  selectMonth: string
+  commandCenterEyebrow: string
+  commandCenterTitle: string
+  commandCenterSubtitle: string
+  commandCenterAllGood: string
+  commandCenterEmptyText: string
+  actionOpenList: string
+  actionReview: string
+  riskJobsTitle: string
+  riskJobsSubtitle: string
+  noRiskJobs: string
+  latestPhotosTitle: string
+  latestPhotosSubtitle: string
+  noLatestPhotos: string
+  openJobs: string
+  noPreview: string
+  photoFallbackFileName: string
+  revenue: string
+  costs: string
+  noChartData: string
+  profitGrowing: string
+  profitUnstable: string
+  negativeProfit: string
+  lowMargin: string
+  highLaborCosts: string
+  missingPrice: string
+  missingCosts: string
+  excellentJob: string
   unknownTime: string
   unknownWorkState: string
   unknownBillingState: string

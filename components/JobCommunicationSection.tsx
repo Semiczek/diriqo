@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import type { MessageFeedItem } from '@/lib/email/types'
+import { useI18n } from '@/components/I18nProvider'
+import { getIntlLocale } from '@/lib/i18n/config'
 
 type JobCommunicationSectionProps = {
   jobId: string
@@ -13,14 +15,14 @@ type JobCommunicationSectionProps = {
   feedItems: MessageFeedItem[]
 }
 
-function formatDateTime(value: string) {
+function formatDateTime(value: string, locale: string) {
   const date = new Date(value)
 
   if (Number.isNaN(date.getTime())) {
     return value
   }
 
-  return new Intl.DateTimeFormat('cs-CZ', {
+  return new Intl.DateTimeFormat(locale, {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -29,8 +31,8 @@ function formatDateTime(value: string) {
   }).format(date)
 }
 
-function getDirectionLabel(direction: MessageFeedItem['direction']) {
-  return direction === 'outbound' ? 'Odesláno' : 'Přijato'
+function getDirectionLabel(direction: MessageFeedItem['direction'], t: ReturnType<typeof useI18n>['dictionary']['jobs']['detail']['communication']) {
+  return direction === 'outbound' ? t.sent : t.received
 }
 
 function getDirectionStyles(direction: MessageFeedItem['direction']): React.CSSProperties {
@@ -49,26 +51,26 @@ function getDirectionStyles(direction: MessageFeedItem['direction']): React.CSSP
   }
 }
 
-function getStatusLabel(item: MessageFeedItem) {
+function getStatusLabel(item: MessageFeedItem, t: ReturnType<typeof useI18n>['dictionary']['jobs']['detail']['communication']) {
   if (item.direction === 'inbound') {
     if (item.status === 'fallback_matched') return 'Fallback match'
-    if (item.status === 'unmatched') return 'Nespárováno'
-    return 'Spárováno'
+    if (item.status === 'unmatched') return t.unmatched
+    return t.matched
   }
 
-  if (item.status === 'delivered') return 'Doručeno'
-  if (item.status === 'failed') return 'Chyba'
-  if (item.status === 'bounced') return 'Nedoručeno'
-  if (item.status === 'queued') return 'Ve frontě'
-  return 'Odesláno'
+  if (item.status === 'delivered') return t.delivered
+  if (item.status === 'failed') return t.failed
+  if (item.status === 'bounced') return t.bounced
+  if (item.status === 'queued') return t.queued
+  return t.sent
 }
 
-function getBodyText(item: MessageFeedItem) {
-  return item.bodyText?.trim() || item.preview?.trim() || 'Bez obsahu e-mailu.'
+function getBodyText(item: MessageFeedItem, noBodyLabel: string) {
+  return item.bodyText?.trim() || item.preview?.trim() || noBodyLabel
 }
 
-function getAddressLabel(item: MessageFeedItem) {
-  return item.direction === 'outbound' ? 'Komu' : 'Od'
+function getAddressLabel(item: MessageFeedItem, t: ReturnType<typeof useI18n>['dictionary']['jobs']['detail']['communication']) {
+  return item.direction === 'outbound' ? t.to : t.from
 }
 
 function getSenderLabel(item: MessageFeedItem) {
@@ -138,6 +140,9 @@ export default function JobCommunicationSection({
   defaultSubject,
   feedItems,
 }: JobCommunicationSectionProps) {
+  const { dictionary, locale } = useI18n()
+  const dateLocale = getIntlLocale(locale)
+  const t = dictionary.jobs.detail.communication
   const [feed, setFeed] = useState<MessageFeedItem[]>(feedItems)
   const [toEmail, setToEmail] = useState(defaultToEmail ?? '')
   const [toName, setToName] = useState(defaultToName ?? '')
@@ -228,7 +233,7 @@ export default function JobCommunicationSection({
       const payload = (await response.json().catch(() => null)) as { error?: string } | null
 
       if (!response.ok) {
-        throw new Error(payload?.error ?? 'Nepodařilo se odeslat email.')
+        throw new Error(payload?.error ?? t.sendFailed)
       }
 
       const happenedAt = new Date().toISOString()
@@ -250,7 +255,7 @@ export default function JobCommunicationSection({
         ),
       )
 
-      setSendSuccess('Email byl odeslán a uložen do komunikace.')
+      setSendSuccess(t.sendSuccess)
       setMessage('')
 
       try {
@@ -263,7 +268,7 @@ export default function JobCommunicationSection({
         console.error('[EMAIL] Failed to refetch communication feed after send', error)
       }
     } catch (error) {
-      setSendError(error instanceof Error ? error.message : 'Nepodařilo se odeslat email.')
+      setSendError(error instanceof Error ? error.message : t.sendFailed)
     } finally {
       setSending(false)
     }
@@ -290,9 +295,9 @@ export default function JobCommunicationSection({
         }}
       >
         <div>
-          <h2 style={{ margin: 0, fontSize: '20px', color: '#111827' }}>Komunikace</h2>
+          <h2 style={{ margin: 0, fontSize: '20px', color: '#111827' }}>{t.title}</h2>
           <p style={{ margin: '6px 0 0 0', color: '#6b7280', fontSize: '14px' }}>
-            {feed.length === 0 ? 'Zatím žádná e-mailová komunikace.' : `${feed.length} zpráv v komunikaci.`}
+            {feed.length === 0 ? t.emptySummary : t.countSummary.replace('{count}', String(feed.length))}
           </p>
         </div>
         <button
@@ -308,7 +313,7 @@ export default function JobCommunicationSection({
             cursor: 'pointer',
           }}
         >
-          {expanded ? 'Skrýt komunikaci' : 'Napsat e-mail'}
+          {expanded ? t.hide : t.writeEmail}
         </button>
       </div>
 
@@ -325,7 +330,7 @@ export default function JobCommunicationSection({
           gap: '12px',
         }}
       >
-        <div style={{ fontWeight: 700, color: '#111827' }}>Odeslat email</div>
+        <div style={{ fontWeight: 700, color: '#111827' }}>{t.sendEmailTitle}</div>
 
         <div
           style={{
@@ -335,7 +340,7 @@ export default function JobCommunicationSection({
           }}
         >
           <label style={{ display: 'grid', gap: '6px', fontSize: '14px', color: '#374151' }}>
-            Komu
+            {t.to}
             <input
               value={toEmail}
               onChange={(event) => setToEmail(event.target.value)}
@@ -350,11 +355,11 @@ export default function JobCommunicationSection({
           </label>
 
           <label style={{ display: 'grid', gap: '6px', fontSize: '14px', color: '#374151' }}>
-            Jméno
+            {t.name}
             <input
               value={toName}
               onChange={(event) => setToName(event.target.value)}
-              placeholder="Jméno příjemce"
+              placeholder={t.namePlaceholder}
               style={{
                 border: '1px solid #d1d5db',
                 borderRadius: '10px',
@@ -366,7 +371,7 @@ export default function JobCommunicationSection({
         </div>
 
         <label style={{ display: 'grid', gap: '6px', fontSize: '14px', color: '#374151' }}>
-          Předmět
+          {t.subject}
           <input
             value={subject}
             onChange={(event) => setSubject(event.target.value)}
@@ -380,12 +385,12 @@ export default function JobCommunicationSection({
         </label>
 
         <label style={{ display: 'grid', gap: '6px', fontSize: '14px', color: '#374151' }}>
-          Zpráva
+          {t.message}
           <textarea
             value={message}
             onChange={(event) => setMessage(event.target.value)}
             rows={6}
-            placeholder="Napište zprávu pro zákazníka..."
+            placeholder={t.messagePlaceholder}
             style={{
               border: '1px solid #d1d5db',
               borderRadius: '10px',
@@ -414,7 +419,7 @@ export default function JobCommunicationSection({
               cursor: !canSend || sending ? 'not-allowed' : 'pointer',
             }}
           >
-            {sending ? 'Odesílání...' : 'Odeslat email'}
+            {sending ? t.sending : t.sendEmail}
           </button>
         </div>
       </div>
@@ -429,7 +434,7 @@ export default function JobCommunicationSection({
             backgroundColor: '#f9fafb',
           }}
         >
-          U této zakázky zatím není žádná emailová komunikace.
+          {t.noMessages}
         </div>
       ) : (
         <div style={{ display: 'grid', gap: '12px' }}>
@@ -463,18 +468,18 @@ export default function JobCommunicationSection({
                       fontWeight: 700,
                     }}
                   >
-                    {getDirectionLabel(item.direction)}
+                    {getDirectionLabel(item.direction, t)}
                   </span>
 
-                  <span style={{ color: '#6b7280', fontSize: '13px' }}>{getStatusLabel(item)}</span>
+                  <span style={{ color: '#6b7280', fontSize: '13px' }}>{getStatusLabel(item, t)}</span>
                 </div>
 
-                <div style={{ color: '#6b7280', fontSize: '13px' }}>{formatDateTime(item.happenedAt)}</div>
+                <div style={{ color: '#6b7280', fontSize: '13px' }}>{formatDateTime(item.happenedAt, dateLocale)}</div>
               </div>
 
-              <div style={{ color: '#111827', fontWeight: 700 }}>{item.subject || '(Bez předmětu)'}</div>
+              <div style={{ color: '#111827', fontWeight: 700 }}>{item.subject || t.noSubject}</div>
               <div style={{ color: '#4b5563', fontSize: '14px' }}>{item.email}</div>
-              <div style={{ color: '#374151', fontSize: '14px' }}>{item.preview || 'Bez náhledu obsahu.'}</div>
+              <div style={{ color: '#374151', fontSize: '14px' }}>{item.preview || t.noPreview}</div>
             </article>
           ))}
         </div>

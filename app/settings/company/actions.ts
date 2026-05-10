@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 
 import { COMPANY_MODULE_KEYS, type CompanyModuleKey } from '@/lib/company-settings-shared'
 import { resolveCompanyTimeZone } from '@/lib/company-timezone'
+import { getCompanyCountryConfig } from '@/lib/company-country-config'
 import { requireHubAccess } from '@/lib/require-hub-access'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 
@@ -14,6 +15,10 @@ export type SettingsActionResult = {
 
 const ADMIN_ROLES = new Set(['super_admin', 'company_admin'])
 
+type LogoUrlResult =
+  | { ok: true; value: string | null }
+  | { ok: false; message: string }
+
 function asText(formData: FormData, key: string) {
   const value = formData.get(key)
   if (typeof value !== 'string') return null
@@ -21,8 +26,46 @@ function asText(formData: FormData, key: string) {
   return trimmed ? trimmed : null
 }
 
+function asLogoUrl(formData: FormData, key: string): LogoUrlResult {
+  const value = asText(formData, key)
+  if (!value) return { ok: true, value: null }
+
+  if (value.startsWith('/') && !value.startsWith('//')) {
+    return { ok: true, value }
+  }
+
+  try {
+    const url = new URL(value)
+    if (url.protocol === 'https:' || url.protocol === 'http:') {
+      return { ok: true, value: url.toString() }
+    }
+  } catch {
+    // Invalid URLs are handled by the shared validation message below.
+  }
+
+  return { ok: false, message: 'Logo firmy musí být platná URL adresa začínající http://, https:// nebo /.' }
+}
+
 function asRequiredText(formData: FormData, key: string, fallback: string) {
   return asText(formData, key) ?? fallback
+}
+
+function asBusinessIdentifier(formData: FormData, key: string): LogoUrlResult {
+  const value = asText(formData, key)
+  if (!value) return { ok: true, value: null }
+
+  if (value.length <= 64 && /^[\p{L}\p{N}\s./-]+$/u.test(value)) {
+    return { ok: true, value }
+  }
+
+  return { ok: false, message: 'Registrační a daňové číslo může mít nejvýše 64 znaků a obsahovat písmena, čísla, mezery, lomítka, pomlčky nebo tečky.' }
+}
+
+function localeFromLanguage(language: string) {
+  const normalized = language.trim().toLowerCase()
+  if (normalized === 'cs' || normalized === 'sk') return 'cs-CZ'
+  if (normalized === 'de') return 'de-DE'
+  return 'en-GB'
 }
 
 function asBoolean(formData: FormData, key: string) {
@@ -86,19 +129,40 @@ function revalidateSettings() {
 export async function updateCompanyBasicInfo(formData: FormData): Promise<SettingsActionResult> {
   try {
     const { activeCompany, supabase } = await requireCompanySettingsAccess()
+    const logoUrl = asLogoUrl(formData, 'logo_url')
+    const registrationNumber = asBusinessIdentifier(formData, 'registration_number')
+    const taxNumber = asBusinessIdentifier(formData, 'tax_number')
+
+    if (!logoUrl.ok) return result(false, logoUrl.message)
+    if (!registrationNumber.ok) return result(false, registrationNumber.message)
+    if (!taxNumber.ok) return result(false, taxNumber.message)
+
+    const countryCode = asRequiredText(formData, 'country_code', 'CZ').toUpperCase()
+    const countryConfig = getCompanyCountryConfig(countryCode)
+    const language = asRequiredText(formData, 'default_language', countryConfig.defaultLanguage).toLowerCase()
+    const currency = asRequiredText(formData, 'default_currency', countryConfig.defaultCurrency).toUpperCase()
 
     const { error } = await supabase
       .from('companies')
       .update({
         name: asRequiredText(formData, 'name', activeCompany.companyName ?? 'Diriqo'),
-        ico: asText(formData, 'ico'),
-        dic: asText(formData, 'dic'),
+        country_code: countryCode,
+        default_language: language,
+        default_currency: currency,
+        registration_number: registrationNumber.value,
+        tax_number: taxNumber.value,
+        company_number: registrationNumber.value,
+        vat_number: taxNumber.value,
+        ico: registrationNumber.value,
+        dic: taxNumber.value,
         email: asText(formData, 'email'),
         phone: asText(formData, 'phone'),
         web: asText(formData, 'web'),
+        logo_url: logoUrl.value,
         address: asText(formData, 'address'),
-        currency: asRequiredText(formData, 'currency', 'CZK'),
-        locale: asRequiredText(formData, 'locale', 'cs-CZ'),
+        billing_country: countryCode,
+        currency,
+        locale: localeFromLanguage(language),
         timezone: resolveCompanyTimeZone(asText(formData, 'timezone')),
       })
       .eq('id', activeCompany.companyId)

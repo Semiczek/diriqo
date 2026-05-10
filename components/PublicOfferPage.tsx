@@ -1,6 +1,7 @@
 ﻿'use client'
 
 import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react'
+import Image from 'next/image'
 import CtaButton from '@/components/public-offer/CtaButton'
 import OfferAccordion from '@/components/public-offer/OfferAccordion'
 import OfferCtaModal from '@/components/public-offer/OfferCtaModal'
@@ -21,6 +22,26 @@ import {
   submitOfferResponse,
 } from '@/components/public-offer/utils'
 
+function normalizePublicLogoUrl(value: string | null | undefined) {
+  const trimmed = value?.trim()
+  if (!trimmed) return null
+
+  if (trimmed.startsWith('/') && !trimmed.startsWith('//')) {
+    return trimmed
+  }
+
+  try {
+    const url = new URL(trimmed)
+    if (url.protocol === 'https:' || url.protocol === 'http:') {
+      return url.toString()
+    }
+  } catch {
+    return null
+  }
+
+  return null
+}
+
 export default function PublicOfferPage({
   token,
   context = 'public',
@@ -32,6 +53,8 @@ export default function PublicOfferPage({
   benefitsText,
   contactName,
   contactEmail,
+  companyName,
+  companyLogoUrl,
   priceTotal,
   pricingTitle,
   pricingText,
@@ -87,6 +110,8 @@ export default function PublicOfferPage({
     'Připravili jsme pro vás přehledné řešení s jasným rozsahem prací, termínem a cenou.'
   const contactLabel = contactName || contactEmail || 'Diriqo'
   const preparedByLabel = preparedByName?.trim() || contactLabel
+  const brandLogoUrl = useMemo(() => normalizePublicLogoUrl(companyLogoUrl), [companyLogoUrl])
+  const brandLabel = companyName?.trim() || 'Diriqo'
   const keyBenefits = useMemo(() => getQuoteBenefits(benefitsText), [benefitsText])
   const formattedPreparedAt = useMemo(() => {
     if (!preparedAt) return null
@@ -345,16 +370,113 @@ export default function PublicOfferPage({
               flexWrap: 'wrap',
             }}
           >
-            <img
-              src="/diriqo-logo-full.png"
-              alt="Diriqo"
+            <div
               style={{
-                width: '158px',
-                height: 'auto',
-                display: 'block',
-                filter: 'drop-shadow(0 12px 28px rgba(34, 211, 238, 0.2))',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '16px',
+                minWidth: 0,
+                flex: '1 1 460px',
+                flexWrap: 'wrap',
               }}
-            />
+            >
+              {brandLogoUrl ? (
+                <div
+                  style={{
+                    minHeight: '76px',
+                    maxWidth: '280px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderRadius: '18px',
+                    border: '1px solid rgba(255,255,255,0.18)',
+                    background: 'rgba(255,255,255,0.96)',
+                    padding: '10px 14px',
+                    boxShadow: '0 18px 36px rgba(15, 23, 42, 0.22)',
+                    flex: '0 1 auto',
+                  }}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={brandLogoUrl}
+                    alt={brandLabel}
+                    style={{
+                      display: 'block',
+                      maxWidth: '252px',
+                      maxHeight: '56px',
+                      width: 'auto',
+                      height: 'auto',
+                      objectFit: 'contain',
+                    }}
+                  />
+                </div>
+              ) : (
+                <div
+                  style={{
+                    minHeight: '76px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    padding: '6px 0',
+                    flex: '0 0 auto',
+                    filter: 'drop-shadow(0 16px 30px rgba(34, 211, 238, 0.22))',
+                  }}
+                >
+                  <Image
+                    src="/diriqo-logo-icon.png"
+                    alt=""
+                    width={46}
+                    height={46}
+                    priority
+                    sizes="46px"
+                    style={{ objectFit: 'contain' }}
+                  />
+                  <span
+                    style={{
+                      color: '#ffffff',
+                      fontSize: '24px',
+                      fontWeight: 900,
+                      letterSpacing: 0,
+                      lineHeight: 1,
+                    }}
+                  >
+                    {'diriqo'}
+                  </span>
+                </div>
+              )}
+              <div
+                style={{
+                  display: 'grid',
+                  gap: '5px',
+                  minWidth: 0,
+                  color: '#ffffff',
+                }}
+              >
+                <span
+                  style={{
+                    color: 'rgba(224, 242, 254, 0.78)',
+                    fontSize: '12px',
+                    fontWeight: 850,
+                    letterSpacing: '0.08em',
+                    lineHeight: 1.2,
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  Nabídka je od firmy
+                </span>
+                <strong
+                  style={{
+                    color: '#ffffff',
+                    fontSize: 'clamp(18px, 2.2vw, 24px)',
+                    fontWeight: 950,
+                    lineHeight: 1.15,
+                    overflowWrap: 'anywhere',
+                  }}
+                >
+                  {brandLabel}
+                </strong>
+              </div>
+            </div>
             <div
               style={{
                 display: 'inline-flex',

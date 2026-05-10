@@ -3,6 +3,7 @@
 import React, { useMemo, useState } from 'react'
 import { updateWorkShiftAction } from '@/app/business-actions'
 import { useI18n } from '@/components/I18nProvider'
+import { getIntlLocale } from '@/lib/i18n/config'
 
 type ShiftRowEditorProps = {
   shift: {
@@ -44,33 +45,50 @@ function toIsoOrNull(value: string) {
   return date.toISOString()
 }
 
-function formatDateTime(value: string | null | undefined) {
+function formatDate(value: string | null | undefined, locale: string) {
+  if (!value) return '-'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return new Intl.DateTimeFormat(locale, {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(date)
+}
+
+function formatDateTime(value: string | null | undefined, locale: string) {
   if (!value) return '-'
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return '-'
-  return date.toLocaleString('cs-CZ')
+  return new Intl.DateTimeFormat(locale, {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date)
 }
 
 function formatJobOptionLabel(job: {
   title: string | null
   start_at?: string | null
   end_at?: string | null
-}) {
-  const title = job.title ?? 'Zakázka bez názvu'
+}, locale: string, untitledJobLabel: string) {
+  const title = job.title ?? untitledJobLabel
 
   if (!job.start_at) return title
 
   const start = new Date(job.start_at)
   if (Number.isNaN(start.getTime())) return title
 
-  const startLabel = start.toLocaleDateString('cs-CZ')
+  const startLabel = new Intl.DateTimeFormat(locale).format(start)
 
   if (!job.end_at) return `${title} (${startLabel})`
 
   const end = new Date(job.end_at)
   if (Number.isNaN(end.getTime())) return `${title} (${startLabel})`
 
-  const endLabel = end.toLocaleDateString('cs-CZ')
+  const endLabel = new Intl.DateTimeFormat(locale).format(end)
 
   if (startLabel === endLabel) return `${title} (${startLabel})`
 
@@ -89,7 +107,8 @@ function computeHours(startedAt: string | null, endedAt: string | null) {
 }
 
 export default function ShiftRowEditor({ shift, jobs, supportsJobAssignment }: ShiftRowEditorProps) {
-  const { dictionary } = useI18n()
+  const { dictionary, locale } = useI18n()
+  const dateLocale = getIntlLocale(locale)
   const t = dictionary.jobs.detail
   const workerT = dictionary.workers.detail
   const [currentShift, setCurrentShift] = useState(shift)
@@ -211,7 +230,7 @@ export default function ShiftRowEditor({ shift, jobs, supportsJobAssignment }: S
   if (!isEditing) {
     return (
       <tr style={rowStyle}>
-        <td style={cellStyle}>{currentShift.shift_date ?? '-'}</td>
+        <td style={cellStyle}>{formatDate(currentShift.shift_date, dateLocale)}</td>
         <td style={cellStyle}>
           {supportsJobAssignment ? (
             <div style={{ minWidth: 140 }}>
@@ -224,8 +243,8 @@ export default function ShiftRowEditor({ shift, jobs, supportsJobAssignment }: S
             </div>
           ) : workerT.unsupported}
         </td>
-        <td style={cellStyle}>{formatDateTime(currentShift.started_at)}</td>
-        <td style={cellStyle}>{formatDateTime(currentShift.ended_at)}</td>
+        <td style={cellStyle}>{formatDateTime(currentShift.started_at, dateLocale)}</td>
+        <td style={cellStyle}>{formatDateTime(currentShift.ended_at, dateLocale)}</td>
         <td style={cellStyle}>{currentShift.hours_override != null ? currentShift.hours_override : '-'}</td>
         <td style={cellStyle}>{effectiveHours != null ? effectiveHours : '-'}</td>
         <td style={cellStyle}>{currentShift.note || '-'}</td>
@@ -241,14 +260,14 @@ export default function ShiftRowEditor({ shift, jobs, supportsJobAssignment }: S
   return (
     <>
       <tr style={rowStyle}>
-        <td style={cellStyle}>{currentShift.shift_date ?? '-'}</td>
+        <td style={cellStyle}>{formatDate(currentShift.shift_date, dateLocale)}</td>
         <td style={cellStyle}>
           {supportsJobAssignment ? (
             <>
               <select value={jobIdInput} onChange={(e) => setJobIdInput(e.target.value)} style={inputStyle}>
                 <option value="">{workerT.unassigned}</option>
                 {jobs.map((job) => (
-                  <option key={job.id} value={job.id}>{formatJobOptionLabel(job)}</option>
+                  <option key={job.id} value={job.id}>{formatJobOptionLabel(job, dateLocale, dictionary.jobs.untitledJob)}</option>
                 ))}
               </select>
               <input type="number" step="0.01" min="0" value={jobHoursOverrideInput} onChange={(e) => setJobHoursOverrideInput(e.target.value)} placeholder={dictionary.jobs.detail.hours} style={{ ...inputStyle, marginTop: 8 }} />

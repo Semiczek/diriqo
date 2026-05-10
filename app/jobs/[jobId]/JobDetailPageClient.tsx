@@ -1,7 +1,9 @@
 ﻿'use client'
 
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
+import { useRouter } from 'next/navigation'
 import { supabase } from '../../../lib/supabase'
 import JobEconomicsSection from '../../../components/JobEconomicsSection'
 import JobCommunicationSection from '@/components/JobCommunicationSection'
@@ -9,6 +11,7 @@ import DashboardShell from '../../../components/DashboardShell'
 import { useI18n } from '@/components/I18nProvider'
 import JobDangerZone from '@/components/JobDangerZone'
 import JobPhotosSection from '@/components/JobPhotosSection'
+import { getIntlLocale } from '@/lib/i18n/config'
 import {
   cardTitleStyle,
   emptyStateStyle,
@@ -47,9 +50,7 @@ import {
 } from '@/lib/labor-calculation'
 import {
   getContractorBillingType,
-  getContractorBillingTypeLabel,
   getWorkerType,
-  getWorkerTypeLabel,
 } from '@/lib/payroll-settings'
 import { calculateQuotedJobEconomics } from '@/lib/economics'
 
@@ -69,6 +70,8 @@ type Job = {
   contact_id?: string | null
   address?: string | null
   scheduled_date?: string | null
+  scheduled_start?: string | null
+  scheduled_end?: string | null
   start_at: string | null
   end_at: string | null
   billing_status?: string | null
@@ -166,6 +169,8 @@ type GroupMemberJobRow = {
   description: string | null
   status: string | null
   address: string | null
+  scheduled_start?: string | null
+  scheduled_end?: string | null
   start_at: string | null
   end_at: string | null
   created_at: string | null
@@ -237,6 +242,7 @@ type JobEconomicsSummaryRow = {
 type JobDetailPageClientProps = {
   jobId: string
   canManageJobPhotos?: boolean
+  canManageCommunication?: boolean
   initialJob: Job | null
   initialJobState: JobStateRow | null
   initialCustomer: Customer | null
@@ -305,8 +311,24 @@ type NormalizedCostItem = {
   note: string | null
 }
 
-function getProfileName(profile: AssignmentRow['profiles']) {
-  if (!profile) return 'Neznámý pracovník'
+type ScheduledJobLike = {
+  scheduled_date?: string | null
+  scheduled_start?: string | null
+  scheduled_end?: string | null
+  start_at?: string | null
+  end_at?: string | null
+}
+
+function getJobStartAt(job: ScheduledJobLike | null | undefined) {
+  return job?.start_at ?? job?.scheduled_start ?? job?.scheduled_date ?? null
+}
+
+function getJobEndAt(job: ScheduledJobLike | null | undefined) {
+  return job?.end_at ?? job?.scheduled_end ?? null
+}
+
+function getProfileNameForDisplay(profile: AssignmentRow['profiles'], fallback: string) {
+  if (!profile) return fallback
 
   if (profile.full_name) return profile.full_name
   if (profile.name) return profile.name
@@ -318,26 +340,26 @@ function getProfileName(profile: AssignmentRow['profiles']) {
   if (combined) return combined
   if (profile.email) return profile.email
 
-  return profile.id ?? 'Neznámý pracovník'
+  return profile.id ?? fallback
 }
 
-function formatCurrency(value: number | null | undefined) {
+function formatCurrencyForLocale(value: number | null | undefined, locale: string) {
   const safeValue = Number(value ?? 0)
 
-  return new Intl.NumberFormat('cs-CZ', {
+  return new Intl.NumberFormat(locale, {
     style: 'currency',
     currency: 'CZK',
     maximumFractionDigits: 2,
   }).format(safeValue)
 }
 
-function formatDateTime(value: string | null) {
+function formatDateTimeForLocale(value: string | null, locale: string) {
   if (!value) return '—'
 
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return '—'
 
-  return new Intl.DateTimeFormat('cs-CZ', {
+  return new Intl.DateTimeFormat(locale, {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -350,21 +372,21 @@ function getPhotoUrl(photo: PhotoRow) {
   return photo.photo_url ?? photo.file_path ?? null
 }
 
-function formatDate(value: string | null) {
+function formatDateForLocale(value: string | null, locale: string) {
   if (!value) return '—'
 
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return value
 
-  return new Intl.DateTimeFormat('cs-CZ', {
+  return new Intl.DateTimeFormat(locale, {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
   }).format(date)
 }
 
-function formatHours(value: number) {
-  return new Intl.NumberFormat('cs-CZ', {
+function formatHoursForLocale(value: number, locale: string) {
+  return new Intl.NumberFormat(locale, {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   }).format(value)
@@ -377,6 +399,13 @@ function roundHours(value: number) {
 function toNumber(value: unknown) {
   const n = Number(value)
   return Number.isFinite(n) ? n : 0
+}
+
+function formatTemplate(template: string, values: Record<string, string | number>) {
+  return Object.entries(values).reduce(
+    (result, [key, value]) => result.replaceAll(`{${key}}`, String(value)),
+    template
+  )
 }
 
 function getHoursFromStartedCompleted(
@@ -408,10 +437,10 @@ function getShiftHours(shift: Pick<WorkShiftRow, 'hours_override' | 'job_hours_o
   return getHoursFromStartedCompleted(shift.started_at, shift.ended_at)
 }
 
-function getShiftWorkerName(shift: WorkShiftRow) {
+function getShiftWorkerNameForDisplay(shift: WorkShiftRow, fallback: string) {
   if (shift.profiles?.full_name?.trim()) return shift.profiles.full_name.trim()
   if (shift.profiles?.email?.trim()) return shift.profiles.email.trim()
-  return 'Neznámý pracovník'
+  return fallback
 }
 
 function getShiftHourlyRate(shift: WorkShiftRow, assignments: AssignmentRow[]) {
@@ -434,21 +463,6 @@ function getShiftLaborCost(shift: WorkShiftRow, assignments: AssignmentRow[]) {
   return roundHours(getShiftHours(shift) * getShiftHourlyRate(shift, assignments))
 }
 
-function getLaborSourceLabel(source: LaborCalculationSource) {
-  if (source === 'shift') return 'Směna'
-  if (source === 'assignment_fallback') return 'Přiřazení pracovníka'
-  return 'Ručně zadané hodiny'
-}
-
-function getCostTypeLabel(type: CostType) {
-  if (type === 'material') return 'Materiál'
-  if (type === 'transport') return 'Doprava'
-  if (type === 'accommodation') return 'Ubytování'
-  if (type === 'other') return 'Ostatní'
-  if (type === 'consumption') return 'Spotřební materiál'
-  return type
-}
-
 function normalizeCostType(value: string | null | undefined): CostType {
   switch (value) {
     case 'material':
@@ -460,34 +474,6 @@ function normalizeCostType(value: string | null | undefined): CostType {
     default:
       return 'other'
   }
-}
-
-function getTimeStateLabel(state: TimeState) {
-  if (state === 'future') return 'Budoucí'
-  if (state === 'active') return 'V termínu'
-  if (state === 'finished') return 'Hotovo'
-  return 'Neznámý čas'
-}
-
-function getWorkStateLabel(state: WorkState) {
-  if (state === 'not_started') return 'Nezahájeno'
-  if (state === 'in_progress') return 'Probíhá'
-  if (state === 'partially_done') return 'Částečně hotovo'
-  if (state === 'done') return 'Dokončeno'
-  return 'Neznámý provoz'
-}
-
-function getBillingStateLabel(state: BillingStateResolved) {
-  if (state === 'waiting_for_invoice') return 'Čeká na fakturaci'
-  if (state === 'due') return 'Ve splatnosti'
-  if (state === 'overdue') return 'Po splatnosti'
-  if (state === 'paid') return 'Zaplaceno'
-  return 'Neznámá fakturace'
-}
-
-function getDisplayTimeStateLabel(state: TimeState) {
-  if (state === 'finished') return 'Hotovo'
-  return getTimeStateLabel(state)
 }
 
 function getTimeStateStyles(state: TimeState): React.CSSProperties {
@@ -654,50 +640,29 @@ const premiumStatusTones: Record<
   },
 }
 
-function getHumanWorkStatus(timeState: TimeState, workState: WorkState) {
-  if (workState === 'done') return { label: 'Dokončeno', tone: 'green' as const, icon: '✓' }
-  if (workState === 'in_progress' || workState === 'partially_done' || timeState === 'active') {
-    return { label: 'Probíhá', tone: 'orange' as const, icon: '↻' }
-  }
-  if (timeState === 'future') return { label: 'Budoucí', tone: 'blue' as const, icon: '●' }
-  return { label: 'Nezahájeno', tone: 'gray' as const, icon: '•' }
-}
-
-function getHumanBillingStatus(state: BillingStateResolved | null) {
-  if (state === 'waiting_for_invoice') {
-    return { label: 'Čeká na fakturaci', tone: 'amber' as const, icon: 'F' }
-  }
-  if (state === 'due') return { label: 'Ve splatnosti', tone: 'blue' as const, icon: 'S' }
-  if (state === 'overdue') return { label: 'Po splatnosti', tone: 'red' as const, icon: '!' }
-  if (state === 'paid') return { label: 'Uhrazeno', tone: 'green' as const, icon: '✓' }
-  return { label: 'Bez faktury', tone: 'gray' as const, icon: '•' }
-}
-
-function getMainJobStatusLabel(workStatus: ReturnType<typeof getHumanWorkStatus>) {
-  if (workStatus.label === 'Dokončeno') return 'Zakázka dokončena'
-  if (workStatus.label === 'Probíhá') return 'Zakázka probíhá'
-  if (workStatus.label === 'Budoucí') return 'Zakázka naplánována'
-  return 'Zakázka nezahájena'
-}
-
-function formatJobTerm(startAt: string | null, endAt: string | null) {
-  if (!startAt && !endAt) return 'Termín není nastavený'
+function formatJobTermForLocale(
+  startAt: string | null,
+  endAt: string | null,
+  locale: string,
+  notScheduledLabel: string
+) {
+  if (!startAt && !endAt) return notScheduledLabel
 
   const start = startAt ? new Date(startAt) : null
   const end = endAt ? new Date(endAt) : null
 
   if (start && !Number.isNaN(start.getTime()) && end && !Number.isNaN(end.getTime())) {
     const sameDay = start.toDateString() === end.toDateString()
-    const date = new Intl.DateTimeFormat('cs-CZ', {
+    const date = new Intl.DateTimeFormat(locale, {
       day: 'numeric',
       month: 'numeric',
       year: 'numeric',
     }).format(start)
-    const startTime = new Intl.DateTimeFormat('cs-CZ', {
+    const startTime = new Intl.DateTimeFormat(locale, {
       hour: '2-digit',
       minute: '2-digit',
     }).format(start)
-    const endTime = new Intl.DateTimeFormat('cs-CZ', {
+    const endTime = new Intl.DateTimeFormat(locale, {
       hour: '2-digit',
       minute: '2-digit',
     }).format(end)
@@ -705,7 +670,7 @@ function formatJobTerm(startAt: string | null, endAt: string | null) {
     if (sameDay) return `${date}, ${startTime}-${endTime}`
   }
 
-  return `${formatDateTime(startAt)} - ${formatDateTime(endAt)}`
+  return `${formatDateTimeForLocale(startAt, locale)} - ${formatDateTimeForLocale(endAt, locale)}`
 }
 
 function StatusPanel({
@@ -852,12 +817,6 @@ function getAssignmentWorkState(
   return 'completed'
 }
 
-function getAssignmentWorkStateLabel(state: AssignmentWorkState) {
-  if (state === 'not_started') return 'Budoucí'
-  if (state === 'working') return 'Probíhá'
-  return 'Dokončeno'
-}
-
 function getAssignmentWorkStateStyles(
   state: AssignmentWorkState
 ): React.CSSProperties {
@@ -988,6 +947,7 @@ function normalizeAssignmentRows(
 export default function JobDetailPageClient({
   jobId,
   canManageJobPhotos = false,
+  canManageCommunication = false,
   initialJob,
   initialJobState,
   initialCustomer,
@@ -1007,7 +967,72 @@ export default function JobDetailPageClient({
   initialError = null,
   initialNotFound = false,
 }: JobDetailPageClientProps) {
-  const { dictionary } = useI18n()
+  const router = useRouter()
+  const { dictionary, locale } = useI18n()
+  const dateLocale = getIntlLocale(locale)
+  const detailMessages = dictionary.jobs.detail
+  const formatCurrency = (value: number | null | undefined) => formatCurrencyForLocale(value, dateLocale)
+  const formatDateTime = (value: string | null) => formatDateTimeForLocale(value, dateLocale)
+  const formatDate = (value: string | null) => formatDateForLocale(value, dateLocale)
+  const formatHours = (value: number) => formatHoursForLocale(value, dateLocale)
+  const formatJobTerm = (startAt: string | null, endAt: string | null) =>
+    formatJobTermForLocale(startAt, endAt, dateLocale, detailMessages.notScheduled)
+  const getProfileName = useCallback(
+    (profile: AssignmentRow['profiles']) =>
+      getProfileNameForDisplay(profile, detailMessages.unknownWorker),
+    [detailMessages.unknownWorker]
+  )
+  const getShiftWorkerName = useCallback(
+    (shift: WorkShiftRow) =>
+      getShiftWorkerNameForDisplay(shift, detailMessages.unknownWorker),
+    [detailMessages.unknownWorker]
+  )
+  const getWorkerTypeLabel = (workerType: string | null | undefined) =>
+    getWorkerType({ worker_type: workerType }) === 'contractor'
+      ? detailMessages.contractorWorker
+      : detailMessages.employeeWorker
+  const getContractorBillingTypeLabel = (value: string | null | undefined) => {
+    const normalized = getContractorBillingType(value)
+    if (normalized === 'fixed') return detailMessages.contractorFixed
+    if (normalized === 'invoice') return detailMessages.contractorInvoice
+    return detailMessages.contractorHourly
+  }
+  const getHumanWorkStatus = useCallback((timeState: TimeState, workState: WorkState) => {
+    if (workState === 'done') {
+      return { label: dictionary.jobs.done, tone: 'green' as const, icon: '✓', state: 'done' as const }
+    }
+
+    if (workState === 'in_progress' || workState === 'partially_done' || timeState === 'active') {
+      return { label: dictionary.jobs.inProgress, tone: 'orange' as const, icon: '↻', state: 'in_progress' as const }
+    }
+
+    if (timeState === 'future') {
+      return { label: dictionary.jobs.future, tone: 'blue' as const, icon: '•', state: 'future' as const }
+    }
+
+    return { label: dictionary.jobs.notStarted, tone: 'gray' as const, icon: '•', state: 'not_started' as const }
+  }, [dictionary.jobs.done, dictionary.jobs.future, dictionary.jobs.inProgress, dictionary.jobs.notStarted])
+  const getHumanBillingStatus = useCallback((state: BillingStateResolved | null) => {
+    if (state === 'waiting_for_invoice') {
+      return { label: dictionary.jobs.waitingForInvoice, tone: 'amber' as const, icon: 'F' }
+    }
+    if (state === 'due') return { label: dictionary.jobs.due, tone: 'blue' as const, icon: 'S' }
+    if (state === 'overdue') return { label: dictionary.jobs.overdue, tone: 'red' as const, icon: '!' }
+    if (state === 'paid') return { label: dictionary.jobs.paid, tone: 'green' as const, icon: '✓' }
+    return { label: detailMessages.noInvoice, tone: 'gray' as const, icon: '•' }
+  }, [
+    detailMessages.noInvoice,
+    dictionary.jobs.due,
+    dictionary.jobs.overdue,
+    dictionary.jobs.paid,
+    dictionary.jobs.waitingForInvoice,
+  ])
+  const getMainJobStatusLabel = (workStatus: ReturnType<typeof getHumanWorkStatus>) => {
+    if (workStatus.state === 'done') return detailMessages.mainStatusDone
+    if (workStatus.state === 'in_progress') return detailMessages.mainStatusInProgress
+    if (workStatus.state === 'future') return detailMessages.mainStatusUpcoming
+    return detailMessages.mainStatusNotStarted
+  }
 
   const [job, setJob] = useState<Job | null>(initialJob)
   const [jobState, setJobState] = useState<JobStateRow | null>(initialJobState)
@@ -1028,7 +1053,7 @@ export default function JobDetailPageClient({
     useState<JobEconomicsSummaryRow[]>(initialGroupEconomicsSummaries)
   const [workLogs] = useState<WorkLogRow[]>(initialWorkLogs)
   const [costItems, setCostItems] = useState<CostItemRow[]>(initialCostItems)
-  const [jobEconomicsSummary] =
+  const [jobEconomicsSummary, setJobEconomicsSummary] =
     useState<JobEconomicsSummaryRow | null>(initialJobEconomicsSummary)
   const detailsLoading = false
   const [error, setError] = useState<string | null>(initialError)
@@ -1069,6 +1094,10 @@ export default function JobDetailPageClient({
   useEffect(() => {
     setAssignments(initialAssignments)
   }, [initialAssignments])
+
+  useEffect(() => {
+    setJobEconomicsSummary(initialJobEconomicsSummary)
+  }, [initialJobEconomicsSummary])
 
   useEffect(() => {
     setAssignmentDrafts(
@@ -1134,7 +1163,7 @@ export default function JobDetailPageClient({
     if (state === 'not_started') return dictionary.jobs.notStarted
     if (state === 'in_progress') return dictionary.jobs.inProgress
     if (state === 'partially_done') return dictionary.jobs.partiallyDone
-    if (state === 'done') return 'Dokončeno'
+    if (state === 'done') return dictionary.jobs.done
     return dictionary.jobs.unknownWork
   }
 
@@ -1149,7 +1178,7 @@ export default function JobDetailPageClient({
   const getLocalizedAssignmentWorkStateLabel = (state: AssignmentWorkState) => {
     if (state === 'not_started') return dictionary.jobs.future
     if (state === 'working') return dictionary.jobs.inProgress
-    return 'Dokončeno'
+    return dictionary.jobs.done
   }
 
   const resolvedTimeState = useMemo<TimeState>(() => {
@@ -1159,19 +1188,21 @@ export default function JobDetailPageClient({
   const currentLegacyStatus = useMemo(() => {
     return resolveLegacyJobStatus(job?.status)
   }, [job?.status])
+  const jobStartAt = getJobStartAt(job)
+  const jobEndAt = getJobEndAt(job)
 
   const resolvedWorkState = useMemo<WorkState>(() => {
     return getEffectiveJobWorkState({
       timeState: resolvedTimeState,
       workState: resolveJobWorkState(jobState?.work_state),
       legacyStatus: currentLegacyStatus,
-      isMultiDay: isMultiDayJobRange(job?.start_at ?? null, job?.end_at ?? null),
+      isMultiDay: isMultiDayJobRange(jobStartAt, jobEndAt),
       assignedCount: toNumber(jobState?.assigned_total),
       startedCount: toNumber(jobState?.started_total),
       completedCount: toNumber(jobState?.completed_total),
       activeCount: toNumber(jobState?.active_workers),
     })
-  }, [currentLegacyStatus, job?.end_at, job?.start_at, jobState, resolvedTimeState])
+  }, [currentLegacyStatus, jobEndAt, jobStartAt, jobState, resolvedTimeState])
 
   const resolvedBillingState = useMemo<BillingStateResolved>(() => {
     return resolveJobBillingState(jobState?.billing_state_resolved)
@@ -1283,7 +1314,7 @@ export default function JobDetailPageClient({
     })
 
     return [...shiftRows, ...fallbackRows]
-  }, [assignments, normalizedAssignments, resolvedWorkState, workShifts])
+  }, [assignments, getProfileName, getShiftWorkerName, normalizedAssignments, resolvedWorkState, workShifts])
 
   const selectedWorkerOption = useMemo(() => {
     return workerOptions.find((worker) => worker.id === newAssignment.profile_id) ?? null
@@ -1354,7 +1385,7 @@ export default function JobDetailPageClient({
           timeState: resolvedMemberTimeState,
           workState: resolveJobWorkState(jobState?.work_state),
           legacyStatus: resolveLegacyJobStatus(groupJob.status),
-          isMultiDay: isMultiDayJobRange(groupJob.start_at, groupJob.end_at),
+          isMultiDay: isMultiDayJobRange(getJobStartAt(groupJob), getJobEndAt(groupJob)),
           assignedCount: toNumber(jobState?.assigned_total),
           startedCount: toNumber(jobState?.started_total),
           completedCount: toNumber(jobState?.completed_total),
@@ -1387,9 +1418,9 @@ export default function JobDetailPageClient({
       })
       .sort((left, right) => {
         const leftDate =
-          new Date(left.start_at ?? left.created_at ?? 0).getTime() || Number.MAX_SAFE_INTEGER
+          new Date(getJobStartAt(left) ?? left.created_at ?? 0).getTime() || Number.MAX_SAFE_INTEGER
         const rightDate =
-          new Date(right.start_at ?? right.created_at ?? 0).getTime() || Number.MAX_SAFE_INTEGER
+          new Date(getJobStartAt(right) ?? right.created_at ?? 0).getTime() || Number.MAX_SAFE_INTEGER
         return leftDate - rightDate
       })
   }, [groupMemberJobStateMap, groupMemberJobs, groupWorkShifts])
@@ -1504,14 +1535,14 @@ export default function JobDetailPageClient({
     return normalizedAssignments
       .map((assignment) => getProfileName(assignment.profiles))
       .filter((name) => name.trim().length > 0)
-  }, [normalizedAssignments])
+  }, [getProfileName, normalizedAssignments])
 
   const activeWorkerNames = useMemo(() => {
     return normalizedAssignments
       .filter((assignment) => Boolean(assignment.work_started_at) && !assignment.work_completed_at)
       .map((assignment) => getProfileName(assignment.profiles))
       .filter((name) => name.trim().length > 0)
-  }, [normalizedAssignments])
+  }, [getProfileName, normalizedAssignments])
 
   const totalCostItemsCount = useMemo(() => {
     return normalizedCostItems.length
@@ -1535,14 +1566,14 @@ export default function JobDetailPageClient({
 
   const workStatusPanel = useMemo(() => {
     return getHumanWorkStatus(resolvedTimeState, resolvedWorkState)
-  }, [resolvedTimeState, resolvedWorkState])
+  }, [getHumanWorkStatus, resolvedTimeState, resolvedWorkState])
 
   const billingStatusPanel = useMemo(() => {
     return getHumanBillingStatus(visibleBillingState)
-  }, [visibleBillingState])
+  }, [getHumanBillingStatus, visibleBillingState])
 
   const mainJobStatusLabel = getMainJobStatusLabel(workStatusPanel)
-  const jobTermLabel = formatJobTerm(job?.start_at ?? job?.scheduled_date ?? null, job?.end_at ?? null)
+  const jobTermLabel = formatJobTerm(jobStartAt, jobEndAt)
   const invoiceCreateHref = `/invoices/new?jobId=${job?.id ?? jobId}${
     job?.customer_id ? `&customerId=${job.customer_id}` : ''
   }`
@@ -1588,17 +1619,38 @@ export default function JobDetailPageClient({
     }))
   }
 
+  function syncJobStateForAssignments(nextAssignments: AssignmentRow[]) {
+    const assignedTotal = nextAssignments.filter((assignment) => assignment.profile_id).length
+    const startedTotal = nextAssignments.filter((assignment) => assignment.work_started_at).length
+    const completedTotal = nextAssignments.filter((assignment) => assignment.work_completed_at).length
+    const activeWorkers = nextAssignments.filter(
+      (assignment) => assignment.work_started_at && !assignment.work_completed_at
+    ).length
+
+    setJobState((current) =>
+      current
+        ? {
+            ...current,
+            assigned_total: assignedTotal,
+            started_total: startedTotal,
+            completed_total: completedTotal,
+            active_workers: activeWorkers,
+          }
+        : current
+    )
+  }
+
   async function addJobAssignment() {
     if (!job?.id) return
 
     const profileId = newAssignment.profile_id.trim()
     if (!profileId) {
-      setWorkerMessage('Vyber pracovníka.')
+      setWorkerMessage(detailMessages.workerRequired)
       return
     }
 
     if (assignments.some((assignment) => assignment.profile_id === profileId)) {
-      setWorkerMessage('Tento pracovník už je u zakázky přiřazený.')
+      setWorkerMessage(detailMessages.workerAlreadyAssigned)
       return
     }
 
@@ -1612,7 +1664,7 @@ export default function JobDetailPageClient({
         : null
 
     if (workerType === 'employee' && (!Number.isFinite(laborHours) || laborHours < 0)) {
-      setWorkerMessage('Zadej platný počet hodin.')
+      setWorkerMessage(detailMessages.validHoursRequired)
       return
     }
 
@@ -1620,7 +1672,7 @@ export default function JobDetailPageClient({
       (workerType === 'employee' || billingType === 'hourly') &&
       (!Number.isFinite(hourlyRate) || hourlyRate < 0)
     ) {
-      setWorkerMessage('Zadej platnou hodinovou sazbu.')
+      setWorkerMessage(detailMessages.validRateRequired)
       return
     }
 
@@ -1629,12 +1681,12 @@ export default function JobDetailPageClient({
       billingType !== 'hourly' &&
       (!Number.isFinite(externalAmount) || externalAmount < 0)
     ) {
-      setWorkerMessage('Zadej platnou externí částku.')
+      setWorkerMessage(detailMessages.validExternalAmountRequired)
       return
     }
 
     setAddingWorker(true)
-    setWorkerMessage('Přidávám pracovníka...')
+    setWorkerMessage(detailMessages.addingWorker)
 
     try {
       const response = await fetch(`/api/jobs/${job.id}/assignments`, {
@@ -1656,7 +1708,7 @@ export default function JobDetailPageClient({
 
       if (!response.ok) {
         const body = (await response.json().catch(() => null)) as { error?: string } | null
-        throw new Error(body?.error || 'Nepodařilo se přidat pracovníka.')
+        throw new Error(body?.error || detailMessages.addWorkerFailed)
       }
 
       const body = (await response.json().catch(() => null)) as {
@@ -1701,7 +1753,9 @@ export default function JobDetailPageClient({
           : null,
       }
 
-      setAssignments((current) => [...current, nextAssignment])
+      const nextAssignments = [...assignments, nextAssignment]
+      setAssignments(nextAssignments)
+      syncJobStateForAssignments(nextAssignments)
       setAssignmentDrafts((current) => ({
         ...current,
         [temporaryId]: {
@@ -1712,9 +1766,10 @@ export default function JobDetailPageClient({
         },
       }))
       setNewAssignment({ profile_id: '', labor_hours: '', hourly_rate: '', external_amount: '', note: '' })
-      setWorkerMessage('Pracovník byl přidán. Náklady jsou přepočítané.')
+      setWorkerMessage(detailMessages.workerAdded)
+      router.refresh()
     } catch (saveError) {
-      setWorkerMessage(saveError instanceof Error ? saveError.message : 'Nepodařilo se přidat pracovníka.')
+      setWorkerMessage(saveError instanceof Error ? saveError.message : detailMessages.addWorkerFailed)
     } finally {
       setAddingWorker(false)
     }
@@ -1738,7 +1793,7 @@ export default function JobDetailPageClient({
       : null
 
     if (assignment.worker_type === 'employee' && (!Number.isFinite(laborHours) || laborHours < 0)) {
-      setWorkerMessage('Zadej platný počet hodin.')
+      setWorkerMessage(detailMessages.validHoursRequired)
       return
     }
 
@@ -1746,7 +1801,7 @@ export default function JobDetailPageClient({
       (assignment.worker_type === 'employee' || billingType === 'hourly') &&
       (!Number.isFinite(hourlyRate) || hourlyRate < 0)
     ) {
-      setWorkerMessage('Zadej platnou hodinovou sazbu.')
+      setWorkerMessage(detailMessages.validRateRequired)
       return
     }
 
@@ -1755,12 +1810,12 @@ export default function JobDetailPageClient({
       billingType !== 'hourly' &&
       (!Number.isFinite(externalAmount) || externalAmount < 0)
     ) {
-      setWorkerMessage('Zadej platnou externí částku.')
+      setWorkerMessage(detailMessages.validExternalAmountRequired)
       return
     }
 
     setSavingAssignmentId(assignment.id)
-    setWorkerMessage('Ukládám pracovníka...')
+    setWorkerMessage(detailMessages.savingWorker)
 
     try {
       const response = await fetch(`/api/jobs/${job.id}/assignments`, {
@@ -1787,11 +1842,10 @@ export default function JobDetailPageClient({
 
       if (!response.ok) {
         const body = (await response.json().catch(() => null)) as { error?: string } | null
-        throw new Error(body?.error || 'Nepodařilo se uložit pracovníka.')
+        throw new Error(body?.error || detailMessages.saveWorkerFailed)
       }
 
-      setAssignments((current) =>
-        current.map((item) =>
+      const nextAssignments = assignments.map((item) =>
           item.id === assignment.id
             ? {
                 ...item,
@@ -1806,11 +1860,13 @@ export default function JobDetailPageClient({
                 note: draft.note.trim() || null,
               }
             : item
-        )
       )
-      setWorkerMessage('Pracovník byl uložen. Náklady jsou přepočítané.')
+      setAssignments(nextAssignments)
+      syncJobStateForAssignments(nextAssignments)
+      setWorkerMessage(detailMessages.workerSaved)
+      router.refresh()
     } catch (saveError) {
-      setWorkerMessage(saveError instanceof Error ? saveError.message : 'Nepodařilo se uložit pracovníka.')
+      setWorkerMessage(saveError instanceof Error ? saveError.message : detailMessages.saveWorkerFailed)
     } finally {
       setSavingAssignmentId(null)
     }
@@ -1819,11 +1875,11 @@ export default function JobDetailPageClient({
   async function removeJobAssignment(assignment: NormalizedAssignment) {
     if (!job?.id) return
 
-    const confirmed = window.confirm('Odebrat pracovníka ze zakázky?')
+    const confirmed = window.confirm(detailMessages.removeWorkerConfirm)
     if (!confirmed) return
 
     setRemovingAssignmentId(assignment.id)
-    setWorkerMessage('Odebírám pracovníka...')
+    setWorkerMessage(detailMessages.removingWorker)
 
     try {
       const response = await fetch(`/api/jobs/${job.id}/assignments`, {
@@ -1834,18 +1890,21 @@ export default function JobDetailPageClient({
 
       if (!response.ok) {
         const body = (await response.json().catch(() => null)) as { error?: string } | null
-        throw new Error(body?.error || 'Nepodařilo se odebrat pracovníka.')
+        throw new Error(body?.error || detailMessages.removeWorkerFailed)
       }
 
-      setAssignments((current) => current.filter((item) => item.id !== assignment.id))
+      const nextAssignments = assignments.filter((item) => item.id !== assignment.id)
+      setAssignments(nextAssignments)
+      syncJobStateForAssignments(nextAssignments)
       setAssignmentDrafts((current) => {
         const next = { ...current }
         delete next[assignment.id]
         return next
       })
-      setWorkerMessage('Pracovník byl odebrán. Náklady jsou přepočítané.')
+      setWorkerMessage(detailMessages.workerRemoved)
+      router.refresh()
     } catch (saveError) {
-      setWorkerMessage(saveError instanceof Error ? saveError.message : 'Nepodařilo se odebrat pracovníka.')
+      setWorkerMessage(saveError instanceof Error ? saveError.message : detailMessages.removeWorkerFailed)
     } finally {
       setRemovingAssignmentId(null)
     }
@@ -1855,7 +1914,7 @@ export default function JobDetailPageClient({
     if (!job || resolvedWorkState === 'done') return
 
     setMarkingJobDone(true)
-    setStatusMessage('Označuji zakázku jako hotovou...')
+    setStatusMessage(detailMessages.markingDone)
     setError(null)
 
     try {
@@ -1869,8 +1928,8 @@ export default function JobDetailPageClient({
           address: job.address ?? null,
           price: job.price,
           is_internal: job.is_internal === true,
-          start_at: job.start_at,
-          end_at: job.end_at,
+          start_at: jobStartAt,
+          end_at: jobEndAt,
           is_paid: job.is_paid === true,
           customer_id: job.customer_id,
           contact_id: job.contact_id ?? null,
@@ -1881,7 +1940,7 @@ export default function JobDetailPageClient({
       const payload = (await response.json().catch(() => ({}))) as { error?: string }
 
       if (!response.ok) {
-        throw new Error(payload.error ?? 'Nepodařilo se označit zakázku jako hotovou.')
+        throw new Error(payload.error ?? detailMessages.markDoneError)
       }
 
       setJob((current) => (current ? { ...current, status: 'done' } : current))
@@ -1897,10 +1956,10 @@ export default function JobDetailPageClient({
             }
           : current
       )
-      setStatusMessage('Zakázka je hotová. Promítne se do zisku dokončených zakázek.')
+      setStatusMessage(detailMessages.markDoneSuccess)
     } catch (saveError) {
       const message =
-        saveError instanceof Error ? saveError.message : 'Nepodařilo se označit zakázku jako hotovou.'
+        saveError instanceof Error ? saveError.message : detailMessages.markDoneError
       setStatusMessage(message)
       setError(message)
     } finally {
@@ -1964,10 +2023,10 @@ export default function JobDetailPageClient({
               fontWeight: 900,
             }}
           >
-            ← Zakázky
+            ← {detailMessages.backToJobs}
           </Link>
 
-          <div style={eyebrowStyle}>Detail zakázky</div>
+          <div style={eyebrowStyle}>{detailMessages.detailEyebrow}</div>
           <h1 style={{ ...heroTitleStyle, marginBottom: '12px' }}>
             {job.title ?? dictionary.jobs.untitledJob}
           </h1>
@@ -1983,14 +2042,14 @@ export default function JobDetailPageClient({
               marginBottom: '14px',
             }}
           >
-            <span>{customer?.name ?? 'Bez zákazníka'}</span>
+            <span>{customer?.name ?? dictionary.jobs.customerMissing}</span>
             <span style={{ color: '#94a3b8' }}>•</span>
             <span>{jobTermLabel}</span>
           </div>
 
           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
             <StatusPanel
-              label="Hlavní stav"
+              label={detailMessages.mainStatus}
               value={mainJobStatusLabel}
               tone={workStatusPanel.tone}
               icon={workStatusPanel.icon}
@@ -2010,7 +2069,7 @@ export default function JobDetailPageClient({
                   fontWeight: 900,
                 }}
               >
-                Interní zakázka
+                {detailMessages.internalJobBadge}
               </span>
             ) : null}
           </div>
@@ -2035,7 +2094,7 @@ export default function JobDetailPageClient({
                 opacity: markingJobDone ? 0.7 : 1,
               }}
             >
-              {markingJobDone ? 'Ukládám...' : 'Označit dokončeno'}
+              {markingJobDone ? detailMessages.markingDone : detailMessages.markDone}
             </button>
           ) : null}
           <Link
@@ -2045,7 +2104,7 @@ export default function JobDetailPageClient({
               textDecoration: 'none',
             }}
           >
-            Upravit zakázku
+            {detailMessages.editJob}
           </Link>
         </div>
       </section>
@@ -2082,13 +2141,13 @@ export default function JobDetailPageClient({
           marginBottom: '18px',
         }}
       >
-        <FinanceSummaryCard label="Fakturováno" value={formatCurrency(accountingRevenue)} tone="blue" />
-        <FinanceSummaryCard label="Cena zakázky" value={formatCurrency(job.price)} tone="gray" />
-        <FinanceSummaryCard label="Interní práce" value={formatCurrency(laborCost)} tone="orange" />
-        <FinanceSummaryCard label="Externí práce" value={formatCurrency(externalLaborCost)} tone="gray" />
-        <FinanceSummaryCard label="Přímé náklady" value={formatCurrency(otherCosts)} tone="gray" />
+        <FinanceSummaryCard label={detailMessages.accountingRevenue} value={formatCurrency(accountingRevenue)} tone="blue" />
+        <FinanceSummaryCard label={detailMessages.jobPrice} value={formatCurrency(job.price)} tone="gray" />
+        <FinanceSummaryCard label={detailMessages.internalLabor} value={formatCurrency(laborCost)} tone="orange" />
+        <FinanceSummaryCard label={detailMessages.externalLabor} value={formatCurrency(externalLaborCost)} tone="gray" />
+        <FinanceSummaryCard label={detailMessages.directCosts} value={formatCurrency(otherCosts)} tone="gray" />
         <FinanceSummaryCard
-          label="Zisk"
+          label={dictionary.jobs.profit}
           value={formatCurrency(assignmentProfit)}
           tone={assignmentProfit >= 0 ? 'green' : 'red'}
         />
@@ -2105,7 +2164,7 @@ export default function JobDetailPageClient({
       >
         <section style={sectionCardStyle}>
           <h2 style={{ ...cardTitleStyle, marginTop: 0, marginBottom: '14px', fontSize: '20px' }}>
-            Stav zakázky
+            {detailMessages.jobStatus}
           </h2>
           <div style={{ display: 'grid', gap: '12px', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
             <StatusPanel
@@ -2127,20 +2186,20 @@ export default function JobDetailPageClient({
               marginBottom: '10px',
             }}
           >
-            <h2 style={{ ...cardTitleStyle, margin: 0, fontSize: '20px' }}>Fakturace</h2>
+            <h2 style={{ ...cardTitleStyle, margin: 0, fontSize: '20px' }}>{detailMessages.billingInfo}</h2>
             <Link href={invoiceCreateHref} style={{ ...secondaryButtonStyle, textDecoration: 'none' }}>
-              Vytvořit fakturu
+              {detailMessages.createInvoice}
             </Link>
           </div>
           {!job.invoiced_at ? (
             <p style={{ margin: '0 0 8px', color: '#64748b', fontWeight: 700 }}>
-              Zakázka zatím není vyfakturovaná.
+              {detailMessages.noInvoiceYet}
             </p>
           ) : null}
-          <DetailInfoRow label="Stav" value={billingStatusPanel.label} />
-          <DetailInfoRow label="Fakturováno" value={formatDateTime(job.invoiced_at ?? null)} />
-          <DetailInfoRow label="Splatnost" value={formatDate(job.due_date ?? null)} />
-          <DetailInfoRow label="Zaplaceno" value={formatDateTime(job.paid_at ?? null)} />
+          <DetailInfoRow label={detailMessages.status} value={billingStatusPanel.label} />
+          <DetailInfoRow label={detailMessages.invoicedAt} value={formatDateTime(job.invoiced_at ?? null)} />
+          <DetailInfoRow label={detailMessages.dueDate} value={formatDate(job.due_date ?? null)} />
+          <DetailInfoRow label={detailMessages.paidAt} value={formatDateTime(job.paid_at ?? null)} />
         </section>
       </div>
 
@@ -2154,10 +2213,10 @@ export default function JobDetailPageClient({
           }}
         >
           <div style={{ fontWeight: 700, color: '#1d4ed8', marginBottom: '6px' }}>
-            Tato zakazka je soucasti seskupeneho bloku.
+            {dictionary.jobs.grouped}
           </div>
           <div style={{ color: '#1f2937', fontSize: '14px' }}>
-            Hlavni zakazka:{' '}
+            {dictionary.jobs.summaryJob}:{' '}
             <Link href={`/jobs/${groupParentJob.id}`} style={{ color: '#1d4ed8', fontWeight: 700, textDecoration: 'none' }}>
               {groupParentJob.title ?? dictionary.jobs.untitledJob}
             </Link>
@@ -2176,7 +2235,7 @@ export default function JobDetailPageClient({
             color: '#6b7280',
           }}
         >
-          Načítání detailních sekcí zakázky…
+          {detailMessages.loadingSections}
         </div>
       ) : null}
 
@@ -2194,10 +2253,7 @@ export default function JobDetailPageClient({
               marginBottom: '14px',
             }}
           >
-            <h2 style={{ ...cardTitleStyle, margin: 0, fontSize: '20px' }}>Souhrn nákladů skupiny</h2>
-            <div style={{ color: '#6b7280', fontSize: '14px' }}>
-              Soucet vsech nakladu a hodin napric seskupenymi zakazkami.
-            </div>
+            <h2 style={{ ...cardTitleStyle, margin: 0, fontSize: '20px' }}>{detailMessages.groupCostSummary}</h2>
           </div>
 
           <div
@@ -2208,42 +2264,42 @@ export default function JobDetailPageClient({
             }}
           >
             <div style={{ border: '1px solid #e5e7eb', borderRadius: '12px', padding: '14px' }}>
-              <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>Hodiny skupiny</div>
+              <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>{detailMessages.groupHours}</div>
               <div style={{ fontWeight: 700, fontSize: '24px', color: '#111827' }}>
                 {formatHours(groupedEconomicsSummary.totalHours)} h
               </div>
             </div>
 
             <div style={{ border: '1px solid #e5e7eb', borderRadius: '12px', padding: '14px' }}>
-              <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>Naklad prace</div>
+              <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>{detailMessages.groupLabor}</div>
               <div style={{ fontWeight: 700, fontSize: '24px', color: '#111827' }}>
                 {formatCurrency(groupedEconomicsSummary.laborCost)}
               </div>
             </div>
 
             <div style={{ border: '1px solid #e5e7eb', borderRadius: '12px', padding: '14px' }}>
-              <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>Ostatni naklady</div>
+              <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>{detailMessages.groupOtherCosts}</div>
               <div style={{ fontWeight: 700, fontSize: '24px', color: '#111827' }}>
                 {formatCurrency(groupedEconomicsSummary.otherCosts)}
               </div>
             </div>
 
             <div style={{ border: '1px solid #e5e7eb', borderRadius: '12px', padding: '14px' }}>
-              <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>Celkove naklady</div>
+              <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>{detailMessages.groupTotalCosts}</div>
               <div style={{ fontWeight: 700, fontSize: '24px', color: '#111827' }}>
                 {formatCurrency(groupedEconomicsSummary.totalCosts)}
               </div>
             </div>
 
             <div style={{ border: '1px solid #e5e7eb', borderRadius: '12px', padding: '14px' }}>
-              <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>Vynosy skupiny</div>
+              <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>{detailMessages.groupRevenue}</div>
               <div style={{ fontWeight: 700, fontSize: '24px', color: '#111827' }}>
                 {formatCurrency(groupedEconomicsSummary.revenue)}
               </div>
             </div>
 
             <div style={{ border: '1px solid #e5e7eb', borderRadius: '12px', padding: '14px' }}>
-              <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>Zisk skupiny</div>
+              <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>{detailMessages.groupProfit}</div>
               <div
                 style={{
                   fontWeight: 700,
@@ -2272,9 +2328,9 @@ export default function JobDetailPageClient({
               marginBottom: '14px',
             }}
           >
-            <h2 style={{ ...cardTitleStyle, margin: 0, fontSize: '20px' }}>Jednodenní zakázky</h2>
+            <h2 style={{ ...cardTitleStyle, margin: 0, fontSize: '20px' }}>{detailMessages.dailyJobs}</h2>
             <div style={{ color: '#6b7280', fontSize: '14px' }}>
-              Jedna logicka zakazka, vice konkretnich pracovnich dni.
+              {detailMessages.dailyJobsDescription}
             </div>
           </div>
 
@@ -2308,7 +2364,7 @@ export default function JobDetailPageClient({
                       </Link>
                     </div>
                     <div style={{ color: '#6b7280', fontSize: '14px', marginTop: '4px' }}>
-                      {formatDateTime(memberJob.start_at)} - {formatDateTime(memberJob.end_at)}
+                      {formatDateTime(getJobStartAt(memberJob))} - {formatDateTime(getJobEndAt(memberJob))}
                     </div>
                   </div>
 
@@ -2326,12 +2382,12 @@ export default function JobDetailPageClient({
                 </div>
 
                 <div style={{ color: '#6b7280', fontSize: '14px', marginBottom: '10px' }}>
-                  {memberJob.shiftsCount} smen | {formatHours(memberJob.totalShiftHours)} h
+                  {formatTemplate(detailMessages.shiftCount, { count: memberJob.shiftsCount })} | {formatHours(memberJob.totalShiftHours)} h
                 </div>
 
                 {memberJob.shiftsByDate.length === 0 ? (
                   <div style={{ color: '#6b7280', fontSize: '14px' }}>
-                    Bez konkretnich smen.
+                    {detailMessages.noConcreteShifts}
                   </div>
                 ) : (
                   <div style={{ display: 'grid', gap: '8px' }}>
@@ -2368,9 +2424,9 @@ export default function JobDetailPageClient({
             marginBottom: '14px',
           }}
         >
-          <h2 style={{ ...cardTitleStyle, margin: 0, fontSize: '20px' }}>Harmonogram</h2>
+          <h2 style={{ ...cardTitleStyle, margin: 0, fontSize: '20px' }}>{dictionary.jobs.recurrence}</h2>
           <div style={{ color: '#6b7280', fontSize: '14px' }}>
-            Termín zakázky a navazující směny.
+            {detailMessages.jobScheduleDescription}
           </div>
         </div>
 
@@ -2383,34 +2439,34 @@ export default function JobDetailPageClient({
           }}
         >
           <div style={metaItemStyle}>
-            <span style={metaLabelStyle}>Začátek</span>
-            <span style={metaValueStyle}>{formatDateTime(job.start_at ?? job.scheduled_date ?? null)}</span>
+            <span style={metaLabelStyle}>{dictionary.jobs.startLabel}</span>
+            <span style={metaValueStyle}>{formatDateTime(jobStartAt)}</span>
           </div>
           <div style={metaItemStyle}>
-            <span style={metaLabelStyle}>Konec</span>
-            <span style={metaValueStyle}>{formatDateTime(job.end_at ?? null)}</span>
+            <span style={metaLabelStyle}>{dictionary.jobs.endLabel}</span>
+            <span style={metaValueStyle}>{formatDateTime(jobEndAt)}</span>
           </div>
           <div style={metaItemStyle}>
-            <span style={metaLabelStyle}>Nejbližší směna</span>
+            <span style={metaLabelStyle}>{dictionary.jobs.nextShift}</span>
             <span style={metaValueStyle}>
               {nearestShift ? formatDateTime(nearestShift.started_at ?? nearestShift.shift_date ?? null) : '—'}
             </span>
           </div>
           <div style={metaItemStyle}>
-            <span style={metaLabelStyle}>Rozsah skupiny</span>
+            <span style={metaLabelStyle}>{dictionary.jobs.groupRange}</span>
             <span style={metaValueStyle}>
               {groupedDailyJobsForDisplay.length > 0
-                ? `${groupedDailyJobsForDisplay.length} dní`
-                : 'Samostatná zakázka'}
+                ? formatTemplate(detailMessages.daysCount, { count: groupedDailyJobsForDisplay.length })
+                : dictionary.jobs.standaloneJob}
             </span>
           </div>
         </div>
 
         {detailsLoading ? (
-          <p style={{ margin: 0, color: '#6b7280' }}>Načítání směn…</p>
+          <p style={{ margin: 0, color: '#6b7280' }}>{detailMessages.loadingShifts}</p>
         ) : groupedWorkShifts.length === 0 ? (
           <p style={{ margin: 0, color: '#6b7280' }}>
-            Pro tuto zakázku zatím nejsou evidované žádné konkrétní směny.
+            {detailMessages.noShiftsForJob}
           </p>
         ) : (
           <div style={{ display: 'grid', gap: '12px' }}>
@@ -2435,7 +2491,7 @@ export default function JobDetailPageClient({
                 >
                   <div style={{ fontWeight: 700, color: '#111827' }}>{formatDate(group.dateKey)}</div>
                   <div style={{ color: '#6b7280', fontSize: '14px' }}>
-                    {group.shifts.length} směna/y | {formatHours(group.totalHours)} h
+                    {formatTemplate(detailMessages.shiftCount, { count: group.shifts.length })} | {formatHours(group.totalHours)} h
                   </div>
                 </div>
 
@@ -2453,13 +2509,13 @@ export default function JobDetailPageClient({
                     >
                       <div style={{ fontWeight: 600, color: '#111827' }}>{getShiftWorkerName(shift)}</div>
                       <div style={{ color: '#4b5563' }}>
-                        <strong>Čas:</strong> {formatDateTime(shift.started_at)} - {formatDateTime(shift.ended_at)}
+                        <strong>{dictionary.jobs.timeState}:</strong> {formatDateTime(shift.started_at)} - {formatDateTime(shift.ended_at)}
                       </div>
                       <div style={{ color: '#4b5563' }}>
-                        <strong>Hodiny pro zakázku:</strong> {formatHours(getShiftHours(shift))} h
+                        <strong>{detailMessages.jobHours}:</strong> {formatHours(getShiftHours(shift))} h
                       </div>
                       <div style={{ color: '#4b5563' }}>
-                        <strong>Poznámka:</strong> {shift.note?.trim() ? shift.note : '-'}
+                        <strong>{detailMessages.note}:</strong> {shift.note?.trim() ? shift.note : '-'}
                       </div>
                     </div>
                   ))}
@@ -2475,35 +2531,35 @@ export default function JobDetailPageClient({
         style={sectionCardStyle}
       >
         <h2 style={{ marginTop: 0, marginBottom: '14px', fontSize: '20px' }}>
-          Kontakty zákazníka
+          {dictionary.customers.contacts}
         </h2>
 
         <div style={{ display: 'grid', gap: '10px' }}>
           <div>
-            <strong>Zákazník:</strong> {customer?.name ?? '—'}
+            <strong>{dictionary.jobs.customer}:</strong> {customer?.name ?? '—'}
           </div>
           <div>
-            <strong>Email zákazníka:</strong> {customer?.email ?? '—'}
+            <strong>{dictionary.customers.emailLabel}:</strong> {customer?.email ?? '—'}
           </div>
           <div>
-            <strong>Telefon zákazníka:</strong> {customer?.phone ?? '—'}
+            <strong>{dictionary.customers.phoneLabel}:</strong> {customer?.phone ?? '—'}
           </div>
           <div>
-            <strong>Hlavní kontakt:</strong>{' '}
+            <strong>{detailMessages.mainContact}:</strong>{' '}
             {mainCustomerContact?.full_name ?? '—'}
           </div>
           <div>
-            <strong>Email hlavního kontaktu:</strong>{' '}
+            <strong>{detailMessages.mainContactEmail}:</strong>{' '}
             {mainCustomerContact?.email ?? '—'}
           </div>
           <div>
-            <strong>Telefon hlavního kontaktu:</strong>{' '}
+            <strong>{detailMessages.mainContactPhone}:</strong>{' '}
             {mainCustomerContact?.phone ?? '—'}
           </div>
 
           {jobCustomerContactsWithDetails.length > 0 && (
             <div style={{ marginTop: '10px' }}>
-              <strong>Další kontakty:</strong>
+              <strong>{dictionary.customers.contacts}:</strong>
               <div style={{ display: 'grid', gap: '10px', marginTop: '10px' }}>
                 {jobCustomerContactsWithDetails.map((item) => (
                   <div
@@ -2515,17 +2571,17 @@ export default function JobDetailPageClient({
                     }}
                   >
                     <div>
-                      <strong>Jméno:</strong>{' '}
+                      <strong>{dictionary.workers.detail.name}:</strong>{' '}
                       {item.contact?.full_name ?? '—'}
                     </div>
                     <div>
-                      <strong>Role:</strong> {item.role_label ?? item.contact?.role ?? '—'}
+                      <strong>{dictionary.customers.role}:</strong> {item.role_label ?? item.contact?.role ?? '—'}
                     </div>
                     <div>
-                      <strong>Email:</strong> {item.contact?.email ?? '—'}
+                      <strong>{dictionary.customers.emailLabel}:</strong> {item.contact?.email ?? '—'}
                     </div>
                     <div>
-                      <strong>Telefon:</strong> {item.contact?.phone ?? '—'}
+                      <strong>{dictionary.customers.phoneLabel}:</strong> {item.contact?.phone ?? '—'}
                     </div>
                   </div>
                 ))}
@@ -2550,14 +2606,14 @@ export default function JobDetailPageClient({
             marginBottom: '14px',
           }}
         >
-          <h2 style={{ ...cardTitleStyle, margin: 0, fontSize: '20px' }}>Pracovníci</h2>
+          <h2 style={{ ...cardTitleStyle, margin: 0, fontSize: '20px' }}>{detailMessages.workersAndWork}</h2>
 
           <button
             type="button"
             onClick={() => setWorkersExpanded((current) => !current)}
             style={{ ...secondaryButtonStyle, cursor: 'pointer' }}
           >
-            {workersExpanded ? 'Skrýt správu' : 'Spravovat pracovníky'}
+            {workersExpanded ? detailMessages.hideWorkerManagement : detailMessages.manageWorkers}
           </button>
         </div>
 
@@ -2570,19 +2626,19 @@ export default function JobDetailPageClient({
           }}
         >
           <div style={metaItemStyle}>
-            <span style={metaLabelStyle}>Přiřazeno</span>
+            <span style={metaLabelStyle}>{detailMessages.assigned}</span>
             <span style={metaValueStyle}>{toNumber(jobState?.assigned_total)}</span>
           </div>
           <div style={metaItemStyle}>
-            <span style={metaLabelStyle}>Zahájilo</span>
+            <span style={metaLabelStyle}>{detailMessages.started}</span>
             <span style={metaValueStyle}>{toNumber(jobState?.started_total)}</span>
           </div>
           <div style={metaItemStyle}>
-            <span style={metaLabelStyle}>Dokončilo</span>
+            <span style={metaLabelStyle}>{detailMessages.completed}</span>
             <span style={metaValueStyle}>{toNumber(jobState?.completed_total)}</span>
           </div>
           <div style={metaItemStyle}>
-            <span style={metaLabelStyle}>Aktivně pracuje</span>
+            <span style={metaLabelStyle}>{detailMessages.activeWorkers}</span>
             <span style={metaValueStyle}>{toNumber(jobState?.active_workers)}</span>
           </div>
         </div>
@@ -2590,11 +2646,13 @@ export default function JobDetailPageClient({
         <div style={{ color: '#374151', fontSize: '14px', marginBottom: workersExpanded ? '16px' : 0 }}>
           <div style={{ fontWeight: 800, marginBottom: '6px' }}>
             {assignedWorkerNames.length === 0
-              ? 'Zatím nejsou přiřazení žádní pracovníci.'
+              ? detailMessages.noWorkersAssignedShort
               : assignedWorkerNames.join(', ')}
           </div>
           <div style={{ color: '#64748b' }}>
-            Aktivně pracuje: {activeWorkerNames.length > 0 ? activeWorkerNames.join(', ') : 'nikdo'}
+            {formatTemplate(detailMessages.activeWorkersLine, {
+              names: activeWorkerNames.length > 0 ? activeWorkerNames.join(', ') : detailMessages.nobody,
+            })}
           </div>
         </div>
 
@@ -2659,11 +2717,11 @@ export default function JobDetailPageClient({
             }}
           >
             <option value="">
-              {loadingWorkerOptions ? 'Načítám pracovníky...' : 'Vyber pracovníka'}
+              {loadingWorkerOptions ? detailMessages.loadingWorkers : detailMessages.chooseWorker}
             </option>
             {workerOptions.map((worker) => (
               <option key={worker.id} value={worker.id}>
-                {(worker.full_name || worker.email || 'Pracovník bez jména') +
+                {(worker.full_name || worker.email || detailMessages.unnamedWorker) +
                   ` - ${getWorkerTypeLabel(worker.worker_type)}`}
               </option>
             ))}
@@ -2693,7 +2751,7 @@ export default function JobDetailPageClient({
             <input
               value={newAssignment.labor_hours}
               onChange={(event) => setNewAssignment((current) => ({ ...current, labor_hours: event.target.value }))}
-              placeholder="Hodiny"
+              placeholder={detailMessages.hours}
               inputMode="decimal"
               style={{
                 padding: '12px 14px',
@@ -2708,7 +2766,7 @@ export default function JobDetailPageClient({
             <input
               value={newAssignment.hourly_rate}
               onChange={(event) => setNewAssignment((current) => ({ ...current, hourly_rate: event.target.value }))}
-              placeholder="Sazba Kč/h"
+              placeholder={detailMessages.hourlyRatePlaceholder}
               inputMode="decimal"
               style={{
                 padding: '12px 14px',
@@ -2721,7 +2779,7 @@ export default function JobDetailPageClient({
             <input
               value={newAssignment.external_amount}
               onChange={(event) => setNewAssignment((current) => ({ ...current, external_amount: event.target.value }))}
-              placeholder={selectedContractorBillingType === 'invoice' ? 'Očekávaná částka' : 'Fixní částka'}
+              placeholder={selectedContractorBillingType === 'invoice' ? detailMessages.expectedAmountPlaceholder : detailMessages.fixedAmountPlaceholder}
               inputMode="decimal"
               style={{
                 padding: '12px 14px',
@@ -2735,7 +2793,7 @@ export default function JobDetailPageClient({
           <input
             value={newAssignment.note}
             onChange={(event) => setNewAssignment((current) => ({ ...current, note: event.target.value }))}
-            placeholder="Poznámka"
+            placeholder={detailMessages.note}
             style={{
               padding: '12px 14px',
               borderRadius: '12px',
@@ -2755,7 +2813,7 @@ export default function JobDetailPageClient({
             marginBottom: '18px',
           }}
         >
-          {addingWorker ? 'Přidávám...' : 'Přidat pracovníka'}
+          {addingWorker ? detailMessages.addingWorker : detailMessages.addWorker}
         </button>
 
         <div
@@ -2766,7 +2824,10 @@ export default function JobDetailPageClient({
             fontWeight: 700,
           }}
         >
-          Součet z přiřazení: {formatHours(assignmentTotalHours)} h | {formatCurrency(assignmentLaborCost)}
+          {formatTemplate(detailMessages.assignmentSummary, {
+            hours: formatHours(assignmentTotalHours),
+            cost: formatCurrency(assignmentLaborCost),
+          })}
         </div>
 
         {detailsLoading ? (
@@ -2781,8 +2842,8 @@ export default function JobDetailPageClient({
             }}
           >
             <div style={{ fontSize: '28px' }}>+</div>
-            <strong>Nikdo není přiřazený.</strong>
-            <span>Vyber pracovníka výše a přidej ho k zakázce.</span>
+            <strong>{detailMessages.noWorkerAssignedTitle}</strong>
+            <span>{detailMessages.noWorkerAssignedText}</span>
           </div>
         ) : (
           <div style={{ display: 'grid', gap: '12px' }}>
@@ -2829,11 +2890,11 @@ export default function JobDetailPageClient({
                 >
                   <div>
                     <div style={{ fontWeight: 700, color: '#111827' }}>
-                      {assignment.profiles?.full_name || 'Neznámý pracovník'}
+                      {assignment.profiles?.full_name || detailMessages.unknownWorker}
                     </div>
                     <div style={{ color: '#6b7280', fontSize: '14px' }}>
                       {assignment.worker_type === 'contractor'
-                        ? `Externí / subdodavatel · ${getContractorBillingTypeLabel(assignment.assignment_billing_type)} · ${formatCurrency(assignment.computed_external_labor_cost)}`
+                        ? `${detailMessages.contractorWorker} · ${getContractorBillingTypeLabel(assignment.assignment_billing_type)} · ${formatCurrency(assignment.computed_external_labor_cost)}`
                         : `${formatHours(assignment.computed_labor_hours)} h × ${formatCurrency(assignment.computed_hourly_rate)} = ${formatCurrency(assignment.computed_internal_labor_cost)}`}
                     </div>
                   </div>
@@ -2853,7 +2914,7 @@ export default function JobDetailPageClient({
                       opacity: removingAssignmentId === assignment.id ? 0.7 : 1,
                     }}
                   >
-                    {removingAssignmentId === assignment.id ? 'Odebírám...' : 'Odebrat'}
+                    {removingAssignmentId === assignment.id ? detailMessages.removingWorker : detailMessages.removeWorker}
                   </button>
                 </div>
 
@@ -2869,14 +2930,14 @@ export default function JobDetailPageClient({
                       <input
                         value={draft.labor_hours}
                         onChange={(event) => updateAssignmentDraft(assignment.id, { labor_hours: event.target.value })}
-                        placeholder="Hodiny"
+                        placeholder={detailMessages.hours}
                         inputMode="decimal"
                         style={{ padding: '10px 12px', borderRadius: '10px', border: '1px solid #d1d5db' }}
                       />
                       <input
                         value={draft.hourly_rate}
                         onChange={(event) => updateAssignmentDraft(assignment.id, { hourly_rate: event.target.value })}
-                        placeholder="Sazba Kč/h"
+                        placeholder={detailMessages.hourlyRatePlaceholder}
                         inputMode="decimal"
                         style={{ padding: '10px 12px', borderRadius: '10px', border: '1px solid #d1d5db' }}
                       />
@@ -2885,7 +2946,7 @@ export default function JobDetailPageClient({
                     <input
                       value={draft.external_amount}
                       onChange={(event) => updateAssignmentDraft(assignment.id, { external_amount: event.target.value })}
-                      placeholder={billingType === 'invoice' ? 'Očekávaná částka' : 'Fixní částka'}
+                      placeholder={billingType === 'invoice' ? detailMessages.expectedAmountPlaceholder : detailMessages.fixedAmountPlaceholder}
                       inputMode="decimal"
                       style={{ padding: '10px 12px', borderRadius: '10px', border: '1px solid #d1d5db' }}
                     />
@@ -2893,7 +2954,7 @@ export default function JobDetailPageClient({
                   <input
                     value={draft.note}
                     onChange={(event) => updateAssignmentDraft(assignment.id, { note: event.target.value })}
-                    placeholder="Poznámka"
+                    placeholder={detailMessages.note}
                     style={{ padding: '10px 12px', borderRadius: '10px', border: '1px solid #d1d5db' }}
                   />
                   <button
@@ -2906,12 +2967,12 @@ export default function JobDetailPageClient({
                       opacity: savingAssignmentId === assignment.id ? 0.7 : 1,
                     }}
                   >
-                    {savingAssignmentId === assignment.id ? 'Ukládám...' : 'Uložit'}
+                    {savingAssignmentId === assignment.id ? detailMessages.savingShort : dictionary.common.save}
                   </button>
                 </div>
 
                 <div style={{ marginTop: '10px', color: '#374151', fontSize: '14px', fontWeight: 700 }}>
-                  Náklad po úpravě: {formatCurrency(previewCost)}
+                  {formatTemplate(detailMessages.costAfterEdit, { cost: formatCurrency(previewCost) })}
                 </div>
               </div>
             )})}
@@ -2968,15 +3029,21 @@ export default function JobDetailPageClient({
         </div>
       </div>
 
-      <JobCommunicationSection
-        jobId={job.id}
-        customerId={job.customer_id ?? null}
-        contactId={job.contact_id ?? null}
-        defaultToEmail={mainCustomerContact?.email ?? customer?.email ?? null}
-        defaultToName={mainCustomerContact?.full_name ?? customer?.name ?? null}
-        defaultSubject={job.title?.trim() ? `Zakázka: ${job.title}` : 'Komunikace k zakázce'}
-        feedItems={initialCommunicationFeed}
-      />
+      {canManageCommunication ? (
+        <JobCommunicationSection
+          jobId={job.id}
+          customerId={job.customer_id ?? null}
+          contactId={job.contact_id ?? null}
+          defaultToEmail={mainCustomerContact?.email ?? customer?.email ?? null}
+          defaultToName={mainCustomerContact?.full_name ?? customer?.name ?? null}
+          defaultSubject={
+            job.title?.trim()
+              ? formatTemplate(detailMessages.communicationJobSubject, { title: job.title })
+              : detailMessages.communicationFallbackSubject
+          }
+          feedItems={initialCommunicationFeed}
+        />
+      ) : null}
 
       {false && (
       <div
@@ -2989,11 +3056,11 @@ export default function JobDetailPageClient({
         }}
       >
         <h2 style={{ marginTop: 0, marginBottom: '14px', fontSize: '20px' }}>
-          Fotodokumentace
+          {detailMessages.photos.title}
         </h2>
 
         {photos.length === 0 ? (
-          <p style={{ margin: 0 }}>K zakázce nejsou nahrané žádné fotografie.</p>
+          <p style={{ margin: 0 }}>{detailMessages.photosEmptyInline}</p>
         ) : (
           <div
             style={{
@@ -3016,9 +3083,12 @@ export default function JobDetailPageClient({
                   }}
                 >
                   {url ? (
-                    <img
+                    <Image
                       src={url}
-                      alt="Fotografie zakázky"
+                      alt={detailMessages.photoAlt}
+                      width={360}
+                      height={180}
+                      unoptimized
                       style={{
                         width: '100%',
                         height: '180px',
@@ -3036,7 +3106,7 @@ export default function JobDetailPageClient({
                         color: '#6b7280',
                       }}
                     >
-                      Bez náhledu
+                      {detailMessages.photos.noPreview}
                     </div>
                   )}
                 </div>

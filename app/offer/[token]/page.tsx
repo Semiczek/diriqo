@@ -31,6 +31,8 @@ type PublicQuoteRow = {
   benefits_text: string | null
   total_price: number | null
   customer_name: string | null
+  company_name: string | null
+  company_logo_url: string | null
   created_at: string | null
   updated_at: string | null
   creator_name: string | null
@@ -133,6 +135,8 @@ export default async function PublicOfferDetailPage({ params }: PageProps) {
       benefitsText={normalizedQuote.benefits_text}
       contactName={normalizedQuote.contact_name}
       contactEmail={normalizedQuote.contact_email}
+      companyName={normalizedQuote.company_name}
+      companyLogoUrl={normalizedQuote.company_logo_url}
       priceTotal={normalizedQuote.total_price}
       pricingTitle={normalizedQuote.pricing_title || t.pricingFallback}
       pricingText={normalizedQuote.pricing_text}

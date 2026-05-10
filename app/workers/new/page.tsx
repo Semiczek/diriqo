@@ -3,9 +3,9 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import DashboardShell from '@/components/DashboardShell'
+import { getActiveCompanyContext } from '@/lib/active-company'
 import { getRequestDictionary } from '@/lib/i18n/server'
 import { getContractorBillingTypeLabel, getWorkerTypeLabel } from '@/lib/payroll-settings'
-import { createSupabaseServerClient } from '@/lib/supabase-server'
 import { createSupabaseAdminClient } from '@/lib/supabase-admin'
 
 type NewWorkerPageProps = {
@@ -51,6 +51,9 @@ function getErrorMessage(
   if (errorCode === 'profile-create-failed') return t.profileCreateFailed
   if (errorCode === 'membership-create-failed') {
     return t.membershipCreateFailed
+  }
+  if (errorCode === 'auth-not-configured') {
+    return t.authNotConfigured
   }
   if (errorCode === 'unexpected-error') {
     return t.unexpectedError
@@ -148,8 +151,9 @@ export default async function NewWorkerPage({
   const dictionary = await getRequestDictionary()
   const t = dictionary.workersNewPage
   const resolvedSearchParams = searchParams ? await searchParams : {}
-  const errorMessage = getErrorMessage(resolvedSearchParams?.error, t)
   const debugDetails = formatDebugDetails(resolvedSearchParams?.details)
+  const errorMessage = getErrorMessage(resolvedSearchParams?.error, t)
+  const workerAuthConfigured = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY)
 
   async function createWorker(formData: FormData) {
     'use server'
@@ -207,53 +211,20 @@ export default async function NewWorkerPage({
         redirect('/workers/new?error=invalid-number')
       }
 
-      const supabase = await createSupabaseServerClient()
+      if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+        redirect('/workers/new?error=auth-not-configured')
+      }
+
+      const activeCompany = await getActiveCompanyContext({
+        allowedRoles: ['company_admin', 'super_admin'],
+      })
+
+      if (!activeCompany) {
+        redirect('/workers/new?error=my-company-not-found&details=active-company-required')
+      }
+
+      const companyId = activeCompany.companyId
       const supabaseAdmin = createSupabaseAdminClient()
-
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser()
-
-      if (userError || !user) {
-        redirect('/workers/new?error=not-logged-in')
-      }
-
-      let myProfileResponse = await supabase
-        .from('profiles')
-        .select('id, auth_user_id, user_id')
-        .eq('auth_user_id', user.id)
-        .maybeSingle()
-
-      if (myProfileResponse.error || !myProfileResponse.data?.id) {
-        myProfileResponse = await supabase
-          .from('profiles')
-          .select('id, auth_user_id, user_id')
-          .eq('user_id', user.id)
-          .maybeSingle()
-      }
-
-      if (myProfileResponse.error || !myProfileResponse.data?.id) {
-        const details = myProfileResponse.error?.message || 'my-profile-not-found'
-        redirect(`/workers/new?error=my-profile-not-found&details=${encodeDetails(details)}`)
-      }
-
-      const myProfileId = myProfileResponse.data.id
-
-      const myCompanyResponse = await supabase
-        .from('company_members')
-        .select('company_id')
-        .eq('profile_id', myProfileId)
-        .eq('is_active', true)
-        .limit(1)
-        .maybeSingle()
-
-      if (myCompanyResponse.error || !myCompanyResponse.data?.company_id) {
-        const details = myCompanyResponse.error?.message || 'my-company-not-found'
-        redirect(`/workers/new?error=my-company-not-found&details=${encodeDetails(details)}`)
-      }
-
-      const companyId = myCompanyResponse.data.company_id
 
       const authCreateResponse = await supabaseAdmin.auth.admin.createUser({
         email: emailRaw,
@@ -361,6 +332,24 @@ export default async function NewWorkerPage({
         </header>
 
         <section style={formCardStyle}>
+          {!workerAuthConfigured ? (
+            <div
+              role="alert"
+              style={{
+                border: '1px solid #fdba74',
+                background: '#fff7ed',
+                color: '#9a3412',
+                borderRadius: '12px',
+                padding: '14px 16px',
+                fontSize: '14px',
+                lineHeight: 1.5,
+              }}
+            >
+              <div style={{ fontWeight: 850 }}>{t.authNotConfigured}</div>
+              <div style={{ marginTop: '6px' }}>{t.authNotConfiguredDetails}</div>
+            </div>
+          ) : null}
+
           {errorMessage ? (
             <div
               style={{
@@ -485,16 +474,19 @@ export default async function NewWorkerPage({
             >
               <button
                 type="submit"
+                disabled={!workerAuthConfigured}
                 style={{
                   border: 'none',
                   borderRadius: '14px',
-                  background: 'linear-gradient(135deg, #111827 0%, #1f2937 100%)',
+                  background: workerAuthConfigured
+                    ? 'linear-gradient(135deg, #111827 0%, #1f2937 100%)'
+                    : '#9ca3af',
                   color: '#ffffff',
                   minHeight: '50px',
                   padding: '13px 18px',
                   fontSize: '15px',
                   fontWeight: 900,
-                  cursor: 'pointer',
+                  cursor: workerAuthConfigured ? 'pointer' : 'not-allowed',
                   boxShadow: '0 16px 32px rgba(15, 23, 42, 0.18)',
                 }}
               >

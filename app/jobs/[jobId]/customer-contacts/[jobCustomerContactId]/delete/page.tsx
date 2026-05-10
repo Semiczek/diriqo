@@ -4,9 +4,41 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import DashboardShell from '@/components/DashboardShell'
-import { supabase } from '@/lib/supabase'
+import { useI18n } from '@/components/I18nProvider'
+import { deleteJobCustomerContactAction } from '../../actions'
 
 export default function DeleteJobCustomerContactPage() {
+  const { dictionary, locale } = useI18n()
+  const text =
+    locale === 'en'
+      ? {
+          removeFailed: 'Failed to remove contact.',
+          backToDetail: 'Back to job detail',
+          title: 'Remove contact from job',
+          description:
+            'Do you really want to remove this contact from this job? This only removes the job link, not the customer contact itself.',
+          removing: 'Removing...',
+          confirm: 'Yes, remove',
+        }
+      : locale === 'de'
+        ? {
+            removeFailed: 'Kontakt konnte nicht entfernt werden.',
+            backToDetail: 'Zurück zum Auftragsdetail',
+            title: 'Kontakt vom Auftrag entfernen',
+            description:
+              'Diesen Kontakt wirklich von diesem Auftrag entfernen? Es wird nur die Verknüpfung zum Auftrag entfernt, nicht der Kundenkontakt selbst.',
+            removing: 'Wird entfernt...',
+            confirm: 'Ja, entfernen',
+          }
+        : {
+            removeFailed: 'Nepodařilo se odebrat kontakt.',
+            backToDetail: 'Zpět na detail zakázky',
+            title: 'Odebrat kontakt ze zakázky',
+            description:
+              'Opravdu chceš odebrat tento kontakt z této zakázky? Tato akce odstraní jen vazbu na zakázku, ne samotný kontakt zákazníka.',
+            removing: 'Odebírám...',
+            confirm: 'Ano, odebrat',
+          }
   const params = useParams()
   const router = useRouter()
 
@@ -20,14 +52,11 @@ export default function DeleteJobCustomerContactPage() {
     setLoading(true)
     setError(null)
 
-    const { error } = await supabase
-      .from('job_customer_contacts')
-      .delete()
-      .eq('id', jobCustomerContactId)
-      .eq('job_id', jobId)
+    const deleteResponse = await deleteJobCustomerContactAction({ jobId, jobCustomerContactId })
+    const error = deleteResponse.ok ? null : { message: deleteResponse.error }
 
     if (error) {
-      setError(error.message || 'Nepodařilo se odebrat kontakt.')
+      setError(error.message || text.removeFailed)
       setLoading(false)
       return
     }
@@ -54,7 +83,7 @@ export default function DeleteJobCustomerContactPage() {
             fontWeight: '600',
           }}
         >
-          ← Zpět na detail zakázky
+          ← {text.backToDetail}
         </Link>
 
         <section
@@ -72,12 +101,11 @@ export default function DeleteJobCustomerContactPage() {
               color: '#111827',
             }}
           >
-            Odebrat kontakt ze zakázky
+            {text.title}
           </h1>
 
           <p style={{ marginBottom: '20px', color: '#4b5563', lineHeight: 1.6 }}>
-            Opravdu chceš odebrat tento kontakt z této zakázky? Tato akce odstraní jen vazbu na
-            zakázku, ne samotný kontakt zákazníka.
+            {text.description}
           </p>
 
           {error && (
@@ -110,7 +138,7 @@ export default function DeleteJobCustomerContactPage() {
                 opacity: loading ? 0.7 : 1,
               }}
             >
-              {loading ? 'Odebírám...' : 'Ano, odebrat'}
+              {loading ? text.removing : text.confirm}
             </button>
 
             <Link
@@ -128,7 +156,7 @@ export default function DeleteJobCustomerContactPage() {
                 fontWeight: '600',
               }}
             >
-              Zrušit
+              {dictionary.common.cancel}
             </Link>
           </div>
         </section>

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-import { getActiveCompanyContext } from '@/lib/active-company'
 import { listEntityThreadMessages } from '@/lib/email/listEntityThreadMessages'
 import type { RelatedEntityType } from '@/lib/email/types'
+import { requireCompanyRole } from '@/lib/server-guards'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 
 export const runtime = 'nodejs'
@@ -11,10 +11,13 @@ const allowedEntityTypes: RelatedEntityType[] = ['job', 'offer', 'inquiry', 'cus
 
 export async function GET(request: NextRequest) {
   try {
-    const activeCompany = await getActiveCompanyContext()
+    const activeCompanyResult = await requireCompanyRole('manager', 'company_admin', 'super_admin')
 
-    if (!activeCompany) {
-      return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
+    if (!activeCompanyResult.ok) {
+      return NextResponse.json(
+        { ok: false, error: activeCompanyResult.error },
+        { status: activeCompanyResult.status }
+      )
     }
 
     const entityType = request.nextUrl.searchParams.get('entityType') as RelatedEntityType | null
@@ -27,7 +30,7 @@ export async function GET(request: NextRequest) {
     const supabase = await createSupabaseServerClient()
     const result = await listEntityThreadMessages(
       supabase,
-      activeCompany.companyId,
+      activeCompanyResult.value.companyId,
       entityType,
       entityId,
     )

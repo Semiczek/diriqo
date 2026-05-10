@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import DashboardShell from '@/components/DashboardShell'
 import { useI18n } from '@/components/I18nProvider'
+import { createPayrollItemAction, deletePayrollItemAction, updateWorkerProfileAction } from '../actions'
 import { supabase } from '@/lib/supabase'
 
 type EditWorkerFinancePageProps = {
@@ -241,17 +242,15 @@ export default function EditWorkerFinancePage({
         throw new Error(dictionary.workers.financeEdit.invalidRate)
       }
 
-      const updateResponse = await supabase
-        .from('profiles')
-        .update({
-          full_name: trimmedFullName,
-          email: trimmedEmail || null,
-          default_hourly_rate: parsedRate,
-        })
-        .eq('id', workerId)
+      const updateResponse = await updateWorkerProfileAction({
+        workerId,
+        fullName: trimmedFullName,
+        email: trimmedEmail,
+        defaultHourlyRate: parsedRate,
+      })
 
-      if (updateResponse.error) {
-        throw new Error(updateResponse.error.message)
+      if (!updateResponse.ok) {
+        throw new Error(updateResponse.error)
       }
 
       setSuccessMessage(dictionary.workers.financeEdit.saveWorkerSuccess)
@@ -302,16 +301,16 @@ export default function EditWorkerFinancePage({
         throw new Error(dictionary.workers.financeEdit.payrollItemAmountInvalid)
       }
 
-      const insertResponse = await supabase.from('payroll_items').insert({
-        profile_id: workerId,
-        payroll_month: payrollMonth,
-        item_type: payrollItemType,
+      const insertResponse = await createPayrollItemAction({
+        workerId,
+        payrollMonth,
+        itemType: payrollItemType,
         amount: parsedAmount,
-        note: payrollItemNote.trim() || null,
+        note: payrollItemNote,
       })
 
-      if (insertResponse.error) {
-        throw new Error(insertResponse.error.message)
+      if (!insertResponse.ok) {
+        throw new Error(insertResponse.error)
       }
 
       await reloadPayrollItems(workerId)
@@ -335,13 +334,13 @@ export default function EditWorkerFinancePage({
       setError(null)
       setSuccessMessage(null)
 
-      const deleteResponse = await supabase
-        .from('payroll_items')
-        .delete()
-        .eq('id', payrollItemId)
+      const deleteResponse = await deletePayrollItemAction({
+        workerId,
+        payrollItemId,
+      })
 
-      if (deleteResponse.error) {
-        throw new Error(deleteResponse.error.message)
+      if (!deleteResponse.ok) {
+        throw new Error(deleteResponse.error)
       }
 
       setPayrollItems((current) => current.filter((item) => item.id !== payrollItemId))

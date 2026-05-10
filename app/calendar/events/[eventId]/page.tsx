@@ -7,6 +7,7 @@ import DashboardShell from '@/components/DashboardShell'
 import CalendarEventDangerZone from '@/components/CalendarEventDangerZone'
 import { useI18n } from '@/components/I18nProvider'
 import { supabase } from '@/lib/supabase'
+import { updateCalendarEventAction } from '../../actions'
 
 type CalendarEventRow = {
   id: string
@@ -266,87 +267,28 @@ export default function CalendarEventDetailPage() {
     }
 
     try {
-      const startAtIso = new Date(startAt).toISOString()
-      const endAtIso = new Date(endAt).toISOString()
+      const updateResponse = await updateCalendarEventAction({
+        eventId,
+        title,
+        description,
+        startAt,
+        endAt,
+        companyId,
+        jobId,
+        selectedProfileIds: selectedProfiles,
+      })
 
-      const { error: updateError } = await supabase
-        .from('calendar_events')
-        .update({
-          title: title.trim(),
-          description: description.trim() || null,
-          start_at: startAtIso,
-          end_at: endAtIso,
-          company_id: companyId,
-          job_id: jobId || null,
-        })
-        .eq('id', eventId)
-
-      if (updateError) {
-        setError(`${dictionary.calendar.eventDetail.updateFailed}: ${updateError.message}`)
+      if (!updateResponse.ok) {
+        setError(`${dictionary.calendar.eventDetail.updateFailed}: ${updateResponse.error}`)
         setSaving(false)
         return
-      }
-
-      const { data: existingAssignments, error: existingAssignmentsError } = await supabase
-        .from('calendar_event_assignments')
-        .select('id, profile_id')
-        .eq('event_id', eventId)
-
-      if (existingAssignmentsError) {
-        setError(`${dictionary.calendar.eventDetail.loadAssignmentsFailed}: ${existingAssignmentsError.message}`)
-        setSaving(false)
-        return
-      }
-
-      const existingProfileIds = (existingAssignments || []).map((item) => item.profile_id)
-      const profilesToDelete = existingProfileIds.filter(
-        (profileId) => !selectedProfiles.includes(profileId)
-      )
-      const profilesToAdd = selectedProfiles.filter(
-        (profileId) => !existingProfileIds.includes(profileId)
-      )
-
-      if (profilesToDelete.length > 0) {
-        const { error: deleteAssignmentsError } = await supabase
-          .from('calendar_event_assignments')
-          .delete()
-          .eq('event_id', eventId)
-          .in('profile_id', profilesToDelete)
-
-        if (deleteAssignmentsError) {
-          setError(`${dictionary.calendar.eventDetail.deleteWorkersFailed}: ${deleteAssignmentsError.message}`)
-          setSaving(false)
-          return
-        }
-      }
-
-      if (profilesToAdd.length > 0) {
-        const rowsToInsert = profilesToAdd.map((profileId) => ({
-          event_id: eventId,
-          profile_id: profileId,
-        }))
-
-        const { error: insertAssignmentsError } = await supabase
-          .from('calendar_event_assignments')
-          .insert(rowsToInsert)
-
-        if (insertAssignmentsError) {
-          setError(`${dictionary.calendar.eventDetail.addWorkersFailed}: ${insertAssignmentsError.message}`)
-          setSaving(false)
-          return
-        }
       }
 
       setEvent((prev) =>
         prev
           ? {
               ...prev,
-              title: title.trim(),
-              description: description.trim() || null,
-              start_at: startAtIso,
-              end_at: endAtIso,
-              company_id: companyId,
-              job_id: jobId || null,
+              ...updateResponse.event,
             }
           : prev
       )

@@ -1,8 +1,7 @@
 ﻿import type { CSSProperties } from 'react'
 
 import {
-  getAssignmentFallbackLaborCalculation,
-  getShiftLaborCalculation,
+  getCappedJobShiftLaborCalculation,
   type LaborCalculationSource,
 } from '@/lib/labor-calculation'
 import {
@@ -512,7 +511,6 @@ export function buildWorkerDailyJobRows({
   workEndExclusiveIso: string
 }): WorkerDailyJobRow[] {
   if (workShifts.length > 0) {
-    const coveredAssignmentKeys = new Set<string>()
     const assignmentByJobId = new Map(
       assignments
         .filter((assignment) => assignment.job_id && assignment.jobs)
@@ -524,12 +522,6 @@ export function buildWorkerDailyJobRows({
         .map((assignment) => [assignment.job_id as string, getEffectiveAssignmentRate(assignment, defaultRate)])
     )
     const shiftJobById = new Map(shiftJobs.map((job) => [job.id, job]))
-    const shiftJobIds = new Set(
-      workShifts
-        .map((shift) => shift.job_id)
-        .filter((value): value is string => typeof value === 'string' && value.length > 0)
-    )
-
     const shiftRows = workShifts
       .flatMap<WorkerDailyJobRow>((shift) => {
         if (!shift.job_id) return []
@@ -537,8 +529,8 @@ export function buildWorkerDailyJobRows({
         const dateKey = shift.shift_date ?? getLocalDateKey(shift.started_at) ?? getLocalDateKey(shift.ended_at)
         if (!dateKey) return []
 
-        const calculation = getShiftLaborCalculation(
-          { ...shift, hours_override: null },
+        const calculation = getCappedJobShiftLaborCalculation(
+          shift,
           assignmentRateByJobId.get(shift.job_id) ?? defaultRate
         )
         const hours = calculation.hours
@@ -562,8 +554,6 @@ export function buildWorkerDailyJobRows({
               }
             : null)
 
-        if (shift.profile_id) coveredAssignmentKeys.add(`${shift.job_id}:${shift.profile_id}`)
-
         return [
           {
             key: `shift:${shift.id}`,
@@ -584,44 +574,7 @@ export function buildWorkerDailyJobRows({
         return (a.jobs?.title ?? '').localeCompare(b.jobs?.title ?? '', 'cs')
       })
 
-    const fallbackRows = assignments
-      .filter((assignment) => {
-        if (!assignment.job_id) return true
-        if (shiftJobIds.has(assignment.job_id)) return false
-        return !coveredAssignmentKeys.has(`${assignment.job_id}:${assignment.profile_id ?? ''}`)
-      })
-      .map<WorkerDailyJobRow | null>((assignment) => {
-        const calculation = getAssignmentFallbackLaborCalculation(assignment, defaultRate)
-        if (calculation.hours <= 0) return null
-
-        const dateKey =
-          getLocalDateKey(assignment.jobs?.start_at ?? null) ??
-          getLocalDateKey(assignment.work_started_at ?? null) ??
-          getLocalDateKey(assignment.jobs?.end_at ?? null) ??
-          getLocalDateKey(assignment.work_completed_at ?? null) ??
-          getLocalDateKey(workStartIso)
-
-        if (!dateKey) return null
-
-        return {
-          key: `assignment-fallback:${assignment.id ?? assignment.job_id ?? dateKey}`,
-          work_date: dateKey,
-          hours: calculation.hours,
-          hourly_rate: calculation.hourlyRate,
-          reward: calculation.reward,
-          source: calculation.source,
-          has_shift_coverage: false,
-          linked_shift_id: null,
-          jobs: assignment.jobs,
-        }
-      })
-      .filter((row): row is WorkerDailyJobRow => row != null)
-
-    return [...shiftRows, ...fallbackRows].sort((a, b) => {
-      const dateDiff = new Date(a.work_date).getTime() - new Date(b.work_date).getTime()
-      if (dateDiff !== 0) return dateDiff
-      return (a.jobs?.title ?? '').localeCompare(b.jobs?.title ?? '', 'cs')
-    })
+    return shiftRows
   }
 
   const shiftHoursByDate = new Map<string, number>()

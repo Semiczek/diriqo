@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import DashboardShell from '../../../components/DashboardShell'
 import { useI18n } from '@/components/I18nProvider'
+import { createCalendarEventAction } from '@/app/calendar/actions'
 import { supabase } from '../../../lib/supabase'
 
 type Job = {
@@ -50,10 +51,10 @@ export default function NewCalendarEventPage() {
   const [loading, setLoading] = useState(false)
   const [debugError, setDebugError] = useState<string | null>(null)
   const quickTasks = [
-    'Zaplatit dodavateli',
-    'Zavolat zákazníkovi',
-    'Objednat materiál',
-    'Kontrola kvality',
+    t.quickPaySupplier,
+    t.quickCallCustomer,
+    t.quickOrderMaterial,
+    t.quickQualityCheck,
   ]
 
   useEffect(() => {
@@ -100,7 +101,7 @@ export default function NewCalendarEventPage() {
     }
 
     loadData()
-  }, [])
+  }, [t.loadCompaniesFailed, t.loadJobsFailed, t.loadProfilesFailed])
 
   function toggleProfile(profileId: string) {
     setSelectedProfiles((prev) =>
@@ -155,48 +156,20 @@ export default function NewCalendarEventPage() {
         return
       }
 
-      const startAtIso = new Date(startAt).toISOString()
-      const endAtIso = new Date(endAt).toISOString()
+      const result = await createCalendarEventAction({
+        title,
+        description,
+        startAt,
+        endAt,
+        jobId,
+        companyId,
+        selectedProfileIds: selectedProfiles,
+      })
 
-      const { data: eventData, error: eventError } = await supabase
-        .from('calendar_events')
-        .insert([
-          {
-            title,
-            description: description || null,
-            start_at: startAtIso,
-            end_at: endAtIso,
-            job_id: jobId || null,
-            company_id: companyId,
-          },
-        ])
-        .select()
-        .single()
-
-      if (eventError || !eventData) {
-        const message =
-          eventError?.message || t.createFailed
-
-        setDebugError(message)
+      if (!result.ok) {
+        setDebugError(result.error || t.createFailed)
         setLoading(false)
         return
-      }
-
-      if (selectedProfiles.length > 0) {
-        const assignments = selectedProfiles.map((profileId) => ({
-          event_id: eventData.id,
-          profile_id: profileId,
-        }))
-
-        const { error: assignError } = await supabase
-          .from('calendar_event_assignments')
-          .insert(assignments)
-
-        if (assignError) {
-          setDebugError(`${t.workerAssignFailed} ${assignError.message}`)
-          setLoading(false)
-          return
-        }
       }
 
       router.push('/calendar')
@@ -212,14 +185,12 @@ export default function NewCalendarEventPage() {
       <div className="calendar-new-page">
         <section className="calendar-new-hero">
           <div>
-            <div className="calendar-new-eyebrow">Kalendář</div>
-            <h1>Nový úkol / událost</h1>
-            <p>
-              Přidej interní připomínku, termín platby, schůzku nebo událost navázanou na zakázku.
-            </p>
+            <div className="calendar-new-eyebrow">{dictionary.calendar.title}</div>
+            <h1>{t.title}</h1>
+            <p>{t.pageSubtitle}</p>
           </div>
           <button type="button" onClick={() => router.push('/calendar')}>
-            Zpět do kalendáře
+            {t.backToCalendar}
           </button>
         </section>
 
@@ -242,8 +213,8 @@ export default function NewCalendarEventPage() {
         <form onSubmit={handleSubmit} className="calendar-new-form">
           <section className="calendar-new-card primary">
             <div>
-              <h2>Co se má stát?</h2>
-              <p>Krátký název se zobrazí v seznamu, týdnu i měsíci.</p>
+              <h2>{t.mainSectionTitle}</h2>
+              <p>{t.mainSectionDescription}</p>
             </div>
             <div className="calendar-quick-grid">
               {quickTasks.map((task) => (
@@ -252,18 +223,18 @@ export default function NewCalendarEventPage() {
                 </button>
               ))}
             </div>
-            <label>Název úkolu nebo události</label>
+            <label>{t.eventTitle}</label>
             <input
               type="text"
-              placeholder="Např. zaplatit fakturu, zavolat zákazníkovi, kontrola provozu"
+              placeholder={t.titlePlaceholder}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               required
             />
 
-            <label>Poznámka</label>
+            <label>{t.description}</label>
             <textarea
-              placeholder="Volitelné detaily, částka, kontakt, interní instrukce..."
+              placeholder={t.notePlaceholder}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={4}
@@ -272,12 +243,12 @@ export default function NewCalendarEventPage() {
 
           <section className="calendar-new-card">
             <div>
-              <h2>Termín</h2>
-              <p>Stačí nastavit čas od-do. Pro krátký úkol může být konec třeba o 30 minut později.</p>
+              <h2>{t.scheduleTitle}</h2>
+              <p>{t.scheduleDescription}</p>
             </div>
             <div className="calendar-new-two">
               <div>
-                <label>Od</label>
+                <label>{t.from}</label>
                 <input
                   type="datetime-local"
                   value={startAt}
@@ -287,7 +258,7 @@ export default function NewCalendarEventPage() {
               </div>
 
               <div>
-                <label>Do</label>
+                <label>{t.to}</label>
                 <input
                   type="datetime-local"
                   value={endAt}
@@ -300,8 +271,8 @@ export default function NewCalendarEventPage() {
 
           <section className="calendar-new-card">
             <div>
-              <h2>Vazby</h2>
-              <p>Úkol může být samostatný, nebo navázaný na konkrétní zakázku a pracovníky.</p>
+              <h2>{t.relationsTitle}</h2>
+              <p>{t.relationsDescription}</p>
             </div>
 
             <div className="calendar-new-two">
@@ -322,12 +293,12 @@ export default function NewCalendarEventPage() {
               </div>
 
               <div>
-                <label>Zakázka</label>
+                <label>{t.job}</label>
                 <select
                   value={jobId}
                   onChange={(e) => handleJobChange(e.target.value)}
                 >
-                  <option value="">Samostatný úkol / bez zakázky</option>
+                  <option value="">{t.noJob}</option>
                   {jobs.map((job) => (
                     <option key={job.id} value={job.id}>
                       {job.title || t.unnamedJob}
@@ -356,10 +327,10 @@ export default function NewCalendarEventPage() {
 
           <div className="calendar-new-actions">
             <button type="button" onClick={() => router.push('/calendar')}>
-              Zrušit
+              {dictionary.common.cancel}
             </button>
             <button type="submit" disabled={loading}>
-              {loading ? t.saving : 'Uložit do kalendáře'}
+              {loading ? t.saving : t.create}
             </button>
           </div>
         </form>

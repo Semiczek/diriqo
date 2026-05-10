@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
-import { hasAnyHubAccessRole } from '@/lib/hub-access'
+import { hasAnyHubAccessRole, hasCompanyMemberRole } from '@/lib/hub-access'
 import {
   LOCALE_COUNTRY_HEADER_NAME,
   LOCALE_COOKIE_NAME,
@@ -22,13 +22,19 @@ const PROTECTED_MATCHERS = [
   '/workers',
   '/kalkulace',
   '/settings',
+  '/billing',
+  '/admin',
   '/invoices',
   '/work-shifts',
+  '/moje-prace',
   '/ucet',
+  '/logout',
   '/napoveda',
   '/debug-auth',
+  '/dashboard',
   '/api/active-company',
   '/api/company-billing',
+  '/api/billing',
   '/api/customer-portal-users',
   '/api/invoices',
   '/api/jobs',
@@ -59,6 +65,14 @@ function isProtectedPath(pathname: string) {
     if (path === '/') return false
     return pathname === path || pathname.startsWith(`${path}/`)
   })
+}
+
+function isAdminPath(pathname: string) {
+  return pathname === '/admin' || pathname.startsWith('/admin/')
+}
+
+function isWorkerAppPath(pathname: string) {
+  return pathname === '/moje-prace' || pathname.startsWith('/moje-prace/')
 }
 
 type CookieOptions = {
@@ -189,7 +203,7 @@ export async function proxy(request: NextRequest) {
       return ensureLocaleCookie(NextResponse.redirect(loginUrl))
     }
 
-    const loginUrl = new URL('/login', request.url)
+    const loginUrl = new URL('/sign-in', request.url)
     return ensureLocaleCookie(NextResponse.redirect(loginUrl))
   }
 
@@ -197,6 +211,10 @@ export async function proxy(request: NextRequest) {
     const portalUserId = await getPortalUserId()
 
     if (!portalUserId) {
+      if (portalLoginPath || portalResetPasswordPath) {
+        return ensureLocaleCookie(response)
+      }
+
       const loginUrl = new URL('/portal/login', request.url)
       loginUrl.searchParams.set('error', 'no-portal-access')
       return ensureLocaleCookie(NextResponse.redirect(loginUrl))
@@ -236,14 +254,12 @@ export async function proxy(request: NextRequest) {
       return ensureLocaleCookie(NextResponse.redirect(new URL('/portal', request.url)))
     }
 
-    const loginUrl = new URL('/login', request.url)
-    loginUrl.searchParams.set('error', 'no-profile')
-    return ensureLocaleCookie(NextResponse.redirect(loginUrl))
+    return ensureLocaleCookie(NextResponse.redirect(new URL('/onboarding/company', request.url)))
   }
 
   const membershipsResponse = await supabase
     .from('company_members')
-    .select('role, is_active')
+    .select('company_id, role, is_active')
     .eq('profile_id', profileId)
     .eq('is_active', true)
 
@@ -256,12 +272,24 @@ export async function proxy(request: NextRequest) {
       return ensureLocaleCookie(NextResponse.redirect(new URL('/portal', request.url)))
     }
 
-    const loginUrl = new URL('/login', request.url)
-    loginUrl.searchParams.set('error', 'no-membership')
-    return ensureLocaleCookie(NextResponse.redirect(loginUrl))
+    return ensureLocaleCookie(NextResponse.redirect(new URL('/onboarding/company', request.url)))
   }
 
   const hasHubAccess = hasAnyHubAccessRole(memberships.map((item) => item.role))
+  const hasCompanyAccess = memberships.some((item) => hasCompanyMemberRole(item.role))
+  const isSuperAdmin = memberships.some(
+    (item) => (item.role ?? '').toString().trim().toLowerCase() === 'super_admin'
+  )
+
+  if (isAdminPath(pathname) && !isSuperAdmin) {
+    const loginUrl = new URL('/sign-in', request.url)
+    loginUrl.searchParams.set('error', 'no-hub-access')
+    return ensureLocaleCookie(NextResponse.redirect(loginUrl))
+  }
+
+  if (isWorkerAppPath(pathname) && hasCompanyAccess) {
+    return ensureLocaleCookie(response)
+  }
 
   if (!hasHubAccess) {
     const portalUserId = await getPortalUserId()
@@ -270,7 +298,7 @@ export async function proxy(request: NextRequest) {
       return ensureLocaleCookie(NextResponse.redirect(new URL('/portal', request.url)))
     }
 
-    const loginUrl = new URL('/login', request.url)
+    const loginUrl = new URL('/sign-in', request.url)
     loginUrl.searchParams.set('error', 'no-hub-access')
     return ensureLocaleCookie(NextResponse.redirect(loginUrl))
   }
@@ -282,6 +310,10 @@ export const config = {
   matcher: [
     '/',
     '/login',
+    '/sign-in',
+    '/sign-up',
+    '/dashboard',
+    '/dashboard/:path*',
     '/absences/:path*',
     '/advance-requests/:path*',
     '/jobs/:path*',
@@ -292,13 +324,21 @@ export const config = {
     '/workers/:path*',
     '/kalkulace/:path*',
     '/settings/:path*',
+    '/billing',
+    '/billing/:path*',
+    '/admin',
+    '/admin/:path*',
     '/invoices/:path*',
     '/work-shifts/:path*',
+    '/moje-prace',
+    '/moje-prace/:path*',
     '/ucet/:path*',
+    '/logout',
     '/napoveda/:path*',
     '/debug-auth/:path*',
     '/api/active-company',
     '/api/company-billing',
+    '/api/billing/:path*',
     '/api/customer-portal-users',
     '/api/invoices/:path*',
     '/api/jobs/:path*',

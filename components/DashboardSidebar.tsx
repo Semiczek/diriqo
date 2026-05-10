@@ -1,8 +1,10 @@
 ﻿'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { useI18n } from './I18nProvider'
+import type { CompanyModuleKey } from '@/lib/company-settings-shared'
 
 type SidebarItemKey =
   | 'dashboard'
@@ -19,15 +21,19 @@ type SidebarItemKey =
   | 'help'
   | 'account'
   | 'companySettings'
+  | 'billing'
+  | 'setupGuide'
 
 type DashboardSidebarProps = {
   activeItem?: SidebarItemKey
+  enabledModules?: Partial<Record<CompanyModuleKey, boolean>> | null
   mobileOpen?: boolean
   onNavigate?: () => void
 }
 
 export default function DashboardSidebar({
   activeItem,
+  enabledModules = null,
   mobileOpen = false,
   onNavigate,
 }: DashboardSidebarProps) {
@@ -41,47 +47,51 @@ export default function DashboardSidebar({
       label: string
       key: SidebarItemKey
       icon: string
+      module?: CompanyModuleKey
     }>
   }> = [
     {
-      title: 'HLAVNÍ',
+      title: dictionary.navigation.mainGroup,
       items: [
         { href: '/', label: dictionary.navigation.dashboard, key: 'dashboard', icon: 'P' },
-        { href: '/jobs', label: dictionary.navigation.jobs, key: 'jobs', icon: 'Z' },
+        { href: '/jobs', label: dictionary.navigation.jobs, key: 'jobs', icon: 'Z', module: 'jobs' },
         { href: '/customers', label: dictionary.navigation.customers, key: 'customers', icon: 'K' },
       ],
     },
     {
-      title: 'TÝM',
+      title: dictionary.navigation.teamGroup,
       items: [
-        { href: '/workers', label: dictionary.navigation.workers, key: 'workers', icon: 'T' },
-        { href: '/calendar', label: dictionary.navigation.calendar, key: 'calendar', icon: 'C' },
-        { href: '/absences', label: dictionary.navigation.absences, key: 'absences', icon: '!' },
+        { href: '/workers', label: dictionary.navigation.workers, key: 'workers', icon: 'T', module: 'workers' },
+        { href: '/calendar', label: dictionary.navigation.calendar, key: 'calendar', icon: 'C', module: 'calendar' },
+        { href: '/absences', label: dictionary.navigation.absences, key: 'absences', icon: '!', module: 'workers' },
         {
           href: '/advance-requests',
           label: dictionary.navigation.advanceRequests,
           key: 'advanceRequests',
           icon: '+',
+          module: 'payroll',
         },
       ],
     },
     {
-      title: 'FINANCE',
+      title: dictionary.navigation.financeGroup,
       items: [
-        { href: '/invoices', label: 'Fakturace', key: 'invoices', icon: 'Kč' },
-        { href: '/kalkulace', label: dictionary.navigation.calculations, key: 'kalkulace', icon: 'Σ' },
-        { href: '/cenove-nabidky', label: dictionary.navigation.quotes, key: 'quotes', icon: '%' },
+        { href: '/invoices', label: dictionary.navigation.invoices, key: 'invoices', icon: 'Kč', module: 'invoices' },
+        { href: '/kalkulace', label: dictionary.navigation.calculations, key: 'kalkulace', icon: 'Σ', module: 'quotes' },
+        { href: '/cenove-nabidky', label: dictionary.navigation.quotes, key: 'quotes', icon: '%', module: 'quotes' },
       ],
     },
     {
-      title: 'NASTAVENÍ',
+      title: dictionary.navigation.settingsGroup,
       items: [
-        { href: '/settings/company', label: 'Společnost', key: 'companySettings', icon: 'S' },
-        { href: '/ucet', label: 'Můj účet', key: 'account', icon: '?' },
+        { href: '/settings/company', label: dictionary.navigation.companySettings, key: 'companySettings', icon: 'S' },
+        { href: '/billing', label: dictionary.navigation.billing, key: 'billing', icon: '$' },
+        { href: '/?onboarding=open', label: dictionary.navigation.setupGuide, key: 'setupGuide', icon: 'OK' },
+        { href: '/ucet', label: dictionary.navigation.account, key: 'account', icon: '?' },
       ],
     },
     {
-      title: 'PODPORA',
+      title: dictionary.navigation.supportGroup,
       items: [
         { href: '/napoveda', label: dictionary.navigation.help, key: 'help', icon: '?' },
       ],
@@ -111,35 +121,6 @@ export default function DashboardSidebar({
           boxShadow: 'inset -1px 0 0 rgba(255,255,255,0.04), 18px 0 52px rgba(2, 6, 23, 0.18)',
         }}
       >
-        <div
-          aria-hidden="true"
-          style={{
-            position: 'absolute',
-            left: '-92px',
-            top: '-72px',
-            width: '230px',
-            height: '210px',
-            borderRadius: '999px',
-            background: 'radial-gradient(circle, rgba(124, 58, 237, 0.18), transparent 66%)',
-            filter: 'blur(8px)',
-            pointerEvents: 'none',
-          }}
-        />
-        <div
-          aria-hidden="true"
-          style={{
-            position: 'absolute',
-            right: '-120px',
-            bottom: '8%',
-            width: '220px',
-            height: '260px',
-            borderRadius: '999px',
-            background: 'radial-gradient(circle, rgba(6, 182, 212, 0.13), transparent 68%)',
-            filter: 'blur(10px)',
-            pointerEvents: 'none',
-          }}
-        />
-
         <div style={{ position: 'relative', marginBottom: '9px', padding: '4px 2px 2px' }}>
           <button
             type="button"
@@ -149,19 +130,6 @@ export default function DashboardSidebar({
           >
             ×
           </button>
-          <div
-            aria-hidden="true"
-            style={{
-              position: 'absolute',
-              left: '8px',
-              top: '4px',
-              width: '138px',
-              height: '66px',
-              background: 'radial-gradient(circle at 18% 52%, rgba(124, 58, 237, 0.28), rgba(6, 182, 212, 0.12), transparent 68%)',
-              filter: 'blur(16px)',
-              pointerEvents: 'none',
-            }}
-          />
           <div
             style={{
               position: 'relative',
@@ -173,12 +141,13 @@ export default function DashboardSidebar({
               alignItems: 'center',
             }}
           >
-            <img
+            <Image
               src="/diriqo-logo-full.png"
               alt="Diriqo"
+              fill
+              priority
+              sizes="138px"
               style={{
-                width: '100%',
-                height: 'auto',
                 objectFit: 'contain',
                 objectPosition: 'left center',
                 filter: 'drop-shadow(0 10px 22px rgba(6, 182, 212, 0.18))',
@@ -188,7 +157,17 @@ export default function DashboardSidebar({
         </div>
 
         <nav className="dashboard-sidebar-nav" style={{ position: 'relative', zIndex: 1, display: 'grid', gap: '9px', flex: 1, minHeight: 0 }}>
-          {menuGroups.filter((group) => group.items.some((item) => item.key !== 'account')).map((group) => (
+          {menuGroups
+            .map((group) => ({
+              ...group,
+              items: group.items.filter(
+                (item) =>
+                  item.key !== 'account' &&
+                  (!item.module || enabledModules?.[item.module] !== false)
+              ),
+            }))
+            .filter((group) => group.items.length > 0)
+            .map((group) => (
             <div key={group.title} style={{ display: 'grid', gap: '4px' }}>
               <div
                 style={{
@@ -201,7 +180,7 @@ export default function DashboardSidebar({
               >
                 {group.title}
               </div>
-              {group.items.filter((item) => item.key !== 'account').map((item) => {
+              {group.items.map((item) => {
                 const isPathActive =
                   pathname === item.href ||
                   (item.href !== '/' && pathname.startsWith(item.href))

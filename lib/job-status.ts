@@ -99,7 +99,6 @@ export function getEffectiveJobWorkState(params: {
     timeState,
     workState,
     legacyStatus,
-    isMultiDay = false,
     assignedCount = 0,
     startedCount = 0,
     completedCount = 0,
@@ -115,6 +114,11 @@ export function getEffectiveJobWorkState(params: {
     workState === 'partially_done' ||
     workState === 'done'
 
+  // Explicit admin completion wins over calendar timing.
+  if (legacyStatus === 'done' || workState === 'done') {
+    return 'done'
+  }
+
   if (
     timeState === 'future' &&
     activeCount === 0 &&
@@ -122,11 +126,6 @@ export function getEffectiveJobWorkState(params: {
     completedCount === 0
   ) {
     return 'not_started'
-  }
-
-  // Whole job can be marked as done only by explicit admin action on jobs.status.
-  if (legacyStatus === 'done' && (!isMultiDay || timeState === 'finished')) {
-    return 'done'
   }
 
   if (legacyStatus === 'waiting_check') {
@@ -150,10 +149,6 @@ export function getEffectiveJobWorkState(params: {
   }
 
   if (workState === 'partially_done') {
-    return 'partially_done'
-  }
-
-  if (workState === 'done') {
     return 'partially_done'
   }
 

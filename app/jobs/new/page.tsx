@@ -7,7 +7,9 @@ import { useRouter } from 'next/navigation'
 
 import DashboardShell from '@/components/DashboardShell'
 import { useI18n } from '@/components/I18nProvider'
+import { createJobsAction } from '@/app/jobs/actions'
 import { supabase } from '@/lib/supabase'
+import { getIntlLocale } from '@/lib/i18n/config'
 
 type Profile = { id: string; full_name: string | null }
 type Customer = { id: string; name: string | null }
@@ -18,8 +20,6 @@ type CustomerContact = {
   email: string | null
   phone: string | null
 }
-
-const INTERNAL_JOB_LABEL = 'Interní zakázka / vnitřní náklad'
 
 const WEEKDAY_VALUES = [1, 2, 3, 4, 5, 6, 0] as const
 
@@ -64,8 +64,8 @@ function isDifferentLocalDay(start: Date | null, end: Date | null) {
   return getLocalDateKey(start) !== getLocalDateKey(end)
 }
 
-function formatWorkDayLabel(date: Date) {
-  return new Intl.DateTimeFormat('cs-CZ', {
+function formatWorkDayLabel(date: Date, locale: string) {
+  return new Intl.DateTimeFormat(locale, {
     weekday: 'long',
     day: '2-digit',
     month: '2-digit',
@@ -73,7 +73,7 @@ function formatWorkDayLabel(date: Date) {
   }).format(date)
 }
 
-function generateWorkDays(start: Date | null, end: Date | null): GeneratedWorkDay[] {
+function generateWorkDays(start: Date | null, end: Date | null, locale: string): GeneratedWorkDay[] {
   if (!start || !end || end <= start || !isDifferentLocalDay(start, end)) return []
 
   const days: GeneratedWorkDay[] = []
@@ -92,7 +92,7 @@ function generateWorkDays(start: Date | null, end: Date | null): GeneratedWorkDa
 
     days.push({
       dateKey,
-      label: formatWorkDayLabel(cursor),
+      label: formatWorkDayLabel(cursor, locale),
       startAt: occurrenceStart,
       endAt: occurrenceEnd,
     })
@@ -104,18 +104,11 @@ function generateWorkDays(start: Date | null, end: Date | null): GeneratedWorkDa
   return days
 }
 
-function formatLocalTime(date: Date) {
-  return new Intl.DateTimeFormat('cs-CZ', {
+function formatLocalTime(date: Date, locale: string) {
+  return new Intl.DateTimeFormat(locale, {
     hour: '2-digit',
     minute: '2-digit',
   }).format(date)
-}
-
-function getNextOccurrenceOnWeekday(date: Date, weekday: number) {
-  const next = new Date(date)
-  const diff = (weekday - next.getDay() + 7) % 7
-  next.setDate(next.getDate() + diff)
-  return next
 }
 
 const pageStyle: CSSProperties = {
@@ -184,7 +177,8 @@ const sectionStyle: CSSProperties = {
 
 export default function NewJobPage() {
   const router = useRouter()
-  const { dictionary } = useI18n()
+  const { dictionary, locale } = useI18n()
+  const dateLocale = getIntlLocale(locale)
 
   const [companyId, setCompanyId] = useState('')
   const [title, setTitle] = useState('')
@@ -206,11 +200,22 @@ export default function NewJobPage() {
   const [assignedProfiles, setAssignedProfiles] = useState<string[]>([''])
   const [selectedWorkDates, setSelectedWorkDates] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
+  const [formError, setFormError] = useState<string | null>(null)
 
   const generatedWorkDays = useMemo(
-    () => generateWorkDays(parseDateTimeLocal(startAt), parseDateTimeLocal(endAt)),
-    [endAt, startAt]
+    () => generateWorkDays(parseDateTimeLocal(startAt), parseDateTimeLocal(endAt), dateLocale),
+    [dateLocale, endAt, startAt]
   )
+
+  function handleStartAtInput(value: string) {
+    setStartAt(value)
+    const parsedDate = parseDateTimeLocal(value)
+    if (parsedDate) setRepeatWeekday(String(parsedDate.getDay()))
+  }
+
+  function handleEndAtInput(value: string) {
+    setEndAt(value)
+  }
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -333,189 +338,174 @@ export default function NewJobPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    const form = e.currentTarget as HTMLFormElement
+    const formData = new FormData(form)
+    const getSubmittedValue = (name: string, fallback: string) => {
+      const formValue = formData.get(name)
+      if (typeof formValue === 'string' && formValue.trim() !== '') return formValue
+
+      const field = form.elements.namedItem(name)
+      if (
+        field instanceof HTMLInputElement ||
+        field instanceof HTMLSelectElement ||
+        field instanceof HTMLTextAreaElement
+      ) {
+        return field.value || fallback
+      }
+
+      return typeof formValue === 'string' ? formValue : fallback
+    }
+
+    const submittedCustomerId = getSubmittedValue('customerId', customerId).trim()
+    const submittedContactId = getSubmittedValue('contactId', contactId).trim()
+    const submittedTitle = getSubmittedValue('title', title).trim()
+    const submittedDescription = getSubmittedValue('description', description)
+    const submittedAddress = getSubmittedValue('address', address)
+    const submittedPrice = getSubmittedValue('price', price)
+    const submittedStartAt = getSubmittedValue('startAt', startAt)
+    const submittedEndAt = getSubmittedValue('endAt', endAt)
+    const submittedRepeatWeekday = getSubmittedValue('repeatWeekday', repeatWeekday)
+    const submittedRepeatUntil = getSubmittedValue('repeatUntil', repeatUntil)
+    const submittedAssignedProfiles = formData
+      .getAll('assignedProfileIds')
+      .map((value) => String(value).trim())
+      .filter(Boolean)
+
+    setFormError(null)
     setLoading(true)
 
     if (!companyId) {
-      alert(dictionary.jobs.activeCompanyMissing)
+      setFormError(dictionary.jobs.activeCompanyMissing)
       setLoading(false)
       return
     }
 
-    const parsedStartAt = parseDateTimeLocal(startAt)
-    const parsedEndAt = parseDateTimeLocal(endAt)
-
-    if (startAt && !parsedStartAt) {
-      alert(dictionary.jobs.invalidStart)
+    if (!submittedTitle) {
+      setFormError(dictionary.jobs.newPage.titleRequired)
       setLoading(false)
       return
     }
 
-    if (endAt && !parsedEndAt) {
-      alert(dictionary.jobs.invalidEnd)
+    if (!isInternal && !submittedCustomerId) {
+      setFormError(
+        customers.length === 0
+          ? dictionary.jobs.newPage.customerRequiredCreateFirst
+          : dictionary.jobs.newPage.customerRequiredSelect
+      )
+      setLoading(false)
+      return
+    }
+
+    const selectedAssignedProfiles = Array.from(
+      new Set([...submittedAssignedProfiles, ...assignedProfiles.map((profileId) => profileId.trim())].filter(Boolean))
+    )
+
+    if (selectedAssignedProfiles.length === 0) {
+      setFormError(
+        profiles.length === 0
+          ? dictionary.jobs.newPage.workerRequiredCreateFirst
+          : dictionary.jobs.newPage.workerRequiredSelect
+      )
+      setLoading(false)
+      return
+    }
+
+    if (!submittedStartAt || !submittedEndAt) {
+      setFormError(dictionary.jobs.newPage.startEndRequired)
+      setLoading(false)
+      return
+    }
+
+    const normalizedPrice = submittedPrice.replace(',', '.').trim()
+    const parsedPrice = normalizedPrice ? Number(normalizedPrice) : null
+
+    if (parsedPrice != null && (!Number.isFinite(parsedPrice) || parsedPrice < 0)) {
+      setFormError(dictionary.jobs.newPage.priceInvalid)
+      setLoading(false)
+      return
+    }
+
+    const parsedStartAt = parseDateTimeLocal(submittedStartAt)
+    const parsedEndAt = parseDateTimeLocal(submittedEndAt)
+    const generatedWorkDaysForSubmit = generateWorkDays(parsedStartAt, parsedEndAt, dateLocale)
+
+    if (submittedStartAt && !parsedStartAt) {
+      setFormError(dictionary.jobs.invalidStart)
+      setLoading(false)
+      return
+    }
+
+    if (submittedEndAt && !parsedEndAt) {
+      setFormError(dictionary.jobs.invalidEnd)
       setLoading(false)
       return
     }
 
     if (parsedStartAt && parsedEndAt && parsedEndAt <= parsedStartAt) {
-      alert(dictionary.jobs.endMustBeAfterStart)
+      setFormError(dictionary.jobs.endMustBeAfterStart)
       setLoading(false)
       return
     }
 
     if (isRecurringWeekly) {
       if (!parsedStartAt || !parsedEndAt) {
-        alert(dictionary.jobs.recurringNeedsDates)
+        setFormError(dictionary.jobs.recurringNeedsDates)
         setLoading(false)
         return
       }
 
-      if (!repeatUntil) {
-        alert(dictionary.jobs.repeatUntilRequired)
+      if (!submittedRepeatUntil) {
+        setFormError(dictionary.jobs.repeatUntilRequired)
         setLoading(false)
         return
       }
-    }
-
-    const durationMs = parsedStartAt && parsedEndAt ? parsedEndAt.getTime() - parsedStartAt.getTime() : null
-
-    const baseJobValues = {
-      company_id: companyId,
-      customer_id: customerId || null,
-      contact_id: contactId || null,
-      title,
-      description,
-      address,
-      status: 'done',
-      is_internal: isInternal,
     }
 
     const shouldSplitIntoDailyJobs =
-      !isRecurringWeekly && generatedWorkDays.length > 1 && parsedStartAt && parsedEndAt
+      !isRecurringWeekly && generatedWorkDaysForSubmit.length > 1 && parsedStartAt && parsedEndAt
 
     if (shouldSplitIntoDailyJobs && selectedWorkDates.length === 0) {
-      alert('Vyberte alespoň jeden den, kdy se bude na zakázce pracovat.')
+      setFormError(dictionary.jobs.newPage.workDatesRequired)
       setLoading(false)
       return
     }
 
-    const jobsToInsert = (() => {
-      if (!isRecurringWeekly || !parsedStartAt || !parsedEndAt || !repeatUntil || durationMs == null) {
-        return [{
-          ...baseJobValues,
-          price: price ? Number(price) : null,
-          start_at: startAt || null,
-          end_at: endAt || null,
-          is_paid: isPaid,
-          parent_job_id: null,
-        }]
-      }
-
-      const weekday = Number(repeatWeekday)
-      const repeatUntilDate = new Date(`${repeatUntil}T23:59:59`)
-      const firstOccurrenceStart = getNextOccurrenceOnWeekday(parsedStartAt, weekday)
-      firstOccurrenceStart.setHours(parsedStartAt.getHours(), parsedStartAt.getMinutes(), parsedStartAt.getSeconds(), parsedStartAt.getMilliseconds())
-
-      const generatedJobs = []
-      let occurrenceStart = new Date(firstOccurrenceStart)
-
-      while (occurrenceStart <= repeatUntilDate) {
-        const occurrenceEnd = new Date(occurrenceStart.getTime() + durationMs)
-        generatedJobs.push({
-          ...baseJobValues,
-          price: price ? Number(price) : null,
-          start_at: occurrenceStart.toISOString(),
-          end_at: occurrenceEnd.toISOString(),
-          is_paid: isPaid,
-          parent_job_id: null,
-        })
-        occurrenceStart = new Date(occurrenceStart)
-        occurrenceStart.setDate(occurrenceStart.getDate() + 7)
-      }
-
-      return generatedJobs
-    })()
-
-    const selectedDailyJobs = generatedWorkDays.filter((day) => selectedWorkDates.includes(day.dateKey))
-
-    const { data: jobs, error: jobError } = shouldSplitIntoDailyJobs
-      ? await (async () => {
-          const { data: parentJob, error: parentError } = await supabase
-            .from('jobs')
-            .insert({
-              ...baseJobValues,
-              price: price ? Number(price) : null,
-              start_at: parsedStartAt.toISOString(),
-              end_at: parsedEndAt.toISOString(),
-              is_paid: isPaid,
-              parent_job_id: null,
-            })
-            .select()
-            .single()
-
-          if (parentError || !parentJob) {
-            return { data: null, error: parentError }
-          }
-
-          const dailyJobsToInsert = selectedDailyJobs.map((day) => ({
-            ...baseJobValues,
-            price: null,
-            start_at: day.startAt.toISOString(),
-            end_at: day.endAt.toISOString(),
-            is_paid: false,
-            parent_job_id: parentJob.id,
+    const selectedDailyJobs = shouldSplitIntoDailyJobs
+      ? generatedWorkDaysForSubmit
+          .filter((day) => selectedWorkDates.includes(day.dateKey))
+          .map((day) => ({
+            dateKey: day.dateKey,
+            startAt: day.startAt.toISOString(),
+            endAt: day.endAt.toISOString(),
           }))
+      : []
 
-          const { data: childJobs, error: childError } = await supabase
-            .from('jobs')
-            .insert(dailyJobsToInsert)
-            .select()
+    const result = await createJobsAction({
+      customerId: submittedCustomerId,
+      contactId: submittedContactId,
+      title: submittedTitle,
+      description: submittedDescription,
+      address: submittedAddress,
+      price: submittedPrice,
+      startAt: submittedStartAt,
+      endAt: submittedEndAt,
+      isPaid,
+      isInternal,
+      isRecurringWeekly,
+      repeatWeekday: submittedRepeatWeekday,
+      repeatUntil: submittedRepeatUntil,
+      selectedDailyJobs,
+      assignedProfileIds: selectedAssignedProfiles,
+    })
 
-          if (childError || !childJobs) {
-            return { data: null, error: childError }
-          }
-
-          return { data: [parentJob, ...childJobs], error: null }
-        })()
-      : await supabase.from('jobs').insert(jobsToInsert).select()
-
-    if (jobError || !jobs || jobs.length === 0) {
-      alert(`${dictionary.jobs.createJobError}: ${jobError?.message ?? 'Unknown error'}`)
+    if (!result.ok) {
+      setFormError(`${dictionary.jobs.createJobError}: ${result.error}`)
       setLoading(false)
       return
     }
 
-    const uniqueSelectedProfiles = [...new Set(assignedProfiles.filter(Boolean))]
-    const jobsForAssignments = shouldSplitIntoDailyJobs ? jobs.filter((job) => job.parent_job_id) : jobs
-
-    if (uniqueSelectedProfiles.length > 0 && jobsForAssignments.length > 0) {
-      const assignments = jobsForAssignments.flatMap((job) =>
-        uniqueSelectedProfiles.map((profileId) => ({
-          job_id: job.id,
-          profile_id: profileId,
-          role_label: 'worker',
-        }))
-      )
-
-      const { error: assignmentError } = await supabase.from('job_assignments').insert(assignments)
-
-      if (assignmentError) {
-        alert(`${dictionary.jobs.workersSaveError}: ${assignmentError.message}`)
-        router.push('/jobs')
-        return
-      }
-    }
-
-    if (shouldSplitIntoDailyJobs) {
-      router.push(`/jobs/${jobs[0].id}`)
-      return
-    }
-
-    if (jobs.length === 1) {
-      router.push(`/jobs/${jobs[0].id}`)
-      return
-    }
-
-    router.push('/jobs')
+    router.push(result.redirectTo)
+    router.refresh()
   }
 
   return (
@@ -532,9 +522,58 @@ export default function NewJobPage() {
         </header>
 
         <form className="job-create-form" onSubmit={handleSubmit} style={{ ...sectionStyle, gap: '14px' }}>
+          {formError ? (
+            <div
+              role="alert"
+              style={{
+                border: '1px solid #fecaca',
+                background: '#fef2f2',
+                color: '#991b1b',
+                borderRadius: '12px',
+                padding: '12px 14px',
+                fontSize: '14px',
+                fontWeight: 750,
+              }}
+            >
+              {formError}
+            </div>
+          ) : null}
+
+          {customers.length === 0 || profiles.length === 0 ? (
+            <div
+              style={{
+                border: '1px solid #bfdbfe',
+                background: '#eff6ff',
+                color: '#1e3a8a',
+                borderRadius: '12px',
+                padding: '12px 14px',
+                fontSize: '14px',
+                display: 'grid',
+                gap: '6px',
+              }}
+            >
+              {customers.length === 0 ? (
+                <div>
+                  {dictionary.jobs.newPage.createCustomerFirst}{' '}
+                  <Link href="/customers/new" style={{ color: '#1d4ed8', fontWeight: 850 }}>
+                    {dictionary.jobs.newPage.addCustomer}
+                  </Link>
+                </div>
+              ) : null}
+              {profiles.length === 0 ? (
+                <div>
+                  {dictionary.jobs.newPage.createWorkerNext}{' '}
+                  <Link href="/workers/new" style={{ color: '#1d4ed8', fontWeight: 850 }}>
+                    {dictionary.jobs.newPage.addWorker}
+                  </Link>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
           <label>
             <div style={{ marginBottom: '6px', fontWeight: 600 }}>{dictionary.jobs.customer}</div>
-            <select value={customerId} onChange={(e) => setCustomerId(e.target.value)} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db', backgroundColor: 'white' }}>
+            <select name="customerId" value={customerId} onChange={(e) => setCustomerId(e.target.value)} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db', backgroundColor: 'white' }}>
               <option value="">{dictionary.jobs.noCustomerOption}</option>
               {customers.map((customer) => (
                 <option key={customer.id} value={customer.id}>{customer.name ?? dictionary.jobs.noName}</option>
@@ -544,7 +583,7 @@ export default function NewJobPage() {
 
           <label>
             <div style={{ marginBottom: '6px', fontWeight: 600 }}>{dictionary.jobs.contactPerson}</div>
-            <select value={contactId} onChange={(e) => setContactId(e.target.value)} disabled={!customerId} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db', backgroundColor: customerId ? 'white' : '#f9fafb' }}>
+            <select name="contactId" value={contactId} onChange={(e) => setContactId(e.target.value)} disabled={!customerId} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db', backgroundColor: customerId ? 'white' : '#f9fafb' }}>
               <option value="">{customerId ? dictionary.jobs.noContactPerson : dictionary.jobs.chooseCustomerFirst}</option>
               {customerContacts.map((contact) => (
                 <option key={contact.id} value={contact.id}>{contact.full_name ?? dictionary.jobs.untitledWorker}{contact.role ? ` - ${contact.role}` : ''}</option>
@@ -552,20 +591,20 @@ export default function NewJobPage() {
             </select>
           </label>
 
-          <label><div style={{ marginBottom: '6px', fontWeight: 600 }}>{dictionary.jobs.titleLabel}</div><input type="text" value={title} onChange={(e) => setTitle(e.target.value)} required style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db' }} /></label>
-          <label><div style={{ marginBottom: '6px', fontWeight: 600 }}>{dictionary.jobs.descriptionLabel}</div><textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={4} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db' }} /></label>
-          <label><div style={{ marginBottom: '6px', fontWeight: 600 }}>{dictionary.jobs.addressLabel}</div><input type="text" value={address} onChange={(e) => setAddress(e.target.value)} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db' }} /></label>
-          <label><div style={{ marginBottom: '6px', fontWeight: 600 }}>{dictionary.jobs.price}</div><input type="number" value={price} onChange={(e) => setPrice(e.target.value)} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db' }} /></label>
-          <label><div style={{ marginBottom: '6px', fontWeight: 600 }}>{dictionary.jobs.startJob}</div><input type="datetime-local" value={startAt} onChange={(e) => { const nextValue = e.target.value; setStartAt(nextValue); const parsedDate = parseDateTimeLocal(nextValue); if (parsedDate) setRepeatWeekday(String(parsedDate.getDay())) }} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db' }} /></label>
-          <label><div style={{ marginBottom: '6px', fontWeight: 600 }}>{dictionary.jobs.expectedEnd}</div><input type="datetime-local" value={endAt} onChange={(e) => setEndAt(e.target.value)} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db' }} /></label>
+          <label><div style={{ marginBottom: '6px', fontWeight: 600 }}>{dictionary.jobs.titleLabel}</div><input name="title" type="text" value={title} onChange={(e) => setTitle(e.target.value)} required style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db' }} /></label>
+          <label><div style={{ marginBottom: '6px', fontWeight: 600 }}>{dictionary.jobs.descriptionLabel}</div><textarea name="description" value={description} onChange={(e) => setDescription(e.target.value)} rows={4} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db' }} /></label>
+          <label><div style={{ marginBottom: '6px', fontWeight: 600 }}>{dictionary.jobs.addressLabel}</div><input name="address" type="text" value={address} onChange={(e) => setAddress(e.target.value)} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db' }} /></label>
+          <label><div style={{ marginBottom: '6px', fontWeight: 600 }}>{dictionary.jobs.price}</div><input name="price" type="number" value={price} onChange={(e) => setPrice(e.target.value)} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db' }} /></label>
+          <label><div style={{ marginBottom: '6px', fontWeight: 600 }}>{dictionary.jobs.startJob}</div><input name="startAt" type="datetime-local" value={startAt} onInput={(e) => handleStartAtInput(e.currentTarget.value)} onChange={(e) => handleStartAtInput(e.currentTarget.value)} required style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db' }} /></label>
+          <label><div style={{ marginBottom: '6px', fontWeight: 600 }}>{dictionary.jobs.expectedEnd}</div><input name="endAt" type="datetime-local" value={endAt} onInput={(e) => handleEndAtInput(e.currentTarget.value)} onChange={(e) => handleEndAtInput(e.currentTarget.value)} required style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db' }} /></label>
 
           {!isRecurringWeekly && generatedWorkDays.length > 1 ? (
             <div style={{ border: '1px solid #d1d5db', borderRadius: '12px', padding: '12px', backgroundColor: '#fff', display: 'grid', gap: '10px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
                 <div>
-                  <div style={{ fontWeight: 700 }}>Dny práce v rozsahu zakázky</div>
+                  <div style={{ fontWeight: 700 }}>{dictionary.jobs.newPage.workDaysInRange}</div>
                   <div style={{ color: '#6b7280', fontSize: '13px' }}>
-                    Vytvoří se hlavní zakázka a pod ní jednodenní zakázky pro vybrané dny.
+                    {dictionary.jobs.newPage.workDaysDescription}
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
@@ -574,14 +613,14 @@ export default function NewJobPage() {
                     onClick={() => setSelectedWorkDates(generatedWorkDays.map((day) => day.dateKey))}
                     style={{ padding: '8px 10px', borderRadius: '8px', border: '1px solid #d1d5db', backgroundColor: '#fff', cursor: 'pointer', fontWeight: 600 }}
                   >
-                    Vybrat vše
+                    {dictionary.jobs.newPage.selectAll}
                   </button>
                   <button
                     type="button"
                     onClick={() => setSelectedWorkDates([])}
                     style={{ padding: '8px 10px', borderRadius: '8px', border: '1px solid #d1d5db', backgroundColor: '#fff', cursor: 'pointer', fontWeight: 600 }}
                   >
-                    Zrušit vše
+                    {dictionary.jobs.newPage.clearAll}
                   </button>
                 </div>
               </div>
@@ -599,7 +638,7 @@ export default function NewJobPage() {
                     />
                     <span style={{ fontWeight: 600 }}>{day.label}</span>
                     <span style={{ color: '#6b7280', fontSize: '13px' }}>
-                      {formatLocalTime(day.startAt)} - {formatLocalTime(day.endAt)}
+                      {formatLocalTime(day.startAt, dateLocale)} - {formatLocalTime(day.endAt, dateLocale)}
                     </span>
                   </label>
                 ))}
@@ -619,13 +658,13 @@ export default function NewJobPage() {
             <>
               <label>
                 <div style={{ marginBottom: '6px', fontWeight: 600 }}>{dictionary.jobs.weekday}</div>
-                <select value={repeatWeekday} onChange={(e) => setRepeatWeekday(e.target.value)} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db', backgroundColor: 'white' }}>
+                <select name="repeatWeekday" value={repeatWeekday} onChange={(e) => setRepeatWeekday(e.target.value)} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db', backgroundColor: 'white' }}>
                   {WEEKDAY_VALUES.map((value) => (
-                    <option key={value} value={String(value)}>{new Intl.DateTimeFormat(undefined, { weekday: 'long' }).format(new Date(2026, 0, value === 0 ? 11 : value + 4))}</option>
+                    <option key={value} value={String(value)}>{new Intl.DateTimeFormat(dateLocale, { weekday: 'long' }).format(new Date(2026, 0, value === 0 ? 11 : value + 4))}</option>
                   ))}
                 </select>
               </label>
-              <label><div style={{ marginBottom: '6px', fontWeight: 600 }}>{dictionary.jobs.repeatUntil}</div><input type="date" value={repeatUntil} onChange={(e) => setRepeatUntil(e.target.value)} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db' }} /></label>
+              <label><div style={{ marginBottom: '6px', fontWeight: 600 }}>{dictionary.jobs.repeatUntil}</div><input name="repeatUntil" type="date" value={repeatUntil} onChange={(e) => setRepeatUntil(e.target.value)} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db' }} /></label>
             </>
           ) : null}
 
@@ -638,19 +677,19 @@ export default function NewJobPage() {
           </label>
 
           <label>
-            <div style={{ marginBottom: '6px', fontWeight: 600 }}>{INTERNAL_JOB_LABEL}</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db', backgroundColor: '#fff' }}>
-              <input type="checkbox" checked={isInternal} onChange={(e) => setIsInternal(e.target.checked)} />
-              <span>Označit jako interní práci firmy, například úklid dílny nebo stěhování.</span>
-            </div>
-          </label>
+              <div style={{ marginBottom: '6px', fontWeight: 600 }}>{dictionary.jobs.internalJobLabel}</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db', backgroundColor: '#fff' }}>
+                <input type="checkbox" checked={isInternal} onChange={(e) => setIsInternal(e.target.checked)} />
+                <span>{dictionary.jobs.internalJobDescription}</span>
+              </div>
+            </label>
 
           <div>
             <div style={{ marginBottom: '10px', fontWeight: 600 }}>{dictionary.jobs.workers}</div>
             <div style={{ display: 'grid', gap: '10px' }}>
               {assignedProfiles.map((selectedId, index) => (
                 <div key={index} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                  <select value={selectedId} onChange={(e) => updateAssignedProfile(index, e.target.value)} style={{ flex: 1, padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db', backgroundColor: 'white' }}>
+                  <select name="assignedProfileIds" value={selectedId} onChange={(e) => updateAssignedProfile(index, e.target.value)} style={{ flex: 1, padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db', backgroundColor: 'white' }}>
                     <option value="">{dictionary.jobs.selectWorker}</option>
                     {profiles.map((profile) => (
                       <option key={profile.id} value={profile.id}>{profile.full_name ?? dictionary.jobs.untitledWorker}</option>

@@ -27,6 +27,7 @@ import {
   getEffectiveShiftHours,
   getTodayMonthString,
   getWorkMonthRange,
+  getAdvanceRequestPayrollMonth,
   isDateInRange,
   doesDateRangeOverlap,
   getWorkerName,
@@ -52,6 +53,7 @@ import {
   getWorkerType,
   getWorkerTypeLabel,
 } from '@/lib/payroll-settings'
+import { calculateWorkerPayroll } from '@/lib/payroll/worker-payroll'
 import {
   SecondaryAction,
   actionRowStyle,
@@ -69,6 +71,7 @@ import {
   pageShellStyle,
   primaryButtonStyle,
   sectionCardStyle,
+  secondaryButtonStyle,
 } from '@/components/SaasPageLayout'
 
 type AbsenceRow = {
@@ -78,8 +81,14 @@ type AbsenceRow = {
   absence_type: string | null
   start_at: string | null
   end_at: string | null
+  note: string | null
   status: string | null
+  created_at: string | null
+  reviewed_at: string | null
 }
+
+type AdvanceRequestStatus = 'pending' | 'approved' | 'rejected' | 'paid'
+type AbsenceRequestStatus = 'pending' | 'approved' | 'rejected'
 
 type CompanyPayrollSettingsRow = {
   payroll_type: string | null
@@ -89,6 +98,19 @@ type CompanyPayrollSettingsRow = {
   allow_advances: boolean | null
   advance_limit_amount: number | null
   advance_frequency: string | null
+}
+
+type PayrollPaymentRow = {
+  id: string
+  profile_id: string | null
+  payroll_month: string | null
+  amount: number | string | null
+  paid_at: string | null
+}
+
+function isMissingPayrollPaymentsTable(error: { message?: string; code?: string } | null | undefined) {
+  const message = (error?.message ?? '').toLowerCase()
+  return error?.code === '42P01' || message.includes('payroll_payments')
 }
 
 function renderError(message: string) {
@@ -137,6 +159,71 @@ function getAbsenceBadgeStyle(absence: Pick<AbsenceRow, 'absence_mode' | 'absenc
     color: '#c2410c',
     border: '1px solid #fdba74',
   }
+}
+
+function getAdvanceRequestStatus(request: AdvanceRequestPayrollRow): AdvanceRequestStatus {
+  const normalized = (request.status ?? '').trim().toLowerCase()
+
+  if (normalized === 'paid' || request.paid_at) return 'paid'
+  if (normalized === 'rejected') return 'rejected'
+  if (normalized === 'approved' || request.approved_at) return 'approved'
+
+  return 'pending'
+}
+
+function getAbsenceRequestStatus(absence: Pick<AbsenceRow, 'status'>): AbsenceRequestStatus {
+  if (absence.status === 'approved') return 'approved'
+  if (absence.status === 'rejected') return 'rejected'
+  return 'pending'
+}
+
+function getRequestStatusLabel(status: AdvanceRequestStatus | AbsenceRequestStatus) {
+  if (status === 'paid') return 'Vyplaceno'
+  if (status === 'approved') return 'Schváleno'
+  if (status === 'rejected') return 'Zamítnuto'
+  return 'Čeká na schválení'
+}
+
+function getRequestStatusBadgeStyle(status: AdvanceRequestStatus | AbsenceRequestStatus) {
+  if (status === 'paid') {
+    return {
+      backgroundColor: '#dbeafe',
+      color: '#1d4ed8',
+      border: '1px solid #bfdbfe',
+    }
+  }
+
+  if (status === 'approved') {
+    return {
+      backgroundColor: '#dcfce7',
+      color: '#166534',
+      border: '1px solid #bbf7d0',
+    }
+  }
+
+  if (status === 'rejected') {
+    return {
+      backgroundColor: '#fee2e2',
+      color: '#b91c1c',
+      border: '1px solid #fecaca',
+    }
+  }
+
+  return {
+    backgroundColor: '#fef3c7',
+    color: '#92400e',
+    border: '1px solid #fde68a',
+  }
+}
+
+function getAdvanceRequestAmount(request: AdvanceRequestPayrollRow) {
+  const amount = Number(request.amount ?? request.requested_amount ?? 0)
+  return Number.isFinite(amount) ? amount : 0
+}
+
+function getAdvanceRequestRequestedAmount(request: AdvanceRequestPayrollRow) {
+  const amount = Number(request.requested_amount ?? request.amount ?? 0)
+  return Number.isFinite(amount) ? amount : 0
 }
 
 export default async function WorkerDetailPage({ params, searchParams }: WorkerDetailPageProps) {
@@ -250,8 +337,7 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
         .from('advance_requests')
         .select('id, profile_id, amount, requested_amount, reason, note, status, requested_at, approved_at, reviewed_at, paid_at, payroll_month')
         .eq('profile_id', workerId)
-        .eq('status', 'paid')
-        .order('paid_at', { ascending: false }),
+        .order('requested_at', { ascending: false }),
       supabase
         .from('payroll_items')
         .select('id, profile_id, payroll_month, item_type, amount, note, created_at')
@@ -266,9 +352,8 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
         .limit(1),
       supabase
         .from('absence_requests')
-        .select('id, profile_id, absence_mode, absence_type, start_at, end_at, status')
+        .select('id, profile_id, absence_mode, absence_type, start_at, end_at, note, status, created_at, reviewed_at')
         .eq('profile_id', workerId)
-        .eq('status', 'approved')
         .order('start_at', { ascending: false }),
     ])
 
@@ -422,7 +507,20 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
   }))
 
   const workerAdvances = ((workerAdvancesResponse.data ?? []) as unknown[]) as WorkerAdvanceRow[]
-  const paidAdvanceRequestsForPeriod = (((advanceRequestsResponse.data ?? []) as unknown[]) as AdvanceRequestPayrollRow[])
+  const allAdvanceRequests = ((advanceRequestsResponse.data ?? []) as unknown[]) as AdvanceRequestPayrollRow[]
+  const advanceRequestsForPeriod = allAdvanceRequests.filter((request) => {
+    const status = getAdvanceRequestStatus(request)
+    const payrollMonth = getAdvanceRequestPayrollMonth(request)
+    const timelineDate = request.paid_at || request.approved_at || request.reviewed_at || request.requested_at
+
+    if (status === 'pending' || status === 'approved') {
+      return true
+    }
+
+    return payrollMonth === selectedMonth || isDateInRange(timelineDate, advanceStartDate, advanceEndExclusiveDate)
+  })
+  const paidAdvanceRequestsForPeriod = allAdvanceRequests
+    .filter((item) => getAdvanceRequestStatus(item) === 'paid')
     .filter((item) => !isAdvanceRequestRepresentedByWorkerAdvance(item, workerAdvances))
     .map(mapAdvanceRequestToWorkerAdvance)
     .filter((item) => isDateInRange(item.issued_at, advanceStartDate, advanceEndExclusiveDate))
@@ -431,7 +529,7 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
     const bTime = b.issued_at ? new Date(b.issued_at).getTime() : 0
     return bTime - aTime
   })
-  const approvedAbsences = (((absencesResponse.data ?? []) as unknown[]) as AbsenceRow[]).filter((absence) =>
+  const absenceRequests = (((absencesResponse.data ?? []) as unknown[]) as AbsenceRow[]).filter((absence) =>
     doesDateRangeOverlap(
       absence.start_at,
       absence.end_at ?? absence.start_at,
@@ -439,7 +537,26 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
       workEndExclusiveIso,
     ),
   )
+  const approvedAbsences = absenceRequests.filter((absence) => getAbsenceRequestStatus(absence) === 'approved')
   const companyMember = (((companyMembersResponse.data ?? []) as unknown[]) as CompanyMemberRow[])[0] ?? null
+  const payrollPaymentResponse = companyMember?.company_id
+    ? await supabase
+        .from('payroll_payments')
+        .select('id, profile_id, payroll_month, amount, paid_at')
+        .eq('company_id', companyMember.company_id)
+        .eq('profile_id', workerId)
+        .eq('payroll_month', selectedMonth)
+        .maybeSingle()
+    : { data: null, error: null }
+
+  if (payrollPaymentResponse.error && !isMissingPayrollPaymentsTable(payrollPaymentResponse.error)) {
+    return renderError(`Nepodařilo se načíst stav výplaty: ${payrollPaymentResponse.error.message}`)
+  }
+
+  const payrollPayment = payrollPaymentResponse.error
+    ? null
+    : (payrollPaymentResponse.data as PayrollPaymentRow | null)
+
   const companyPayrollSettingsResponse = companyMember?.company_id
     ? await supabase
         .from('company_payroll_settings')
@@ -526,7 +643,6 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
     0,
   )
   const companyCoveredReward = totalStandaloneShiftHours * defaultHourlyRate
-  const payrollReward = customerCoveredReward + companyCoveredReward
   const advancePaidInPeriod = isContractor
     ? 0
     : displayedWorkerAdvances.reduce((sum, item) => sum + Number(item.amount ?? 0), 0)
@@ -540,10 +656,16 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
   const payrollDeductionTotal = payrollItems
     .filter((item) => item.item_type === 'deduction')
     .reduce((sum, item) => sum + Number(item.amount ?? 0), 0)
-  const totalRewardAfterAdvance =
-    isContractor
-      ? customerCoveredReward
-      : payrollReward + payrollBonusTotal + payrollMealTotal - payrollDeductionTotal - advancePaidInPeriod
+  const payroll = calculateWorkerPayroll({
+    worker: profile,
+    jobReward: customerCoveredReward,
+    standaloneShiftReward: companyCoveredReward,
+    bonusTotal: payrollBonusTotal,
+    mealTotal: payrollMealTotal,
+    deductionTotal: payrollDeductionTotal,
+    advanceTotal: advancePaidInPeriod,
+  })
+  const totalRewardAfterAdvance = payroll.netPayout
 
   async function createWorkerShift(formData: FormData) {
     'use server'
@@ -775,6 +897,83 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
     redirect(targetUrl)
   }
 
+  async function markPayrollPaid(formData: FormData) {
+    'use server'
+
+    const profileId = String(formData.get('profileId') ?? '').trim()
+    const month = String(formData.get('month') ?? '').trim()
+    const amount = Number(formData.get('amount') ?? 0)
+    const targetUrl = profileId
+      ? `/workers/${profileId}${month ? `?month=${encodeURIComponent(month)}` : ''}`
+      : '/workers'
+
+    if (!profileId || !isValidMonthString(month) || !Number.isFinite(amount)) {
+      redirect(targetUrl)
+    }
+
+    const access = await requireCompanyRole('company_admin', 'super_admin')
+    if (!access.ok) redirect(targetUrl)
+
+    const supabase = await createSupabaseServerClient()
+    const memberResponse = await supabase
+      .from('company_members')
+      .select('id')
+      .eq('company_id', access.value.companyId)
+      .eq('profile_id', profileId)
+      .eq('is_active', true)
+      .maybeSingle()
+
+    if (memberResponse.error || !memberResponse.data) redirect(targetUrl)
+
+    await supabase
+      .from('payroll_payments')
+      .upsert(
+        {
+          company_id: access.value.companyId,
+          profile_id: profileId,
+          payroll_month: month,
+          amount: Math.round(amount * 100) / 100,
+          status: 'paid',
+          paid_at: new Date().toISOString(),
+          paid_by: access.value.profileId,
+        },
+        { onConflict: 'company_id,profile_id,payroll_month' },
+      )
+
+    revalidatePath('/workers')
+    revalidatePath(`/workers/${profileId}`)
+    redirect(targetUrl)
+  }
+
+  async function unmarkPayrollPaid(formData: FormData) {
+    'use server'
+
+    const profileId = String(formData.get('profileId') ?? '').trim()
+    const month = String(formData.get('month') ?? '').trim()
+    const targetUrl = profileId
+      ? `/workers/${profileId}${month ? `?month=${encodeURIComponent(month)}` : ''}`
+      : '/workers'
+
+    if (!profileId || !isValidMonthString(month)) {
+      redirect(targetUrl)
+    }
+
+    const access = await requireCompanyRole('company_admin', 'super_admin')
+    if (!access.ok) redirect(targetUrl)
+
+    const supabase = await createSupabaseServerClient()
+    await supabase
+      .from('payroll_payments')
+      .delete()
+      .eq('company_id', access.value.companyId)
+      .eq('profile_id', profileId)
+      .eq('payroll_month', month)
+
+    revalidatePath('/workers')
+    revalidatePath(`/workers/${profileId}`)
+    redirect(targetUrl)
+  }
+
   return (
     <DashboardShell activeItem="workers">
       <main style={pageShellStyle}>
@@ -870,12 +1069,44 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
                 ? `Externí práce ${formatHours(totalJobHours)} h, zálohy se nepoužívají.`
                 : `Zakázky ${formatHours(totalJobHours)} h, směny mimo zakázky ${formatHours(totalStandaloneShiftHours)} h, zálohy ${formatCurrency(advancePaidInPeriod)}.`}
             </div>
+            <div
+              style={{
+                marginTop: '12px',
+                display: 'inline-flex',
+                borderRadius: '999px',
+                padding: '7px 11px',
+                fontSize: '12px',
+                fontWeight: 900,
+                backgroundColor: payrollPayment?.paid_at ? '#dcfce7' : '#fff7ed',
+                color: payrollPayment?.paid_at ? '#166534' : '#9a3412',
+              }}
+            >
+              {payrollPayment?.paid_at ? `Uhrazeno ${formatDate(payrollPayment.paid_at)}` : 'Čeká na úhradu'}
+            </div>
             <Link
               href={`/workers/${workerId}/finance/edit?month=${selectedMonth}`}
               style={{ ...primaryButtonStyle, marginTop: '16px', width: '100%', boxSizing: 'border-box' }}
             >
               {dictionary.workers.detail.editWorker}
             </Link>
+            {payrollPayment?.paid_at ? (
+              <form action={unmarkPayrollPaid} style={{ marginTop: '10px' }}>
+                <input type="hidden" name="profileId" value={workerId} />
+                <input type="hidden" name="month" value={selectedMonth} />
+                <button type="submit" style={{ ...secondaryButtonStyle, width: '100%' }}>
+                  Zrušit uhrazení výplaty
+                </button>
+              </form>
+            ) : (
+              <form action={markPayrollPaid} style={{ marginTop: '10px' }}>
+                <input type="hidden" name="profileId" value={workerId} />
+                <input type="hidden" name="month" value={selectedMonth} />
+                <input type="hidden" name="amount" value={String(totalRewardAfterAdvance)} />
+                <button type="submit" style={{ ...primaryButtonStyle, width: '100%' }}>
+                  Označit výplatu jako uhrazenou
+                </button>
+              </form>
+            )}
           </div>
         </section>
 
@@ -1014,8 +1245,140 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
           />
         ) : null}
 
+        {!isContractor ? (
+          <section style={sectionCardStyle}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '14px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '16px' }}>
+              <h2 style={{ ...cardTitleStyle, margin: 0 }}>Žádosti o zálohy ({advancePeriodLabel})</h2>
+              <Link href="/advance-requests" style={secondaryButtonStyle}>
+                Otevřít žádosti
+              </Link>
+            </div>
+
+            {advanceRequestsForPeriod.length === 0 ? (
+              <div style={boxStyle}>
+                <p style={{ margin: 0, color: '#6b7280' }}>
+                  Ve zvoleném období nejsou evidované žádné žádosti o zálohu.
+                </p>
+              </div>
+            ) : (
+              <div style={tableWrapStyle}>
+                <table style={tableStyle}>
+                  <thead>
+                    <tr>
+                      <th style={thStyle}>Požádáno</th>
+                      <th style={thStyle}>Požadováno</th>
+                      <th style={thStyle}>Částka</th>
+                      <th style={thStyle}>Důvod</th>
+                      <th style={thStyle}>Stav</th>
+                      <th style={thStyle}>Vyřízeno</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {advanceRequestsForPeriod.map((request) => {
+                      const status = getAdvanceRequestStatus(request)
+                      const badgeStyle = getRequestStatusBadgeStyle(status)
+                      const resolvedAt =
+                        status === 'paid'
+                          ? request.paid_at
+                          : request.approved_at || request.reviewed_at
+
+                      return (
+                        <tr key={request.id}>
+                          <td style={tdStyle}>{formatDate(request.requested_at)}</td>
+                          <td style={tdStyle}>{formatCurrency(getAdvanceRequestRequestedAmount(request))}</td>
+                          <td style={tdStyle}>{formatCurrency(getAdvanceRequestAmount(request))}</td>
+                          <td style={tdStyle}>{request.reason?.trim() || request.note?.trim() || '—'}</td>
+                          <td style={tdStyle}>
+                            <span
+                              style={{
+                                ...badgeStyle,
+                                display: 'inline-block',
+                                padding: '6px 10px',
+                                borderRadius: '999px',
+                                fontSize: '12px',
+                                fontWeight: 800,
+                                lineHeight: 1.2,
+                              }}
+                            >
+                              {getRequestStatusLabel(status)}
+                            </span>
+                          </td>
+                          <td style={tdStyle}>{formatDate(resolvedAt)}</td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        ) : null}
+
         <section style={sectionCardStyle}>
-          <h2 style={{ ...cardTitleStyle, marginBottom: '16px' }}>Nepřítomnosti ({workPeriodLabel})</h2>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '14px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '16px' }}>
+            <h2 style={{ ...cardTitleStyle, margin: 0 }}>Žádosti o nepřítomnost ({workPeriodLabel})</h2>
+            <Link href="/absences" style={secondaryButtonStyle}>
+              Otevřít žádosti
+            </Link>
+          </div>
+
+          {absenceRequests.length === 0 ? (
+            <div style={boxStyle}>
+              <p style={{ margin: 0, color: '#6b7280' }}>
+                Ve zvoleném období nejsou evidované žádné žádosti o nepřítomnost.
+              </p>
+            </div>
+          ) : (
+            <div style={tableWrapStyle}>
+              <table style={tableStyle}>
+                <thead>
+                  <tr>
+                    <th style={thStyle}>Typ</th>
+                    <th style={thStyle}>Od</th>
+                    <th style={thStyle}>Do</th>
+                    <th style={thStyle}>Poznámka</th>
+                    <th style={thStyle}>Stav</th>
+                    <th style={thStyle}>Podáno</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {absenceRequests.map((absence) => {
+                    const status = getAbsenceRequestStatus(absence)
+                    const badgeStyle = getRequestStatusBadgeStyle(status)
+
+                    return (
+                      <tr key={absence.id}>
+                        <td style={tdStyle}>{getAbsenceTypeLabel(absence)}</td>
+                        <td style={tdStyle}>{formatDate(absence.start_at)}</td>
+                        <td style={tdStyle}>{formatDate(absence.end_at ?? absence.start_at)}</td>
+                        <td style={tdStyle}>{absence.note?.trim() || '—'}</td>
+                        <td style={tdStyle}>
+                          <span
+                            style={{
+                              ...badgeStyle,
+                              display: 'inline-block',
+                              padding: '6px 10px',
+                              borderRadius: '999px',
+                              fontSize: '12px',
+                              fontWeight: 800,
+                              lineHeight: 1.2,
+                            }}
+                          >
+                            {getRequestStatusLabel(status)}
+                          </span>
+                        </td>
+                        <td style={tdStyle}>{formatDate(absence.created_at)}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+
+        <section style={sectionCardStyle}>
+          <h2 style={{ ...cardTitleStyle, marginBottom: '16px' }}>Schválené nepřítomnosti ({workPeriodLabel})</h2>
 
           {approvedAbsences.length === 0 ? (
             <div style={boxStyle}>

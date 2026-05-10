@@ -25,9 +25,9 @@ export type WorkerJobCard = {
 }
 
 function formatDate(value: string | null) {
-  if (!value) return 'Bez terminu'
+  if (!value) return 'Bez termínu'
   const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return 'Bez terminu'
+  if (Number.isNaN(date.getTime())) return 'Bez termínu'
   return date.toLocaleString('cs-CZ', {
     day: '2-digit',
     month: '2-digit',
@@ -92,7 +92,7 @@ export default function WorkerFlowClient({ jobs }: { jobs: WorkerJobCard[] }) {
     const file = queuedFile ?? fileInput?.files?.[0]
 
     if (!file) {
-      setError('Vyber fotku k nahrani.')
+      setError('Vyber fotku k nahrání.')
       return
     }
 
@@ -107,7 +107,7 @@ export default function WorkerFlowClient({ jobs }: { jobs: WorkerJobCard[] }) {
         photoType,
       })
     } catch (uploadError) {
-      const uploadMessage = uploadError instanceof Error ? uploadError.message : 'Fotku se nepodarilo nahrat.'
+      const uploadMessage = uploadError instanceof Error ? uploadError.message : 'Fotku se nepodařilo nahrát.'
       setError(uploadMessage)
       setQueuedUploads((current) => {
         if (queuedId) {
@@ -137,7 +137,7 @@ export default function WorkerFlowClient({ jobs }: { jobs: WorkerJobCard[] }) {
       setQueuedUploads((current) => current.filter((item) => item.id !== queuedId))
     }
 
-    setMessage('Fotka je nahrana.')
+    setMessage('Fotka je nahraná.')
     setUploadingJobId(null)
     router.refresh()
   }
@@ -157,7 +157,7 @@ export default function WorkerFlowClient({ jobs }: { jobs: WorkerJobCard[] }) {
 
       {queuedUploads.length > 0 ? (
         <section style={{ padding: 14, borderRadius: 14, border: '1px solid #fed7aa', background: '#fff7ed', display: 'grid', gap: 10 }}>
-          <div style={{ color: '#9a3412', fontWeight: 850 }}>Cekaji fotky k odeslani</div>
+          <div style={{ color: '#9a3412', fontWeight: 850 }}>Čekají fotky k odeslání</div>
           {queuedUploads.map((item) => (
             <div key={item.id} style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, alignItems: 'center' }}>
               <div style={{ color: '#7c2d12', fontSize: 13 }}>
@@ -178,8 +178,8 @@ export default function WorkerFlowClient({ jobs }: { jobs: WorkerJobCard[] }) {
 
       {jobs.length === 0 ? (
         <section style={{ padding: 18, borderRadius: 16, border: '1px solid #e5e7eb', background: '#ffffff' }}>
-          <h2 style={{ margin: 0, fontSize: 20 }}>Moje zakazky</h2>
-          <p style={{ margin: '8px 0 0', color: '#64748b' }}>Aktualne nemas prirazene zadne zakazky.</p>
+          <h2 style={{ margin: 0, fontSize: 20 }}>Moje zakázky</h2>
+          <p style={{ margin: '8px 0 0', color: '#64748b' }}>Aktuálně nemáš přiřazené žádné zakázky.</p>
         </section>
       ) : (
         jobs.map((job) => {
@@ -214,7 +214,7 @@ export default function WorkerFlowClient({ jobs }: { jobs: WorkerJobCard[] }) {
                       whiteSpace: 'nowrap',
                     }}
                   >
-                    {job.openShiftId ? 'Bezi' : isDone ? 'Hotovo' : 'Prirazeno'}
+                    {job.openShiftId ? 'Běží' : isDone ? 'Hotovo' : 'Přiřazeno'}
                   </span>
                 </div>
                 <div style={{ color: '#64748b', fontSize: 14 }}>{formatDate(job.startAt)}</div>
@@ -230,23 +230,23 @@ export default function WorkerFlowClient({ jobs }: { jobs: WorkerJobCard[] }) {
                       runJobAction(
                         job.jobId,
                         () => stopMyJobShiftAction({ shiftId: job.openShiftId ?? '' }),
-                        'Smena je ukoncena.',
+                        'Směna je ukončena.',
                       )
                     }
                     style={{ ...buttonStyle, background: '#111827', color: '#ffffff', opacity: isBusy ? 0.7 : 1 }}
                   >
-                    {isBusy ? 'Ukladam...' : 'Stop'}
+                    {isBusy ? 'Ukládám...' : 'Stop'}
                   </button>
                 ) : (
                   <button
                     type="button"
                     disabled={isBusy || isDone}
                     onClick={() =>
-                      runJobAction(job.jobId, () => startMyJobShiftAction({ jobId: job.jobId }), 'Smena je spustena.')
+                      runJobAction(job.jobId, () => startMyJobShiftAction({ jobId: job.jobId }), 'Směna je spuštěna.')
                     }
                     style={{ ...buttonStyle, background: '#111827', color: '#ffffff', opacity: isBusy || isDone ? 0.55 : 1 }}
                   >
-                    {isBusy ? 'Ukladam...' : 'Start'}
+                    {isBusy ? 'Ukládám...' : 'Start'}
                   </button>
                 )}
 
@@ -254,11 +254,11 @@ export default function WorkerFlowClient({ jobs }: { jobs: WorkerJobCard[] }) {
                   type="button"
                   disabled={isBusy || isDone}
                   onClick={() =>
-                    runJobAction(job.jobId, () => completeMyJobAction({ jobId: job.jobId }), 'Zakazka je oznacena hotovo.')
+                    runJobAction(job.jobId, () => completeMyJobAction({ jobId: job.jobId }), 'Zakázka je označena hotovo.')
                   }
                   style={{ ...buttonStyle, background: '#dcfce7', color: '#166534', opacity: isBusy || isDone ? 0.55 : 1 }}
                 >
-                  {isBusy ? 'Ukladam...' : 'Hotovo'}
+                  {isBusy ? 'Ukládám...' : 'Hotovo'}
                 </button>
               </div>
 
@@ -279,7 +279,7 @@ export default function WorkerFlowClient({ jobs }: { jobs: WorkerJobCard[] }) {
                     onClick={() => uploadPhoto(job.jobId, 'before')}
                     style={{ ...buttonStyle, background: '#eef2ff', color: '#3730a3', opacity: isUploading ? 0.6 : 1 }}
                   >
-                    Pred
+                    Před
                   </button>
                   <button
                     type="button"

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-import { getActiveCompanyContext } from '@/lib/active-company'
+import { requireCompanyRole } from '@/lib/server-guards'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 
 type RouteContext = {
@@ -144,11 +144,13 @@ async function isProfileInCompany(
 }
 
 export async function POST(request: NextRequest, context: RouteContext) {
-  const activeCompany = await getActiveCompanyContext()
+  const activeCompanyResult = await requireCompanyRole('company_admin', 'super_admin')
 
-  if (!activeCompany) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  if (!activeCompanyResult.ok) {
+    return NextResponse.json({ error: activeCompanyResult.error }, { status: activeCompanyResult.status })
   }
+
+  const activeCompany = activeCompanyResult.value
 
   const { jobId } = await context.params
   const cleanJobId = jobId?.trim()
@@ -256,11 +258,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
 }
 
 export async function PUT(request: NextRequest, context: RouteContext) {
-  const activeCompany = await getActiveCompanyContext()
+  const activeCompanyResult = await requireCompanyRole('company_admin', 'super_admin')
 
-  if (!activeCompany) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  if (!activeCompanyResult.ok) {
+    return NextResponse.json({ error: activeCompanyResult.error }, { status: activeCompanyResult.status })
   }
+
+  const activeCompany = activeCompanyResult.value
 
   const { jobId } = await context.params
   const cleanJobId = jobId?.trim()
@@ -390,11 +394,13 @@ export async function PUT(request: NextRequest, context: RouteContext) {
 }
 
 export async function DELETE(request: NextRequest, context: RouteContext) {
-  const activeCompany = await getActiveCompanyContext()
+  const activeCompanyResult = await requireCompanyRole('company_admin', 'super_admin')
 
-  if (!activeCompany) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  if (!activeCompanyResult.ok) {
+    return NextResponse.json({ error: activeCompanyResult.error }, { status: activeCompanyResult.status })
   }
+
+  const activeCompany = activeCompanyResult.value
 
   const { jobId } = await context.params
   const cleanJobId = jobId?.trim()

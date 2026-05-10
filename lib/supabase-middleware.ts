@@ -5,7 +5,7 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
 function isPublicPath(pathname: string) {
-  return pathname === '/login'
+  return pathname === '/sign-in' || pathname === '/sign-up' || pathname === '/login' || pathname === '/register'
 }
 
 function isBypassedPath(pathname: string) {
@@ -53,11 +53,11 @@ export async function updateSession(request: NextRequest) {
 
   if (!user && !isPublic) {
     const url = request.nextUrl.clone()
-    url.pathname = '/login'
+    url.pathname = '/sign-in'
     return NextResponse.redirect(url)
   }
 
-  if (user && pathname === '/login') {
+  if (user && (pathname === '/login' || pathname === '/sign-in' || pathname === '/sign-up' || pathname === '/register')) {
     const url = request.nextUrl.clone()
     url.pathname = '/'
     return NextResponse.redirect(url)
