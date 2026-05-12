@@ -7,6 +7,10 @@ import { useRouter } from 'next/navigation'
 import { normalizeBillingInterval, normalizePlanKey } from '@/lib/billing-shared'
 import { supabase } from '@/lib/supabase'
 
+function getAuthRedirectTo() {
+  return `${window.location.origin}/auth/callback`
+}
+
 type RegisterFormProps = {
   plan?: string
   interval?: string
@@ -33,6 +37,7 @@ export default function RegisterForm({ plan, interval }: RegisterFormProps) {
       email,
       password,
       options: {
+        emailRedirectTo: getAuthRedirectTo(),
         data: {
           full_name: fullName.trim(),
           intended_plan_key: intendedPlan,
