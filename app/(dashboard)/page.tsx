@@ -1118,13 +1118,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       const nextPrice = toNumber(job.price)
 
       const nextStart =
-        [current?.start_at, job.start_at, rootJob.start_at]
+        [current?.start_at, job.start_at]
           .map((value) => parseDateSafe(value))
           .filter((value): value is Date => Boolean(value))
           .sort((a, b) => a.getTime() - b.getTime())[0] ?? null
 
       const nextEnd =
-        [current?.end_at, job.end_at, rootJob.end_at]
+        [current?.end_at, job.end_at]
           .map((value) => parseDateSafe(value))
           .filter((value): value is Date => Boolean(value))
           .sort((a, b) => b.getTime() - a.getTime())[0] ?? null
@@ -1138,16 +1138,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         laborCost,
         otherCost,
       })
-      const completed =
-        (current?.completed ?? false) || isCompletedJob(rootJob.work_state) || isCompletedJob(job.work_state)
-      const timeFinished =
-        (current?.timeFinished ?? false) || rootJob.time_state === 'finished' || job.time_state === 'finished'
+      const completed = (current?.completed ?? false) || isCompletedJob(job.work_state)
+      const timeFinished = (current?.timeFinished ?? false) || job.time_state === 'finished'
       const waitingForInvoice =
-        completed &&
-        ((current?.waitingForInvoice ?? false) || isWaitingForInvoiceJob(rootJob) || isWaitingForInvoiceJob(job))
+        completed && ((current?.waitingForInvoice ?? false) || isWaitingForInvoiceJob(job))
       const invoiced =
-        completed &&
-        ((current?.invoiced ?? false) || isInvoicedJob(rootJob) || isInvoicedJob(job))
+        completed && ((current?.invoiced ?? false) || isInvoicedJob(job))
 
       grouped.set(rootId, {
         id: rootJob.id,
@@ -1159,8 +1155,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         revenue: quotedEconomics.quotedRevenue,
         invoicedRevenue,
         margin: quotedEconomics.margin_percent,
-        start_at: nextStart ? nextStart.toISOString() : rootJob.start_at ?? job.start_at ?? null,
-        end_at: nextEnd ? nextEnd.toISOString() : rootJob.end_at ?? job.end_at ?? null,
+        start_at: nextStart ? nextStart.toISOString() : job.start_at ?? null,
+        end_at: nextEnd ? nextEnd.toISOString() : job.end_at ?? null,
         created_at: rootJob.created_at ?? job.created_at ?? null,
         waitingForInvoice,
         invoiced,

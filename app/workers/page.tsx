@@ -27,6 +27,12 @@ type ProfileRow = {
   id: string
   full_name: string | null
   email: string | null
+  phone?: string | null
+  worker_status?: string | null
+  activated_at?: string | null
+  disabled_at?: string | null
+  last_seen_at?: string | null
+  device_registered_at?: string | null
   default_hourly_rate: number | null
   advance_paid: number | null
   worker_type?: string | null
@@ -131,6 +137,10 @@ type WorkerCardData = {
   payrollPaidAt: string | null
   payrollPaidAmount: number
   absenceState: WorkerAbsenceState
+  inviteStatus: 'invited' | 'active' | 'disabled'
+  activatedAt: string | null
+  lastSeenAt: string | null
+  deviceRegisteredAt: string | null
 }
 
 type RawJobRelation = {
@@ -490,7 +500,7 @@ export default async function WorkersPage({ searchParams }: WorkersPageProps) {
     payrollPaymentsResponse,
     absencesResponse,
   ] = await Promise.all([
-    supabase.from('profiles').select('id, full_name, email, default_hourly_rate, advance_paid, worker_type, contractor_billing_type, contractor_default_rate').in('id', profileIds).order('full_name', { ascending: true }),
+    supabase.from('profiles').select('id, full_name, email, phone, worker_status, activated_at, disabled_at, last_seen_at, device_registered_at, default_hourly_rate, advance_paid, worker_type, contractor_billing_type, contractor_default_rate').in('id', profileIds).order('full_name', { ascending: true }),
     supabase.from('job_assignments').select(`
       profile_id,
       job_id,
@@ -627,6 +637,15 @@ export default async function WorkersPage({ searchParams }: WorkersPageProps) {
       payrollPaidAt: workerPayrollPayment?.paid_at ?? null,
       payrollPaidAmount: Number(workerPayrollPayment?.amount ?? 0),
       absenceState,
+      inviteStatus:
+        profile.worker_status === 'disabled' || profile.disabled_at
+          ? 'disabled'
+          : profile.activated_at || profile.worker_status === 'active'
+            ? 'active'
+            : 'invited',
+      activatedAt: profile.activated_at ?? null,
+      lastSeenAt: profile.last_seen_at ?? null,
+      deviceRegisteredAt: profile.device_registered_at ?? null,
     }
   })
 
@@ -707,7 +726,12 @@ export default async function WorkersPage({ searchParams }: WorkersPageProps) {
                       </div>
                       <h2 style={{ margin: 0, fontSize: '19px', lineHeight: '1.2', color: '#111827' }}>{worker.fullName}</h2>
                     </div>
-                    <div style={{ background: absenceVisual.badgeBackground, color: absenceVisual.badgeColor, borderRadius: '999px', padding: '6px 9px', fontSize: '11px', fontWeight: 800, whiteSpace: 'nowrap' }}>{absenceLabel}</div>
+                    <div style={{ display: 'grid', gap: '6px', justifyItems: 'end' }}>
+                      <div style={{ background: absenceVisual.badgeBackground, color: absenceVisual.badgeColor, borderRadius: '999px', padding: '6px 9px', fontSize: '11px', fontWeight: 800, whiteSpace: 'nowrap' }}>{absenceLabel}</div>
+                      <div style={{ background: worker.inviteStatus === 'active' ? '#dcfce7' : worker.inviteStatus === 'disabled' ? '#fee2e2' : '#dbeafe', color: worker.inviteStatus === 'active' ? '#166534' : worker.inviteStatus === 'disabled' ? '#991b1b' : '#1d4ed8', borderRadius: '999px', padding: '6px 9px', fontSize: '11px', fontWeight: 800, whiteSpace: 'nowrap' }}>
+                        {worker.inviteStatus === 'active' ? 'Active' : worker.inviteStatus === 'disabled' ? 'Disabled' : 'Invited'}
+                      </div>
+                    </div>
                   </div>
 
                   <div style={{ fontSize: '13px', marginBottom: '10px', color: '#4b5563' }}>{worker.email}</div>

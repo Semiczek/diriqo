@@ -30,6 +30,8 @@ type JobCheckRow = {
   id: string
   company_id: string | null
   parent_job_id: string | null
+  customer_id: string | null
+  contact_id: string | null
 }
 
 function normalizeNullableText(value: unknown) {
@@ -88,7 +90,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
   const existingJobResponse = await supabase
     .from('jobs')
-    .select('id, company_id, parent_job_id')
+    .select('id, company_id, parent_job_id, customer_id, contact_id')
     .eq('id', cleanJobId)
     .eq('company_id', activeCompany.companyId)
     .maybeSingle()
@@ -138,7 +140,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   if (parentJobId) {
     const parentCheckResponse = await supabase
       .from('jobs')
-      .select('id, company_id, customer_id, contact_id')
+      .select('id, company_id, parent_job_id, customer_id, contact_id')
       .eq('id', parentJobId)
       .eq('company_id', activeCompany.companyId)
       .maybeSingle()
@@ -153,6 +155,18 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     if (!parentCheckResponse.data) {
       return NextResponse.json({ error: 'Parent job not found.' }, { status: 404 })
     }
+
+    if (parentCheckResponse.data.parent_job_id) {
+      return NextResponse.json({ error: 'CÃ­lovÃ¡ zakÃ¡zka uÅ¾ je dcerou jinÃ© zakÃ¡zky.' }, { status: 400 })
+    }
+
+    if (
+      existingJob.customer_id &&
+      parentCheckResponse.data.customer_id &&
+      existingJob.customer_id !== parentCheckResponse.data.customer_id
+    ) {
+      return NextResponse.json({ error: 'ZakÃ¡zky s rozdÃ­lnÃ½m zÃ¡kaznÃ­kem nejde seskupit.' }, { status: 400 })
+    }
   }
 
   const updatePayload = {
@@ -160,7 +174,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     description,
     status,
     address,
-    price: parentJobId ? 0 : price ?? 0,
+    price: parentJobId ? null : price ?? 0,
     is_internal: isInternal,
     start_at: startAt,
     end_at: endAt,
@@ -168,8 +182,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     scheduled_end: endAt,
     scheduled_date: getScheduleDateKey(startAt),
     is_paid: parentJobId ? false : isPaid,
-    customer_id: customerId,
-    contact_id: contactId,
+    customer_id: parentJobId ? customerId ?? existingJob.customer_id : customerId,
+    contact_id: parentJobId ? contactId ?? existingJob.contact_id : contactId,
     parent_job_id: parentJobId,
   }
 

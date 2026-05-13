@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import DashboardShell from '@/components/DashboardShell'
 import WorkerAdvancesSection from '@/app/workers/[workerId]/WorkerAdvancesSection'
 import WorkerAssignmentsSection from '@/app/workers/[workerId]/WorkerAssignmentsSection'
+import WorkerInvitePanel from '@/app/workers/[workerId]/WorkerInvitePanel'
 import WorkerShiftsSection from '@/app/workers/[workerId]/WorkerShiftsSection'
 import WorkerSummaryStats from '@/app/workers/[workerId]/WorkerSummaryStats'
 import {
@@ -44,7 +45,7 @@ import {
   tdStyle,
   thStyle,
 } from '@/app/workers/[workerId]/worker-detail-helpers'
-import { getRequestDictionary } from '@/lib/i18n/server'
+import { getRequestDictionary, getRequestLocale } from '@/lib/i18n/server'
 import { requireCompanyRole } from '@/lib/server-guards'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 import {
@@ -106,6 +107,12 @@ type PayrollPaymentRow = {
   payroll_month: string | null
   amount: number | string | null
   paid_at: string | null
+}
+
+type LatestWorkerInviteRow = {
+  id: string
+  status: string | null
+  expires_at: string | null
 }
 
 function isMissingPayrollPaymentsTable(error: { message?: string; code?: string } | null | undefined) {
@@ -228,6 +235,7 @@ function getAdvanceRequestRequestedAmount(request: AdvanceRequestPayrollRow) {
 
 export default async function WorkerDetailPage({ params, searchParams }: WorkerDetailPageProps) {
   const dictionary = await getRequestDictionary()
+  const locale = await getRequestLocale()
   const { workerId } = await params
   const resolvedSearchParams = searchParams ? await searchParams : undefined
 
@@ -262,6 +270,12 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
       id,
       full_name,
       email,
+      phone,
+      worker_status,
+      activated_at,
+      disabled_at,
+      last_seen_at,
+      device_registered_at,
       default_hourly_rate,
       advance_paid,
       worker_type,
@@ -539,6 +553,21 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
   )
   const approvedAbsences = absenceRequests.filter((absence) => getAbsenceRequestStatus(absence) === 'approved')
   const companyMember = (((companyMembersResponse.data ?? []) as unknown[]) as CompanyMemberRow[])[0] ?? null
+  const latestInviteResponse = companyMember?.company_id
+    ? await supabase
+        .from('worker_invites')
+        .select('id, status, expires_at')
+        .eq('company_id', companyMember.company_id)
+        .eq('worker_profile_id', workerId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+    : { data: [], error: null }
+
+  if (latestInviteResponse.error) {
+    return renderError(`Nepodařilo se načíst pozvánku pracovníka: ${latestInviteResponse.error.message}`)
+  }
+
+  const latestInvite = (((latestInviteResponse.data ?? []) as unknown[]) as LatestWorkerInviteRow[])[0] ?? null
   const payrollPaymentResponse = companyMember?.company_id
     ? await supabase
         .from('payroll_payments')
@@ -612,6 +641,19 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
   const shiftJobsMap = new Map(
     shiftJobs.map((job) => [job.id, job.title ?? dictionary.workers.detail.unnamedJob]),
   )
+  const now = new Date()
+  const latestInviteExpired =
+    latestInvite?.status === 'pending' &&
+    latestInvite.expires_at != null &&
+    new Date(latestInvite.expires_at).getTime() <= now.getTime()
+  const workerInviteStatus =
+    profile.worker_status === 'disabled' || profile.disabled_at
+      ? 'disabled'
+      : profile.activated_at || profile.worker_status === 'active'
+        ? 'active'
+        : latestInviteExpired
+          ? 'expired'
+          : latestInvite?.status ?? profile.worker_status ?? 'not_invited'
 
   const jobAssignments = mergedJobAssignments.filter((item) => {
     const overlapsByJobRange = doesDateRangeOverlap(
@@ -974,6 +1016,72 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
     redirect(targetUrl)
   }
 
+  async function deleteWorker(formData: FormData) {
+    'use server'
+
+    const profileId = String(formData.get('profileId') ?? '').trim()
+    const confirmed = formData.get('confirmDelete') === 'on'
+
+    if (!profileId || !confirmed) {
+      redirect(profileId ? `/workers/${profileId}` : '/workers')
+    }
+
+    const access = await requireCompanyRole('company_admin', 'super_admin')
+    if (!access.ok) {
+      redirect(`/workers/${profileId}`)
+    }
+
+    const supabase = await createSupabaseServerClient()
+    const memberResponse = await supabase
+      .from('company_members')
+      .select('id')
+      .eq('company_id', access.value.companyId)
+      .eq('profile_id', profileId)
+      .eq('is_active', true)
+      .maybeSingle()
+
+    if (memberResponse.error || !memberResponse.data?.id) {
+      redirect(`/workers/${profileId}`)
+    }
+
+    const nowIso = new Date().toISOString()
+    const profileUpdateResponse = await supabase
+      .from('profiles')
+      .update({
+        worker_status: 'disabled',
+        disabled_at: nowIso,
+      })
+      .eq('id', profileId)
+
+    if (profileUpdateResponse.error) {
+      redirect(`/workers/${profileId}`)
+    }
+
+    await supabase
+      .from('worker_invites')
+      .update({
+        status: 'revoked',
+        revoked_at: nowIso,
+      })
+      .eq('company_id', access.value.companyId)
+      .eq('worker_profile_id', profileId)
+      .eq('status', 'pending')
+
+    const memberUpdateResponse = await supabase
+      .from('company_members')
+      .update({ is_active: false })
+      .eq('id', memberResponse.data.id)
+      .eq('company_id', access.value.companyId)
+
+    if (memberUpdateResponse.error) {
+      redirect(`/workers/${profileId}`)
+    }
+
+    revalidatePath('/workers')
+    revalidatePath(`/workers/${profileId}`)
+    redirect('/workers')
+  }
+
   return (
     <DashboardShell activeItem="workers">
       <main style={pageShellStyle}>
@@ -1110,6 +1218,82 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
           </div>
         </section>
 
+        <details style={sectionCardStyle}>
+          <summary
+            style={{
+              ...primaryButtonStyle,
+              width: 'fit-content',
+              cursor: 'pointer',
+              listStyle: 'none',
+            }}
+          >
+            Pozvat pracovníka
+          </summary>
+          <div style={{ marginTop: '16px' }}>
+            <WorkerInvitePanel
+              workerId={workerId}
+              workerName={getWorkerName(profile)}
+              phone={profile.phone ?? null}
+              locale={locale}
+              framed={false}
+              initialInvite={{
+                inviteId: latestInvite?.id ?? null,
+                inviteLink: null,
+                inviteMessage: null,
+                whatsappUrl: null,
+                status: workerInviteStatus,
+                expiresAt: latestInvite?.expires_at ?? null,
+              }}
+            />
+          </div>
+        </details>
+
+        <section
+          style={{
+            ...sectionCardStyle,
+            borderColor: 'rgba(248, 113, 113, 0.35)',
+            background: 'rgba(255, 247, 247, 0.92)',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
+            <div style={{ maxWidth: '680px' }}>
+              <h2 style={{ ...cardTitleStyle, color: '#991b1b' }}>Smazat pracovníka</h2>
+              <p style={{ margin: '8px 0 0', color: '#7f1d1d', lineHeight: 1.5, fontSize: '14px' }}>
+                Pracovník se odebere z aktivního týmu a jeho čekající pozvánky se zruší. Historické směny,
+                zakázky a výplaty zůstanou zachované pro reporting.
+              </p>
+            </div>
+            <form action={deleteWorker} style={{ display: 'grid', gap: '10px', minWidth: '260px' }}>
+              <input type="hidden" name="profileId" value={workerId} />
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  color: '#7f1d1d',
+                  fontSize: '13px',
+                  fontWeight: 800,
+                }}
+              >
+                <input type="checkbox" name="confirmDelete" required />
+                Opravdu smazat tohoto pracovníka
+              </label>
+              <button
+                type="submit"
+                style={{
+                  ...secondaryButtonStyle,
+                  width: '100%',
+                  borderColor: '#fecaca',
+                  backgroundColor: '#fee2e2',
+                  color: '#991b1b',
+                }}
+              >
+                Smazat pracovníka
+              </button>
+            </form>
+          </div>
+        </section>
+
         <section style={sectionCardStyle}>
           <h2 style={{ ...cardTitleStyle, marginBottom: '16px' }}>{dictionary.workers.detail.basicInfo}</h2>
 
@@ -1132,6 +1316,16 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
             <div style={{ ...metaItemStyle, gridColumn: 'span 2', minWidth: 0 }}>
               <div style={metaLabelStyle}>{dictionary.workers.detail.email}</div>
               <div style={{ ...metaValueStyle, overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{profile.email ?? '—'}</div>
+            </div>
+
+            <div style={metaItemStyle}>
+              <div style={metaLabelStyle}>Telefon</div>
+              <div style={metaValueStyle}>{profile.phone ?? '—'}</div>
+            </div>
+
+            <div style={metaItemStyle}>
+              <div style={metaLabelStyle}>Aktivace</div>
+              <div style={metaValueStyle}>{profile.activated_at ? formatDate(profile.activated_at) : '—'}</div>
             </div>
 
             <div style={metaItemStyle}>

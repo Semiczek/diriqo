@@ -14,6 +14,7 @@ type DailyJobInput = {
 }
 
 export type CreateJobsInput = {
+  parentJobId?: string | null
   customerId?: string | null
   contactId?: string | null
   title?: string | null
@@ -87,7 +88,7 @@ type InsertableJob = {
   billing_state: string
   billing_status: string
   is_internal: boolean
-  price: number
+  price: number | null
   start_at: string | null
   end_at: string | null
   scheduled_start: string | null
@@ -446,6 +447,7 @@ export async function createJobsAction(input: CreateJobsInput): Promise<CreateJo
       return { ok: false, error: messages.titleRequired }
     }
 
+    const parentJobId = cleanOptionalId(input.parentJobId)
     const customerId = cleanOptionalId(input.customerId)
     const contactId = cleanOptionalId(input.contactId)
     const rawPrice = cleanString(input.price)
@@ -462,7 +464,7 @@ export async function createJobsAction(input: CreateJobsInput): Promise<CreateJo
       return { ok: false, error: messages.startEndRequired }
     }
 
-    if (rawPrice && (parsedPrice === null || parsedPrice < 0)) {
+    if (!parentJobId && rawPrice && (parsedPrice === null || parsedPrice < 0)) {
       return { ok: false, error: messages.invalidPrice }
     }
 
@@ -478,15 +480,44 @@ export async function createJobsAction(input: CreateJobsInput): Promise<CreateJo
       return { ok: false, error: messages.endAfterStart }
     }
 
-    if (!customerId && !input.isInternal) {
+    let effectiveCustomerId = customerId
+    let effectiveContactId = contactId
+    let effectiveIsInternal = Boolean(input.isInternal)
+    let effectivePrice: number | null = price
+    let effectiveIsPaid = Boolean(input.isPaid)
+
+    if (parentJobId) {
+      const parentResponse = await supabase
+        .from('jobs')
+        .select('id, parent_job_id, customer_id, contact_id, is_internal')
+        .eq('id', parentJobId)
+        .eq('company_id', companyId)
+        .maybeSingle()
+
+      if (parentResponse.error || !parentResponse.data?.id) {
+        return { ok: false, error: messages.jobNotFoundActiveCompany }
+      }
+
+      if (parentResponse.data.parent_job_id) {
+        return { ok: false, error: 'Dcera se dÃ¡ pÅ™idat jen pod hlavnÃ­ zakÃ¡zku.' }
+      }
+
+      effectiveCustomerId = parentResponse.data.customer_id ?? null
+      effectiveContactId = parentResponse.data.contact_id ?? null
+      effectiveIsInternal = parentResponse.data.is_internal === true
+      effectivePrice = null
+      effectiveIsPaid = false
+    }
+
+    if (!effectiveCustomerId && !effectiveIsInternal) {
       return { ok: false, error: messages.customerRequired }
     }
 
     const customerError = await verifyCustomerScope({
       supabase,
       companyId,
-      customerId,
-      contactId,
+      customerId: effectiveCustomerId,
+      contactId: effectiveContactId,
     })
 
     if (customerError) {
@@ -511,16 +542,16 @@ export async function createJobsAction(input: CreateJobsInput): Promise<CreateJo
 
     const baseJob = {
       company_id: companyId,
-      customer_id: customerId,
-      contact_id: contactId,
+      customer_id: effectiveCustomerId,
+      contact_id: effectiveContactId,
       title,
       description: cleanString(input.description),
       address: cleanString(input.address),
       status: 'planned',
       work_state: 'not_started',
-      billing_state: Boolean(input.isPaid) ? 'paid' : 'waiting_for_invoice',
-      billing_status: Boolean(input.isPaid) ? 'paid' : 'waiting_for_invoice',
-      is_internal: Boolean(input.isInternal),
+      billing_state: effectiveIsPaid ? 'paid' : 'waiting_for_invoice',
+      billing_status: effectiveIsPaid ? 'paid' : 'waiting_for_invoice',
+      is_internal: effectiveIsInternal,
     }
 
     const selectedDailyJobs = (input.selectedDailyJobs ?? []).filter(
@@ -529,7 +560,23 @@ export async function createJobsAction(input: CreateJobsInput): Promise<CreateJo
 
     let jobs: Array<{ id: string; parent_job_id: string | null }> | null = null
 
-    if (selectedDailyJobs.length > 0) {
+    if (parentJobId) {
+      const { data, error } = await supabase
+        .from('jobs')
+        .insert({
+          ...baseJob,
+          price: effectivePrice,
+          ...buildScheduleFields(normalizedStartAt, normalizedEndAt),
+          is_paid: effectiveIsPaid,
+          parent_job_id: parentJobId,
+        })
+        .select('id, parent_job_id')
+
+      if (error || !data) {
+        return { ok: false, error: error?.message ?? messages.createJobFailed }
+      }
+      jobs = data as Array<{ id: string; parent_job_id: string | null }>
+    } else if (selectedDailyJobs.length > 0) {
       if (selectedDailyJobs.length > 370) {
         return { ok: false, error: messages.dailyLimit }
       }
@@ -538,9 +585,9 @@ export async function createJobsAction(input: CreateJobsInput): Promise<CreateJo
         .from('jobs')
         .insert({
           ...baseJob,
-          price,
+          price: effectivePrice,
           ...buildScheduleFields(normalizedStartAt, normalizedEndAt),
-          is_paid: Boolean(input.isPaid),
+          is_paid: effectiveIsPaid,
           parent_job_id: null,
         })
         .select('id, parent_job_id')
@@ -558,7 +605,7 @@ export async function createJobsAction(input: CreateJobsInput): Promise<CreateJo
 
         return {
           ...baseJob,
-          price: 0,
+            price: null,
           ...buildScheduleFields(normalizedChildStartAt, normalizedChildEndAt),
           is_paid: false,
           parent_job_id: parentJob.id,
@@ -579,8 +626,8 @@ export async function createJobsAction(input: CreateJobsInput): Promise<CreateJo
     } else if (input.isRecurringWeekly) {
       const recurring = buildRecurringJobs({
         baseJob,
-        price,
-        isPaid: Boolean(input.isPaid),
+        price: effectivePrice ?? 0,
+          isPaid: effectiveIsPaid,
         startAt,
         endAt,
         repeatWeekday: Number(input.repeatWeekday ?? 1),
@@ -606,9 +653,9 @@ export async function createJobsAction(input: CreateJobsInput): Promise<CreateJo
         .from('jobs')
         .insert({
           ...baseJob,
-          price,
+            price: effectivePrice,
           ...buildScheduleFields(normalizedStartAt, normalizedEndAt),
-          is_paid: Boolean(input.isPaid),
+            is_paid: effectiveIsPaid,
           parent_job_id: null,
         })
         .select('id, parent_job_id')
@@ -651,8 +698,8 @@ export async function createJobsAction(input: CreateJobsInput): Promise<CreateJo
     revalidatePath('/jobs')
     revalidatePath('/')
     revalidatePath('/calendar')
-    if (customerId) {
-      revalidatePath(`/customers/${customerId}`)
+    if (effectiveCustomerId) {
+      revalidatePath(`/customers/${effectiveCustomerId}`)
     }
     for (const job of jobs) {
       revalidatePath(`/jobs/${job.id}`)
@@ -826,6 +873,220 @@ export async function detachJobFromParentAction(input: {
     return {
       ok: false,
       error: error instanceof Error ? error.message : messages.detachFailed,
+    }
+  }
+}
+
+export async function attachJobToParentAction(input: {
+  childJobId?: string | null
+  parentJobId?: string | null
+}): Promise<JobMutationResult> {
+  try {
+    const context = await requireCompanyRoleDalContext('company_admin', 'super_admin')
+    const { supabase, companyId } = context
+    const moduleAccess = await requireCompanyModule(companyId, 'jobs')
+    const childJobId = cleanString(input.childJobId)
+    const parentJobId = cleanString(input.parentJobId)
+
+    if (!moduleAccess.ok) return { ok: false, error: moduleAccess.error }
+    if (!childJobId || !parentJobId) return { ok: false, error: 'ChybÃ­ zakÃ¡zka.' }
+    if (childJobId === parentJobId) {
+      return { ok: false, error: 'ZakÃ¡zku nejde pÅ™esunout pod sebe samu.' }
+    }
+
+    const jobsResponse = await supabase
+      .from('jobs')
+      .select('id, parent_job_id, customer_id, contact_id')
+      .eq('company_id', companyId)
+      .in('id', [childJobId, parentJobId])
+
+    if (jobsResponse.error) return { ok: false, error: jobsResponse.error.message }
+
+    const jobsById = new Map(
+      ((jobsResponse.data ?? []) as Array<{
+        id: string
+        parent_job_id: string | null
+        customer_id: string | null
+        contact_id: string | null
+      }>).map((job) => [job.id, job])
+    )
+    const childJob = jobsById.get(childJobId)
+    const parentJob = jobsById.get(parentJobId)
+
+    if (!childJob || !parentJob) return { ok: false, error: 'ZakÃ¡zka nebyla nalezena.' }
+    if (childJob.parent_job_id) {
+      return { ok: false, error: 'Tato zakÃ¡zka uÅ¾ je pod hlavnÃ­ zakÃ¡zkou. NejdÅ™Ã­v ji odpojte.' }
+    }
+    if (parentJob.parent_job_id) {
+      return { ok: false, error: 'CÃ­lovÃ¡ zakÃ¡zka uÅ¾ je dcerou jinÃ© zakÃ¡zky.' }
+    }
+    if (childJob.customer_id && parentJob.customer_id && childJob.customer_id !== parentJob.customer_id) {
+      return { ok: false, error: 'ZakÃ¡zky s rozdÃ­lnÃ½m zÃ¡kaznÃ­kem nejde seskupit.' }
+    }
+
+    const childChildrenResponse = await supabase
+      .from('jobs')
+      .select('id')
+      .eq('company_id', companyId)
+      .eq('parent_job_id', childJobId)
+      .limit(1)
+
+    if (childChildrenResponse.error) return { ok: false, error: childChildrenResponse.error.message }
+    if ((childChildrenResponse.data ?? []).length > 0) {
+      return { ok: false, error: 'Tato zakÃ¡zka uÅ¾ mÃ¡ dcery a nejde pÅ™esunout pod jinou zakÃ¡zku.' }
+    }
+
+    const updateResponse = await supabase
+      .from('jobs')
+      .update({
+        parent_job_id: parentJobId,
+        price: null,
+        is_paid: false,
+        customer_id: parentJob.customer_id ?? childJob.customer_id,
+        contact_id: parentJob.contact_id ?? childJob.contact_id,
+      })
+      .eq('id', childJobId)
+      .eq('company_id', companyId)
+
+    if (updateResponse.error) return { ok: false, error: updateResponse.error.message }
+
+    revalidatePath('/jobs')
+    revalidatePath(`/jobs/${childJobId}`)
+    revalidatePath(`/jobs/${parentJobId}`)
+
+    return { ok: true }
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : 'ZakÃ¡zku se nepodaÅ™ilo pÅ™ipojit k hlavnÃ­ zakÃ¡zce.',
+    }
+  }
+}
+
+export async function createJobGroupFromDropAction(input: {
+  draggedJobId?: string | null
+  targetJobId?: string | null
+}): Promise<JobMutationResult> {
+  try {
+    const context = await requireCompanyRoleDalContext('company_admin', 'super_admin')
+    const { supabase, companyId } = context
+    const moduleAccess = await requireCompanyModule(companyId, 'jobs')
+    const draggedJobId = cleanString(input.draggedJobId)
+    const targetJobId = cleanString(input.targetJobId)
+
+    if (!moduleAccess.ok) return { ok: false, error: moduleAccess.error }
+    if (!draggedJobId || !targetJobId) return { ok: false, error: 'Chybi zakazka.' }
+    if (draggedJobId === targetJobId) {
+      return { ok: false, error: 'Zakazku nejde seskupit samu se sebou.' }
+    }
+
+    const jobsResponse = await supabase
+      .from('jobs')
+      .select('id, parent_job_id, customer_id, contact_id, title, description, address, status, is_internal, start_at, end_at, scheduled_start, scheduled_end, scheduled_date')
+      .eq('company_id', companyId)
+      .in('id', [draggedJobId, targetJobId])
+
+    if (jobsResponse.error) return { ok: false, error: jobsResponse.error.message }
+
+    const jobsById = new Map(
+      ((jobsResponse.data ?? []) as Array<{
+        id: string
+        parent_job_id: string | null
+        customer_id: string | null
+        contact_id: string | null
+        title: string | null
+        description: string | null
+        address: string | null
+        status: string | null
+        is_internal: boolean | null
+        start_at: string | null
+        end_at: string | null
+        scheduled_start: string | null
+        scheduled_end: string | null
+        scheduled_date: string | null
+      }>).map((job) => [job.id, job])
+    )
+    const draggedJob = jobsById.get(draggedJobId)
+    const targetJob = jobsById.get(targetJobId)
+
+    if (!draggedJob || !targetJob) return { ok: false, error: 'Zakazka nebyla nalezena.' }
+    if (draggedJob.parent_job_id || targetJob.parent_job_id) {
+      return { ok: false, error: 'Zakazka uz je ve skupine. Nejdriv ji odpojte.' }
+    }
+    if (draggedJob.customer_id && targetJob.customer_id && draggedJob.customer_id !== targetJob.customer_id) {
+      return { ok: false, error: 'Zakazky s rozdilnym zakaznikem nejde seskupit.' }
+    }
+
+    const childrenResponse = await supabase
+      .from('jobs')
+      .select('id')
+      .eq('company_id', companyId)
+      .in('parent_job_id', [draggedJobId, targetJobId])
+      .limit(1)
+
+    if (childrenResponse.error) return { ok: false, error: childrenResponse.error.message }
+    if ((childrenResponse.data ?? []).length > 0) {
+      return { ok: false, error: 'Zakazka uz ma dcery a nejde ji vlozit do nove skupiny.' }
+    }
+
+    const groupStartAt = [draggedJob.start_at, targetJob.start_at].filter(Boolean).sort()[0] ?? null
+    const groupEndAt = [draggedJob.end_at, targetJob.end_at].filter(Boolean).sort().at(-1) ?? null
+    const scheduleFields = buildScheduleFields(groupStartAt, groupEndAt)
+
+    const parentResponse = await supabase
+      .from('jobs')
+      .insert({
+        company_id: companyId,
+        customer_id: targetJob.customer_id ?? draggedJob.customer_id,
+        contact_id: targetJob.contact_id ?? draggedJob.contact_id,
+        title: 'Skupina zakazek',
+        description: targetJob.description ?? draggedJob.description ?? '',
+        address: targetJob.address ?? draggedJob.address ?? '',
+        status: targetJob.status ?? draggedJob.status ?? 'future',
+        is_internal: Boolean(targetJob.is_internal ?? draggedJob.is_internal),
+        price: null,
+        is_paid: false,
+        parent_job_id: null,
+        work_state: 'not_started',
+        billing_state: 'waiting_for_invoice',
+        billing_status: 'waiting_for_invoice',
+        scheduled_start: scheduleFields.scheduled_start,
+        scheduled_end: scheduleFields.scheduled_end,
+        scheduled_date: scheduleFields.scheduled_date,
+        start_at: scheduleFields.start_at,
+        end_at: scheduleFields.end_at,
+      })
+      .select('id')
+      .single()
+
+    if (parentResponse.error || !parentResponse.data?.id) {
+      return { ok: false, error: parentResponse.error?.message ?? 'Matku se nepodarilo vytvorit.' }
+    }
+
+    const parentJobId = parentResponse.data.id
+    const updateResponse = await supabase
+      .from('jobs')
+      .update({
+        parent_job_id: parentJobId,
+      })
+      .eq('company_id', companyId)
+      .in('id', [draggedJobId, targetJobId])
+
+    if (updateResponse.error) {
+      await supabase.from('jobs').delete().eq('id', parentJobId).eq('company_id', companyId)
+      return { ok: false, error: updateResponse.error.message }
+    }
+
+    revalidatePath('/jobs')
+    revalidatePath(`/jobs/${draggedJobId}`)
+    revalidatePath(`/jobs/${targetJobId}`)
+    revalidatePath(`/jobs/${parentJobId}`)
+
+    return { ok: true }
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : 'Skupinu zakazek se nepodarilo vytvorit.',
     }
   }
 }

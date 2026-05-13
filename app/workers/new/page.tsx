@@ -5,8 +5,9 @@ import { revalidatePath } from 'next/cache'
 import DashboardShell from '@/components/DashboardShell'
 import { getActiveCompanyContext } from '@/lib/active-company'
 import { getRequestDictionary } from '@/lib/i18n/server'
+import { normalizePhoneForStorage } from '@/lib/invites/whatsapp'
 import { getContractorBillingTypeLabel, getWorkerTypeLabel } from '@/lib/payroll-settings'
-import { createSupabaseAdminClient } from '@/lib/supabase-admin'
+import { createSupabaseServerClient } from '@/lib/supabase-server'
 
 type NewWorkerPageProps = {
   searchParams?: Promise<{
@@ -64,7 +65,16 @@ function getErrorMessage(
 
 function formatDebugDetails(details: string | undefined) {
   if (!details) return null
-  return decodeURIComponent(details).replace(/-/g, ' ')
+  const decodedDetails = decodeURIComponent(details).replace(/-/g, ' ')
+
+  if (
+    decodedDetails.toLowerCase().includes('row level security') ||
+    decodedDetails.toLowerCase().includes('violates')
+  ) {
+    return 'Zkuste akci zopakovat. Pokud chyba přetrvá, zkontrolujte databázová oprávnění.'
+  }
+
+  return decodedDetails
 }
 
 function encodeDetails(value: string | undefined | null) {
@@ -153,7 +163,6 @@ export default async function NewWorkerPage({
   const resolvedSearchParams = searchParams ? await searchParams : {}
   const debugDetails = formatDebugDetails(resolvedSearchParams?.details)
   const errorMessage = getErrorMessage(resolvedSearchParams?.error, t)
-  const workerAuthConfigured = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY)
 
   async function createWorker(formData: FormData) {
     'use server'
@@ -161,12 +170,10 @@ export default async function NewWorkerPage({
     try {
       const fullName = String(formData.get('full_name') ?? '').trim()
       const emailRaw = String(formData.get('email') ?? '').trim().toLowerCase()
-      const password = String(formData.get('password') ?? '').trim()
+      const phoneRaw = String(formData.get('phone') ?? '').trim()
       const defaultHourlyRateRaw = String(formData.get('default_hourly_rate') ?? '').trim()
-      const advancePaidRaw = String(formData.get('advance_paid') ?? '').trim()
       const workerTypeRaw = String(formData.get('worker_type') ?? 'employee').trim()
       const contractorBillingTypeRaw = String(formData.get('contractor_billing_type') ?? 'hourly').trim()
-      const contractorDefaultRateRaw = String(formData.get('contractor_default_rate') ?? '').trim()
       const workerType = workerTypeRaw === 'contractor' ? 'contractor' : 'employee'
       const contractorBillingType =
         contractorBillingTypeRaw === 'fixed' || contractorBillingTypeRaw === 'invoice'
@@ -177,42 +184,17 @@ export default async function NewWorkerPage({
         redirect('/workers/new?error=missing-name')
       }
 
-      if (!emailRaw) {
-        redirect('/workers/new?error=missing-email')
-      }
-
-      if (!password) {
-        redirect('/workers/new?error=missing-password')
-      }
-
-      if (password.length < 8) {
-        redirect('/workers/new?error=short-password')
+      if (!phoneRaw) {
+        redirect('/workers/new?error=missing-email&details=phone-required')
       }
 
       const defaultHourlyRate =
-        defaultHourlyRateRaw === ''
+        workerType === 'contractor' || defaultHourlyRateRaw === ''
           ? null
           : Number(defaultHourlyRateRaw.replace(',', '.'))
 
-      const advancePaid =
-        advancePaidRaw === ''
-          ? 0
-          : Number(advancePaidRaw.replace(',', '.'))
-      const contractorDefaultRate =
-        contractorDefaultRateRaw === ''
-          ? null
-          : Number(contractorDefaultRateRaw.replace(',', '.'))
-
-      if (
-        (defaultHourlyRateRaw !== '' && Number.isNaN(defaultHourlyRate)) ||
-        Number.isNaN(advancePaid) ||
-        (contractorDefaultRateRaw !== '' && Number.isNaN(contractorDefaultRate))
-      ) {
+      if (workerType !== 'contractor' && defaultHourlyRateRaw !== '' && Number.isNaN(defaultHourlyRate)) {
         redirect('/workers/new?error=invalid-number')
-      }
-
-      if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-        redirect('/workers/new?error=auth-not-configured')
       }
 
       const activeCompany = await getActiveCompanyContext({
@@ -224,67 +206,28 @@ export default async function NewWorkerPage({
       }
 
       const companyId = activeCompany.companyId
-      const supabaseAdmin = createSupabaseAdminClient()
-
-      const authCreateResponse = await supabaseAdmin.auth.admin.createUser({
-        email: emailRaw,
-        password,
-        email_confirm: true,
+      const supabase = await createSupabaseServerClient()
+      const profileCreateResponse = await supabase.rpc('create_worker_profile_for_invite', {
+        target_company_id: companyId,
+        worker_full_name: fullName,
+        worker_email: emailRaw || null,
+        worker_phone: normalizePhoneForStorage(phoneRaw),
+        worker_type_value: workerType,
+        default_hourly_rate_value: defaultHourlyRate,
+        contractor_billing_type_value: workerType === 'contractor' ? contractorBillingType : null,
       })
 
-      if (authCreateResponse.error || !authCreateResponse.data.user?.id) {
-        const details = authCreateResponse.error?.message || 'auth-create-failed'
-        redirect(`/workers/new?error=auth-create-failed&details=${encodeDetails(details)}`)
-      }
-
-      const authUserId = authCreateResponse.data.user.id
-
-      const profileCreateResponse = await supabaseAdmin
-        .from('profiles')
-        .insert({
-          auth_user_id: authUserId,
-          user_id: authUserId,
-          full_name: fullName,
-          email: emailRaw,
-          default_hourly_rate: defaultHourlyRate,
-          advance_paid: advancePaid,
-          worker_type: workerType,
-          contractor_billing_type: workerType === 'contractor' ? contractorBillingType : null,
-          contractor_default_rate: workerType === 'contractor' ? contractorDefaultRate : null,
-        })
-        .select('id')
-        .single()
-
-      if (profileCreateResponse.error || !profileCreateResponse.data?.id) {
-        await supabaseAdmin.auth.admin.deleteUser(authUserId)
-
+      if (profileCreateResponse.error || !profileCreateResponse.data) {
         const details = profileCreateResponse.error?.message || 'profile-create-failed'
         redirect(`/workers/new?error=profile-create-failed&details=${encodeDetails(details)}`)
       }
 
-      const newProfileId = profileCreateResponse.data.id
-
-      const membershipCreateResponse = await supabaseAdmin
-        .from('company_members')
-        .insert({
-          profile_id: newProfileId,
-          company_id: companyId,
-          role: 'worker',
-          is_active: true,
-        })
-
-      if (membershipCreateResponse.error) {
-        await supabaseAdmin.from('profiles').delete().eq('id', newProfileId)
-        await supabaseAdmin.auth.admin.deleteUser(authUserId)
-
-        const details = membershipCreateResponse.error.message || 'membership-create-failed'
-        redirect(`/workers/new?error=membership-create-failed&details=${encodeDetails(details)}`)
-      }
+      const newProfileId = profileCreateResponse.data as string
 
       revalidatePath('/workers')
       revalidatePath(`/workers/${newProfileId}`)
 
-      redirect(`/workers/${newProfileId}`)
+      redirect(`/workers/${newProfileId}/invite`)
     } catch (error: unknown) {
       const message = getThrownMessage(error, 'unknown-server-error')
       if (message === null) {
@@ -332,24 +275,6 @@ export default async function NewWorkerPage({
         </header>
 
         <section style={formCardStyle}>
-          {!workerAuthConfigured ? (
-            <div
-              role="alert"
-              style={{
-                border: '1px solid #fdba74',
-                background: '#fff7ed',
-                color: '#9a3412',
-                borderRadius: '12px',
-                padding: '14px 16px',
-                fontSize: '14px',
-                lineHeight: 1.5,
-              }}
-            >
-              <div style={{ fontWeight: 850 }}>{t.authNotConfigured}</div>
-              <div style={{ marginTop: '6px' }}>{t.authNotConfiguredDetails}</div>
-            </div>
-          ) : null}
-
           {errorMessage ? (
             <div
               style={{
@@ -371,6 +296,21 @@ export default async function NewWorkerPage({
           ) : null}
 
           <form action={createWorker} className="worker-create-form">
+            <style>
+              {`
+                .worker-create-form .contractor-only {
+                  display: none;
+                }
+
+                .worker-create-form:has(#worker_type_contractor:checked) .contractor-only {
+                  display: block;
+                }
+
+                .worker-create-form:has(#worker_type_contractor:checked) .employee-only {
+                  display: none;
+                }
+              `}
+            </style>
             <div
               style={{
                 display: 'grid',
@@ -387,32 +327,85 @@ export default async function NewWorkerPage({
 
               <div>
                 <label htmlFor="email" style={labelStyle}>
-                  {t.loginEmail}
+                  {t.loginEmail} (volitelné)
                 </label>
-                <input id="email" name="email" type="email" style={inputStyle} required />
+                <input id="email" name="email" type="email" style={inputStyle} />
               </div>
 
               <div>
-                <label htmlFor="password" style={labelStyle}>
-                  {t.temporaryPassword}
+                <label htmlFor="phone" style={labelStyle}>
+                  Telefon pro WhatsApp pozvánku
                 </label>
-                <input id="password" name="password" type="password" style={inputStyle} required />
+                <input id="phone" name="phone" type="tel" style={inputStyle} required placeholder="+420..." />
               </div>
 
               <div>
-                <label htmlFor="worker_type" style={labelStyle}>
+                <label htmlFor="worker_type_employee" style={labelStyle}>
                   Typ pracovníka
                 </label>
-                <select id="worker_type" name="worker_type" defaultValue="employee" style={inputStyle}>
-                  <option value="employee">{getWorkerTypeLabel('employee')}</option>
-                  <option value="contractor">{getWorkerTypeLabel('contractor')}</option>
-                </select>
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                    gap: '10px',
+                  }}
+                >
+                  <label
+                    htmlFor="worker_type_employee"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '9px',
+                      minHeight: '46px',
+                      padding: '10px 12px',
+                      border: '1px solid rgba(148, 163, 184, 0.44)',
+                      borderRadius: '12px',
+                      background: '#ffffff',
+                      color: '#0f172a',
+                      fontSize: '14px',
+                      fontWeight: 800,
+                    }}
+                  >
+                    <input
+                      id="worker_type_employee"
+                      name="worker_type"
+                      type="radio"
+                      value="employee"
+                      defaultChecked
+                    />
+                    {getWorkerTypeLabel('employee')}
+                  </label>
+                  <label
+                    htmlFor="worker_type_contractor"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '9px',
+                      minHeight: '46px',
+                      padding: '10px 12px',
+                      border: '1px solid rgba(148, 163, 184, 0.44)',
+                      borderRadius: '12px',
+                      background: '#ffffff',
+                      color: '#0f172a',
+                      fontSize: '14px',
+                      fontWeight: 800,
+                    }}
+                  >
+                    <input
+                      id="worker_type_contractor"
+                      name="worker_type"
+                      type="radio"
+                      value="contractor"
+                    />
+                    {getWorkerTypeLabel('contractor')}
+                  </label>
+                </div>
                 <p style={{ margin: '8px 0 0 0', color: '#6b7280', fontSize: '13px' }}>
                   Externí pracovník se nepočítá do klasických výplat a záloh.
                 </p>
               </div>
 
-              <div>
+              <div className="employee-only">
                 <label htmlFor="default_hourly_rate" style={labelStyle}>
                   {t.defaultHourlyRate}
                 </label>
@@ -425,7 +418,7 @@ export default async function NewWorkerPage({
                 />
               </div>
 
-              <div>
+              <div className="contractor-only">
                 <label htmlFor="contractor_billing_type" style={labelStyle}>
                   Typ vyúčtování externisty
                 </label>
@@ -436,7 +429,7 @@ export default async function NewWorkerPage({
                 </select>
               </div>
 
-              <div>
+              <div style={{ display: 'none' }}>
                 <label htmlFor="contractor_default_rate" style={labelStyle}>
                   Výchozí sazba / cena externisty
                 </label>
@@ -449,7 +442,7 @@ export default async function NewWorkerPage({
                 />
               </div>
 
-              <div>
+              <div style={{ display: 'none' }}>
                 <label htmlFor="advance_paid" style={labelStyle}>
                   {t.advancePaid}
                 </label>
@@ -474,19 +467,16 @@ export default async function NewWorkerPage({
             >
               <button
                 type="submit"
-                disabled={!workerAuthConfigured}
                 style={{
                   border: 'none',
                   borderRadius: '14px',
-                  background: workerAuthConfigured
-                    ? 'linear-gradient(135deg, #111827 0%, #1f2937 100%)'
-                    : '#9ca3af',
+                  background: 'linear-gradient(135deg, #111827 0%, #1f2937 100%)',
                   color: '#ffffff',
                   minHeight: '50px',
                   padding: '13px 18px',
                   fontSize: '15px',
                   fontWeight: 900,
-                  cursor: workerAuthConfigured ? 'pointer' : 'not-allowed',
+                  cursor: 'pointer',
                   boxShadow: '0 16px 32px rgba(15, 23, 42, 0.18)',
                 }}
               >

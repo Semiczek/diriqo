@@ -16,6 +16,7 @@ export type WorkerDetailPageProps = {
   }>
   searchParams?: Promise<{
     month?: string
+    invite?: string
   }>
 }
 
@@ -23,6 +24,12 @@ export type ProfileRow = {
   id: string
   full_name: string | null
   email: string | null
+  phone?: string | null
+  worker_status?: string | null
+  activated_at?: string | null
+  last_seen_at?: string | null
+  device_registered_at?: string | null
+  disabled_at?: string | null
   default_hourly_rate: number | null
   advance_paid: number | null
   worker_type?: string | null

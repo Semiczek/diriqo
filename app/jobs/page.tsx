@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import type { CSSProperties } from 'react'
+import type { CSSProperties, DragEvent } from 'react'
 
 import DashboardShell from '../../components/DashboardShell'
 import { resolveCompanyTimeZone } from '@/lib/company-timezone'
@@ -36,6 +36,9 @@ import { buildJobGroups, type JobParentLinkRow } from '../../lib/job-grouping'
 import { supabase } from '../../lib/supabase'
 import { getContractorBillingType, getWorkerType } from '@/lib/payroll-settings'
 import { calculateQuotedJobEconomics } from '@/lib/economics'
+import { createJobGroupFromDropAction } from '@/app/jobs/actions'
+
+const JOB_DRAG_TYPE = 'application/x-diriqo-job-id'
 
 type FilterType = 'all' | 'today' | TimeState | WorkState | BillingStateResolved
 type SortType = 'date_asc' | 'date_desc' | 'customer_asc' | 'title_asc'
@@ -653,6 +656,11 @@ export default function JobsPage() {
   const [sort, setSort] = useState<SortType>(() => parseSortParam(searchParams.get('sort')))
   const [view, setView] = useState<ViewType>(() => parseViewParam(searchParams.get('view')))
   const [error, setError] = useState<string | null>(null)
+  const [dropMessage, setDropMessage] = useState<string | null>(null)
+  const [draggingJobId, setDraggingJobId] = useState<string | null>(null)
+  const [dropTargetJobId, setDropTargetJobId] = useState<string | null>(null)
+  const [groupingJob, setGroupingJob] = useState(false)
+  const [dataVersion, setDataVersion] = useState(0)
   const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(false)
   const [companyTimeZone, setCompanyTimeZone] = useState('Europe/Prague')
   const dateLocale = locale === 'de' ? 'de-DE' : locale === 'en' ? 'en-GB' : 'cs-CZ'
@@ -1007,7 +1015,7 @@ export default function JobsPage() {
     return () => {
       mounted = false
     }
-  }, [dictionary.jobs.loadError, dictionary.jobs.unauthenticated])
+  }, [dataVersion, dictionary.jobs.loadError, dictionary.jobs.unauthenticated])
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -1194,30 +1202,32 @@ export default function JobsPage() {
     return Array.from(groups.entries()).reduce<GroupedJobBlock[]>((result, [rootId, memberJobs]) => {
         const rootJob = jobsById.get(rootId) ?? memberJobs[0]
         if (!rootJob) return result
+        const directChildJobs = memberJobs.filter((job) => job.parent_job_id === rootId)
+        const statsJobs = directChildJobs.length > 0 ? directChildJobs : memberJobs
         const uniqueWorkers = Array.from(
-          new Set(memberJobs.flatMap((job) => job.workers.filter((worker) => worker.trim().length > 0)))
+          new Set(statsJobs.flatMap((job) => job.workers.filter((worker) => worker.trim().length > 0)))
         )
         const aggregatedAssignedCount = new Set(
-          memberJobs.flatMap((job) => job.workerProfileIds)
+          statsJobs.flatMap((job) => job.workerProfileIds)
         ).size
         const aggregatedActiveCount = new Set(
-          memberJobs.flatMap((job) => job.activeWorkerProfileIds)
+          statsJobs.flatMap((job) => job.activeWorkerProfileIds)
         ).size
         const aggregatedCompletedCount = new Set(
-          memberJobs.flatMap((job) => job.completedWorkerProfileIds)
+          statsJobs.flatMap((job) => job.completedWorkerProfileIds)
         ).size
         const aggregatedStartedCount = new Set(
-          memberJobs.flatMap((job) => job.startedWorkerProfileIds)
+          statsJobs.flatMap((job) => job.startedWorkerProfileIds)
         ).size
         const aggregatedNotStartedCount = Math.max(aggregatedAssignedCount - aggregatedStartedCount, 0)
-        const groupShiftCount = memberJobs.reduce(
+        const groupShiftCount = statsJobs.reduce(
           (sum, job) => sum + (shiftCountByJobId.get(job.id) ?? 0),
           0
         )
 
-        const memberTimeStates = memberJobs.map((job) => job.timeStateResolved)
-        const memberWorkStates = memberJobs.map((job) => job.workStateResolved)
-        const memberBillingStates = memberJobs.map((job) => job.billingStateResolvedFinal)
+        const memberTimeStates = statsJobs.map((job) => job.timeStateResolved)
+        const memberWorkStates = statsJobs.map((job) => job.workStateResolved)
+        const memberBillingStates = statsJobs.map((job) => job.billingStateResolvedFinal)
 
         const groupTimeState: TimeState = memberTimeStates.includes('active')
           ? 'active'
@@ -1242,8 +1252,8 @@ export default function JobsPage() {
         )
 
         const canShowBillingState =
-          memberJobs.length === 1 ||
-          (visibleBillingStates.length === memberJobs.length &&
+          statsJobs.length === 1 ||
+          (visibleBillingStates.length === statsJobs.length &&
             new Set(visibleBillingStates).size === 1 &&
             groupWorkState === 'done')
 
@@ -1252,41 +1262,40 @@ export default function JobsPage() {
             ? visibleBillingStates[0]
             : rootJob.billingStateResolvedFinal
 
-        const groupNextShiftAt = memberJobs
+        const groupNextShiftAt = statsJobs
           .map((job) => parseDateSafe(job.nextShiftAt))
           .filter((date): date is Date => Boolean(date))
           .sort((left, right) => left.getTime() - right.getTime())[0] ?? null
 
-        const groupLastShiftAt = memberJobs
+        const groupLastShiftAt = statsJobs
           .map((job) => parseDateSafe(job.lastShiftAt))
           .filter((date): date is Date => Boolean(date))
           .sort((left, right) => right.getTime() - left.getTime())[0] ?? null
 
-        const groupStartAt = memberJobs
+        const groupStartAt = statsJobs
           .map((job) => parseDateSafe(job.start_at))
           .filter((date): date is Date => Boolean(date))
           .sort((left, right) => left.getTime() - right.getTime())[0] ?? parseDateSafe(rootJob.start_at)
 
-        const groupEndAt = memberJobs
+        const groupEndAt = statsJobs
           .map((job) => parseDateSafe(job.end_at ?? job.start_at))
           .filter((date): date is Date => Boolean(date))
           .sort((left, right) => right.getTime() - left.getTime())[0] ?? parseDateSafe(rootJob.end_at)
-        const directChildJobs = memberJobs.filter((job) => job.parent_job_id === rootId)
 
         result.push({
           ...rootJob,
-          laborCost: memberJobs.reduce((sum, job) => sum + job.laborCost, 0),
-          otherCost: memberJobs.reduce((sum, job) => sum + job.otherCost, 0),
-          profit: memberJobs.reduce((sum, job) => sum + job.profit, 0),
-          price: memberJobs.reduce((sum, job) => sum + toNumber(job.price), 0),
+          laborCost: statsJobs.reduce((sum, job) => sum + job.laborCost, 0),
+          otherCost: statsJobs.reduce((sum, job) => sum + job.otherCost, 0),
+          profit: statsJobs.reduce((sum, job) => sum + job.profit, 0),
+          price: statsJobs.reduce((sum, job) => sum + toNumber(job.price), 0),
           assignedCount: aggregatedAssignedCount,
           activeCount: aggregatedActiveCount,
           completedCount: aggregatedCompletedCount,
           startedCount: aggregatedStartedCount,
           notStartedCount: aggregatedNotStartedCount,
           workers: uniqueWorkers,
-          customerName: rootJob.customerName ?? memberJobs.find((job) => job.customerName)?.customerName ?? null,
-          customer_id: rootJob.customer_id ?? memberJobs.find((job) => job.customer_id)?.customer_id ?? null,
+          customerName: statsJobs.find((job) => job.customerName)?.customerName ?? rootJob.customerName ?? null,
+          customer_id: statsJobs.find((job) => job.customer_id)?.customer_id ?? rootJob.customer_id ?? null,
           timeStateResolved: groupTimeState,
           workStateResolved: groupWorkState,
           billingStateResolvedFinal: groupBillingState,
@@ -1426,6 +1435,43 @@ export default function JobsPage() {
   function applyFilter(nextFilter: FilterType) {
     setFilter(nextFilter)
     updateSearchParams({ filter: nextFilter })
+  }
+
+  async function createGroupFromDroppedJobs(draggedJobId: string, targetJobId: string) {
+    if (!draggedJobId || !targetJobId || draggedJobId === targetJobId || groupingJob) return
+
+    setGroupingJob(true)
+    setDropMessage(null)
+
+    const result = await createJobGroupFromDropAction({ draggedJobId, targetJobId })
+
+    if (!result.ok) {
+      setDropMessage(result.error)
+      setGroupingJob(false)
+      return
+    }
+
+    setDropMessage('Byla vytvorena nova matka a obe zakazky jsou pod ni jako dcery.')
+    setGroupingJob(false)
+    setDataVersion((version) => version + 1)
+    router.refresh()
+  }
+
+  function startDraggingJob(event: DragEvent<HTMLElement>, jobId: string) {
+    event.dataTransfer.setData(JOB_DRAG_TYPE, jobId)
+    event.dataTransfer.setData('text/plain', jobId)
+    event.dataTransfer.effectAllowed = 'move'
+    setDraggingJobId(jobId)
+    setDropMessage(null)
+  }
+
+  function stopDraggingJob() {
+    setDraggingJobId(null)
+    setDropTargetJobId(null)
+  }
+
+  function getDraggedJobId(event: DragEvent<HTMLElement>) {
+    return event.dataTransfer.getData(JOB_DRAG_TYPE) || draggingJobId
   }
 
   const quickFilters: { label: string; value: FilterType }[] = [
@@ -1765,6 +1811,22 @@ export default function JobsPage() {
         </div>
       )}
 
+      {dropMessage ? (
+        <div
+          style={{
+            marginBottom: '16px',
+            padding: '12px 14px',
+            borderRadius: '10px',
+            backgroundColor: dropMessage.includes('vytvorena') ? '#f0fdf4' : '#fef2f2',
+            border: dropMessage.includes('vytvorena') ? '1px solid #bbf7d0' : '1px solid #fecaca',
+            color: dropMessage.includes('vytvorena') ? '#166534' : '#991b1b',
+            fontWeight: 800,
+          }}
+        >
+          {dropMessage}
+        </div>
+      ) : null}
+
       {loading ? (
         <p>{dictionary.jobs.loading}</p>
       ) : filteredJobs.length === 0 ? (
@@ -1803,7 +1865,35 @@ export default function JobsPage() {
             const hasChildJobs = childJobs.length > 0
             const parentQuery = searchParams.toString()
             return (
-            <div key={job.id} style={{ display: 'grid', gap: hasChildJobs ? '10px' : '0' }}>
+            <div
+              key={job.id}
+              draggable
+              onDragStart={(event) => startDraggingJob(event, job.id)}
+              onDragEnd={stopDraggingJob}
+              onDragOver={(event) => {
+                if (!draggingJobId || draggingJobId === job.id) return
+                event.preventDefault()
+                event.dataTransfer.dropEffect = 'move'
+                setDropTargetJobId(job.id)
+              }}
+              onDragLeave={() => setDropTargetJobId((current) => (current === job.id ? null : current))}
+              onDrop={(event) => {
+                event.preventDefault()
+                event.stopPropagation()
+                const childJobId = getDraggedJobId(event)
+                setDropTargetJobId(null)
+                setDraggingJobId(null)
+                if (childJobId) void createGroupFromDroppedJobs(childJobId, job.id)
+              }}
+              style={{
+                display: 'grid',
+                gap: hasChildJobs ? '10px' : '0',
+                outline: dropTargetJobId === job.id ? '2px solid #2563eb' : 'none',
+                outlineOffset: '4px',
+                borderRadius: '24px',
+                cursor: draggingJobId === job.id ? 'grabbing' : 'grab',
+              }}
+            >
             <Link
               href={`/jobs/${job.id}${parentQuery ? `?${parentQuery}` : ''}`}
               className="jobs-premium-link"
@@ -1954,43 +2044,55 @@ export default function JobsPage() {
             {childJobs.map((childJob) => {
               const childQuery = searchParams.toString()
               return (
-                <Link
+                <div
                   key={childJob.id}
-                  href={`/jobs/${childJob.id}${childQuery ? `?${childQuery}` : ''}`}
-                  className="jobs-premium-link"
+                  draggable
+                  onDragStart={(event) => {
+                    event.stopPropagation()
+                    startDraggingJob(event, childJob.id)
+                  }}
+                  onDragEnd={stopDraggingJob}
                   style={{
                     display: 'block',
                     marginLeft: '28px',
                     paddingLeft: '16px',
                     borderLeft: '4px solid #bfdbfe',
-                    textDecoration: 'none',
-                    color: 'inherit',
-                    cursor: 'pointer',
+                    cursor: draggingJobId === childJob.id ? 'grabbing' : 'grab',
                   }}
                 >
-                  <div
-                    className="jobs-premium-card"
+                  <Link
+                    href={`/jobs/${childJob.id}${childQuery ? `?${childQuery}` : ''}`}
+                    className="jobs-premium-link"
                     style={{
-                      border: '1px solid rgba(226, 232, 240, 0.92)',
-                      borderTop: '2px solid rgba(124,58,237,0.25)',
-                      borderRadius: '18px',
-                      padding: '18px 20px',
-                      backgroundColor: '#ffffff',
-                      boxShadow: '0 12px 40px rgba(0,0,0,0.08)',
-                      transition: 'transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease',
+                      display: 'block',
+                      textDecoration: 'none',
+                      color: 'inherit',
+                      cursor: 'pointer',
                     }}
                   >
                     <div
+                      className="jobs-premium-card"
                       style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        gap: '16px',
-                        alignItems: 'flex-start',
-                        flexWrap: 'wrap',
-                        marginBottom: '12px',
+                        border: '1px solid rgba(226, 232, 240, 0.92)',
+                        borderTop: '2px solid rgba(124,58,237,0.25)',
+                        borderRadius: '18px',
+                        padding: '18px 20px',
+                        backgroundColor: '#ffffff',
+                        boxShadow: '0 12px 40px rgba(0,0,0,0.08)',
+                        transition: 'transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease',
                       }}
                     >
-                      <div style={{ minWidth: 0 }}>
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          gap: '16px',
+                          alignItems: 'flex-start',
+                          flexWrap: 'wrap',
+                          marginBottom: '12px',
+                        }}
+                      >
+                        <div style={{ minWidth: 0 }}>
                           <h3 style={{ margin: '0 0 8px 0', fontSize: '23px', lineHeight: 1.2, fontWeight: 900, color: '#0f172a' }}>
                             {childJob.title ?? dictionary.jobs.untitledJob}
                           </h3>
@@ -2057,7 +2159,8 @@ export default function JobsPage() {
                       <div><div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>{dictionary.jobs.completed}</div><div style={{ fontWeight: 700 }}>{childJob.completedCount}</div></div>
                     </div>
                   </div>
-                </Link>
+                  </Link>
+                </div>
               )
             })}
             </div>

@@ -2106,6 +2106,17 @@ export default function JobDetailPageClient({
           >
             {detailMessages.editJob}
           </Link>
+          {!job.parent_job_id ? (
+            <Link
+              href={`/jobs/new?parent=${job.id}`}
+              style={{
+                ...secondaryButtonStyle,
+                textDecoration: 'none',
+              }}
+            >
+              PÅ™idat dceru
+            </Link>
+          ) : null}
         </div>
       </section>
 

@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import type { CSSProperties } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 
 import DashboardShell from '@/components/DashboardShell'
 import { useI18n } from '@/components/I18nProvider'
@@ -19,6 +19,15 @@ type CustomerContact = {
   role: string | null
   email: string | null
   phone: string | null
+}
+
+type ParentJob = {
+  id: string
+  title: string | null
+  customer_id: string | null
+  contact_id: string | null
+  address: string | null
+  is_internal: boolean | null
 }
 
 const WEEKDAY_VALUES = [1, 2, 3, 4, 5, 6, 0] as const
@@ -177,6 +186,8 @@ const sectionStyle: CSSProperties = {
 
 export default function NewJobPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const parentJobId = searchParams.get('parent')?.trim() ?? ''
   const { dictionary, locale } = useI18n()
   const dateLocale = getIntlLocale(locale)
 
@@ -197,6 +208,7 @@ export default function NewJobPage() {
   const [profiles, setProfiles] = useState<Profile[]>([])
   const [customers, setCustomers] = useState<Customer[]>([])
   const [customerContacts, setCustomerContacts] = useState<CustomerContact[]>([])
+  const [parentJob, setParentJob] = useState<ParentJob | null>(null)
   const [assignedProfiles, setAssignedProfiles] = useState<string[]>([''])
   const [selectedWorkDates, setSelectedWorkDates] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
@@ -246,7 +258,11 @@ export default function NewJobPage() {
       const activeCompanyId = activeCompanyPayload.companyId
       setCompanyId(activeCompanyId)
 
-      const [{ data: membersData, error: membersError }, { data: customersData, error: customersError }] =
+      const [
+        { data: membersData, error: membersError },
+        { data: customersData, error: customersError },
+        parentJobResponse,
+      ] =
         await Promise.all([
           supabase
             .from('company_members')
@@ -260,6 +276,14 @@ export default function NewJobPage() {
             .eq('company_id', activeCompanyId)
             .eq('is_active', true),
           supabase.from('customers').select('id, name').eq('company_id', activeCompanyId).order('name', { ascending: true }),
+          parentJobId
+            ? supabase
+                .from('jobs')
+                .select('id, title, customer_id, contact_id, address, is_internal')
+                .eq('company_id', activeCompanyId)
+                .eq('id', parentJobId)
+                .maybeSingle()
+            : Promise.resolve({ data: null, error: null }),
         ])
 
       if (!membersError && membersData) {
@@ -277,10 +301,21 @@ export default function NewJobPage() {
       if (!customersError && customersData) {
         setCustomers(customersData)
       }
+
+      if (!parentJobResponse.error && parentJobResponse.data) {
+        const nextParentJob = parentJobResponse.data as ParentJob
+        setParentJob(nextParentJob)
+        setCustomerId(nextParentJob.customer_id ?? '')
+        setContactId(nextParentJob.contact_id ?? '')
+        setAddress((current) => current || nextParentJob.address || '')
+        setIsInternal(nextParentJob.is_internal === true)
+        setPrice('')
+        setIsPaid(false)
+      }
     }
 
     void loadInitialData()
-  }, [])
+  }, [parentJobId])
 
   useEffect(() => {
     async function loadCustomerContacts() {
@@ -303,11 +338,11 @@ export default function NewJobPage() {
       }
 
       setCustomerContacts(data)
-      setContactId('')
+      setContactId(parentJob?.contact_id ?? '')
     }
 
     void loadCustomerContacts()
-  }, [customerId])
+  }, [customerId, parentJob?.contact_id])
 
   function updateAssignedProfile(index: number, value: string) {
     const updated = [...assignedProfiles]
@@ -386,7 +421,7 @@ export default function NewJobPage() {
       return
     }
 
-    if (!isInternal && !submittedCustomerId) {
+    if (!parentJobId && !isInternal && !submittedCustomerId) {
       setFormError(
         customers.length === 0
           ? dictionary.jobs.newPage.customerRequiredCreateFirst
@@ -419,7 +454,7 @@ export default function NewJobPage() {
     const normalizedPrice = submittedPrice.replace(',', '.').trim()
     const parsedPrice = normalizedPrice ? Number(normalizedPrice) : null
 
-    if (parsedPrice != null && (!Number.isFinite(parsedPrice) || parsedPrice < 0)) {
+    if (!parentJobId && parsedPrice != null && (!Number.isFinite(parsedPrice) || parsedPrice < 0)) {
       setFormError(dictionary.jobs.newPage.priceInvalid)
       setLoading(false)
       return
@@ -447,7 +482,7 @@ export default function NewJobPage() {
       return
     }
 
-    if (isRecurringWeekly) {
+    if (!parentJobId && isRecurringWeekly) {
       if (!parsedStartAt || !parsedEndAt) {
         setFormError(dictionary.jobs.recurringNeedsDates)
         setLoading(false)
@@ -462,7 +497,7 @@ export default function NewJobPage() {
     }
 
     const shouldSplitIntoDailyJobs =
-      !isRecurringWeekly && generatedWorkDaysForSubmit.length > 1 && parsedStartAt && parsedEndAt
+      !parentJobId && !isRecurringWeekly && generatedWorkDaysForSubmit.length > 1 && parsedStartAt && parsedEndAt
 
     if (shouldSplitIntoDailyJobs && selectedWorkDates.length === 0) {
       setFormError(dictionary.jobs.newPage.workDatesRequired)
@@ -481,6 +516,7 @@ export default function NewJobPage() {
       : []
 
     const result = await createJobsAction({
+      parentJobId: parentJobId || null,
       customerId: submittedCustomerId,
       contactId: submittedContactId,
       title: submittedTitle,
@@ -489,9 +525,9 @@ export default function NewJobPage() {
       price: submittedPrice,
       startAt: submittedStartAt,
       endAt: submittedEndAt,
-      isPaid,
+      isPaid: parentJobId ? false : isPaid,
       isInternal,
-      isRecurringWeekly,
+      isRecurringWeekly: parentJobId ? false : isRecurringWeekly,
       repeatWeekday: submittedRepeatWeekday,
       repeatUntil: submittedRepeatUntil,
       selectedDailyJobs,
@@ -571,9 +607,25 @@ export default function NewJobPage() {
             </div>
           ) : null}
 
+          {parentJob ? (
+            <div
+              style={{
+                border: '1px solid #bfdbfe',
+                background: '#eff6ff',
+                color: '#1e3a8a',
+                borderRadius: '12px',
+                padding: '12px 14px',
+                fontSize: '14px',
+                fontWeight: 750,
+              }}
+            >
+              VytvÃ¡Å™Ã­te dceÅ™inou zakÃ¡zku pod: {parentJob.title ?? dictionary.jobs.untitledJob}. Cena zÅ¯stane jen na hlavnÃ­ zakÃ¡zce.
+            </div>
+          ) : null}
+
           <label>
             <div style={{ marginBottom: '6px', fontWeight: 600 }}>{dictionary.jobs.customer}</div>
-            <select name="customerId" value={customerId} onChange={(e) => setCustomerId(e.target.value)} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db', backgroundColor: 'white' }}>
+            <select name="customerId" value={customerId} onChange={(e) => setCustomerId(e.target.value)} disabled={Boolean(parentJob)} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db', backgroundColor: parentJob ? '#f9fafb' : 'white' }}>
               <option value="">{dictionary.jobs.noCustomerOption}</option>
               {customers.map((customer) => (
                 <option key={customer.id} value={customer.id}>{customer.name ?? dictionary.jobs.noName}</option>
@@ -583,7 +635,7 @@ export default function NewJobPage() {
 
           <label>
             <div style={{ marginBottom: '6px', fontWeight: 600 }}>{dictionary.jobs.contactPerson}</div>
-            <select name="contactId" value={contactId} onChange={(e) => setContactId(e.target.value)} disabled={!customerId} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db', backgroundColor: customerId ? 'white' : '#f9fafb' }}>
+            <select name="contactId" value={contactId} onChange={(e) => setContactId(e.target.value)} disabled={!customerId || Boolean(parentJob)} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db', backgroundColor: customerId && !parentJob ? 'white' : '#f9fafb' }}>
               <option value="">{customerId ? dictionary.jobs.noContactPerson : dictionary.jobs.chooseCustomerFirst}</option>
               {customerContacts.map((contact) => (
                 <option key={contact.id} value={contact.id}>{contact.full_name ?? dictionary.jobs.untitledWorker}{contact.role ? ` - ${contact.role}` : ''}</option>
@@ -594,7 +646,7 @@ export default function NewJobPage() {
           <label><div style={{ marginBottom: '6px', fontWeight: 600 }}>{dictionary.jobs.titleLabel}</div><input name="title" type="text" value={title} onChange={(e) => setTitle(e.target.value)} required style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db' }} /></label>
           <label><div style={{ marginBottom: '6px', fontWeight: 600 }}>{dictionary.jobs.descriptionLabel}</div><textarea name="description" value={description} onChange={(e) => setDescription(e.target.value)} rows={4} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db' }} /></label>
           <label><div style={{ marginBottom: '6px', fontWeight: 600 }}>{dictionary.jobs.addressLabel}</div><input name="address" type="text" value={address} onChange={(e) => setAddress(e.target.value)} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db' }} /></label>
-          <label><div style={{ marginBottom: '6px', fontWeight: 600 }}>{dictionary.jobs.price}</div><input name="price" type="number" value={price} onChange={(e) => setPrice(e.target.value)} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db' }} /></label>
+          <label><div style={{ marginBottom: '6px', fontWeight: 600 }}>{dictionary.jobs.price}</div><input name="price" type="number" value={parentJob ? '' : price} onChange={(e) => setPrice(e.target.value)} disabled={Boolean(parentJob)} placeholder={parentJob ? 'Cena je na hlavnÃ­ zakÃ¡zce' : undefined} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db', backgroundColor: parentJob ? '#f9fafb' : '#fff' }} /></label>
           <label><div style={{ marginBottom: '6px', fontWeight: 600 }}>{dictionary.jobs.startJob}</div><input name="startAt" type="datetime-local" value={startAt} onInput={(e) => handleStartAtInput(e.currentTarget.value)} onChange={(e) => handleStartAtInput(e.currentTarget.value)} required style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db' }} /></label>
           <label><div style={{ marginBottom: '6px', fontWeight: 600 }}>{dictionary.jobs.expectedEnd}</div><input name="endAt" type="datetime-local" value={endAt} onInput={(e) => handleEndAtInput(e.currentTarget.value)} onChange={(e) => handleEndAtInput(e.currentTarget.value)} required style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db' }} /></label>
 
@@ -649,7 +701,7 @@ export default function NewJobPage() {
           <label>
             <div style={{ marginBottom: '6px', fontWeight: 600 }}>{dictionary.jobs.recurrence}</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db', backgroundColor: '#fff' }}>
-              <input type="checkbox" checked={isRecurringWeekly} onChange={(e) => setIsRecurringWeekly(e.target.checked)} />
+              <input type="checkbox" checked={parentJob ? false : isRecurringWeekly} disabled={Boolean(parentJob)} onChange={(e) => setIsRecurringWeekly(e.target.checked)} />
               <span>{dictionary.jobs.repeatWeekly}</span>
             </div>
           </label>
@@ -671,7 +723,7 @@ export default function NewJobPage() {
           <label>
             <div style={{ marginBottom: '6px', fontWeight: 600 }}>{dictionary.jobs.payment}</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db', backgroundColor: '#fff' }}>
-              <input type="checkbox" checked={isPaid} onChange={(e) => setIsPaid(e.target.checked)} />
+              <input type="checkbox" checked={parentJob ? false : isPaid} disabled={Boolean(parentJob)} onChange={(e) => setIsPaid(e.target.checked)} />
               <span>{dictionary.jobs.paidLabel}</span>
             </div>
           </label>
@@ -679,7 +731,7 @@ export default function NewJobPage() {
           <label>
               <div style={{ marginBottom: '6px', fontWeight: 600 }}>{dictionary.jobs.internalJobLabel}</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db', backgroundColor: '#fff' }}>
-                <input type="checkbox" checked={isInternal} onChange={(e) => setIsInternal(e.target.checked)} />
+                <input type="checkbox" checked={isInternal} disabled={Boolean(parentJob)} onChange={(e) => setIsInternal(e.target.checked)} />
                 <span>{dictionary.jobs.internalJobDescription}</span>
               </div>
             </label>
