@@ -25,7 +25,7 @@ type PageProps = {
 type QuoteRow = {
   id: string
   company_id: string
-  customer_id: string
+  customer_id: string | null
   quote_number: string
   share_token: string | null
   title: string
@@ -632,12 +632,14 @@ export default async function QuoteDetailPage({ params }: PageProps) {
       | 'view_count'
     >),
   } as QuoteRow
-  const quoteCustomerId = normalizedQuote.customer_id || customerId
-  const { data: customer, error: customerError } = await supabase
-    .from('customers')
-    .select('name')
-    .eq('id', quoteCustomerId)
-    .maybeSingle()
+  const quoteCustomerId = normalizedQuote.customer_id ?? null
+  const { data: customer, error: customerError } = quoteCustomerId
+    ? await supabase
+        .from('customers')
+        .select('name')
+        .eq('id', quoteCustomerId)
+        .maybeSingle()
+    : { data: null, error: null }
 
   if (customerError) {
     console.error('[QUOTES] Failed to load quote customer', {
@@ -862,7 +864,7 @@ export default async function QuoteDetailPage({ params }: PageProps) {
   return (
     <DashboardShell activeItem="quotes">
       <main style={detailShellStyle}>
-        <Link href={`/customers/${quoteCustomerId}/quotes`} style={backLinkStyle}>
+        <Link href={quoteCustomerId ? `/customers/${quoteCustomerId}/quotes` : '/cenove-nabidky'} style={backLinkStyle}>
           {dictionary.customers.quoteDetail.backToQuotes}
         </Link>
 
@@ -950,7 +952,11 @@ export default async function QuoteDetailPage({ params }: PageProps) {
               <span style={quoteInfoLabelStyle}>{dictionary.customers.quoteDetail.sourceCalculation}:</span>{' '}
               {normalizedQuote.source_calculation_id ? (
                 <Link
-                  href={`/customers/${quoteCustomerId}/calculations/${normalizedQuote.source_calculation_id}`}
+                  href={
+                    quoteCustomerId
+                      ? `/customers/${quoteCustomerId}/calculations/${normalizedQuote.source_calculation_id}`
+                      : `/kalkulace/${normalizedQuote.source_calculation_id}`
+                  }
                   style={{ color: '#2563eb', textDecoration: 'none', fontWeight: 750 }}
                 >
                   {dictionary.customers.quoteDetail.openCalculation}
@@ -1565,7 +1571,11 @@ export default async function QuoteDetailPage({ params }: PageProps) {
                         </div>
                         <div>
                           <Link
-                            href={`/customers/${quoteCustomerId}/calculations/${version.calculation_id}`}
+                            href={
+                              quoteCustomerId
+                                ? `/customers/${quoteCustomerId}/calculations/${version.calculation_id}`
+                                : `/kalkulace/${version.calculation_id}`
+                            }
                             style={{ color: '#2563eb', textDecoration: 'none', fontWeight: 600 }}
                           >
                             {dictionary.customers.quoteDetail.openCurrentCalculation}

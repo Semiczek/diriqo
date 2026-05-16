@@ -439,7 +439,11 @@ export default async function QuotesPage({ searchParams }: PageProps) {
             {normalizedQuotes.map((quote) => (
               <Link
                 key={quote.id}
-                href={`/customers/${quote.customer_id}/quotes/${quote.id}`}
+                href={
+                  quote.customer_id
+                    ? `/customers/${quote.customer_id}/quotes/${quote.id}`
+                    : `/cenove-nabidky/${quote.id}`
+                }
                 style={compactResourceCardStyle}
               >
                 <div

@@ -18,7 +18,7 @@ type CalculationItemForQuote = {
 
 type CreateQuoteFromCalculationButtonProps = {
   calculationId: string
-  customerId: string
+  customerId: string | null
   companyId: string
   title: string
   internalNote: string | null
@@ -40,7 +40,11 @@ export default function CreateQuoteFromCalculationButton({ calculationId, custom
       const result = await createQuoteFromCalculationAction({ calculationId })
       if (!result.ok) throw new Error(result.error)
 
-      router.push(`/customers/${customerId}/quotes/${result.data.quoteId}`)
+      router.push(
+        customerId
+          ? `/customers/${customerId}/quotes/${result.data.quoteId}`
+          : `/cenove-nabidky/${result.data.quoteId}`,
+      )
       router.refresh()
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Nepodařilo se vytvořit cenovou nabídku.'

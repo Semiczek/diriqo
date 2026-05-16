@@ -107,7 +107,7 @@ function buttonStyle(backgroundColor: string, color: string, border: string, dis
 }
 
 type QuoteActionsPanelProps = {
-  customerId: string
+  customerId: string | null
   quoteId: string
   companyId: string
   shareUrl?: string | null
@@ -251,9 +251,9 @@ export default function QuoteActionsPanel({
       const result = await deleteQuoteAction({ quoteId, customerId })
       if (!result.ok) throw new Error(result.error)
 
-      router.replace(`/customers/${customerId}/quotes`)
+      router.replace(customerId ? `/customers/${customerId}/quotes` : '/cenove-nabidky')
       router.refresh()
-      window.location.assign(`/customers/${customerId}/quotes`)
+      window.location.assign(customerId ? `/customers/${customerId}/quotes` : '/cenove-nabidky')
     } catch (error) {
       alert(error instanceof Error ? error.message : 'Nepodařilo se smazat cenovou nabídku.')
       setDeleting(false)
@@ -312,7 +312,7 @@ export default function QuoteActionsPanel({
         body: JSON.stringify({
           relatedEntityType: 'offer',
           relatedEntityId: quoteId,
-          customerId,
+          customerId: customerId ?? null,
           messageType: 'quote_update',
           toEmail: trimmedEmail,
           toName: offerRecipientName.trim() || null,
@@ -481,7 +481,7 @@ Diriqo`
           body: JSON.stringify({
             relatedEntityType: 'job',
             relatedEntityId: createdJobId,
-            customerId,
+            customerId: customerId ?? null,
             messageType: 'job_confirmation',
             toEmail: contactEmail,
             toName: contactName ?? null,
@@ -511,22 +511,24 @@ Diriqo`
   return (
     <>
       <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-start' }}>
-      <Link
-        href={`/customers/${customerId}/quotes/${quoteId}/edit`}
-        style={{
-          display: 'inline-block',
-          backgroundColor: '#000000',
-          color: '#ffffff',
-          textDecoration: 'none',
-          fontWeight: '700',
-          fontSize: '13px',
-          padding: '8px 10px',
-          borderRadius: '10px',
-          whiteSpace: 'nowrap',
-        }}
-      >
-        Upravit nabídku
-      </Link>
+      {customerId ? (
+        <Link
+          href={`/customers/${customerId}/quotes/${quoteId}/edit`}
+          style={{
+            display: 'inline-block',
+            backgroundColor: '#000000',
+            color: '#ffffff',
+            textDecoration: 'none',
+            fontWeight: '700',
+            fontSize: '13px',
+            padding: '8px 10px',
+            borderRadius: '10px',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          Upravit nabídku
+        </Link>
+      ) : null}
 
       {shareUrl ? (
         <a

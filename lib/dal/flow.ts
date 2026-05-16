@@ -90,10 +90,6 @@ export async function createQuoteFromCalculation(ctx: DalContext, calculationId:
     throw new TenantScopeError('Kalkulace nepatri do aktivni firmy.')
   }
 
-  if (!calculation.customer_id) {
-    throw new Error('Kalkulace nema zakaznika pro vytvoreni nabidky.')
-  }
-
   const { data: items, error: itemsError } = await ctx.supabase
     .from('calculation_items')
     .select('sort_order, name, description, quantity, unit, unit_price, vat_rate, total_price, note')
@@ -114,9 +110,9 @@ export async function createQuoteFromCalculation(ctx: DalContext, calculationId:
 
   const { data: quote, error: quoteError } = await ctx.supabase
     .from('quotes')
-    .insert({
-      company_id: ctx.companyId,
-      customer_id: calculation.customer_id,
+      .insert({
+        company_id: ctx.companyId,
+      customer_id: calculation.customer_id ?? null,
       source_calculation_id: calculationId,
       quote_number: buildQuoteNumber(),
       share_token: buildShareToken(),
