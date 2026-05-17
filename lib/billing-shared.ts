@@ -1,6 +1,7 @@
 import {
   CHECKOUT_PLAN_KEYS,
   PLAN_KEYS,
+  type BillingInterval,
   normalizeCheckoutPlanKey,
   type CheckoutPlanKey,
   type PlanKey,
@@ -8,11 +9,11 @@ import {
 
 export { CHECKOUT_PLAN_KEYS, PLAN_KEYS }
 
-export const BILLING_INTERVALS = ['monthly'] as const
+export const BILLING_INTERVALS = ['monthly', 'yearly'] as const
 
 export type BillingPlanKey = PlanKey
 export type { CheckoutPlanKey }
-export type BillingInterval = (typeof BILLING_INTERVALS)[number]
+export type { BillingInterval }
 export type SubscriptionStatus =
   | 'trialing'
   | 'active'
@@ -26,8 +27,7 @@ export function normalizePlanKey(value: unknown): CheckoutPlanKey {
 }
 
 export function normalizeBillingInterval(value: unknown): BillingInterval {
-  void value
-  return 'monthly'
+  return typeof value === 'string' && value.trim().toLowerCase() === 'yearly' ? 'yearly' : 'monthly'
 }
 
 export function memberLimitMessage(maxMembers: number, locale: 'cs' | 'en' = 'cs') {

@@ -16,7 +16,8 @@ import {
   getCompanyCountryConfig,
 } from '@/lib/company-country-config'
 import { COMPANY_TIME_ZONE_OPTIONS } from '@/lib/company-timezone'
-import { addOns, mainPlans, type PlanKey } from '@/lib/plans'
+import { mainPlans, type PlanKey } from '@/lib/plans'
+import type { BillingInterval } from '@/lib/billing-shared'
 import {
   updateCompanyBasicInfo,
   updateCompanyBillingSettings,
@@ -81,6 +82,7 @@ type SubscriptionView = {
   id: string
   company_id: string
   plan_key: PlanKey
+  billing_interval?: BillingInterval | null
   status: SubscriptionStatus
   trial_started_at: string | null
   trial_ends_at: string | null
@@ -111,7 +113,7 @@ const tabs: Array<{ key: TabKey; label: string; description: string }> = [
   { key: 'payroll', label: 'Pracovníci a výplaty', description: 'Sazby, zálohy, výjimky' },
   { key: 'jobs', label: 'Zakázky', description: 'Workflow a povinné podklady' },
   { key: 'billing', label: 'Fakturace', description: 'DPH, splatnost, banka' },
-  { key: 'subscription', label: 'Předplatné', description: 'Plán, zkušební období, web balíček' },
+  { key: 'subscription', label: 'Předplatné', description: 'Plán, zkušební období, platby' },
   { key: 'users', label: 'Uživatelé', description: 'Členové a role firmy' },
 ]
 
@@ -421,7 +423,6 @@ export default function CompanySettingsClient({
           {activeTab === 'subscription' ? (
             <SubscriptionPanel
               subscription={subscription}
-              companyName={company.name || 'Diriqo'}
               activeWorkersCount={members.filter((member) => member.isActive).length}
               onMessage={setMessage}
             />
@@ -593,39 +594,37 @@ function formatMonthlyPrice(price: number | null) {
   return price === null ? 'Individuálně' : `${price.toLocaleString('cs-CZ')} € / měsíc`
 }
 
+function formatYearlyPrice(price: number | null) {
+  return price === null ? 'Individuálně' : `${price.toLocaleString('cs-CZ')} € / rok`
+}
+
 function formatWorkerLimit(limit: number | null) {
   return limit === null ? 'Bez pevného limitu' : `${limit} pracovníků`
 }
 
-function formatSetupPrice(price: number | null) {
-  return price === null ? 'Cena podle domluvy' : `+${price.toLocaleString('cs-CZ')} € jednorázově`
-}
-
 function SubscriptionPanel({
   subscription,
-  companyName,
   activeWorkersCount,
   onMessage,
 }: {
   subscription: SubscriptionView | null
-  companyName: string
   activeWorkersCount: number
   onMessage: (result: SettingsActionResult | null) => void
 }) {
   const [billingPending, setBillingPending] = useState<string | null>(null)
   const currentPlan = getDisplayPlan(subscription?.plan_key)
   const trialDaysLeft = getTrialDaysLeft(subscription)
-  const websiteAddOn = addOns.find((plan) => plan.key === 'website_addon')
 
-  async function startCheckout(planKey: PlanKey) {
-    setBillingPending(planKey)
+  async function startCheckout(planKey: PlanKey, billingInterval: BillingInterval) {
+    const pendingKey = `${planKey}-${billingInterval}`
+    setBillingPending(pendingKey)
     onMessage(null)
 
     try {
       const response = await fetch('/api/stripe/create-checkout-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan_key: planKey }),
+        body: JSON.stringify({ plan_key: planKey, billing_interval: billingInterval }),
       })
       const payload = (await response.json().catch(() => ({}))) as { url?: string; error?: string }
 
@@ -659,23 +658,21 @@ function SubscriptionPanel({
     }
   }
 
-  const addOnSubject = encodeURIComponent(`Objednávka web balíčku - ${companyName}`)
-  const addOnBody = encodeURIComponent(
-    `Dobrý den,\n\nchci objednat web balíček pro ${companyName}:\n- web napojený na poptávky\n- poptávky v Diriqo\n- zákaznický přístup\n\nProsím o domluvu dalšího kroku.`,
-  )
+  const currentBillingInterval: BillingInterval = subscription?.billing_interval === 'yearly' ? 'yearly' : 'monthly'
+  const currentInterval = currentBillingInterval === 'yearly' ? 'ročně' : 'měsíčně'
 
   return (
     <section style={panelStyle}>
       <SectionHeader
         title="Předplatné"
-        description="Tady vidíš aktuální plán, zkušební období, další platbu a doplňkový web balíček."
+        description="Tady vidíš aktuální plán, zkušební období, další platbu a čtyři dostupné tarify."
       />
 
       <div style={subscriptionHeroStyle}>
         <div>
           <span style={labelStyle}>Aktuální plán</span>
           <strong style={subscriptionPlanStyle}>{currentPlan.name}</strong>
-          <span style={summaryDetailStyle}>{formatMonthlyPrice(currentPlan.priceMonthly)} · {formatWorkerLimit(currentPlan.workerLimit)}</span>
+          <span style={summaryDetailStyle}>{formatMonthlyPrice(currentPlan.priceMonthly)} · {currentInterval} · {formatWorkerLimit(currentPlan.workerLimit)}</span>
         </div>
         <div style={subscriptionStatusCardStyle}>
           <span style={labelStyle}>Stav</span>
@@ -713,7 +710,10 @@ function SubscriptionPanel({
         <div style={planGridStyle}>
           {mainPlans.map((plan) => {
             const isCurrent = plan.key === currentPlan.key
-            const canCheckout = plan.key !== 'custom'
+            const monthlyPendingKey = `${plan.key}-monthly`
+            const yearlyPendingKey = `${plan.key}-yearly`
+            const isCurrentMonthly = isCurrent && currentBillingInterval === 'monthly'
+            const isCurrentYearly = isCurrent && currentBillingInterval === 'yearly'
 
             return (
               <article key={plan.key} style={plan.recommended ? recommendedPlanCardStyle : planCardStyle}>
@@ -722,49 +722,32 @@ function SubscriptionPanel({
                   {plan.recommended ? <span style={badgeStyle}>Doporučené</span> : null}
                 </div>
                 <strong style={priceStyle}>{formatMonthlyPrice(plan.priceMonthly)}</strong>
+                <span style={summaryDetailStyle}>{formatYearlyPrice(plan.priceYearly)} · 2 měsíce zdarma</span>
                 <span style={summaryDetailStyle}>{formatWorkerLimit(plan.workerLimit)}</span>
-                {canCheckout ? (
+                <div style={planActionsStyle}>
                   <button
                     type="button"
-                    style={isCurrent ? secondaryButtonStyle : primaryButtonStyle}
-                    disabled={isCurrent || billingPending === plan.key}
-                    onClick={() => startCheckout(plan.key)}
+                    style={isCurrentMonthly ? secondaryButtonStyle : primaryButtonStyle}
+                    disabled={isCurrentMonthly || billingPending === monthlyPendingKey}
+                    onClick={() => startCheckout(plan.key, 'monthly')}
                   >
-                    {isCurrent ? 'Aktuální plán' : billingPending === plan.key ? 'Připravuji...' : 'Přejít na plán'}
+                    {isCurrentMonthly ? 'Aktuální plán' : billingPending === monthlyPendingKey ? 'Připravuji...' : 'Měsíčně'}
                   </button>
-                ) : (
-                  <a style={secondaryLinkButtonStyle} href={`mailto:support@diriqo.com?subject=${encodeURIComponent('Individuální plán Diriqo')}`}>
-                    Domluvit individuální plán
-                  </a>
-                )}
+                  <button
+                    type="button"
+                    style={isCurrentYearly ? secondaryButtonStyle : primaryButtonStyle}
+                    disabled={isCurrentYearly || billingPending === yearlyPendingKey}
+                    onClick={() => startCheckout(plan.key, 'yearly')}
+                  >
+                    {isCurrentYearly ? 'Aktuální plán' : billingPending === yearlyPendingKey ? 'Připravuji...' : 'Ročně'}
+                  </button>
+                </div>
               </article>
             )
           })}
         </div>
       </div>
 
-      {websiteAddOn ? (
-        <div style={addOnPanelStyle}>
-          <div>
-            <span style={badgeStyle}>Volitelný balíček</span>
-            <h3 style={addOnTitleStyle}>{websiteAddOn.name}</h3>
-            <p style={mutedStyle}>
-              Web propojený na poptávky, ukládání poptávek do Diriqo a zákaznický přístup pro klienty.
-            </p>
-            <ul style={addOnListStyle}>
-              <li>Veřejná poptávka napojená na Diriqo</li>
-              <li>Zákaznický portál pro nabídky, zakázky a komunikaci</li>
-              <li>Jednoduchý webový vstup pro nové zákazníky</li>
-            </ul>
-          </div>
-          <div style={addOnAsideStyle}>
-            <strong style={priceStyle}>{formatSetupPrice(websiteAddOn.setupPrice)}</strong>
-            <a style={primaryLinkButtonStyle} href={`mailto:support@diriqo.com?subject=${addOnSubject}&body=${addOnBody}`}>
-              Objednat web balíček
-            </a>
-          </div>
-        </div>
-      ) : null}
     </section>
   )
 }
@@ -1153,6 +1136,11 @@ const planCardHeaderStyle = {
   gap: '10px',
 } as const
 
+const planActionsStyle = {
+  display: 'grid',
+  gap: '8px',
+} as const
+
 const planTitleStyle = { margin: 0, color: '#0f172a', fontSize: '20px' } as const
 const priceStyle = { marginTop: '2px', color: '#0f172a', fontSize: '24px', fontWeight: 950 } as const
 
@@ -1168,22 +1156,6 @@ const secondaryButtonStyle = {
   cursor: 'pointer',
 } as const
 
-const primaryLinkButtonStyle = {
-  ...primaryButtonStyle,
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  textDecoration: 'none',
-} as const
-
-const secondaryLinkButtonStyle = {
-  ...secondaryButtonStyle,
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  textDecoration: 'none',
-} as const
-
 const badgeStyle = {
   display: 'inline-flex',
   alignItems: 'center',
@@ -1196,34 +1168,6 @@ const badgeStyle = {
   fontSize: '12px',
   fontWeight: 950,
   whiteSpace: 'nowrap',
-} as const
-
-const addOnPanelStyle = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-  gap: '18px',
-  alignItems: 'center',
-  marginTop: '18px',
-  borderRadius: '20px',
-  border: '1px solid rgba(6, 182, 212, 0.22)',
-  background: 'linear-gradient(135deg, #ffffff, rgba(6,182,212,0.08))',
-  padding: '18px',
-} as const
-
-const addOnTitleStyle = { margin: '12px 0 0', color: '#0f172a', fontSize: '26px', lineHeight: 1.1 } as const
-
-const addOnListStyle = {
-  margin: '12px 0 0',
-  paddingLeft: '20px',
-  color: '#475569',
-  fontWeight: 750,
-  lineHeight: 1.55,
-} as const
-
-const addOnAsideStyle = {
-  display: 'grid',
-  gap: '12px',
-  justifyItems: 'start',
 } as const
 
 const infoBoxStyle = {

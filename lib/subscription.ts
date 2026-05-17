@@ -3,6 +3,7 @@ import 'server-only'
 import { redirect } from 'next/navigation'
 
 import { getWorkerLimit, normalizePlanKey, type PlanKey } from '@/lib/plans'
+import type { BillingInterval } from '@/lib/billing-shared'
 import { createSupabaseAdminClient } from '@/lib/supabase-admin'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 
@@ -21,6 +22,7 @@ export type CompanySubscription = {
   id: string
   company_id: string
   plan_key: PlanKey
+  billing_interval: BillingInterval
   status: SubscriptionStatus
   trial_started_at: string | null
   trial_ends_at: string | null
@@ -55,7 +57,7 @@ export type SubscriptionAccessState = {
 }
 
 const SUBSCRIPTION_SELECT =
-  'id, company_id, plan_key, status, trial_started_at, trial_ends_at, stripe_customer_id, stripe_subscription_id, stripe_price_id, current_period_start, current_period_end, cancel_at_period_end, created_at, updated_at'
+  'id, company_id, plan_key, billing_interval, status, trial_started_at, trial_ends_at, stripe_customer_id, stripe_subscription_id, stripe_price_id, current_period_start, current_period_end, cancel_at_period_end, created_at, updated_at'
 
 function toDate(value: string | null | undefined) {
   if (!value) return null
@@ -74,6 +76,7 @@ function normalizeSubscription(row: unknown): CompanySubscription | null {
   return {
     ...value,
     plan_key: normalizePlanKey(value.plan_key),
+    billing_interval: value.billing_interval === 'yearly' ? 'yearly' : 'monthly',
     status: SUBSCRIPTION_STATUSES.includes(value.status) ? value.status : 'incomplete',
     cancel_at_period_end: Boolean(value.cancel_at_period_end),
   }
@@ -107,6 +110,7 @@ export async function getOrCreateTrialSubscription(companyId: string) {
       {
         company_id: companyId,
         plan_key: 'starter',
+        billing_interval: 'monthly',
         status: 'trialing',
         trial_started_at: now.toISOString(),
         trial_ends_at: trialEndsAt.toISOString(),

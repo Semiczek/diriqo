@@ -1,18 +1,17 @@
 import DashboardShell from '@/components/DashboardShell'
 import BillingClient from '@/app/billing/BillingClient'
 import { getActiveCompanyContext } from '@/lib/active-company'
-import { addOns, mainPlans } from '@/lib/plans'
+import { mainPlans } from '@/lib/plans'
 
-function toPlanView(plan: (typeof mainPlans | typeof addOns)[number]) {
+function toPlanView(plan: (typeof mainPlans)[number]) {
   return {
     key: plan.key,
     name: plan.name,
     workerLimit: plan.workerLimit,
     priceMonthly: plan.priceMonthly,
-    setupPrice: plan.setupPrice,
+    priceYearly: plan.priceYearly,
     currency: plan.currency,
     recommended: Boolean(plan.recommended),
-    billingKind: plan.billingKind,
   }
 }
 
@@ -42,7 +41,6 @@ export default async function BillingPage() {
 
         <BillingClient
           mainPlans={mainPlans.map(toPlanView)}
-          addOns={addOns.map(toPlanView)}
         />
       </main>
     </DashboardShell>

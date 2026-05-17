@@ -1,16 +1,14 @@
 import Link from 'next/link'
 import type { CSSProperties } from 'react'
 
-import { addOns, mainPlans } from '@/lib/plans'
+import { mainPlans } from '@/lib/plans'
 
-function formatMonthlyPrice(value: number | null) {
-  if (value === null) return 'Individuální cena'
+function formatMonthlyPrice(value: number) {
   return `${value.toLocaleString('cs-CZ')} EUR / měsíc`
 }
 
-function formatSetupPrice(value: number | null) {
-  if (value === null) return null
-  return `+${value.toLocaleString('cs-CZ')} EUR nastavení`
+function formatYearlyPrice(value: number) {
+  return `${value.toLocaleString('cs-CZ')} EUR / rok`
 }
 
 function formatWorkerLimit(value: number | null) {
@@ -39,7 +37,7 @@ export default function PricingPage() {
           <p style={eyebrowStyle}>Ceník</p>
           <h1 style={titleStyle}>Plány pro servisní týmy</h1>
           <p style={subtitleStyle}>
-            Vyberte limit pracovníků podle velikosti týmu. Nastavení webu je dostupné jako samostatný doplněk.
+            Vyberte jeden ze čtyř plánů podle velikosti týmu. Roční platba je vždy cena měsíčně × 10.
           </p>
         </header>
 
@@ -51,25 +49,19 @@ export default function PricingPage() {
                 {plan.recommended ? <span style={badgeStyle}>Doporučeno</span> : null}
               </div>
               <div style={priceStyle}>{formatMonthlyPrice(plan.priceMonthly)}</div>
+              <div style={yearlyPriceStyle}>{formatYearlyPrice(plan.priceYearly)} · 2 měsíce zdarma</div>
               <p style={mutedStyle}>{formatWorkerLimit(plan.workerLimit)}</p>
+              <div style={billingChoiceStyle}>
+                <Link href={`/register?locale=cs&plan=${plan.key}&interval=monthly`} style={secondaryLinkStyle}>
+                  Měsíčně
+                </Link>
+                <Link href={`/register?locale=cs&plan=${plan.key}&interval=yearly`} style={primaryLinkStyle}>
+                  Ročně
+                </Link>
+              </div>
             </article>
           ))}
         </div>
-
-        {addOns.length > 0 ? (
-          <section style={addOnSectionStyle}>
-            <h2 style={sectionTitleStyle}>Doplňky</h2>
-            <div style={plansGridStyle}>
-              {addOns.map((plan) => (
-                <article key={plan.key} style={cardStyle}>
-                  <h3 style={planTitleStyle}>{plan.name}</h3>
-                  <div style={priceStyle}>{formatSetupPrice(plan.setupPrice)}</div>
-                  <p style={mutedStyle}>Volitelný balíček pro nastavení webu.</p>
-                </article>
-              ))}
-            </div>
-          </section>
-        ) : null}
       </section>
     </main>
   )
@@ -175,6 +167,12 @@ const priceStyle: CSSProperties = {
   fontWeight: 900,
 }
 
+const yearlyPriceStyle: CSSProperties = {
+  color: '#0f766e',
+  fontSize: 15,
+  fontWeight: 850,
+}
+
 const mutedStyle: CSSProperties = {
   margin: 0,
   color: '#475569',
@@ -194,14 +192,11 @@ const badgeStyle: CSSProperties = {
   fontWeight: 850,
 }
 
-const addOnSectionStyle: CSSProperties = {
+const billingChoiceStyle: CSSProperties = {
   display: 'grid',
-  gap: 14,
-}
-
-const sectionTitleStyle: CSSProperties = {
-  margin: 0,
-  fontSize: 24,
+  gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+  gap: 8,
+  marginTop: 6,
 }
 
 const primaryLinkStyle: CSSProperties = {

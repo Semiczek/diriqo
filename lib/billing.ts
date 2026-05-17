@@ -5,7 +5,6 @@ import { redirect } from 'next/navigation'
 import type { ActiveCompanyContext } from '@/lib/active-company'
 import {
   PLANS,
-  addOns,
   getPlan,
   getStripePriceId,
   getWorkerLimit,
@@ -37,7 +36,6 @@ export {
 
 export {
   PLANS,
-  addOns,
   getActiveWorkerCount,
   getCompanySubscription,
   getOrCreateTrialSubscription,

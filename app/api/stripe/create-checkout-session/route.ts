@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+import { normalizeBillingInterval } from '@/lib/billing-shared'
 import { getStripePriceId, normalizePlanKey } from '@/lib/plans'
 import { getOrCreateTrialSubscription } from '@/lib/subscription'
 import { requireAuthenticatedUser, requireCompanyRole } from '@/lib/server-guards'
@@ -8,6 +9,7 @@ import { getStripe } from '@/lib/stripe'
 
 type CheckoutBody = {
   plan_key?: unknown
+  billing_interval?: unknown
 }
 
 function getAppUrl(request: NextRequest) {
@@ -30,14 +32,14 @@ export async function POST(request: NextRequest) {
 
   const body = (await request.json().catch(() => ({}))) as CheckoutBody
   const planKey = normalizePlanKey(body.plan_key)
+  const billingInterval = normalizeBillingInterval(body.billing_interval)
 
-  if (planKey === 'custom') {
-    return NextResponse.json({ error: 'Custom plans are handled by sales.' }, { status: 400 })
-  }
-
-  const priceId = getStripePriceId(planKey)
+  const priceId = getStripePriceId(planKey, billingInterval)
   if (!priceId) {
-    return NextResponse.json({ error: `Stripe price id is missing for ${planKey}.` }, { status: 500 })
+    return NextResponse.json(
+      { error: `Stripe price id is missing for ${planKey} ${billingInterval}.` },
+      { status: 500 }
+    )
   }
 
   const { user } = authResult.value
@@ -87,12 +89,14 @@ export async function POST(request: NextRequest) {
       company_id: activeCompany.companyId,
       user_id: user.id,
       plan_key: planKey,
+      billing_interval: billingInterval,
     },
     subscription_data: {
       metadata: {
         company_id: activeCompany.companyId,
         user_id: user.id,
         plan_key: planKey,
+        billing_interval: billingInterval,
       },
     },
     success_url: `${appUrl}/settings/company?checkout=success`,

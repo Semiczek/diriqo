@@ -4,33 +4,29 @@ type PricingPlanView = {
   key: PlanKey
   name: string
   workerLimit: number | null
-  priceMonthly: number | null
-  setupPrice: number | null
+  priceMonthly: number
+  priceYearly: number
   currency: 'EUR'
   recommended: boolean
-  billingKind: 'subscription' | 'add_on'
 }
 
 type BillingClientProps = {
   mainPlans: PricingPlanView[]
-  addOns: PricingPlanView[]
 }
 
 function formatMonthlyPrice(plan: PricingPlanView) {
-  if (plan.priceMonthly === null) return 'Individuální cena'
   return `${plan.priceMonthly.toLocaleString('cs-CZ')} ${plan.currency} / měsíc`
 }
 
-function formatSetupPrice(plan: PricingPlanView) {
-  if (plan.setupPrice === null) return null
-  return `+${plan.setupPrice.toLocaleString('cs-CZ')} ${plan.currency} nastavení`
+function formatYearlyPrice(plan: PricingPlanView) {
+  return `${plan.priceYearly.toLocaleString('cs-CZ')} ${plan.currency} / rok`
 }
 
 function formatWorkerLimit(value: number | null) {
   return value === null ? 'Individuální limit pracovníků' : `${value} aktivních pracovníků`
 }
 
-export default function BillingClient({ mainPlans, addOns }: BillingClientProps) {
+export default function BillingClient({ mainPlans }: BillingClientProps) {
   return (
     <section style={sectionStyle}>
       <div style={toolbarStyle}>
@@ -46,26 +42,12 @@ export default function BillingClient({ mainPlans, addOns }: BillingClientProps)
             </div>
             <div>
               <div style={priceStyle}>{formatMonthlyPrice(plan)}</div>
+              <div style={mutedStyle}>{formatYearlyPrice(plan)} · 2 měsíce zdarma</div>
               <div style={mutedStyle}>{formatWorkerLimit(plan.workerLimit)}</div>
             </div>
           </article>
         ))}
       </div>
-
-      {addOns.length > 0 ? (
-        <div style={addOnSectionStyle}>
-          <h2 style={sectionTitleStyle}>Doplňky</h2>
-          <div style={plansGridStyle}>
-            {addOns.map((plan) => (
-              <article key={plan.key} style={addOnCardStyle}>
-                <h3 style={planTitleStyle}>{plan.name}</h3>
-                <div style={priceStyle}>{formatSetupPrice(plan)}</div>
-                <div style={mutedStyle}>Volitelný balíček pro nastavení webu</div>
-              </article>
-            ))}
-          </div>
-        </div>
-      ) : null}
     </section>
   )
 }
@@ -111,11 +93,6 @@ const recommendedPlanCardStyle = {
   boxShadow: '0 12px 28px rgba(37, 99, 235, 0.12)',
 } as const
 
-const addOnCardStyle = {
-  ...planCardStyle,
-  minHeight: 126,
-} as const
-
 const planHeaderStyle = {
   display: 'flex',
   alignItems: 'center',
@@ -152,10 +129,4 @@ const mutedStyle = {
   color: '#64748b',
   fontSize: 14,
   fontWeight: 700,
-} as const
-
-const addOnSectionStyle = {
-  display: 'grid',
-  gap: 12,
-  marginTop: 8,
 } as const

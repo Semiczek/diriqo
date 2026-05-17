@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 
-import { getPlanKeyByStripePriceId, normalizePlanKey } from '@/lib/plans'
+import { getBillingIntervalByStripePriceId, getPlanKeyByStripePriceId, normalizePlanKey } from '@/lib/plans'
 import { createSupabaseAdminClient } from '@/lib/supabase-admin'
 import { getStripe } from '@/lib/stripe'
 import type { SubscriptionStatus } from '@/lib/subscription'
@@ -131,11 +131,15 @@ async function syncSubscription(
 
   const stripePriceId = getSubscriptionPriceId(subscription)
   const planKey = getPlanKeyByStripePriceId(stripePriceId) ?? normalizePlanKey(metadata.plan_key)
+  const billingInterval =
+    getBillingIntervalByStripePriceId(stripePriceId) ??
+    (getString(metadata.billing_interval) === 'yearly' ? 'yearly' : 'monthly')
   const status = mapStripeSubscriptionStatus(subscription.status)
   const subscriptionRecord = subscription as unknown as Record<string, unknown>
   const payload: Record<string, unknown> = {
     company_id: companyId,
     plan_key: planKey,
+    billing_interval: billingInterval,
     status,
     stripe_customer_id: stripeCustomerId || null,
     stripe_subscription_id: stripeSubscriptionId,
