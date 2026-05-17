@@ -92,63 +92,66 @@ export default function CustomersPageClient({
   return (
     <>
       <div
+        data-tour="customers-header"
         style={{
           position: 'relative',
           overflow: 'hidden',
           display: 'flex',
           justifyContent: 'space-between',
-          alignItems: 'flex-end',
-          gap: '18px',
-          marginBottom: '22px',
+          alignItems: 'center',
+          gap: '14px',
+          marginBottom: '12px',
           flexWrap: 'wrap',
-          padding: '28px',
-          borderRadius: '28px',
+          padding: '18px 20px',
+          borderRadius: '20px',
           background:
             'linear-gradient(135deg, rgba(250,245,255,0.96) 0%, rgba(239,246,255,0.94) 50%, rgba(236,254,255,0.9) 100%)',
           border: '1px solid rgba(203, 213, 225, 0.78)',
-          boxShadow: '0 22px 58px rgba(15, 23, 42, 0.10)',
+          boxShadow: '0 12px 32px rgba(15, 23, 42, 0.065)',
         }}
       >
         <div>
-          <div style={{ display: 'inline-flex', marginBottom: '12px', padding: '7px 11px', borderRadius: '999px', backgroundColor: 'rgba(255,255,255,0.72)', border: '1px solid rgba(124,58,237,0.2)', color: '#5b21b6', fontSize: '12px', fontWeight: 900 }}>
+          <div style={{ display: 'inline-flex', marginBottom: '8px', padding: '4px 9px', borderRadius: '999px', backgroundColor: 'rgba(255,255,255,0.72)', border: '1px solid rgba(124,58,237,0.2)', color: '#5b21b6', fontSize: '11px', fontWeight: 900 }}>
             CRM
           </div>
           <h1
             style={{
               margin: 0,
-              fontSize: '44px',
-              lineHeight: '1.05',
+              fontSize: '32px',
+              lineHeight: '1.08',
               fontWeight: 850,
               color: '#0f172a',
             }}
           >
             {dictionary.customers.title}
           </h1>
-          <p style={{ margin: '10px 0 0', color: '#475569', fontSize: '16px', lineHeight: 1.6 }}>
+          <p style={{ margin: '7px 0 0', color: '#475569', fontSize: '14px', lineHeight: 1.45 }}>
             {dictionary.customers.subtitle}
           </p>
         </div>
 
         <Link
           href="/customers/new"
+          data-tour="new-customer-button"
           style={{
             display: 'inline-flex',
             background: 'linear-gradient(135deg, #7c3aed 0%, #2563eb 52%, #06b6d4 100%)',
             color: '#ffffff',
             textDecoration: 'none',
             fontWeight: 900,
-            fontSize: '16px',
-            padding: '14px 20px',
+            fontSize: '14px',
+            minHeight: '36px',
+            padding: '8px 12px',
             borderRadius: '999px',
             whiteSpace: 'nowrap',
-            boxShadow: '0 16px 34px rgba(37, 99, 235, 0.22)',
+            boxShadow: '0 10px 22px rgba(37, 99, 235, 0.16)',
           }}
         >
           {dictionary.customers.newCustomer}
         </Link>
       </div>
 
-      <div style={{ marginBottom: '22px', padding: '14px', borderRadius: '20px', backgroundColor: 'rgba(255,255,255,0.78)', border: '1px solid rgba(226,232,240,0.9)', boxShadow: '0 12px 28px rgba(15,23,42,0.05)' }}>
+      <div data-tour="customers-search" style={{ marginBottom: '22px', padding: '14px', borderRadius: '20px', backgroundColor: 'rgba(255,255,255,0.78)', border: '1px solid rgba(226,232,240,0.9)', boxShadow: '0 12px 28px rgba(15,23,42,0.05)' }}>
         <input
           type="text"
           value={search}
@@ -181,7 +184,7 @@ export default function CustomersPageClient({
             <div>
               <div style={{ color: '#0f172a', fontSize: '18px', fontWeight: 850, marginBottom: '4px' }}>{dictionary.customers.empty}</div>
               <p style={{ margin: 0, ...mutedTextStyle }}>{dictionary.customers.emptyHint}</p>
-              <Link href="/customers/new" style={{ display: 'inline-flex', marginTop: '12px', padding: '9px 12px', borderRadius: '999px', background: 'linear-gradient(135deg, #7c3aed 0%, #2563eb 52%, #06b6d4 100%)', color: '#ffffff', textDecoration: 'none', fontSize: '13px', fontWeight: 900 }}>
+              <Link href="/customers/new" data-tour="new-customer-button" style={{ display: 'inline-flex', marginTop: '12px', padding: '9px 12px', borderRadius: '999px', background: 'linear-gradient(135deg, #7c3aed 0%, #2563eb 52%, #06b6d4 100%)', color: '#ffffff', textDecoration: 'none', fontSize: '13px', fontWeight: 900 }}>
                 {dictionary.customers.newCustomer}
               </Link>
             </div>
@@ -192,7 +195,8 @@ export default function CustomersPageClient({
           <p style={{ margin: 0, ...mutedTextStyle }}>{dictionary.customers.noResults}</p>
         </div>
       ) : (
-        filteredCustomers.map((customer) => (
+        <div data-tour="customers-list" style={{ display: 'grid' }}>
+          {filteredCustomers.map((customer) => (
           <Link key={customer.id} href={`/customers/${customer.id}`} style={cardStyle}>
             <div
               style={{
@@ -287,7 +291,8 @@ export default function CustomersPageClient({
               </span>
             </div>
           </Link>
-        ))
+          ))}
+        </div>
       )}
     </>
   )

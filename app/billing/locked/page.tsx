@@ -2,8 +2,8 @@ export default function BillingLockedPage() {
   return (
     <main style={pageStyle}>
       <section style={cardStyle}>
-        <h1 style={titleStyle}>P\u0159\u00edstup je do\u010dasn\u011b pozastaven\u00fd.</h1>
-        <p style={textStyle}>Kontaktujte spr\u00e1vce firmy. Data z\u016fst\u00e1vaj\u00ed ulo\u017een\u00e1.</p>
+        <h1 style={titleStyle}>Přístup je dočasně pozastavený.</h1>
+        <p style={textStyle}>Kontaktujte správce firmy. Data zůstávají uložená.</p>
       </section>
     </main>
   )

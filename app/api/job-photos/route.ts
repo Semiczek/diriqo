@@ -161,7 +161,7 @@ export async function GET(request: NextRequest) {
   const limit = Math.min(MAX_LIMIT, Math.max(1, rawLimit))
 
   if (!jobId) {
-    return NextResponse.json({ error: 'Chybi jobId.' }, { status: 400 })
+    return NextResponse.json({ error: 'Chybí jobId.' }, { status: 400 })
   }
 
   const activeCompany = await getActiveCompanyContext()
@@ -182,13 +182,13 @@ export async function GET(request: NextRequest) {
       errorCode: getErrorCode(error),
     })
     return NextResponse.json(
-      { error: 'Nepodarilo se overit zakazku.' },
+      { error: 'Nepodařilo se ověřit zakázku.' },
       { status: 500 }
     )
   }
 
   if (!photoScope.hasAccess || photoScope.jobIds.length === 0) {
-    return NextResponse.json({ error: 'Zakazka nebyla nalezena.' }, { status: 404 })
+    return NextResponse.json({ error: 'Zakázka nebyla nalezena.' }, { status: 404 })
   }
 
   const supabase = createSupabaseAdminClient()
@@ -214,7 +214,7 @@ export async function GET(request: NextRequest) {
 
   if (error) {
     return NextResponse.json(
-      { error: `Nepodarilo se nacist metadata fotek: ${error.message}` },
+      { error: `Nepodařilo se načíst metadata fotek: ${error.message}` },
       { status: 500 }
     )
   }
@@ -240,7 +240,7 @@ export async function GET(request: NextRequest) {
       })
     } else if (signedPreviewResponse.error) {
       return NextResponse.json(
-        { error: `Nepodarilo se vytvorit nahledy fotek: ${signedPreviewResponse.error.message}` },
+        { error: `Nepodařilo se vytvořit náhledy fotek: ${signedPreviewResponse.error.message}` },
         { status: 500 }
       )
     } else {
@@ -314,7 +314,7 @@ export async function POST(request: NextRequest) {
 
   if (request.headers.get('content-type')?.toLowerCase().includes('multipart/form-data')) {
     if (!hasJobPhotoAdminAccess(activeCompany)) {
-      return NextResponse.json({ error: 'K nahravani fotek nema uzivatel opravneni.' }, { status: 403 })
+      return NextResponse.json({ error: 'K nahrávání fotek nemá uživatel oprávnění.' }, { status: 403 })
     }
 
     const formData = await request.formData()
@@ -324,11 +324,11 @@ export async function POST(request: NextRequest) {
     const notes = formData.getAll('notes').map((value) => normalizeNote(value))
 
     if (!jobId) {
-      return NextResponse.json({ error: 'Chybi jobId.' }, { status: 400 })
+      return NextResponse.json({ error: 'Chybí jobId.' }, { status: 400 })
     }
 
     if (files.length === 0) {
-      return NextResponse.json({ error: 'Vyberte alespon jednu fotografii.' }, { status: 400 })
+      return NextResponse.json({ error: 'Vyberte alespoň jednu fotografii.' }, { status: 400 })
     }
 
     let jobExists = false
@@ -342,11 +342,11 @@ export async function POST(request: NextRequest) {
         errorName: getErrorName(error),
         errorCode: getErrorCode(error),
       })
-      return NextResponse.json({ error: 'Nepodarilo se overit zakazku.' }, { status: 500 })
+      return NextResponse.json({ error: 'Nepodařilo se ověřit zakázku.' }, { status: 500 })
     }
 
     if (!jobExists) {
-      return NextResponse.json({ error: 'Zakazka nebyla nalezena.' }, { status: 404 })
+      return NextResponse.json({ error: 'Zakázka nebyla nalezena.' }, { status: 404 })
     }
 
     const supabase = await createSupabaseServerClient()
@@ -360,11 +360,11 @@ export async function POST(request: NextRequest) {
       const sizeBytes = file.size
 
       if (sizeBytes <= 0 || sizeBytes > MAX_JOB_PHOTO_UPLOAD_BYTES) {
-        return NextResponse.json({ error: `Fotografie ${fileName} je prazdna nebo prilis velka.` }, { status: 400 })
+        return NextResponse.json({ error: `Fotografie ${fileName} je prázdná nebo příliš velká.` }, { status: 400 })
       }
 
       if (!isSupportedJobPhotoMimeType(mimeType)) {
-        return NextResponse.json({ error: `Soubor ${fileName} musi byt fotografie JPG, PNG, WEBP, HEIC nebo HEIF.` }, { status: 400 })
+        return NextResponse.json({ error: `Soubor ${fileName} musí být fotografie JPG, PNG, WEBP, HEIC nebo HEIF.` }, { status: 400 })
       }
 
       const photoId = crypto.randomUUID()
@@ -425,7 +425,7 @@ export async function POST(request: NextRequest) {
           await supabase.storage.from(JOB_PHOTO_BUCKET).remove(uploadedPaths)
         }
 
-        return NextResponse.json({ error: `Fotografii ${fileName} se nepodarilo nahrat.` }, { status: 500 })
+        return NextResponse.json({ error: `Fotografii ${fileName} se nepodařilo nahrát.` }, { status: 500 })
       }
     }
 
@@ -444,15 +444,15 @@ export async function POST(request: NextRequest) {
   const payload = normalizeUploadPayload(await request.json().catch(() => null))
 
   if (!payload?.jobId) {
-    return NextResponse.json({ error: 'Chybi jobId.' }, { status: 400 })
+    return NextResponse.json({ error: 'Chybí jobId.' }, { status: 400 })
   }
 
   if (payload.sizeBytes <= 0 || payload.sizeBytes > MAX_JOB_PHOTO_UPLOAD_BYTES) {
-    return NextResponse.json({ error: 'Fotografie je prazdna nebo prilis velka.' }, { status: 400 })
+    return NextResponse.json({ error: 'Fotografie je prázdná nebo příliš velká.' }, { status: 400 })
   }
 
   if (!isSupportedJobPhotoMimeType(payload.mimeType)) {
-    return NextResponse.json({ error: 'Soubor musi byt fotografie JPG, PNG, WEBP, HEIC nebo HEIF.' }, { status: 400 })
+    return NextResponse.json({ error: 'Soubor musí být fotografie JPG, PNG, WEBP, HEIC nebo HEIF.' }, { status: 400 })
   }
 
   let jobExists = false
@@ -466,11 +466,11 @@ export async function POST(request: NextRequest) {
       errorName: getErrorName(error),
       errorCode: getErrorCode(error),
     })
-    return NextResponse.json({ error: 'Nepodarilo se overit zakazku.' }, { status: 500 })
+    return NextResponse.json({ error: 'Nepodařilo se ověřit zakázku.' }, { status: 500 })
   }
 
   if (!jobExists) {
-    return NextResponse.json({ error: 'Zakazka nebyla nalezena.' }, { status: 404 })
+    return NextResponse.json({ error: 'Zakázka nebyla nalezena.' }, { status: 404 })
   }
 
   const supabase = await createSupabaseServerClient()
@@ -482,7 +482,7 @@ export async function POST(request: NextRequest) {
       if (error) throw error
     })
   } catch {
-    return NextResponse.json({ error: 'Bucket job-photos neni dostupny.' }, { status: 500 })
+    return NextResponse.json({ error: 'Bucket job-photos není dostupný.' }, { status: 500 })
   }
 
   const storagePath = buildJobPhotoStoragePath({
@@ -511,7 +511,7 @@ export async function POST(request: NextRequest) {
       maxBytes: MAX_JOB_PHOTO_UPLOAD_BYTES,
     })
   } catch {
-    return NextResponse.json({ error: 'Nepodarilo se pripravit upload fotografie.' }, { status: 502 })
+    return NextResponse.json({ error: 'Nepodařilo se připravit upload fotografie.' }, { status: 502 })
   }
 }
 
@@ -525,7 +525,7 @@ export async function PATCH(request: NextRequest) {
   const payload = normalizeUploadPayload(await request.json().catch(() => null))
 
   if (!payload?.jobId || !payload.storagePath) {
-    return NextResponse.json({ error: 'Chybi metadata fotografie.' }, { status: 400 })
+    return NextResponse.json({ error: 'Chybí metadata fotografie.' }, { status: 400 })
   }
 
   if (!isExpectedJobPhotoStoragePath({
@@ -534,15 +534,15 @@ export async function PATCH(request: NextRequest) {
     jobId: payload.jobId,
     category: payload.photoType,
   })) {
-    return NextResponse.json({ error: 'Storage path neodpovida tenant/job scope.' }, { status: 400 })
+    return NextResponse.json({ error: 'Storage path neodpovídá tenant/job scope.' }, { status: 400 })
   }
 
   if (payload.sizeBytes <= 0 || payload.sizeBytes > MAX_JOB_PHOTO_UPLOAD_BYTES) {
-    return NextResponse.json({ error: 'Fotografie je prazdna nebo prilis velka.' }, { status: 400 })
+    return NextResponse.json({ error: 'Fotografie je prázdná nebo příliš velká.' }, { status: 400 })
   }
 
   if (!isSupportedJobPhotoMimeType(payload.mimeType)) {
-    return NextResponse.json({ error: 'Soubor musi byt fotografie JPG, PNG, WEBP, HEIC nebo HEIF.' }, { status: 400 })
+    return NextResponse.json({ error: 'Soubor musí být fotografie JPG, PNG, WEBP, HEIC nebo HEIF.' }, { status: 400 })
   }
 
   let jobExists = false
@@ -556,11 +556,11 @@ export async function PATCH(request: NextRequest) {
       errorName: getErrorName(error),
       errorCode: getErrorCode(error),
     })
-    return NextResponse.json({ error: 'Nepodarilo se overit zakazku.' }, { status: 500 })
+    return NextResponse.json({ error: 'Nepodařilo se ověřit zakázku.' }, { status: 500 })
   }
 
   if (!jobExists) {
-    return NextResponse.json({ error: 'Zakazka nebyla nalezena.' }, { status: 404 })
+    return NextResponse.json({ error: 'Zakázka nebyla nalezena.' }, { status: 404 })
   }
 
   const supabase = await createSupabaseServerClient()
@@ -619,7 +619,7 @@ export async function PATCH(request: NextRequest) {
       })
     }
 
-    return NextResponse.json({ error: 'Fotografie byla nahrana, ale metadata se nepodarilo ulozit.' }, { status: 500 })
+    return NextResponse.json({ error: 'Fotografie byla nahrána, ale metadata se nepodařilo uložit.' }, { status: 500 })
   }
 }
 
@@ -631,14 +631,14 @@ export async function DELETE(request: NextRequest) {
   }
 
   if (!hasJobPhotoAdminAccess(activeCompany)) {
-    return NextResponse.json({ error: 'Ke smazani fotky nema uzivatel opravneni.' }, { status: 403 })
+    return NextResponse.json({ error: 'Ke smazání fotky nemá uživatel oprávnění.' }, { status: 403 })
   }
 
   const payload = (await request.json().catch(() => null)) as { photoId?: unknown } | null
   const photoId = String(payload?.photoId ?? '').trim()
 
   if (!photoId) {
-    return NextResponse.json({ error: 'Chybi photoId.' }, { status: 400 })
+    return NextResponse.json({ error: 'Chybí photoId.' }, { status: 400 })
   }
 
   const supabase = await createSupabaseServerClient()
@@ -650,7 +650,7 @@ export async function DELETE(request: NextRequest) {
     .maybeSingle()
 
   if (photoError) {
-    return NextResponse.json({ error: `Nepodarilo se nacist fotku: ${photoError.message}` }, { status: 500 })
+    return NextResponse.json({ error: `Nepodařilo se načíst fotku: ${photoError.message}` }, { status: 500 })
   }
 
   if (!photo?.id) {
@@ -668,11 +668,11 @@ export async function DELETE(request: NextRequest) {
       errorName: getErrorName(error),
       errorCode: getErrorCode(error),
     })
-    return NextResponse.json({ error: 'Nepodarilo se overit zakazku.' }, { status: 500 })
+    return NextResponse.json({ error: 'Nepodařilo se ověřit zakázku.' }, { status: 500 })
   }
 
   if (!jobExists) {
-    return NextResponse.json({ error: 'Zakazka nebyla nalezena.' }, { status: 404 })
+    return NextResponse.json({ error: 'Zakázka nebyla nalezena.' }, { status: 404 })
   }
 
   const storagePaths = Array.from(
@@ -682,7 +682,7 @@ export async function DELETE(request: NextRequest) {
   if (storagePaths.length > 0) {
     const { error: storageError } = await supabase.storage.from(JOB_PHOTO_BUCKET).remove(storagePaths)
     if (storageError) {
-      return NextResponse.json({ error: `Nepodarilo se smazat soubor ze storage: ${storageError.message}` }, { status: 500 })
+      return NextResponse.json({ error: `Nepodařilo se smazat soubor ze storage: ${storageError.message}` }, { status: 500 })
     }
   }
 
@@ -693,7 +693,7 @@ export async function DELETE(request: NextRequest) {
     .eq('company_id', activeCompany.companyId)
 
   if (deleteError) {
-    return NextResponse.json({ error: `Nepodarilo se smazat metadata fotky: ${deleteError.message}` }, { status: 500 })
+    return NextResponse.json({ error: `Nepodařilo se smazat metadata fotky: ${deleteError.message}` }, { status: 500 })
   }
 
   return NextResponse.json({ ok: true, photoId: photo.id })

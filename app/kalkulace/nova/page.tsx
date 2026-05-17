@@ -39,15 +39,15 @@ export default async function NewCalculationStartPage() {
       >
         <SecondaryAction href="/kalkulace">Zpět na kalkulace</SecondaryAction>
 
-        <section style={heroCardStyle}>
+        <section data-tour="calculation-customer-choice" style={heroCardStyle}>
           <div style={heroContentStyle}>
             <div style={eyebrowStyle}>Nová kalkulace</div>
             <h1 style={heroTitleStyle}>Nová kalkulace</h1>
             <p style={heroTextStyle}>Nejdřív vyber zákazníka, pro kterého kalkulaci připravuješ.</p>
           </div>
           <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-            <PrimaryAction href="/customers/new?next=calculation">Nový zákazník</PrimaryAction>
-            <SecondaryAction href="/kalkulace/nova/bez-zakaznika">Vytvořit bez zákazníka</SecondaryAction>
+            <PrimaryAction href="/customers/new?next=calculation" dataTour="calculation-new-customer">Nový zákazník</PrimaryAction>
+            <SecondaryAction href="/kalkulace/nova/bez-zakaznika" dataTour="calculation-without-customer">Vytvořit bez zákazníka</SecondaryAction>
           </div>
         </section>
 
@@ -62,7 +62,7 @@ export default async function NewCalculationStartPage() {
             <PrimaryAction href="/customers/new?next=calculation">Nový zákazník</PrimaryAction>
           </div>
         ) : (
-          <section style={{ ...sectionCardStyle, display: 'grid', gap: '12px' }}>
+          <section data-tour="calculation-customer-list" style={{ ...sectionCardStyle, display: 'grid', gap: '12px' }}>
             <div>
               <h2 style={cardTitleStyle}>Zákazníci</h2>
               <p style={{ ...mutedTextStyle, margin: '6px 0 0' }}>Vyber, komu kalkulaci připravuješ.</p>

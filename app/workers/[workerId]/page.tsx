@@ -24,7 +24,6 @@ import {
   formatHours,
   getAdvanceRange,
   getEffectiveAssignmentHours,
-  getEffectiveAssignmentRate,
   getEffectiveShiftHours,
   getTodayMonthString,
   getWorkMonthRange,
@@ -32,6 +31,8 @@ import {
   isDateInRange,
   doesDateRangeOverlap,
   getWorkerName,
+  getEffectiveAssignmentRate,
+  getEffectiveAssignmentReward,
   isAdvanceRequestRepresentedByWorkerAdvance,
   isMissingWorkShiftAssignmentColumn,
   isValidMonthString,
@@ -65,7 +66,6 @@ import {
   heroCardStyle,
   heroTextStyle,
   heroTitleStyle,
-  metaGridStyle,
   metaItemStyle,
   metaLabelStyle,
   metaValueStyle,
@@ -317,6 +317,9 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
           profile_id,
           labor_hours,
           hourly_rate,
+          worker_type_snapshot,
+          assignment_billing_type,
+          external_amount,
           work_started_at,
           work_completed_at,
           jobs (
@@ -676,18 +679,28 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
   })
 
   const totalShiftHours = workShifts.reduce((sum, item) => sum + getEffectiveShiftHours(item), 0)
-  const defaultHourlyRate = Number(profile.default_hourly_rate ?? 0)
+  const defaultHourlyRate = Number(
+    isContractor
+      ? profile.contractor_default_rate ?? profile.default_hourly_rate ?? 0
+      : profile.default_hourly_rate ?? 0,
+  )
   const totalJobHours = jobAssignments.reduce((sum, item) => sum + getEffectiveAssignmentHours(item), 0)
   const totalStandaloneShiftHours = Math.max(0, totalShiftHours - totalJobHours)
-  const shiftReward = totalShiftHours * defaultHourlyRate
+  const assignmentRateByJobId = new Map<string, number>()
+  for (const assignment of jobAssignments) {
+    if (!assignment.job_id) continue
+    assignmentRateByJobId.set(assignment.job_id, getEffectiveAssignmentRate(assignment, defaultHourlyRate))
+  }
+  const shiftReward = workShifts.reduce((sum, shift) => {
+    const shiftRate = shift.job_id ? assignmentRateByJobId.get(shift.job_id) ?? defaultHourlyRate : defaultHourlyRate
+    return sum + getEffectiveShiftHours(shift) * shiftRate
+  }, 0)
   const customerCoveredReward = jobAssignments.reduce(
-    (sum, item) => sum + getEffectiveAssignmentHours(item) * getEffectiveAssignmentRate(item, defaultHourlyRate),
+    (sum, item) => sum + getEffectiveAssignmentReward(item, defaultHourlyRate, profile),
     0,
   )
   const companyCoveredReward = totalStandaloneShiftHours * defaultHourlyRate
-  const advancePaidInPeriod = isContractor
-    ? 0
-    : displayedWorkerAdvances.reduce((sum, item) => sum + Number(item.amount ?? 0), 0)
+  const advancePaidInPeriod = displayedWorkerAdvances.reduce((sum, item) => sum + Number(item.amount ?? 0), 0)
   const payrollItems = ((payrollItemsResponse.data ?? []) as unknown[]) as PayrollItemRow[]
   const payrollBonusTotal = payrollItems
     .filter((item) => item.item_type === 'bonus')
@@ -701,7 +714,7 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
   const payroll = calculateWorkerPayroll({
     worker: profile,
     jobReward: customerCoveredReward,
-    standaloneShiftReward: companyCoveredReward,
+    shiftReward,
     bonusTotal: payrollBonusTotal,
     mealTotal: payrollMealTotal,
     deductionTotal: payrollDeductionTotal,
@@ -848,10 +861,6 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
     }
 
     const profileForSettings = profileCheckResponse.data as ProfileRow
-    if (getWorkerType(profileForSettings) === 'contractor') {
-      redirect(targetUrl)
-    }
-
     const companyId = ((companyMemberResponse.data ?? []) as CompanyMemberRow[])[0]?.company_id ?? null
     const companySettingsResponse = companyId
       ? await supabase
@@ -1089,7 +1098,7 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
           {dictionary.workers.detail.backToWorkers}
         </SecondaryAction>
 
-        <section style={heroCardStyle}>
+        <section data-tour="worker-detail-header" style={heroCardStyle}>
           <div style={{ display: 'grid', gap: '16px', minWidth: 0, flex: '1 1 520px' }}>
             <div>
               <div style={eyebrowStyle}>Tým</div>
@@ -1159,6 +1168,7 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
           </div>
 
           <div
+            data-tour="worker-detail-payroll"
             style={{
               ...sectionCardStyle,
               flex: '0 1 320px',
@@ -1173,9 +1183,9 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
               {formatCurrency(totalRewardAfterAdvance)}
             </div>
             <div style={{ marginTop: '8px', color: '#64748b', fontSize: '14px' }}>
-              {isContractor
-                ? `Externí práce ${formatHours(totalJobHours)} h, zálohy se nepoužívají.`
-                : `Zakázky ${formatHours(totalJobHours)} h, směny mimo zakázky ${formatHours(totalStandaloneShiftHours)} h, zálohy ${formatCurrency(advancePaidInPeriod)}.`}
+              {payroll.baseSource === 'job'
+                ? `Úkolově podle zakázek ${formatCurrency(customerCoveredReward)}, evidované směny ${formatHours(totalShiftHours)} h, zálohy ${formatCurrency(advancePaidInPeriod)}.`
+                : `Směny ${formatHours(totalShiftHours)} h (${formatCurrency(shiftReward)}), zakázky ${formatHours(totalJobHours)} h jen pro rozpad nákladů, zálohy ${formatCurrency(advancePaidInPeriod)}.`}
             </div>
             <div
               style={{
@@ -1234,6 +1244,7 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
               workerId={workerId}
               workerName={getWorkerName(profile)}
               phone={profile.phone ?? null}
+              email={profile.email ?? null}
               locale={locale}
               framed={false}
               initialInvite={{
@@ -1248,183 +1259,7 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
           </div>
         </details>
 
-        <section
-          style={{
-            ...sectionCardStyle,
-            borderColor: 'rgba(248, 113, 113, 0.35)',
-            background: 'rgba(255, 247, 247, 0.92)',
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
-            <div style={{ maxWidth: '680px' }}>
-              <h2 style={{ ...cardTitleStyle, color: '#991b1b' }}>Smazat pracovníka</h2>
-              <p style={{ margin: '8px 0 0', color: '#7f1d1d', lineHeight: 1.5, fontSize: '14px' }}>
-                Pracovník se odebere z aktivního týmu a jeho čekající pozvánky se zruší. Historické směny,
-                zakázky a výplaty zůstanou zachované pro reporting.
-              </p>
-            </div>
-            <form action={deleteWorker} style={{ display: 'grid', gap: '10px', minWidth: '260px' }}>
-              <input type="hidden" name="profileId" value={workerId} />
-              <label
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  color: '#7f1d1d',
-                  fontSize: '13px',
-                  fontWeight: 800,
-                }}
-              >
-                <input type="checkbox" name="confirmDelete" required />
-                Opravdu smazat tohoto pracovníka
-              </label>
-              <button
-                type="submit"
-                style={{
-                  ...secondaryButtonStyle,
-                  width: '100%',
-                  borderColor: '#fecaca',
-                  backgroundColor: '#fee2e2',
-                  color: '#991b1b',
-                }}
-              >
-                Smazat pracovníka
-              </button>
-            </form>
-          </div>
-        </section>
-
-        <section style={sectionCardStyle}>
-          <h2 style={{ ...cardTitleStyle, marginBottom: '16px' }}>{dictionary.workers.detail.basicInfo}</h2>
-
-          <div
-            style={{
-              ...metaGridStyle,
-              marginTop: 0,
-            }}
-          >
-            <div style={metaItemStyle}>
-              <div style={metaLabelStyle}>{dictionary.workers.detail.name}</div>
-              <div style={metaValueStyle}>{getWorkerName(profile)}</div>
-            </div>
-
-            <div style={metaItemStyle}>
-              <div style={metaLabelStyle}>Typ pracovníka</div>
-              <div style={metaValueStyle}>{getWorkerTypeLabel(profile.worker_type)}</div>
-            </div>
-
-            <div style={{ ...metaItemStyle, gridColumn: 'span 2', minWidth: 0 }}>
-              <div style={metaLabelStyle}>{dictionary.workers.detail.email}</div>
-              <div style={{ ...metaValueStyle, overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{profile.email ?? '—'}</div>
-            </div>
-
-            <div style={metaItemStyle}>
-              <div style={metaLabelStyle}>Telefon</div>
-              <div style={metaValueStyle}>{profile.phone ?? '—'}</div>
-            </div>
-
-            <div style={metaItemStyle}>
-              <div style={metaLabelStyle}>Aktivace</div>
-              <div style={metaValueStyle}>{profile.activated_at ? formatDate(profile.activated_at) : '—'}</div>
-            </div>
-
-            <div style={metaItemStyle}>
-              <div style={metaLabelStyle}>{dictionary.workers.detail.defaultRate}</div>
-              <div style={metaValueStyle}>
-                {profile.default_hourly_rate ? formatCurrency(Number(profile.default_hourly_rate)) : '—'}
-              </div>
-            </div>
-
-            <div style={metaItemStyle}>
-              <div style={metaLabelStyle}>{dictionary.workers.detail.advancesForPayroll}</div>
-              <div style={metaValueStyle}>{formatCurrency(advancePaidInPeriod)}</div>
-            </div>
-
-            <div style={metaItemStyle}>
-              <div style={metaLabelStyle}>{dictionary.workers.detail.workMonth}</div>
-              <div style={metaValueStyle}>{workPeriodLabel}</div>
-            </div>
-
-            <div style={metaItemStyle}>
-              <div style={metaLabelStyle}>{dictionary.workers.detail.advancesPeriod}</div>
-              <div style={metaValueStyle}>{advancePeriodLabel}</div>
-            </div>
-
-            <div style={{ gridColumn: '1 / -1' }}>
-              <details
-                style={{
-                  ...metaItemStyle,
-                  color: '#64748b',
-                }}
-              >
-                <summary style={{ cursor: 'pointer', fontWeight: 850, color: '#475569' }}>
-                  Technické informace
-                </summary>
-                <div style={{ marginTop: '10px', wordBreak: 'break-all', fontSize: '13px' }}>
-                  {dictionary.workers.detail.profileId}: {profile.id}
-                </div>
-              </details>
-            </div>
-          </div>
-        </section>
-
-        <section style={sectionCardStyle}>
-          <h2 style={{ ...cardTitleStyle, marginBottom: '16px' }}>Výplatní nastavení</h2>
-
-          {isContractor ? (
-            <div style={{ display: 'grid', gap: '12px', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
-              <div style={{ ...metaItemStyle, gridColumn: '1 / -1' }}>
-                <div style={metaLabelStyle}>Režim</div>
-                <div style={metaValueStyle}>Tento pracovník je vedený jako externí / subdodavatel.</div>
-              </div>
-              <div style={metaItemStyle}>
-                <div style={metaLabelStyle}>Typ vyúčtování</div>
-                <div style={metaValueStyle}>{getContractorBillingTypeLabel(profile.contractor_billing_type)}</div>
-              </div>
-              <div style={metaItemStyle}>
-                <div style={metaLabelStyle}>Výchozí sazba / cena</div>
-                <div style={metaValueStyle}>
-                  {profile.contractor_default_rate != null ? formatCurrency(Number(profile.contractor_default_rate)) : '—'}
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div style={{ display: 'grid', gap: '12px', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
-              <div style={{ ...metaItemStyle, gridColumn: '1 / -1' }}>
-                <div style={metaLabelStyle}>Zdroj nastavení</div>
-                <div style={metaValueStyle}>{effectivePayrollSettings.label}</div>
-              </div>
-              <div style={metaItemStyle}>
-                <div style={metaLabelStyle}>Typ výplaty</div>
-                <div style={metaValueStyle}>{effectivePayrollSettings.payrollTypeLabel}</div>
-              </div>
-              <div style={metaItemStyle}>
-                <div style={metaLabelStyle}>Den výplaty</div>
-                <div style={metaValueStyle}>
-                  {effectivePayrollSettings.payrollDayOfMonth
-                    ? `${effectivePayrollSettings.payrollDayOfMonth}. den v měsíci`
-                    : effectivePayrollSettings.payrollWeekday
-                      ? `Den v týdnu: ${effectivePayrollSettings.payrollWeekday}`
-                      : '—'}
-                </div>
-              </div>
-              <div style={metaItemStyle}>
-                <div style={metaLabelStyle}>Zálohy</div>
-                <div style={metaValueStyle}>{effectivePayrollSettings.advancesAllowed ? 'Povoleny' : 'Nepovoleny'}</div>
-              </div>
-              <div style={metaItemStyle}>
-                <div style={metaLabelStyle}>Limit záloh</div>
-                <div style={metaValueStyle}>
-                  {effectivePayrollSettings.advanceLimitAmount != null
-                    ? formatCurrency(effectivePayrollSettings.advanceLimitAmount)
-                    : 'Bez limitu'}
-                </div>
-              </div>
-            </div>
-          )}
-        </section>
-
-        {!isContractor ? (
+        <div data-tour="worker-detail-summary">
           <WorkerSummaryStats
             totalJobHours={totalJobHours}
             totalOutsideJobHours={totalStandaloneShiftHours}
@@ -1437,10 +1272,9 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
             payrollDeductionTotal={payrollDeductionTotal}
             totalRewardAfterAdvance={totalRewardAfterAdvance}
           />
-        ) : null}
+        </div>
 
-        {!isContractor ? (
-          <section style={sectionCardStyle}>
+        <section data-tour="worker-detail-advances" style={sectionCardStyle}>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: '14px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '16px' }}>
               <h2 style={{ ...cardTitleStyle, margin: 0 }}>Žádosti o zálohy ({advancePeriodLabel})</h2>
               <Link href="/advance-requests" style={secondaryButtonStyle}>
@@ -1505,10 +1339,9 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
                 </table>
               </div>
             )}
-          </section>
-        ) : null}
+        </section>
 
-        <section style={sectionCardStyle}>
+        <section data-tour="worker-detail-absences" style={sectionCardStyle}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: '14px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '16px' }}>
             <h2 style={{ ...cardTitleStyle, margin: 0 }}>Žádosti o nepřítomnost ({workPeriodLabel})</h2>
             <Link href="/absences" style={secondaryButtonStyle}>
@@ -1571,7 +1404,7 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
           )}
         </section>
 
-        <section style={sectionCardStyle}>
+        <section data-tour="worker-detail-approved-absences" style={sectionCardStyle}>
           <h2 style={{ ...cardTitleStyle, marginBottom: '16px' }}>Schválené nepřítomnosti ({workPeriodLabel})</h2>
 
           {approvedAbsences.length === 0 ? (
@@ -1624,11 +1457,13 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
           )}
         </section>
 
+        <div data-tour="worker-detail-assignments">
         <WorkerAssignmentsSection
           workPeriodLabel={workPeriodLabel}
           jobAssignments={jobAssignments}
-          defaultRate={Number(profile.default_hourly_rate ?? 0)}
+          defaultRate={defaultHourlyRate}
         />
+        </div>
 
         <div style={{ marginBottom: '24px', display: 'none' }}>
           <h2 style={sectionTitleStyle}>
@@ -1680,7 +1515,7 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
           )}
         </div>
 
-        {!isContractor ? (
+        <div data-tour="worker-detail-advance-form">
           <WorkerAdvancesSection
             advancePeriodLabel={advancePeriodLabel}
             selectedMonth={selectedMonth}
@@ -1692,8 +1527,9 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
             createAdvanceAction={createWorkerAdvance}
             deleteAdvanceAction={deleteWorkerAdvance}
           />
-        ) : null}
+        </div>
 
+        <div data-tour="worker-detail-shifts">
         <WorkerShiftsSection
           workPeriodLabel={workPeriodLabel}
           workShifts={workShifts}
@@ -1703,8 +1539,124 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
           workerId={workerId}
           companyId={shiftCompanyId}
           selectedMonth={selectedMonth}
+          exportHref={`/api/workers/${workerId}/shifts/export?month=${selectedMonth}`}
           createShiftAction={createWorkerShift}
         />
+        </div>
+
+        <section style={sectionCardStyle}>
+          <h2 style={{ ...cardTitleStyle, marginBottom: '16px' }}>Výplatní nastavení</h2>
+
+          {isContractor ? (
+            <div style={{ display: 'grid', gap: '12px', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+              <div style={{ ...metaItemStyle, gridColumn: '1 / -1' }}>
+                <div style={metaLabelStyle}>Režim</div>
+                <div style={metaValueStyle}>Tento pracovník je vedený jako externí / subdodavatel.</div>
+              </div>
+              <div style={metaItemStyle}>
+                <div style={metaLabelStyle}>Typ vyúčtování</div>
+                <div style={metaValueStyle}>{getContractorBillingTypeLabel(profile.contractor_billing_type)}</div>
+              </div>
+              <div style={metaItemStyle}>
+                <div style={metaLabelStyle}>Výchozí sazba / cena</div>
+                <div style={metaValueStyle}>
+                  {profile.contractor_default_rate != null ? formatCurrency(Number(profile.contractor_default_rate)) : '—'}
+                </div>
+              </div>
+              <div style={metaItemStyle}>
+                <div style={metaLabelStyle}>Zálohy</div>
+                <div style={metaValueStyle}>{effectivePayrollSettings.advancesAllowed ? 'Povoleny' : 'Nepovoleny'}</div>
+              </div>
+              <div style={metaItemStyle}>
+                <div style={metaLabelStyle}>Limit záloh</div>
+                <div style={metaValueStyle}>
+                  {effectivePayrollSettings.advanceLimitAmount != null
+                    ? formatCurrency(effectivePayrollSettings.advanceLimitAmount)
+                    : 'Bez limitu'}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gap: '12px', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+              <div style={{ ...metaItemStyle, gridColumn: '1 / -1' }}>
+                <div style={metaLabelStyle}>Zdroj nastavení</div>
+                <div style={metaValueStyle}>{effectivePayrollSettings.label}</div>
+              </div>
+              <div style={metaItemStyle}>
+                <div style={metaLabelStyle}>Typ výplaty</div>
+                <div style={metaValueStyle}>{effectivePayrollSettings.payrollTypeLabel}</div>
+              </div>
+              <div style={metaItemStyle}>
+                <div style={metaLabelStyle}>Den výplaty</div>
+                <div style={metaValueStyle}>
+                  {effectivePayrollSettings.payrollDayOfMonth
+                    ? `${effectivePayrollSettings.payrollDayOfMonth}. den v měsíci`
+                    : effectivePayrollSettings.payrollWeekday
+                      ? `Den v týdnu: ${effectivePayrollSettings.payrollWeekday}`
+                      : '—'}
+                </div>
+              </div>
+              <div style={metaItemStyle}>
+                <div style={metaLabelStyle}>Zálohy</div>
+                <div style={metaValueStyle}>{effectivePayrollSettings.advancesAllowed ? 'Povoleny' : 'Nepovoleny'}</div>
+              </div>
+              <div style={metaItemStyle}>
+                <div style={metaLabelStyle}>Limit záloh</div>
+                <div style={metaValueStyle}>
+                  {effectivePayrollSettings.advanceLimitAmount != null
+                    ? formatCurrency(effectivePayrollSettings.advanceLimitAmount)
+                    : 'Bez limitu'}
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
+
+        <section
+          style={{
+            ...sectionCardStyle,
+            borderColor: 'rgba(248, 113, 113, 0.35)',
+            background: 'rgba(255, 247, 247, 0.92)',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
+            <div style={{ maxWidth: '680px' }}>
+              <h2 style={{ ...cardTitleStyle, color: '#991b1b' }}>Smazat pracovníka</h2>
+              <p style={{ margin: '8px 0 0', color: '#7f1d1d', lineHeight: 1.5, fontSize: '14px' }}>
+                Pracovník se odebere z aktivního týmu a jeho čekající pozvánky se zruší. Historické směny,
+                zakázky a výplaty zůstanou zachované pro reporting.
+              </p>
+            </div>
+            <form action={deleteWorker} style={{ display: 'grid', gap: '10px', minWidth: '260px' }}>
+              <input type="hidden" name="profileId" value={workerId} />
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  color: '#7f1d1d',
+                  fontSize: '13px',
+                  fontWeight: 800,
+                }}
+              >
+                <input type="checkbox" name="confirmDelete" required />
+                Opravdu smazat tohoto pracovníka
+              </label>
+              <button
+                type="submit"
+                style={{
+                  ...secondaryButtonStyle,
+                  width: '100%',
+                  borderColor: '#fecaca',
+                  backgroundColor: '#fee2e2',
+                  color: '#991b1b',
+                }}
+              >
+                Smazat pracovníka
+              </button>
+            </form>
+          </div>
+        </section>
       </main>
     </DashboardShell>
   )

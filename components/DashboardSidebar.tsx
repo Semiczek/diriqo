@@ -18,6 +18,7 @@ type SidebarItemKey =
   | 'kalkulace'
   | 'quotes'
   | 'invoices'
+  | 'costs'
   | 'help'
   | 'account'
   | 'companySettings'
@@ -77,6 +78,7 @@ export default function DashboardSidebar({
       title: dictionary.navigation.financeGroup,
       items: [
         { href: '/invoices', label: dictionary.navigation.invoices, key: 'invoices', icon: 'Kč', module: 'invoices' },
+        { href: '/costs', label: dictionary.navigation.costs, key: 'costs', icon: 'N', module: 'finance' },
         { href: '/kalkulace', label: dictionary.navigation.calculations, key: 'kalkulace', icon: 'Σ', module: 'quotes' },
         { href: '/cenove-nabidky', label: dictionary.navigation.quotes, key: 'quotes', icon: '%', module: 'quotes' },
       ],
@@ -85,7 +87,6 @@ export default function DashboardSidebar({
       title: dictionary.navigation.settingsGroup,
       items: [
         { href: '/settings/company', label: dictionary.navigation.companySettings, key: 'companySettings', icon: 'S' },
-        { href: '/billing', label: dictionary.navigation.billing, key: 'billing', icon: '$' },
         { href: '/?onboarding=open', label: dictionary.navigation.setupGuide, key: 'setupGuide', icon: 'OK' },
         { href: '/ucet', label: dictionary.navigation.account, key: 'account', icon: '?' },
       ],
@@ -93,7 +94,7 @@ export default function DashboardSidebar({
     {
       title: dictionary.navigation.supportGroup,
       items: [
-        { href: '/napoveda', label: dictionary.navigation.help, key: 'help', icon: '?' },
+        { href: '/help', label: dictionary.navigation.help, key: 'help', icon: '?' },
       ],
     },
   ]
@@ -133,10 +134,10 @@ export default function DashboardSidebar({
           <div
             style={{
               position: 'relative',
-              width: '138px',
+              width: '184px',
               maxWidth: '100%',
-              height: '48px',
-              marginBottom: '2px',
+              height: '64px',
+              marginBottom: '8px',
               display: 'flex',
               alignItems: 'center',
             }}
@@ -146,7 +147,7 @@ export default function DashboardSidebar({
               alt="Diriqo"
               fill
               priority
-              sizes="138px"
+              sizes="184px"
               style={{
                 objectFit: 'contain',
                 objectPosition: 'left center',
@@ -191,6 +192,7 @@ export default function DashboardSidebar({
                     key={item.href}
                     className={`dashboard-sidebar-link${isActive ? ' is-active' : ''}`}
                     href={item.href}
+                    data-tour={`nav-${item.key}`}
                     onClick={onNavigate}
                     style={{
                       display: 'flex',

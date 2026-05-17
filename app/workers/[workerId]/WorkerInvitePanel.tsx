@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import QRCode from 'qrcode'
 
@@ -28,6 +29,7 @@ type Props = {
   workerId: string
   workerName: string
   phone: string | null
+  email: string | null
   locale: string
   initialInvite: InviteState
   autoCreate?: boolean
@@ -43,18 +45,19 @@ function getStatusTone(status: string) {
 }
 
 function getStatusLabel(status: string) {
-  if (status === 'active') return 'Active'
-  if (status === 'expired') return 'Invite expired'
-  if (status === 'revoked') return 'Invite revoked'
-  if (status === 'disabled') return 'Disabled'
-  if (status === 'invited' || status === 'pending') return 'Invited'
-  return 'Not invited'
+  if (status === 'active') return 'Aktivní'
+  if (status === 'expired') return 'Pozvánka vypršela'
+  if (status === 'revoked') return 'Pozvánka zrušena'
+  if (status === 'disabled') return 'Vypnuto'
+  if (status === 'invited' || status === 'pending') return 'Pozvánka odeslána'
+  return 'Nepozván'
 }
 
 export default function WorkerInvitePanel({
   workerId,
   workerName,
   phone,
+  email,
   locale,
   initialInvite,
   autoCreate = false,
@@ -80,8 +83,9 @@ export default function WorkerInvitePanel({
 
   const inviteMessage = invite.inviteMessage ?? fallbackMessage
   const whatsappUrl = invite.whatsappUrl ?? fallbackWhatsappUrl
+  const hasContact = Boolean(phone || email)
 
-  const createInvite = useCallback(async (mode: 'create' | 'resend') => {
+  const createInvite = useCallback(async (mode: 'create' | 'resend', channel: 'whatsapp' | 'email') => {
     setBusy(true)
     setError(null)
     setNotice(null)
@@ -90,12 +94,12 @@ export default function WorkerInvitePanel({
       const response = await fetch('/api/worker-invites', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ workerId, mode }),
+        body: JSON.stringify({ workerId, mode, channel }),
       })
       const payload = await response.json()
 
       if (!response.ok) {
-        throw new Error(payload.error || 'Invite failed')
+        throw new Error(payload.error || 'Pozvánku se nepodařilo vytvořit.')
       }
 
       const nextInviteLink = typeof payload.inviteLink === 'string' ? payload.inviteLink : null
@@ -115,26 +119,26 @@ export default function WorkerInvitePanel({
         setQrDataUrl(null)
         setShowQr(false)
       }
-      setNotice(
-        mode === 'resend'
-          ? 'WhatsApp invite resent. Click Open WhatsApp to review and send the message.'
-          : 'WhatsApp invite created. Click Open WhatsApp to review and send the message.'
-      )
+      if (channel === 'email' && payload.emailSent) {
+        setNotice(`E-mailová pozvánka byla odeslána na ${payload.emailTo ?? email}.`)
+      } else {
+        setNotice('Pozvánka je připravená. WhatsApp se otevře s předvyplněnou zprávou.')
+      }
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Invite failed')
+      setError(caught instanceof Error ? caught.message : 'Pozvánku se nepodařilo vytvořit.')
     } finally {
       setBusy(false)
     }
-  }, [workerId])
+  }, [email, workerId])
 
   useEffect(() => {
-    if (!autoCreate || autoCreateStartedRef.current || invite.inviteLink || !phone) {
+    if (!autoCreate || autoCreateStartedRef.current || invite.inviteLink || !hasContact) {
       return
     }
 
     autoCreateStartedRef.current = true
-    void createInvite('create')
-  }, [autoCreate, createInvite, invite.inviteLink, phone])
+    void createInvite('create', phone ? 'whatsapp' : 'email')
+  }, [autoCreate, createInvite, hasContact, invite.inviteLink, phone])
 
   async function revokeInvite() {
     if (!invite.inviteId) return
@@ -149,13 +153,13 @@ export default function WorkerInvitePanel({
       const payload = await response.json()
 
       if (!response.ok) {
-        throw new Error(payload.error || 'Revoke failed')
+        throw new Error(payload.error || 'Pozvánku se nepodařilo zrušit.')
       }
 
       setInvite((current) => ({ ...current, status: 'revoked' }))
-      setNotice('Invite revoked.')
+      setNotice('Pozvánka byla zrušena.')
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Revoke failed')
+      setError(caught instanceof Error ? caught.message : 'Pozvánku se nepodařilo zrušit.')
     } finally {
       setBusy(false)
     }
@@ -164,7 +168,7 @@ export default function WorkerInvitePanel({
   async function copyValue(value: string | null, label: string) {
     if (!value) return
     await navigator.clipboard.writeText(value)
-    setNotice(`${label} copied.`)
+    setNotice(`${label} zkopírováno.`)
   }
 
   async function toggleQr() {
@@ -179,9 +183,9 @@ export default function WorkerInvitePanel({
     <section style={framed ? sectionCardStyle : undefined}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
         <div>
-          <h2 style={cardTitleStyle}>Invite worker</h2>
+          <h2 style={cardTitleStyle}>Pozvat pracovníka</h2>
           <p style={{ margin: '8px 0 0', color: '#64748b', lineHeight: 1.5 }}>
-            Create a WhatsApp invite link for this worker. WhatsApp opens with a prepared message; sending still needs one tap in WhatsApp.
+            Připravte pozvánku do aplikace přes WhatsApp, e-mail, QR kód nebo přímý odkaz.
           </p>
         </div>
         <StatusPill tone={getStatusTone(invite.status)}>{getStatusLabel(invite.status)}</StatusPill>
@@ -189,29 +193,33 @@ export default function WorkerInvitePanel({
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 10, marginTop: 14 }}>
         <div style={metaItemStyle}>
-          <div style={metaLabelStyle}>Worker</div>
+          <div style={metaLabelStyle}>Pracovník</div>
           <div style={metaValueStyle}>{workerName}</div>
         </div>
         <div style={metaItemStyle}>
-          <div style={metaLabelStyle}>Phone</div>
-          <div style={metaValueStyle}>{phone ?? '-'}</div>
+          <div style={metaLabelStyle}>Telefon</div>
+          <div style={metaValueStyle}>{phone ?? '—'}</div>
         </div>
         <div style={metaItemStyle}>
-          <div style={metaLabelStyle}>Invite expiry</div>
-          <div style={metaValueStyle}>{invite.expiresAt ? new Date(invite.expiresAt).toLocaleString() : '-'}</div>
+          <div style={metaLabelStyle}>E-mail</div>
+          <div style={{ ...metaValueStyle, overflowWrap: 'anywhere' }}>{email ?? '—'}</div>
+        </div>
+        <div style={metaItemStyle}>
+          <div style={metaLabelStyle}>Platnost pozvánky</div>
+          <div style={metaValueStyle}>{invite.expiresAt ? new Date(invite.expiresAt).toLocaleString('cs-CZ') : '—'}</div>
         </div>
       </div>
 
       {invite.inviteLink ? (
         <div style={{ ...metaItemStyle, marginTop: 10 }}>
-          <div style={metaLabelStyle}>Invite link</div>
+          <div style={metaLabelStyle}>Odkaz pozvánky</div>
           <div style={{ ...metaValueStyle, overflowWrap: 'anywhere' }}>{invite.inviteLink}</div>
         </div>
       ) : null}
 
       {inviteMessage ? (
         <div style={{ ...metaItemStyle, marginTop: 10 }}>
-          <div style={metaLabelStyle}>WhatsApp message preview</div>
+          <div style={metaLabelStyle}>Text pozvánky</div>
           <pre
             style={{
               margin: 0,
@@ -234,33 +242,36 @@ export default function WorkerInvitePanel({
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 14 }}>
         {whatsappUrl ? (
           <a href={whatsappUrl} target="_blank" rel="noreferrer" style={primaryButtonStyle}>
-            Open WhatsApp
+            Otevřít WhatsApp
           </a>
         ) : (
-          <button type="button" style={primaryButtonStyle} disabled={busy || !phone} onClick={() => createInvite('create')}>
-            Create WhatsApp invite
+          <button type="button" style={primaryButtonStyle} disabled={busy || !phone} onClick={() => createInvite('create', 'whatsapp')}>
+            Vytvořit WhatsApp pozvánku
           </button>
         )}
-        <button type="button" style={secondaryButtonStyle} disabled={busy || !inviteMessage} onClick={() => copyValue(inviteMessage, 'Message')}>
-          Copy WhatsApp message
+        <button type="button" style={secondaryButtonStyle} disabled={busy || !email} onClick={() => createInvite('resend', 'email')}>
+          Odeslat e-mailem
         </button>
-        <button type="button" style={secondaryButtonStyle} disabled={busy || !invite.inviteLink} onClick={() => copyValue(invite.inviteLink, 'Link')}>
-          Copy invite link
+        <button type="button" style={secondaryButtonStyle} disabled={busy || !inviteMessage} onClick={() => copyValue(inviteMessage, 'Text')}>
+          Zkopírovat text
+        </button>
+        <button type="button" style={secondaryButtonStyle} disabled={busy || !invite.inviteLink} onClick={() => copyValue(invite.inviteLink, 'Odkaz')}>
+          Zkopírovat odkaz
         </button>
         <button type="button" style={secondaryButtonStyle} disabled={busy || !invite.inviteLink} onClick={toggleQr}>
-          {showQr ? 'Hide QR' : 'Show QR'}
+          {showQr ? 'Skrýt QR' : 'Zobrazit QR'}
         </button>
-        <button type="button" style={secondaryButtonStyle} disabled={busy || !phone} onClick={() => createInvite('resend')}>
-          Resend invite
+        <button type="button" style={secondaryButtonStyle} disabled={busy || !hasContact} onClick={() => createInvite('resend', phone ? 'whatsapp' : 'email')}>
+          Obnovit pozvánku
         </button>
         <button type="button" style={secondaryButtonStyle} disabled={busy || !invite.inviteId || invite.status !== 'pending'} onClick={revokeInvite}>
-          Revoke invite
+          Zrušit pozvánku
         </button>
       </div>
 
       {showQr && qrDataUrl ? (
         <div style={{ marginTop: 16 }}>
-          <img src={qrDataUrl} alt="Worker invite QR code" width={220} height={220} />
+          <Image src={qrDataUrl} alt="QR kód pozvánky pracovníka" width={220} height={220} unoptimized />
         </div>
       ) : null}
     </section>

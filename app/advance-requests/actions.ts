@@ -99,7 +99,7 @@ export async function updateAdvanceRequestStatusAction(input: {
   }
 
   if ((status === 'approved' || status === 'paid') && amount <= 0) {
-    return { ok: false, error: 'Schvalena castka musi byt kladna.' }
+      return { ok: false, error: 'Schválená částka musí být kladná.' }
   }
 
   const supabase = await createSupabaseServerClient()

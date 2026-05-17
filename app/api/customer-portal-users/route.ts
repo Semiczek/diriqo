@@ -95,7 +95,7 @@ async function getPortalUserForContact(
 
   if (portalUsers.length > 1) {
     return {
-      error: 'Kontakt ma vice portalovych uctu. Nejdriv opravte nekonzistentni data.',
+      error: 'Kontakt má více portálových účtů. Nejdřív opravte nekonzistentní data.',
       status: 409 as const,
     }
   }
@@ -129,7 +129,7 @@ export async function POST(request: NextRequest) {
 
     if (!customerId || !contactId || !requestedEmail) {
       return NextResponse.json(
-        { error: 'Chybi customerId, contactId nebo e-mail.' },
+        { error: 'Chybí customerId, contactId nebo e-mail.' },
         { status: 400 }
       )
     }
@@ -175,7 +175,7 @@ export async function POST(request: NextRequest) {
 
       if (createAuthResponse.error || !createAuthResponse.data.user?.id) {
         return NextResponse.json(
-          { error: createAuthResponse.error?.message || 'Nepodarilo se vytvorit auth ucet.' },
+          { error: createAuthResponse.error?.message || 'Nepodařilo se vytvořit auth účet.' },
           { status: 400 }
         )
       }
@@ -204,7 +204,7 @@ export async function POST(request: NextRequest) {
           {
             error:
               insertPortalUserResponse.error?.message ||
-              'Nepodarilo se vytvorit zakaznicky portalovy ucet.',
+              'Nepodařilo se vytvořit zákaznický portálový účet.',
           },
           { status: 400 }
         )
@@ -219,7 +219,7 @@ export async function POST(request: NextRequest) {
           {
             error:
               authUserResponse.error?.message ||
-              'Portalovy auth ucet nebyl nalezen pro tento kontakt.',
+              'Portálový auth účet nebyl nalezen pro tento kontakt.',
           },
           { status: 409 }
         )
@@ -236,7 +236,7 @@ export async function POST(request: NextRequest) {
 
       if (updateUserResponse.error || !updateUserResponse.data.user) {
         return NextResponse.json(
-          { error: updateUserResponse.error?.message || 'Nepodarilo se aktualizovat auth ucet.' },
+          { error: updateUserResponse.error?.message || 'Nepodařilo se aktualizovat auth účet.' },
           { status: 400 }
         )
       }
@@ -261,7 +261,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
           {
             error:
-              updatePortalUserResponse.error.message || 'Nepodarilo se aktualizovat portalovy ucet.',
+              updatePortalUserResponse.error.message || 'Nepodařilo se aktualizovat portálový účet.',
           },
           { status: 400 }
         )
@@ -270,7 +270,7 @@ export async function POST(request: NextRequest) {
 
     if (!authUserId || !portalUser?.id) {
       return NextResponse.json(
-        { error: 'Portalovy ucet se nepodarilo jednoznacne navazat na kontakt.' },
+        { error: 'Portálový účet se nepodařilo jednoznačně navázat na kontakt.' },
         { status: 409 }
       )
     }
@@ -288,7 +288,7 @@ export async function POST(request: NextRequest) {
 
     if (!refreshedPortalUser || refreshedPortalUser.auth_user_id !== authUserId) {
       return NextResponse.json(
-        { error: 'Portalovy ucet uz neni navazany na ocekavany kontakt.' },
+        { error: 'Portálový účet už není navázaný na očekávaný kontakt.' },
         { status: 409 }
       )
     }
@@ -302,7 +302,7 @@ export async function POST(request: NextRequest) {
         {
           error:
             resetPasswordResponse.error.message ||
-            'Nepodarilo se odeslat e-mail pro nastaveni hesla.',
+            'Nepodařilo se odeslat e-mail pro nastavení hesla.',
         },
         { status: 400 }
       )
@@ -314,8 +314,8 @@ export async function POST(request: NextRequest) {
       portalUserId: refreshedPortalUser.id,
       authUserId,
       message: created
-        ? 'Portalovy pristup byl vytvoren a e-mail pro nastaveni hesla byl odeslan.'
-        : 'E-mail pro nastaveni nebo zmenu hesla byl znovu odeslan jen tomuto kontaktu.',
+        ? 'Portálový přístup byl vytvořen a e-mail pro nastavení hesla byl odeslán.'
+        : 'E-mail pro nastavení nebo změnu hesla byl znovu odeslán jen tomuto kontaktu.',
     })
   } catch (error) {
     return NextResponse.json(

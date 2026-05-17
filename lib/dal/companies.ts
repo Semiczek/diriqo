@@ -32,6 +32,6 @@ export async function assertProfileInCompany(ctx: DalContext, profileId: string)
     .maybeSingle()
 
   if (error || !data?.id) {
-    throw new TenantScopeError('Pracovnik nepatri do aktivni firmy.')
+  throw new TenantScopeError('Pracovník nepatří do aktivní firmy.')
   }
 }

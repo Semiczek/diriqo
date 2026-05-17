@@ -329,13 +329,13 @@ export default async function QuotesPage({ searchParams }: PageProps) {
   return (
     <DashboardShell activeItem="quotes">
       <main style={compactPageShellStyle}>
-        <section style={compactHeroCardStyle}>
+        <section data-tour="quotes-header" style={compactHeroCardStyle}>
           <div style={compactHeroContentStyle}>
             <div style={compactEyebrowStyle}>{dictionary.quotesOverview.eyebrow}</div>
             <h1 style={compactHeroTitleStyle}>{dictionary.quotesOverview.title}</h1>
             <p style={compactHeroTextStyle}>{dictionary.quotesOverview.subtitle}</p>
           </div>
-          <Link href="/kalkulace" style={compactPrimaryButtonStyle}>
+          <Link href="/kalkulace" data-tour="quote-from-calculation-button" style={compactPrimaryButtonStyle}>
             {dictionary.quotesOverview.createFromCalculation}
           </Link>
         </section>
@@ -367,6 +367,7 @@ export default async function QuotesPage({ searchParams }: PageProps) {
 
         <form
           method="get"
+          data-tour="quotes-filters"
           style={compactFilterCardStyle}
         >
           <label style={compactFieldLabelStyle}>
@@ -426,7 +427,7 @@ export default async function QuotesPage({ searchParams }: PageProps) {
             {dictionary.common.dataLoadFailed} {dictionary.common.technicalDetailConsole}
           </div>
         ) : normalizedQuotes.length === 0 ? (
-          <div style={compactEmptyStateStyle}>
+          <div data-tour="quotes-list" style={compactEmptyStateStyle}>
             <div style={{ fontSize: '24px', marginBottom: '6px' }}>%</div>
             <h2 style={{ margin: '0 0 6px', color: '#0f172a' }}>{dictionary.quotesOverview.empty}</h2>
             <p style={{ margin: '0 0 12px' }}>{dictionary.quotesOverview.emptyDescription}</p>
@@ -435,7 +436,7 @@ export default async function QuotesPage({ searchParams }: PageProps) {
             </Link>
           </div>
         ) : (
-          <div style={{ display: 'grid', gap: '10px' }}>
+          <div data-tour="quotes-list" style={{ display: 'grid', gap: '10px' }}>
             {normalizedQuotes.map((quote) => (
               <Link
                 key={quote.id}

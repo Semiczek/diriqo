@@ -26,7 +26,7 @@ export async function deleteCalculationAction(calculationId: string): Promise<De
     const id = String(calculationId ?? '').trim()
 
     if (!id) {
-      return { ok: false, error: 'Chybi ID kalkulace.' }
+    return { ok: false, error: 'Chybí ID kalkulace.' }
     }
 
     const calculationResponse = await supabase
@@ -49,7 +49,7 @@ export async function deleteCalculationAction(calculationId: string): Promise<De
       .eq('company_id', companyId)
 
     if (deleteResponse.error) {
-      return { ok: false, error: deleteResponse.error.message || 'Kalkulaci se nepodarilo smazat.' }
+    return { ok: false, error: deleteResponse.error.message || 'Kalkulaci se nepodařilo smazat.' }
     }
 
     revalidatePath('/kalkulace')
@@ -61,7 +61,7 @@ export async function deleteCalculationAction(calculationId: string): Promise<De
   } catch (error) {
     return {
       ok: false,
-      error: error instanceof Error ? error.message : 'Kalkulaci se nepodarilo smazat.',
+    error: error instanceof Error ? error.message : 'Kalkulaci se nepodařilo smazat.',
     }
   }
 }

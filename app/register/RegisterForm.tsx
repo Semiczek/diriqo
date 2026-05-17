@@ -47,13 +47,13 @@ export default function RegisterForm({ plan, interval }: RegisterFormProps) {
     })
 
     if (signUpError || !data.user) {
-      setError(signUpError?.message || 'Account could not be created.')
+      setError(signUpError?.message || 'Účet se nepodařilo vytvořit.')
       setLoading(false)
       return
     }
 
     if (!data.session) {
-      setNotice('Ucet byl vytvoren. Potvrd e-mail a potom se prihlas, onboarding si plan pamatuje v profilu.')
+      setNotice('Účet byl vytvořen. Potvrď e-mail a potom se přihlas, onboarding si plán pamatuje v profilu.')
       setLoading(false)
       return
     }
@@ -70,16 +70,16 @@ export default function RegisterForm({ plan, interval }: RegisterFormProps) {
         </div>
         <div>
           <p style={eyebrowStyle}>Registrace aplikace</p>
-          <h1 style={titleStyle}>Vytvor ucet firmy</h1>
+          <h1 style={titleStyle}>Vytvoř účet firmy</h1>
           <p style={textStyle}>
-            Trial vzdy zacina jako Starter na 7 dni bez karty. Pozadovany plan ulozime pro naslednou aktivaci:{' '}
+            Zkušební období vždy začíná jako Starter na 7 dní bez karty. Požadovaný plán uložíme pro následnou aktivaci:{' '}
             <strong>{intendedPlan}</strong> / <strong>{intendedInterval}</strong>.
           </p>
         </div>
 
         <form onSubmit={handleSubmit} style={formStyle}>
           <label style={fieldStyle}>
-            <span style={labelStyle}>Jmeno</span>
+            <span style={labelStyle}>Jméno</span>
             <input
               value={fullName}
               onChange={(event) => setFullName(event.target.value)}
@@ -118,7 +118,7 @@ export default function RegisterForm({ plan, interval }: RegisterFormProps) {
           {notice ? <div style={noticeStyle}>{notice}</div> : null}
 
           <button type="submit" disabled={loading} style={{ ...buttonStyle, opacity: loading ? 0.72 : 1 }}>
-            {loading ? 'Vytvarim ucet...' : 'Vytvorit ucet'}
+            {loading ? 'Vytvářím účet...' : 'Vytvořit účet'}
           </button>
         </form>
       </section>

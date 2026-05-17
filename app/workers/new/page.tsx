@@ -295,7 +295,7 @@ export default async function NewWorkerPage({
             </div>
           ) : null}
 
-          <form action={createWorker} className="worker-create-form">
+          <form action={createWorker} className="worker-create-form" data-tour="worker-create-form">
             <style>
               {`
                 .worker-create-form .contractor-only {
@@ -322,21 +322,21 @@ export default async function NewWorkerPage({
                 <label htmlFor="full_name" style={labelStyle}>
                   {t.fullName}
                 </label>
-                <input id="full_name" name="full_name" type="text" style={inputStyle} required />
+                <input id="full_name" name="full_name" type="text" data-tour="worker-name" style={inputStyle} required />
               </div>
 
               <div>
                 <label htmlFor="email" style={labelStyle}>
                   {t.loginEmail} (volitelné)
                 </label>
-                <input id="email" name="email" type="email" style={inputStyle} />
+                <input id="email" name="email" type="email" data-tour="worker-email" style={inputStyle} />
               </div>
 
               <div>
                 <label htmlFor="phone" style={labelStyle}>
                   Telefon pro WhatsApp pozvánku
                 </label>
-                <input id="phone" name="phone" type="tel" style={inputStyle} required placeholder="+420..." />
+                <input id="phone" name="phone" type="tel" data-tour="worker-phone" style={inputStyle} required placeholder="+420..." />
               </div>
 
               <div>
@@ -344,6 +344,7 @@ export default async function NewWorkerPage({
                   Typ pracovníka
                 </label>
                 <div
+                  data-tour="worker-type"
                   style={{
                     display: 'grid',
                     gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
@@ -414,6 +415,7 @@ export default async function NewWorkerPage({
                   name="default_hourly_rate"
                   type="number"
                   step="0.01"
+                  data-tour="worker-rate"
                   style={inputStyle}
                 />
               </div>
@@ -467,6 +469,7 @@ export default async function NewWorkerPage({
             >
               <button
                 type="submit"
+                data-tour="worker-save"
                 style={{
                   border: 'none',
                   borderRadius: '14px',

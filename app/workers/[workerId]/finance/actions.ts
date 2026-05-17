@@ -75,7 +75,7 @@ export async function createPayrollItemAction(input: {
     const amount = Number(input.amount)
 
     if (!workerId) {
-      return { ok: false, error: 'Chybi ID pracovnika.' }
+    return { ok: false, error: 'Chybí ID pracovníka.' }
     }
 
     if (!isValidPayrollMonth(payrollMonth)) {
@@ -83,16 +83,16 @@ export async function createPayrollItemAction(input: {
     }
 
     if (!isValidPayrollItemType(itemType)) {
-      return { ok: false, error: 'Vyberte platny typ polozky.' }
+    return { ok: false, error: 'Vyberte platný typ položky.' }
     }
 
     if (!Number.isFinite(amount) || amount < 0) {
-      return { ok: false, error: 'Castka musi byt nezaporne cislo.' }
+    return { ok: false, error: 'Částka musí být nezáporné číslo.' }
     }
 
     const workerAllowed = await verifyWorkerInCompany({ supabase, companyId, workerId })
     if (!workerAllowed) {
-      return { ok: false, error: 'Pracovnik nepatri do aktivni firmy.' }
+    return { ok: false, error: 'Pracovník nepatří do aktivní firmy.' }
     }
 
     const insertResponse = await supabase.from('payroll_items').insert({
@@ -104,7 +104,7 @@ export async function createPayrollItemAction(input: {
     })
 
     if (insertResponse.error) {
-      return { ok: false, error: insertResponse.error.message || 'Polozku se nepodarilo ulozit.' }
+    return { ok: false, error: insertResponse.error.message || 'Položku se nepodařilo uložit.' }
     }
 
     revalidatePath('/workers')
@@ -115,7 +115,7 @@ export async function createPayrollItemAction(input: {
   } catch (error) {
     return {
       ok: false,
-      error: error instanceof Error ? error.message : 'Polozku se nepodarilo ulozit.',
+    error: error instanceof Error ? error.message : 'Položku se nepodařilo uložit.',
     }
   }
 }
@@ -137,12 +137,12 @@ export async function deletePayrollItemAction(input: {
     const payrollItemId = cleanString(input.payrollItemId)
 
     if (!workerId || !payrollItemId) {
-      return { ok: false, error: 'Chybi ID polozky.' }
+    return { ok: false, error: 'Chybí ID položky.' }
     }
 
     const workerAllowed = await verifyWorkerInCompany({ supabase, companyId, workerId })
     if (!workerAllowed) {
-      return { ok: false, error: 'Pracovnik nepatri do aktivni firmy.' }
+    return { ok: false, error: 'Pracovník nepatří do aktivní firmy.' }
     }
 
     const deleteResponse = await supabase
@@ -152,7 +152,7 @@ export async function deletePayrollItemAction(input: {
       .eq('profile_id', workerId)
 
     if (deleteResponse.error) {
-      return { ok: false, error: deleteResponse.error.message || 'Polozku se nepodarilo smazat.' }
+    return { ok: false, error: deleteResponse.error.message || 'Položku se nepodařilo smazat.' }
     }
 
     revalidatePath('/workers')
@@ -163,7 +163,7 @@ export async function deletePayrollItemAction(input: {
   } catch (error) {
     return {
       ok: false,
-      error: error instanceof Error ? error.message : 'Polozku se nepodarilo smazat.',
+    error: error instanceof Error ? error.message : 'Položku se nepodařilo smazat.',
     }
   }
 }
@@ -191,20 +191,20 @@ export async function updateWorkerProfileAction(input: {
     }
 
     if (!workerId) {
-      return { ok: false, error: 'Chybi ID pracovnika.' }
+    return { ok: false, error: 'Chybí ID pracovníka.' }
     }
 
     if (!fullName) {
-      return { ok: false, error: 'Zadejte jmeno pracovnika.' }
+    return { ok: false, error: 'Zadejte jméno pracovníka.' }
     }
 
     if (parsedRate != null && !Number.isFinite(parsedRate)) {
-      return { ok: false, error: 'Sazba musi byt platne cislo.' }
+    return { ok: false, error: 'Sazba musí být platné číslo.' }
     }
 
     const workerAllowed = await verifyWorkerInCompany({ supabase, companyId, workerId })
     if (!workerAllowed) {
-      return { ok: false, error: 'Pracovnik nepatri do aktivni firmy.' }
+    return { ok: false, error: 'Pracovník nepatří do aktivní firmy.' }
     }
 
     const updateResponse = await supabase
@@ -217,7 +217,7 @@ export async function updateWorkerProfileAction(input: {
       .eq('id', workerId)
 
     if (updateResponse.error) {
-      return { ok: false, error: updateResponse.error.message || 'Pracovnika se nepodarilo ulozit.' }
+    return { ok: false, error: updateResponse.error.message || 'Pracovníka se nepodařilo uložit.' }
     }
 
     revalidatePath('/workers')
@@ -228,7 +228,7 @@ export async function updateWorkerProfileAction(input: {
   } catch (error) {
     return {
       ok: false,
-      error: error instanceof Error ? error.message : 'Pracovnika se nepodarilo ulozit.',
+    error: error instanceof Error ? error.message : 'Pracovníka se nepodařilo uložit.',
     }
   }
 }

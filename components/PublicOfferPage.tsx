@@ -303,7 +303,7 @@ export default function PublicOfferPage({
       setCtaModal(null)
       form.reset()
     } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : 'Reakci se nepodarilo ulozit.')
+      setSubmitError(error instanceof Error ? error.message : 'Reakci se nepodařilo uložit.')
     } finally {
       setSubmitLoading(false)
     }

@@ -1,14 +1,11 @@
 'use client'
 
-import { FormEvent, useState, useTransition } from 'react'
+import { type FormEvent, type ReactNode, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 
 import {
-  COMPANY_MODULE_KEYS,
-  getContractorCostModeLabel,
   getPayTypeLabel,
   type CompanyBillingSettings,
-  type CompanyModuleKey,
   type CompanyPayrollSettings,
   type CompanySettings,
 } from '@/lib/company-settings-shared'
@@ -19,11 +16,12 @@ import {
   getCompanyCountryConfig,
 } from '@/lib/company-country-config'
 import { COMPANY_TIME_ZONE_OPTIONS } from '@/lib/company-timezone'
+import { addOns, mainPlans, type PlanKey } from '@/lib/plans'
 import {
   updateCompanyBasicInfo,
   updateCompanyBillingSettings,
   updateCompanyJobSettings,
-  updateCompanyModules,
+  updateCompanyMemberRole,
   updateCompanyPayrollSettings,
   updateWorkerPaymentSettings,
   type SettingsActionResult,
@@ -77,16 +75,35 @@ type MemberRow = {
   paymentSettings?: WorkerPaymentRow | null
 }
 
+type SubscriptionStatus = 'trialing' | 'active' | 'past_due' | 'canceled' | 'expired' | 'incomplete'
+
+type SubscriptionView = {
+  id: string
+  company_id: string
+  plan_key: PlanKey
+  status: SubscriptionStatus
+  trial_started_at: string | null
+  trial_ends_at: string | null
+  stripe_customer_id: string | null
+  stripe_subscription_id: string | null
+  stripe_price_id: string | null
+  current_period_start: string | null
+  current_period_end: string | null
+  cancel_at_period_end: boolean
+  created_at: string
+  updated_at: string
+}
+
 type Props = {
   company: CompanyRow
   companySettings: CompanySettings
   payrollSettings: CompanyPayrollSettings
   billingSettings: CompanyBillingSettings
-  modules: Record<CompanyModuleKey, boolean>
+  subscription: SubscriptionView | null
   members: MemberRow[]
 }
 
-type TabKey = 'overview' | 'basic' | 'payroll' | 'jobs' | 'billing' | 'modules' | 'users'
+type TabKey = 'overview' | 'basic' | 'payroll' | 'jobs' | 'billing' | 'subscription' | 'users'
 
 const tabs: Array<{ key: TabKey; label: string; description: string }> = [
   { key: 'overview', label: 'Přehled', description: 'Stav nastavení firmy' },
@@ -94,24 +111,9 @@ const tabs: Array<{ key: TabKey; label: string; description: string }> = [
   { key: 'payroll', label: 'Pracovníci a výplaty', description: 'Sazby, zálohy, výjimky' },
   { key: 'jobs', label: 'Zakázky', description: 'Workflow a povinné podklady' },
   { key: 'billing', label: 'Fakturace', description: 'DPH, splatnost, banka' },
-  { key: 'modules', label: 'Moduly', description: 'Zapnuté části aplikace' },
+  { key: 'subscription', label: 'Předplatné', description: 'Plán, zkušební období, web balíček' },
   { key: 'users', label: 'Uživatelé', description: 'Členové a role firmy' },
 ]
-
-const moduleLabels: Record<CompanyModuleKey, string> = {
-  jobs: 'Zakázky',
-  workers: 'Pracovníci',
-  shifts: 'Směny',
-  finance: 'Finance',
-  calendar: 'Kalendář',
-  quotes: 'Nabídky',
-  invoices: 'Fakturace',
-  photos: 'Fotky',
-  customer_portal: 'Zákaznický portál',
-  public_leads: 'Poptávky z webu',
-  email: 'E-mail',
-  payroll: 'Výplaty',
-}
 
 const languageLabels: Record<string, string> = {
   cs: 'Čeština',
@@ -161,11 +163,12 @@ export default function CompanySettingsClient({
   companySettings,
   payrollSettings,
   billingSettings,
-  modules,
+  subscription,
   members,
 }: Props) {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<TabKey>('overview')
+  const [expandedWorkerId, setExpandedWorkerId] = useState<string | null>(null)
   const [message, setMessage] = useState<SettingsActionResult | null>(null)
   const [isPending, startTransition] = useTransition()
   const initialCountryCode = countryCodeFromCompany(company)
@@ -198,7 +201,7 @@ export default function CompanySettingsClient({
           <div style={eyebrowStyle}>SaaS nastavení</div>
           <h1 style={heroTitleStyle}>Nastavení společnosti</h1>
           <p style={mutedStyle}>
-            {company.name || 'Diriqo'} má tady základní firemní údaje, workflow, fakturaci a zapnuté moduly.
+            {company.name || 'Diriqo'} má tady základní firemní údaje, pracovníky, zakázky a výchozí údaje pro doklady.
           </p>
         </div>
         <div style={heroStatStyle}>
@@ -249,7 +252,8 @@ export default function CompanySettingsClient({
               companySettings={companySettings}
               payrollSettings={payrollSettings}
               billingSettings={billingSettings}
-              modules={modules}
+              subscription={subscription}
+              activeWorkersCount={members.filter((member) => member.isActive).length}
               onNavigate={setActiveTab}
             />
           ) : null}
@@ -303,7 +307,7 @@ export default function CompanySettingsClient({
                 <Field label="E-mail" name="email" defaultValue={company.email ?? ''} type="email" />
                 <Field label="Telefon" name="phone" defaultValue={company.phone ?? ''} />
                 <Field label="Web" name="web" defaultValue={company.web ?? ''} />
-                <Field label="Logo firmy (URL)" name="logo_url" defaultValue={company.logo_url ?? ''} wide />
+                <LogoField logoUrl={company.logo_url ?? null} />
                 <SelectField
                   label="Časové pásmo"
                   name="timezone"
@@ -327,7 +331,6 @@ export default function CompanySettingsClient({
                   <SelectField label="Výchozí typ pracovníka" name="default_worker_type" defaultValue={payrollSettings.default_worker_type} options={[['employee', 'Interní pracovník'], ['contractor', 'Externista / subdodavatel']]} />
                   <SelectField label="Typ výplaty" name="default_pay_type" defaultValue={payrollSettings.default_pay_type} options={[['after_shift', 'Po směně'], ['weekly', 'Týdně'], ['biweekly', 'Každých 14 dní'], ['monthly', 'Měsíčně']]} />
                   <Field label="Den výplaty v měsíci" name="payday_day" defaultValue={payrollSettings.payday_day ?? ''} type="number" />
-                  <Field label="Den výplaty v týdnu" name="payday_weekday" defaultValue={payrollSettings.payday_weekday ?? ''} type="number" />
                   <SelectField label="Limit zálohy" name="advance_limit_type" defaultValue={payrollSettings.advance_limit_type} options={[['monthly_amount', 'Měsíční částka'], ['percent_of_earned', 'Procento z vydělaného']]} />
                   <SelectField label="Frekvence záloh" name="advance_frequency" defaultValue={payrollSettings.advance_frequency} options={[['per_shift', 'Po směně'], ['weekly', 'Týdně'], ['biweekly', 'Každých 14 dní'], ['monthly', 'Měsíčně']]} />
                   <Field label="Maximální záloha" name="advance_limit_amount" defaultValue={payrollSettings.advance_limit_amount ?? ''} type="number" />
@@ -345,14 +348,33 @@ export default function CompanySettingsClient({
                   description="Ulož konkrétní sazbu, typ pracovníka nebo zálohy pro jednotlivé členy firmy."
                 />
                 <div style={contentStyle}>
-                  {members.map((member) => (
-                    <WorkerPaymentForm
-                      key={member.profileId ?? member.id}
-                      member={member}
-                      pending={isPending}
-                      onSubmit={submitWith(updateWorkerPaymentSettings)}
-                    />
-                  ))}
+                  {members.map((member) => {
+                    const workerKey = member.profileId ?? member.id ?? member.fullName
+                    const isExpanded = expandedWorkerId === workerKey
+
+                    return (
+                      <div key={workerKey} style={workerAccordionStyle}>
+                        <button
+                          type="button"
+                          style={workerAccordionButtonStyle}
+                          onClick={() => setExpandedWorkerId(isExpanded ? null : workerKey)}
+                        >
+                          <span>
+                            <strong>{member.fullName}</strong>
+                            <span style={workerMetaStyle}>{member.email ?? 'Bez e-mailu'} · {roleLabel(member.role)}</span>
+                          </span>
+                          <span style={pillStyle}>{isExpanded ? 'Skrýt' : 'Upravit'}</span>
+                        </button>
+                        {isExpanded ? (
+                          <WorkerPaymentForm
+                            member={member}
+                            pending={isPending}
+                            onSubmit={submitWith(updateWorkerPaymentSettings)}
+                          />
+                        ) : null}
+                      </div>
+                    )
+                  })}
                 </div>
               </section>
             </div>
@@ -375,9 +397,14 @@ export default function CompanySettingsClient({
 
           {activeTab === 'billing' ? (
             <form style={panelStyle} onSubmit={submitWith(updateCompanyBillingSettings)}>
-              <SectionHeader title="Fakturace" description="Výchozí splatnost, DPH a bankovní údaje pro nové faktury." />
+              <SectionHeader
+                title="Fakturace"
+                description="Tady nastavíš jen výchozí hodnoty pro nové faktury a cenové nabídky. Samotné faktury se dál vytvářejí v sekci Fakturace."
+              />
+              <InfoBox>
+                Prefix a další číslo určují číselnou řadu nových faktur. Splatnost se předvyplní do nové faktury, ale u konkrétní faktury ji můžeš změnit. Bankovní údaje se použijí pro platbu a QR kód.
+              </InfoBox>
               <div style={formGridStyle}>
-                <CheckboxField label="Používat fakturaci v systému" name="billing_enabled" defaultChecked={billingSettings.billing_enabled} />
                 <CheckboxField label="Plátce DPH" name="is_vat_payer" defaultChecked={billingSettings.is_vat_payer} />
                 <Field label="Výchozí sazba DPH" name="default_vat_rate" defaultValue={billingSettings.default_vat_rate} type="number" />
                 <Field label="Výchozí splatnost ve dnech" name="default_invoice_due_days" defaultValue={billingSettings.default_invoice_due_days} type="number" />
@@ -391,16 +418,13 @@ export default function CompanySettingsClient({
             </form>
           ) : null}
 
-          {activeTab === 'modules' ? (
-            <form style={panelStyle} onSubmit={submitWith(updateCompanyModules)}>
-              <SectionHeader title="Zapnuté moduly" description="Jednoduchý základ pro budoucí SaaS tarify a příplatkové funkce." />
-              <div style={moduleGridStyle}>
-                {COMPANY_MODULE_KEYS.map((moduleKey) => (
-                  <CheckboxField key={moduleKey} label={moduleLabels[moduleKey]} name={`module_${moduleKey}`} defaultChecked={modules[moduleKey]} />
-                ))}
-              </div>
-              <SubmitButton pending={isPending}>Uložit moduly</SubmitButton>
-            </form>
+          {activeTab === 'subscription' ? (
+            <SubscriptionPanel
+              subscription={subscription}
+              companyName={company.name || 'Diriqo'}
+              activeWorkersCount={members.filter((member) => member.isActive).length}
+              onMessage={setMessage}
+            />
           ) : null}
 
           {activeTab === 'users' ? (
@@ -408,13 +432,22 @@ export default function CompanySettingsClient({
               <SectionHeader title="Uživatelé" description="Přehled členů firmy a jejich rolí." />
               <div style={contentStyle}>
                 {members.map((member) => (
-                  <div key={member.profileId ?? member.id} style={userRowStyle}>
+                  <form key={member.profileId ?? member.id} style={userRowStyle} onSubmit={submitWith(updateCompanyMemberRole)}>
+                    <input type="hidden" name="member_id" value={member.id ?? ''} />
                     <div>
                       <strong>{member.fullName}</strong>
                       <div style={mutedStyle}>{member.email ?? 'Bez e-mailu'}</div>
                     </div>
-                    <span style={pillStyle}>{roleLabel(member.role)}</span>
-                  </div>
+                    <div style={userRoleControlsStyle}>
+                      <select name="role" defaultValue={member.role} style={compactSelectStyle}>
+                        {member.role === 'super_admin' ? <option value="super_admin">Super admin</option> : null}
+                        <option value="company_admin">Admin firmy</option>
+                        <option value="manager">Manažer</option>
+                        <option value="worker">Pracovník</option>
+                      </select>
+                      <SubmitButton pending={isPending} compact>Uložit roli</SubmitButton>
+                    </div>
+                  </form>
                 ))}
               </div>
             </section>
@@ -473,7 +506,6 @@ function WorkerPaymentForm({
         <SelectField label="Typ" name="worker_type" defaultValue={settings?.worker_type ?? 'employee'} options={[['employee', 'Interní'], ['contractor', 'Externista']]} />
         <SelectField label="Výplata" name="pay_type_override" defaultValue={settings?.pay_type_override ?? ''} options={[['', 'Firemní nastavení'], ['after_shift', 'Po směně'], ['weekly', 'Týdně'], ['biweekly', 'Každých 14 dní'], ['monthly', 'Měsíčně']]} />
         <Field label="Den v měsíci" name="payday_day_override" defaultValue={settings?.payday_day_override ?? ''} type="number" />
-        <Field label="Den v týdnu" name="payday_weekday_override" defaultValue={settings?.payday_weekday_override ?? ''} type="number" />
         <Field label="Sazba Kč/h" name="hourly_rate" defaultValue={settings?.hourly_rate ?? ''} type="number" />
         <Field label="Fix za zakázku" name="fixed_rate_per_job" defaultValue={settings?.fixed_rate_per_job ?? ''} type="number" />
         <SelectField label="Zálohy" name="advances_enabled_override_mode" defaultValue={advancesMode} options={[['inherit', 'Firemní nastavení'], ['enabled', 'Povolit'], ['disabled', 'Zakázat']]} />
@@ -493,28 +525,246 @@ function Overview({
   companySettings,
   payrollSettings,
   billingSettings,
-  modules,
+  subscription,
+  activeWorkersCount,
   onNavigate,
 }: {
   company: CompanyRow
   companySettings: CompanySettings
   payrollSettings: CompanyPayrollSettings
   billingSettings: CompanyBillingSettings
-  modules: Record<CompanyModuleKey, boolean>
+  subscription: SubscriptionView | null
+  activeWorkersCount: number
   onNavigate: (tab: TabKey) => void
 }) {
-  const enabledModules = COMPANY_MODULE_KEYS.filter((key) => modules[key]).length
+  const plan = getDisplayPlan(subscription?.plan_key)
 
   return (
     <section style={panelStyle}>
       <SectionHeader title="Přehled nastavení" description="Rychlá kontrola toho, jak je firma nastavená." />
       <div style={overviewGridStyle}>
         <SummaryCard label="Firma" value={company.name || 'Diriqo'} detail={company.email || 'E-mail není nastavený'} onClick={() => onNavigate('basic')} />
+        <SummaryCard label="Pracovníci" value={`${activeWorkersCount}`} detail="Aktivní členové firmy" onClick={() => onNavigate('users')} />
+        <SummaryCard label="Předplatné" value={plan.name} detail={subscriptionStatusText(subscription)} onClick={() => onNavigate('subscription')} />
         <SummaryCard label="Výplaty" value={getPayTypeLabel(payrollSettings.default_pay_type)} detail={`Výchozí sazba ${payrollSettings.default_hourly_rate ?? 0} Kč/h`} onClick={() => onNavigate('payroll')} />
         <SummaryCard label="Zakázky" value={companySettings.default_job_status_after_worker_done === 'done' ? 'Rovnou hotovo' : 'Čeká na kontrolu'} detail={companySettings.require_work_time_tracking ? 'Čas práce je povinný' : 'Čas práce je volitelný'} onClick={() => onNavigate('jobs')} />
-        <SummaryCard label="Fakturace" value={billingSettings.billing_enabled ? 'Zapnutá' : 'Vypnutá'} detail={`Splatnost ${billingSettings.default_invoice_due_days} dnů`} onClick={() => onNavigate('billing')} />
-        <SummaryCard label="Moduly" value={`${enabledModules}/${COMPANY_MODULE_KEYS.length}`} detail={getContractorCostModeLabel(payrollSettings.default_contractor_cost_mode)} onClick={() => onNavigate('modules')} />
+        <SummaryCard label="Doklady" value={`${billingSettings.default_invoice_due_days} dnů`} detail={`Prefix faktur ${billingSettings.invoice_prefix}`} onClick={() => onNavigate('billing')} />
       </div>
+    </section>
+  )
+}
+
+function getDisplayPlan(planKey: PlanKey | null | undefined) {
+  return mainPlans.find((plan) => plan.key === planKey) ?? mainPlans[0]
+}
+
+function formatDate(value: string | null | undefined) {
+  if (!value) return 'Není nastaveno'
+  return new Intl.DateTimeFormat('cs-CZ', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(value))
+}
+
+function getTrialDaysLeft(subscription: SubscriptionView | null) {
+  if (!subscription || subscription.status !== 'trialing' || !subscription.trial_ends_at) return 0
+  const diff = new Date(subscription.trial_ends_at).getTime() - Date.now()
+  return Math.max(0, Math.ceil(diff / (24 * 60 * 60 * 1000)))
+}
+
+function subscriptionStatusText(subscription: SubscriptionView | null) {
+  if (!subscription) return 'Zkušební období zatím není založené'
+  if (subscription.status === 'trialing') return `Zkušební období: ${getTrialDaysLeft(subscription)} dní zbývá`
+  if (subscription.status === 'active') return 'Aktivní předplatné'
+  if (subscription.status === 'past_due') return 'Platba po splatnosti'
+  if (subscription.status === 'canceled') return 'Zrušeno'
+  if (subscription.status === 'expired') return 'Neaktivní'
+  return 'Nedokončená platba'
+}
+
+function subscriptionStatusLabel(status: SubscriptionStatus | null | undefined) {
+  if (status === 'trialing') return 'Zkušební období'
+  if (status === 'active') return 'Aktivní'
+  if (status === 'past_due') return 'Po splatnosti'
+  if (status === 'canceled') return 'Zrušeno'
+  if (status === 'expired') return 'Neaktivní'
+  if (status === 'incomplete') return 'Nedokončené'
+  return 'Nenastaveno'
+}
+
+function formatMonthlyPrice(price: number | null) {
+  return price === null ? 'Individuálně' : `${price.toLocaleString('cs-CZ')} € / měsíc`
+}
+
+function formatWorkerLimit(limit: number | null) {
+  return limit === null ? 'Bez pevného limitu' : `${limit} pracovníků`
+}
+
+function formatSetupPrice(price: number | null) {
+  return price === null ? 'Cena podle domluvy' : `+${price.toLocaleString('cs-CZ')} € jednorázově`
+}
+
+function SubscriptionPanel({
+  subscription,
+  companyName,
+  activeWorkersCount,
+  onMessage,
+}: {
+  subscription: SubscriptionView | null
+  companyName: string
+  activeWorkersCount: number
+  onMessage: (result: SettingsActionResult | null) => void
+}) {
+  const [billingPending, setBillingPending] = useState<string | null>(null)
+  const currentPlan = getDisplayPlan(subscription?.plan_key)
+  const trialDaysLeft = getTrialDaysLeft(subscription)
+  const websiteAddOn = addOns.find((plan) => plan.key === 'website_addon')
+
+  async function startCheckout(planKey: PlanKey) {
+    setBillingPending(planKey)
+    onMessage(null)
+
+    try {
+      const response = await fetch('/api/stripe/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan_key: planKey }),
+      })
+      const payload = (await response.json().catch(() => ({}))) as { url?: string; error?: string }
+
+      if (!response.ok || !payload.url) {
+        onMessage({ ok: false, message: payload.error ?? 'Nepodařilo se otevřít Stripe Checkout.' })
+        return
+      }
+
+      window.location.href = payload.url
+    } finally {
+      setBillingPending(null)
+    }
+  }
+
+  async function openCustomerPortal() {
+    setBillingPending('portal')
+    onMessage(null)
+
+    try {
+      const response = await fetch('/api/stripe/create-portal-session', { method: 'POST' })
+      const payload = (await response.json().catch(() => ({}))) as { url?: string; error?: string }
+
+      if (!response.ok || !payload.url) {
+        onMessage({ ok: false, message: payload.error ?? 'Nepodařilo se otevřít správu předplatného.' })
+        return
+      }
+
+      window.location.href = payload.url
+    } finally {
+      setBillingPending(null)
+    }
+  }
+
+  const addOnSubject = encodeURIComponent(`Objednávka web balíčku - ${companyName}`)
+  const addOnBody = encodeURIComponent(
+    `Dobrý den,\n\nchci objednat web balíček pro ${companyName}:\n- web napojený na poptávky\n- poptávky v Diriqo\n- zákaznický přístup\n\nProsím o domluvu dalšího kroku.`,
+  )
+
+  return (
+    <section style={panelStyle}>
+      <SectionHeader
+        title="Předplatné"
+        description="Tady vidíš aktuální plán, zkušební období, další platbu a doplňkový web balíček."
+      />
+
+      <div style={subscriptionHeroStyle}>
+        <div>
+          <span style={labelStyle}>Aktuální plán</span>
+          <strong style={subscriptionPlanStyle}>{currentPlan.name}</strong>
+          <span style={summaryDetailStyle}>{formatMonthlyPrice(currentPlan.priceMonthly)} · {formatWorkerLimit(currentPlan.workerLimit)}</span>
+        </div>
+        <div style={subscriptionStatusCardStyle}>
+          <span style={labelStyle}>Stav</span>
+          <strong style={subscriptionStatusValueStyle}>{subscriptionStatusLabel(subscription?.status)}</strong>
+          <span style={summaryDetailStyle}>{subscriptionStatusText(subscription)}</span>
+        </div>
+      </div>
+
+      <div style={overviewGridStyle}>
+        <div style={metricCardStyle}>
+          <span style={labelStyle}>Zkušební období</span>
+          <strong style={summaryValueStyle}>{subscription?.status === 'trialing' ? `${trialDaysLeft} dní` : 'Hotovo'}</strong>
+          <span style={summaryDetailStyle}>Končí {formatDate(subscription?.trial_ends_at)}</span>
+        </div>
+        <div style={metricCardStyle}>
+          <span style={labelStyle}>Další prodloužení</span>
+          <strong style={summaryValueStyle}>{formatDate(subscription?.current_period_end)}</strong>
+          <span style={summaryDetailStyle}>{subscription?.cancel_at_period_end ? 'Předplatné se na konci období zruší' : 'Podle aktivního Stripe předplatného'}</span>
+        </div>
+        <div style={metricCardStyle}>
+          <span style={labelStyle}>Pracovníci</span>
+          <strong style={summaryValueStyle}>{activeWorkersCount} / {currentPlan.workerLimit ?? '∞'}</strong>
+          <span style={summaryDetailStyle}>Aktivní členové vůči limitu plánu</span>
+        </div>
+      </div>
+
+      {subscription?.stripe_customer_id ? (
+        <button type="button" style={secondaryButtonStyle} disabled={billingPending === 'portal'} onClick={openCustomerPortal}>
+          {billingPending === 'portal' ? 'Otevírám...' : 'Spravovat předplatné'}
+        </button>
+      ) : null}
+
+      <div style={subscriptionSectionStyle}>
+        <SectionHeader title="Plány" description="Vyber plán podle velikosti týmu. Growth je doporučený pro většinu rostoucích firem." />
+        <div style={planGridStyle}>
+          {mainPlans.map((plan) => {
+            const isCurrent = plan.key === currentPlan.key
+            const canCheckout = plan.key !== 'custom'
+
+            return (
+              <article key={plan.key} style={plan.recommended ? recommendedPlanCardStyle : planCardStyle}>
+                <div style={planCardHeaderStyle}>
+                  <h3 style={planTitleStyle}>{plan.name}</h3>
+                  {plan.recommended ? <span style={badgeStyle}>Doporučené</span> : null}
+                </div>
+                <strong style={priceStyle}>{formatMonthlyPrice(plan.priceMonthly)}</strong>
+                <span style={summaryDetailStyle}>{formatWorkerLimit(plan.workerLimit)}</span>
+                {canCheckout ? (
+                  <button
+                    type="button"
+                    style={isCurrent ? secondaryButtonStyle : primaryButtonStyle}
+                    disabled={isCurrent || billingPending === plan.key}
+                    onClick={() => startCheckout(plan.key)}
+                  >
+                    {isCurrent ? 'Aktuální plán' : billingPending === plan.key ? 'Připravuji...' : 'Přejít na plán'}
+                  </button>
+                ) : (
+                  <a style={secondaryLinkButtonStyle} href={`mailto:support@diriqo.com?subject=${encodeURIComponent('Individuální plán Diriqo')}`}>
+                    Domluvit individuální plán
+                  </a>
+                )}
+              </article>
+            )
+          })}
+        </div>
+      </div>
+
+      {websiteAddOn ? (
+        <div style={addOnPanelStyle}>
+          <div>
+            <span style={badgeStyle}>Volitelný balíček</span>
+            <h3 style={addOnTitleStyle}>{websiteAddOn.name}</h3>
+            <p style={mutedStyle}>
+              Web propojený na poptávky, ukládání poptávek do Diriqo a zákaznický přístup pro klienty.
+            </p>
+            <ul style={addOnListStyle}>
+              <li>Veřejná poptávka napojená na Diriqo</li>
+              <li>Zákaznický portál pro nabídky, zakázky a komunikaci</li>
+              <li>Jednoduchý webový vstup pro nové zákazníky</li>
+            </ul>
+          </div>
+          <div style={addOnAsideStyle}>
+            <strong style={priceStyle}>{formatSetupPrice(websiteAddOn.setupPrice)}</strong>
+            <a style={primaryLinkButtonStyle} href={`mailto:support@diriqo.com?subject=${addOnSubject}&body=${addOnBody}`}>
+              Objednat web balíček
+            </a>
+          </div>
+        </div>
+      ) : null}
     </section>
   )
 }
@@ -608,12 +858,41 @@ function CheckboxField({ label, name, defaultChecked }: { label: string; name: s
   )
 }
 
+function LogoField({ logoUrl }: { logoUrl: string | null }) {
+  return (
+    <div style={{ ...fieldStyle, gridColumn: '1 / -1' }}>
+      <span style={labelStyle}>Logo firmy</span>
+      <div style={logoUploadStyle}>
+        {logoUrl ? (
+          <div style={logoPreviewStyle}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={logoUrl} alt="Logo firmy" style={logoImageStyle} />
+          </div>
+        ) : (
+          <div style={logoPlaceholderStyle}>Bez loga</div>
+        )}
+        <div style={{ display: 'grid', gap: '10px', minWidth: 0 }}>
+          <input name="logo_file" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" style={inputStyle} />
+          <input name="logo_url" type="url" defaultValue={logoUrl ?? ''} placeholder="Nebo vlož URL loga" style={inputStyle} />
+          <span style={mutedStyle}>
+            Logo se uloží k firmě a nové cenové nabídky ho už umí zobrazit. U nových faktur se uloží do údajů dodavatele pro další použití.
+          </span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function SubmitButton({ children, pending, compact = false }: { children: string; pending: boolean; compact?: boolean }) {
   return (
     <button type="submit" disabled={pending} style={{ ...primaryButtonStyle, marginTop: compact ? 0 : '18px' }}>
       {pending ? 'Ukládám...' : children}
     </button>
   )
+}
+
+function InfoBox({ children }: { children: ReactNode }) {
+  return <p style={infoBoxStyle}>{children}</p>
 }
 
 function SummaryCard({ label, value, detail, onClick }: { label: string; value: string; detail: string; onClick: () => void }) {
@@ -633,39 +912,39 @@ function roleLabel(role: string) {
   return 'Pracovník'
 }
 
-const pageStyle = { display: 'grid', gap: '20px' } as const
+const pageStyle = { display: 'grid', gap: '12px' } as const
 const contentStyle = { display: 'grid', gap: '16px', minWidth: 0 } as const
 
 const panelStyle = {
-  borderRadius: '24px',
+  borderRadius: '20px',
   border: '1px solid rgba(203, 213, 225, 0.76)',
   background: '#ffffff',
-  boxShadow: '0 18px 48px rgba(15, 23, 42, 0.08)',
-  padding: '24px',
+  boxShadow: '0 12px 32px rgba(15, 23, 42, 0.065)',
+  padding: '18px 20px',
 } as const
 
 const heroStyle = {
   display: 'flex',
   justifyContent: 'space-between',
-  alignItems: 'stretch',
-  gap: '18px',
+  alignItems: 'center',
+  gap: '14px',
   background: 'linear-gradient(135deg, rgba(124,58,237,0.08), rgba(6,182,212,0.10) 62%, #ffffff)',
 } as const
 
 const heroTitleStyle = {
-  margin: '8px 0',
-  fontSize: 'clamp(32px, 4vw, 54px)',
-  lineHeight: 1,
+  margin: '7px 0 0',
+  fontSize: '32px',
+  lineHeight: 1.08,
   color: '#0f172a',
 } as const
 
 const heroStatStyle = {
-  borderRadius: '22px',
+  borderRadius: '14px',
   border: '1px solid rgba(203, 213, 225, 0.78)',
   background: 'rgba(255,255,255,0.76)',
-  padding: '22px',
-  minWidth: '260px',
-  boxShadow: '0 16px 36px rgba(15, 23, 42, 0.08)',
+  padding: '9px 11px',
+  minWidth: '220px',
+  boxShadow: '0 8px 18px rgba(15, 23, 42, 0.045)',
 } as const
 
 const heroStatValueStyle = { display: 'block', marginTop: '8px', fontSize: '24px', color: '#0f172a' } as const
@@ -733,12 +1012,6 @@ const miniGridStyle = {
   gap: '10px',
 } as const
 
-const moduleGridStyle = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-  gap: '12px',
-} as const
-
 const overviewGridStyle = {
   display: 'grid',
   gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
@@ -758,6 +1031,12 @@ const inputStyle = {
   color: '#0f172a',
   fontSize: '16px',
   fontWeight: 700,
+} as const
+
+const compactSelectStyle = {
+  ...inputStyle,
+  minHeight: '40px',
+  fontSize: '14px',
 } as const
 
 const checkboxStyle = {
@@ -800,26 +1079,259 @@ const summaryCardStyle = {
 const summaryValueStyle = { display: 'block', marginTop: '9px', fontSize: '26px', color: '#0f172a' } as const
 const summaryDetailStyle = { display: 'block', marginTop: '8px', color: '#64748b', fontWeight: 700 } as const
 
+const metricCardStyle = {
+  ...summaryCardStyle,
+  cursor: 'default',
+} as const
+
+const subscriptionHeroStyle = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+  gap: '14px',
+  alignItems: 'stretch',
+  borderRadius: '20px',
+  border: '1px solid rgba(37, 99, 235, 0.14)',
+  background: 'linear-gradient(135deg, rgba(124,58,237,0.08), rgba(6,182,212,0.10), #ffffff)',
+  padding: '18px',
+  marginBottom: '14px',
+} as const
+
+const subscriptionPlanStyle = {
+  display: 'block',
+  marginTop: '8px',
+  color: '#0f172a',
+  fontSize: '34px',
+  lineHeight: 1.05,
+} as const
+
+const subscriptionStatusCardStyle = {
+  borderRadius: '18px',
+  border: '1px solid rgba(203, 213, 225, 0.78)',
+  background: 'rgba(255,255,255,0.78)',
+  padding: '16px',
+} as const
+
+const subscriptionStatusValueStyle = {
+  display: 'block',
+  marginTop: '8px',
+  color: '#0f172a',
+  fontSize: '24px',
+} as const
+
+const subscriptionSectionStyle = {
+  display: 'grid',
+  gap: '12px',
+  marginTop: '18px',
+} as const
+
+const planGridStyle = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(205px, 1fr))',
+  gap: '12px',
+} as const
+
+const planCardStyle = {
+  display: 'grid',
+  gap: '12px',
+  alignContent: 'start',
+  borderRadius: '18px',
+  border: '1px solid #dbe4ef',
+  background: '#ffffff',
+  padding: '16px',
+} as const
+
+const recommendedPlanCardStyle = {
+  ...planCardStyle,
+  borderColor: '#93c5fd',
+  boxShadow: '0 16px 34px rgba(37, 99, 235, 0.12)',
+} as const
+
+const planCardHeaderStyle = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: '10px',
+} as const
+
+const planTitleStyle = { margin: 0, color: '#0f172a', fontSize: '20px' } as const
+const priceStyle = { marginTop: '2px', color: '#0f172a', fontSize: '24px', fontWeight: 950 } as const
+
+const secondaryButtonStyle = {
+  minHeight: '46px',
+  borderRadius: '999px',
+  border: '1px solid #bfdbfe',
+  background: '#ffffff',
+  color: '#1d4ed8',
+  padding: '0 18px',
+  fontSize: '15px',
+  fontWeight: 950,
+  cursor: 'pointer',
+} as const
+
+const primaryLinkButtonStyle = {
+  ...primaryButtonStyle,
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  textDecoration: 'none',
+} as const
+
+const secondaryLinkButtonStyle = {
+  ...secondaryButtonStyle,
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  textDecoration: 'none',
+} as const
+
+const badgeStyle = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  minHeight: '26px',
+  borderRadius: '999px',
+  border: '1px solid #bfdbfe',
+  background: '#eff6ff',
+  color: '#1d4ed8',
+  padding: '3px 9px',
+  fontSize: '12px',
+  fontWeight: 950,
+  whiteSpace: 'nowrap',
+} as const
+
+const addOnPanelStyle = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+  gap: '18px',
+  alignItems: 'center',
+  marginTop: '18px',
+  borderRadius: '20px',
+  border: '1px solid rgba(6, 182, 212, 0.22)',
+  background: 'linear-gradient(135deg, #ffffff, rgba(6,182,212,0.08))',
+  padding: '18px',
+} as const
+
+const addOnTitleStyle = { margin: '12px 0 0', color: '#0f172a', fontSize: '26px', lineHeight: 1.1 } as const
+
+const addOnListStyle = {
+  margin: '12px 0 0',
+  paddingLeft: '20px',
+  color: '#475569',
+  fontWeight: 750,
+  lineHeight: 1.55,
+} as const
+
+const addOnAsideStyle = {
+  display: 'grid',
+  gap: '12px',
+  justifyItems: 'start',
+} as const
+
+const infoBoxStyle = {
+  margin: '0 0 16px',
+  borderRadius: '16px',
+  border: '1px solid rgba(37, 99, 235, 0.16)',
+  background: '#eff6ff',
+  color: '#1e3a8a',
+  padding: '12px 14px',
+  fontSize: '14px',
+  fontWeight: 750,
+  lineHeight: 1.45,
+} as const
+
+const logoUploadStyle = {
+  display: 'grid',
+  gridTemplateColumns: '120px minmax(0, 1fr)',
+  gap: '14px',
+  alignItems: 'start',
+  borderRadius: '16px',
+  border: '1px solid #dbe4ef',
+  background: '#f8fafc',
+  padding: '14px',
+} as const
+
+const logoPreviewStyle = {
+  width: '120px',
+  height: '120px',
+  borderRadius: '16px',
+  border: '1px solid #dbe4ef',
+  background: '#ffffff',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  overflow: 'hidden',
+} as const
+
+const logoImageStyle = {
+  maxWidth: '100%',
+  maxHeight: '100%',
+  objectFit: 'contain',
+} as const
+
+const logoPlaceholderStyle = {
+  ...logoPreviewStyle,
+  color: '#64748b',
+  fontWeight: 850,
+} as const
+
 const workerCardStyle = {
   display: 'grid',
   gap: '12px',
   borderRadius: '18px',
-  border: '1px solid #dbe4ef',
+  border: 0,
   background: '#f8fafc',
-  padding: '16px',
+  padding: '0 14px 14px',
 } as const
 
 const workerNameStyle = { display: 'block', fontSize: '18px', color: '#0f172a' } as const
 
-const userRowStyle = {
+const workerAccordionStyle = {
+  borderRadius: '16px',
+  border: '1px solid #dbe4ef',
+  background: '#f8fafc',
+  overflow: 'hidden',
+} as const
+
+const workerAccordionButtonStyle = {
+  width: '100%',
+  border: 0,
+  background: 'transparent',
+  padding: '14px 16px',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
+  gap: '14px',
+  color: '#0f172a',
+  textAlign: 'left',
+  cursor: 'pointer',
+  fontSize: '16px',
+  fontWeight: 900,
+} as const
+
+const workerMetaStyle = {
+  display: 'block',
+  marginTop: '4px',
+  color: '#64748b',
+  fontSize: '13px',
+  fontWeight: 700,
+} as const
+
+const userRowStyle = {
+  display: 'grid',
+  gridTemplateColumns: 'minmax(0, 1fr) auto',
+  alignItems: 'center',
   gap: '14px',
   borderRadius: '16px',
   border: '1px solid #dbe4ef',
   background: '#f8fafc',
   padding: '14px 16px',
+} as const
+
+const userRoleControlsStyle = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '8px',
+  flexWrap: 'wrap',
+  justifyContent: 'flex-end',
 } as const
 
 const pillStyle = {
@@ -843,8 +1355,8 @@ const eyebrowStyle = {
   border: '1px solid rgba(124,58,237,0.18)',
   background: 'rgba(255,255,255,0.72)',
   color: '#5b21b6',
-  padding: '7px 12px',
-  fontSize: '13px',
+  padding: '4px 9px',
+  fontSize: '11px',
   fontWeight: 950,
 } as const
 
@@ -852,9 +1364,9 @@ const sectionTitleStyle = { margin: 0, fontSize: '28px', lineHeight: 1.1, color:
 const labelStyle = { color: '#64748b', fontSize: '13px', fontWeight: 900 } as const
 
 const mutedStyle = {
-  margin: 0,
+  margin: '7px 0 0',
   color: '#64748b',
-  fontSize: '16px',
+  fontSize: '14px',
   fontWeight: 700,
   lineHeight: 1.45,
 } as const

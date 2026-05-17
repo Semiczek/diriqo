@@ -108,7 +108,7 @@ const cp1252ReverseMap = new Map<string, number>([
 ])
 
 function repairMojibake(value: string) {
-  if (!/[ÃÄÅ]/.test(value)) return value
+  if (!/[\u00c3\u00c4\u00c5]/.test(value)) return value
 
   const bytes = Array.from(value, (char) => {
     const mapped = cp1252ReverseMap.get(char)
@@ -764,7 +764,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     supabase
       .from('companies')
       .select(
-        'id, name, billing_name, company_number, vat_number, billing_street, billing_city, billing_postal_code, billing_country, bank_account_number, bank_code, iban, swift_bic'
+        'id, name, billing_name, company_number, vat_number, billing_street, billing_city, billing_postal_code, billing_country, bank_account_number, bank_code, iban, swift_bic, logo_url'
       )
       .eq('id', activeCompany.companyId)
       .maybeSingle(),

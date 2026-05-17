@@ -7,10 +7,13 @@ import { getActiveCompanyContext } from '@/lib/active-company'
 import { getIntlLocale } from '@/lib/i18n/config'
 import { getRequestDictionary, getRequestLocale } from '@/lib/i18n/server'
 import {
-  getCappedJobShiftLaborCalculation,
-} from '@/lib/labor-calculation'
+  doesDateRangeOverlap,
+  getEffectiveAssignmentHours,
+  getEffectiveAssignmentRate,
+  getEffectiveAssignmentReward,
+} from '@/app/workers/[workerId]/worker-detail-helpers'
 import { getWorkerType, getWorkerTypeLabel } from '@/lib/payroll-settings'
-import { calculateWorkerPayroll } from '@/lib/payroll/worker-payroll'
+import { calculateWorkerPayroll, type WorkerPayrollBaseSource } from '@/lib/payroll/worker-payroll'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 
 type WorkersPageProps = {
@@ -49,14 +52,29 @@ type CompanyMemberRow = {
 
 type JobRelation = {
   id: string
+  title: string | null
+  address: string | null
+  status: string | null
+  start_at: string | null
   end_at: string | null
+  price: number | null
+  is_paid: boolean | null
 }
 
 type JobAssignmentRow = {
+  id?: string
   job_id: string | null
   profile_id: string | null
   labor_hours: number | null
   hourly_rate: number | null
+  worker_type_snapshot?: string | null
+  assignment_billing_type?: string | null
+  external_amount?: number | null
+  work_started_at?: string | null
+  work_completed_at?: string | null
+  effective_hours?: number | null
+  effective_rate?: number | null
+  effective_reward?: number | null
   jobs: JobRelation | null
 }
 
@@ -130,6 +148,7 @@ type WorkerCardData = {
   shiftHoursMonth: number
   shiftReward: number
   workerType: string
+  payrollBaseSource: WorkerPayrollBaseSource
   payrollBonusTotal: number
   payrollMealTotal: number
   payrollDeductionTotal: number
@@ -145,15 +164,36 @@ type WorkerCardData = {
 
 type RawJobRelation = {
   id?: string | null
+  title?: string | null
+  address?: string | null
+  status?: string | null
+  start_at?: string | null
   end_at?: string | null
+  price?: number | string | null
+  is_paid?: boolean | null
 } | null
 
 type RawJobAssignmentRow = {
+  id?: string | null
   job_id?: string | null
   profile_id?: string | null
   labor_hours?: number | string | null
   hourly_rate?: number | string | null
+  worker_type_snapshot?: string | null
+  assignment_billing_type?: string | null
+  external_amount?: number | string | null
+  work_started_at?: string | null
+  work_completed_at?: string | null
   jobs?: RawJobRelation | RawJobRelation[]
+}
+
+type WorkerJobAssignmentSummaryRow = {
+  assignment_id: string | null
+  job_id: string | null
+  profile_id: string | null
+  labor_hours_total: number | string | null
+  effective_hourly_rate: number | string | null
+  labor_cost_total: number | string | null
 }
 
 type PayrollPaymentRow = {
@@ -343,14 +383,26 @@ function normalizeJobAssignments(data: RawJobAssignmentRow[]): JobAssignmentRow[
     const rawJob = Array.isArray(item?.jobs) ? item.jobs[0] ?? null : item?.jobs ?? null
 
     return {
+      id: item?.id ?? undefined,
       job_id: item?.job_id ?? rawJob?.id ?? null,
       profile_id: item?.profile_id ?? null,
       labor_hours: item?.labor_hours != null ? Number(item.labor_hours) : null,
       hourly_rate: item?.hourly_rate != null ? Number(item.hourly_rate) : null,
+      worker_type_snapshot: item?.worker_type_snapshot ?? null,
+      assignment_billing_type: item?.assignment_billing_type ?? null,
+      external_amount: item?.external_amount != null ? Number(item.external_amount) : null,
+      work_started_at: item?.work_started_at ?? null,
+      work_completed_at: item?.work_completed_at ?? null,
       jobs: rawJob
         ? {
             id: rawJob.id ?? '',
+            title: rawJob.title ?? null,
+            address: rawJob.address ?? null,
+            status: rawJob.status ?? null,
+            start_at: rawJob.start_at ?? null,
             end_at: rawJob.end_at ?? null,
+            price: rawJob.price != null ? Number(rawJob.price) : null,
+            is_paid: rawJob.is_paid ?? null,
           }
         : null,
     }
@@ -447,6 +499,7 @@ export default async function WorkersPage({ searchParams }: WorkersPageProps) {
 
   const previousMonth = shiftMonth(selectedMonth, -1)
   const nextMonth = shiftMonth(selectedMonth, 1)
+  const workersExportHref = `/api/workers/export?month=${selectedMonth}`
 
   const activeCompany = await getActiveCompanyContext()
   const supabase = await createSupabaseServerClient()
@@ -492,6 +545,7 @@ export default async function WorkersPage({ searchParams }: WorkersPageProps) {
   const [
     profilesResponse,
     jobAssignmentsResponse,
+    jobAssignmentSummariesResponse,
     workLogsResponse,
     workShiftsResponse,
     workerAdvancesResponse,
@@ -502,15 +556,31 @@ export default async function WorkersPage({ searchParams }: WorkersPageProps) {
   ] = await Promise.all([
     supabase.from('profiles').select('id, full_name, email, phone, worker_status, activated_at, disabled_at, last_seen_at, device_registered_at, default_hourly_rate, advance_paid, worker_type, contractor_billing_type, contractor_default_rate').in('id', profileIds).order('full_name', { ascending: true }),
     supabase.from('job_assignments').select(`
+      id,
       profile_id,
       job_id,
       labor_hours,
       hourly_rate,
+      worker_type_snapshot,
+      assignment_billing_type,
+      external_amount,
+      work_started_at,
+      work_completed_at,
       jobs!inner (
         id,
-        end_at
+        title,
+        address,
+        status,
+        start_at,
+        end_at,
+        price,
+        is_paid
       )
-    `).in('profile_id', profileIds).is('archived_at', null).gte('jobs.end_at', workStartIso).lt('jobs.end_at', workEndExclusiveIso),
+    `).in('profile_id', profileIds).is('archived_at', null),
+    supabase
+      .from('worker_job_assignment_summary')
+      .select('assignment_id, job_id, profile_id, labor_hours_total, effective_hourly_rate, labor_cost_total')
+      .in('profile_id', profileIds),
     supabase.from('work_logs').select('profile_id, hours, work_date').in('profile_id', profileIds).gte('work_date', workStartDate).lt('work_date', workEndExclusiveDate),
     supabase.from('work_shifts').select('id, profile_id, job_id, shift_date, started_at, ended_at, hours_override, job_hours_override').in('profile_id', profileIds).gte('shift_date', workStartDate).lt('shift_date', workEndExclusiveDate).order('started_at', { ascending: false }),
     supabase.from('worker_advances').select('profile_id, amount, issued_at, note').in('profile_id', profileIds).gte('issued_at', advanceStartDate).lt('issued_at', advanceEndExclusiveDate),
@@ -535,6 +605,7 @@ export default async function WorkersPage({ searchParams }: WorkersPageProps) {
 
   if (profilesResponse.error) return renderError(`${dictionary.workers.profilesLoadError}: ${profilesResponse.error.message}`)
   if (jobAssignmentsResponse.error) return renderError(`${dictionary.workers.assignmentsLoadError}: ${jobAssignmentsResponse.error.message}`)
+  if (jobAssignmentSummariesResponse.error) return renderError(`${dictionary.workers.detail.loadSummaryFailed}: ${jobAssignmentSummariesResponse.error.message}`)
   if (workLogsResponse.error) return renderError(`${dictionary.workers.workLogsLoadError}: ${workLogsResponse.error.message}`)
   if (workShiftsResponse.error) return renderError(`${dictionary.workers.shiftsLoadError}: ${workShiftsResponse.error.message}`)
   if (workerAdvancesResponse.error) return renderError(`${dictionary.workers.advancesLoadError}: ${workerAdvancesResponse.error.message}`)
@@ -547,6 +618,29 @@ export default async function WorkersPage({ searchParams }: WorkersPageProps) {
 
   const profiles = (profilesResponse.data ?? []) as ProfileRow[]
   const jobAssignments = normalizeJobAssignments((jobAssignmentsResponse.data ?? []) as RawJobAssignmentRow[])
+  const jobAssignmentSummaries = ((jobAssignmentSummariesResponse.data ?? []) as WorkerJobAssignmentSummaryRow[]).map((item) => ({
+    assignment_id: item.assignment_id,
+    job_id: item.job_id,
+    profile_id: item.profile_id,
+    labor_hours_total: item.labor_hours_total != null ? Number(item.labor_hours_total) : null,
+    effective_hourly_rate: item.effective_hourly_rate != null ? Number(item.effective_hourly_rate) : null,
+    labor_cost_total: item.labor_cost_total != null ? Number(item.labor_cost_total) : null,
+  }))
+  const jobAssignmentSummaryMap = new Map(
+    jobAssignmentSummaries
+      .filter((item) => Boolean(item.assignment_id))
+      .map((item) => [item.assignment_id as string, item])
+  )
+  const mergedJobAssignments = jobAssignments.map((assignment) => {
+    const summary = assignment.id ? jobAssignmentSummaryMap.get(assignment.id) : null
+
+    return {
+      ...assignment,
+      effective_hours: summary?.labor_hours_total ?? null,
+      effective_rate: summary?.effective_hourly_rate ?? null,
+      effective_reward: summary?.labor_cost_total ?? null,
+    }
+  })
   const workLogs = (workLogsResponse.data ?? []) as WorkLogRow[]
   const workShifts = (workShiftsResponse.data ?? []) as WorkShiftRow[]
   const workerAdvances = (workerAdvancesResponse.data ?? []) as WorkerAdvanceRow[]
@@ -562,7 +656,25 @@ export default async function WorkersPage({ searchParams }: WorkersPageProps) {
   const now = new Date()
 
   const workers: WorkerCardData[] = profiles.map((profile) => {
-    const workerJobAssignments = jobAssignments.filter((item) => item.profile_id === profile.id)
+    const workerJobAssignments = mergedJobAssignments.filter((item) => {
+      if (item.profile_id !== profile.id) return false
+
+      const overlapsByJobRange = doesDateRangeOverlap(
+        item.jobs?.start_at ?? null,
+        item.jobs?.end_at ?? null,
+        workStartIso,
+        workEndExclusiveIso,
+      )
+      const overlapsByWorkRange = doesDateRangeOverlap(
+        item.work_started_at ?? null,
+        item.work_completed_at ?? null,
+        workStartIso,
+        workEndExclusiveIso,
+      )
+      const hasShiftInMonth = workShifts.some((shift) => shift.profile_id === profile.id && shift.job_id != null && shift.job_id === item.job_id)
+
+      return overlapsByJobRange || overlapsByWorkRange || hasShiftInMonth
+    })
     const workerWorkLogs = workLogs.filter((item) => item.profile_id === profile.id)
     const workerShifts = workShifts.filter((item) => item.profile_id === profile.id)
     const workerAdvanceRows = workerAdvances.filter((item) => item.profile_id === profile.id)
@@ -575,29 +687,35 @@ export default async function WorkersPage({ searchParams }: WorkersPageProps) {
     const workerType = getWorkerType(profile)
     const isContractor = workerType === 'contractor'
 
-    const defaultHourlyRate = Number(profile.default_hourly_rate ?? 0)
+    const defaultHourlyRate = Number(
+      isContractor
+        ? profile.contractor_default_rate ?? profile.default_hourly_rate ?? 0
+        : profile.default_hourly_rate ?? 0,
+    )
+    const assignmentRateByJobId = new Map<string, number>()
+    for (const assignment of workerJobAssignments) {
+      if (!assignment.job_id) continue
+      assignmentRateByJobId.set(assignment.job_id, getEffectiveAssignmentRate(assignment, defaultHourlyRate))
+    }
     const shiftCalculations = workerShifts.map((shift) => {
       const hours = getEffectiveShiftHours(shift)
+      const rate = shift.job_id ? assignmentRateByJobId.get(shift.job_id) ?? defaultHourlyRate : defaultHourlyRate
       return {
         hours,
-        reward: hours * defaultHourlyRate,
+        reward: hours * rate,
       }
     })
-    const jobAssignmentCalculations = workerShifts
-      .filter((shift) => Boolean(shift.job_id))
-      .map((shift) => getCappedJobShiftLaborCalculation(shift, defaultHourlyRate))
-      .filter((calculation) => calculation.hours > 0)
-    const jobAssignmentHours = jobAssignmentCalculations.reduce((sum, item) => sum + item.hours, 0)
-    const jobAssignmentReward = jobAssignmentCalculations.reduce((sum, item) => sum + item.reward, 0)
+    const jobAssignmentHours = workerJobAssignments.reduce((sum, item) => sum + getEffectiveAssignmentHours(item), 0)
+    const jobAssignmentReward = workerJobAssignments.reduce(
+      (sum, item) => sum + getEffectiveAssignmentReward(item, defaultHourlyRate, profile),
+      0
+    )
     const workLogHours = workerWorkLogs.reduce((sum, item) => sum + Number(item.hours ?? 0), 0)
     const shiftHoursMonth = shiftCalculations.reduce((sum, item) => sum + item.hours, 0)
     const shiftReward = shiftCalculations.reduce((sum, item) => sum + item.reward, 0)
-    const standaloneShiftReward = Math.max(0, shiftHoursMonth - jobAssignmentHours) * defaultHourlyRate
     const advancePaidInPeriod =
-      isContractor
-        ? 0
-        : workerAdvanceRows.reduce((sum, item) => sum + Number(item.amount ?? 0), 0) +
-          workerPaidAdvanceRequests.reduce((sum, item) => sum + Number(item.amount ?? item.requested_amount ?? 0), 0)
+      workerAdvanceRows.reduce((sum, item) => sum + Number(item.amount ?? 0), 0) +
+      workerPaidAdvanceRequests.reduce((sum, item) => sum + Number(item.amount ?? item.requested_amount ?? 0), 0)
     const payrollBonusTotal = workerPayrollItems
       .filter((item) => item.item_type === 'bonus')
       .reduce((sum, item) => sum + Number(item.amount ?? 0), 0)
@@ -610,7 +728,7 @@ export default async function WorkersPage({ searchParams }: WorkersPageProps) {
     const payroll = calculateWorkerPayroll({
       worker: profile,
       jobReward: jobAssignmentReward,
-      standaloneShiftReward,
+      shiftReward,
       bonusTotal: payrollBonusTotal,
       mealTotal: payrollMealTotal,
       deductionTotal: payrollDeductionTotal,
@@ -625,6 +743,7 @@ export default async function WorkersPage({ searchParams }: WorkersPageProps) {
       email: profile.email ?? '-',
       defaultHourlyRate,
       advancePaidInPeriod,
+      payrollBaseSource: payroll.baseSource,
       jobAssignmentHours,
       jobAssignmentReward,
       workLogHours,
@@ -678,19 +797,24 @@ export default async function WorkersPage({ searchParams }: WorkersPageProps) {
             </p>
           </div>
 
-          <Link href="/workers/new" style={{ display: 'inline-flex', padding: '10px 14px', borderRadius: '999px', background: 'linear-gradient(135deg, #7c3aed 0%, #2563eb 52%, #06b6d4 100%)', color: '#ffffff', textDecoration: 'none', fontSize: '14px', fontWeight: 900, boxShadow: '0 12px 26px rgba(37, 99, 235, 0.18)' }}>
-            {dictionary.workers.addWorker}
-          </Link>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            <Link href={workersExportHref} download style={{ display: 'inline-flex', padding: '10px 14px', borderRadius: '999px', background: '#ffffff', color: '#111827', textDecoration: 'none', fontSize: '14px', fontWeight: 900, border: '1px solid #e5e7eb', boxShadow: '0 12px 26px rgba(15, 23, 42, 0.08)' }}>
+              Export do Excelu
+            </Link>
+            <Link href="/workers/new" data-tour="workers-new-button" style={{ display: 'inline-flex', padding: '10px 14px', borderRadius: '999px', background: 'linear-gradient(135deg, #7c3aed 0%, #2563eb 52%, #06b6d4 100%)', color: '#ffffff', textDecoration: 'none', fontSize: '14px', fontWeight: 900, boxShadow: '0 12px 26px rgba(37, 99, 235, 0.18)' }}>
+              {dictionary.workers.addWorker}
+            </Link>
+          </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '16px' }}>
+        <div data-tour="workers-month-filter" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '16px' }}>
           <Link href={`/workers?month=${previousMonth}`} style={monthNavButtonStyle}>{dictionary.workers.previousPayroll}</Link>
           <div style={{ padding: '8px 13px', borderRadius: '999px', background: 'linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%)', color: '#ffffff', fontSize: '14px', fontWeight: 800 }}>{monthLabel}</div>
           <Link href={`/workers?month=${nextMonth}`} style={monthNavButtonStyle}>{dictionary.workers.nextPayroll}</Link>
           <Link href={`/workers?month=${getTodayMonthString()}`} style={monthNavButtonStyle}>{dictionary.workers.currentPayroll}</Link>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px', marginBottom: '18px' }}>
+        <div data-tour="workers-summary" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px', marginBottom: '18px' }}>
           <div style={statBoxStyle}><div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '5px' }}>{dictionary.workers.shiftsForPeriod}</div><div style={{ fontSize: '24px', fontWeight: 750, lineHeight: 1.15 }}>{formatHours(totalPeriodShiftHours)} h</div></div>
           <div style={statBoxStyle}><div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '5px' }}>Celkem na výplaty</div><div style={{ fontSize: '24px', fontWeight: 750, lineHeight: 1.15 }}>{formatCurrency(totalPeriodPayroll)}</div></div>
           <div style={statBoxStyle}><div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '5px' }}>Uhrazeno / zbývá</div><div style={{ fontSize: '24px', fontWeight: 750, lineHeight: 1.15 }}>{formatCurrency(totalPeriodPayrollPaid)} / {formatCurrency(totalPeriodPayrollUnpaid)}</div></div>
@@ -699,20 +823,20 @@ export default async function WorkersPage({ searchParams }: WorkersPageProps) {
         </div>
 
         {workers.length === 0 ? (
-          <div style={cardStyle}>
+          <div data-tour="workers-list" style={cardStyle}>
             <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
               <div style={{ width: '38px', height: '38px', borderRadius: '14px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, rgba(22,163,74,0.14), rgba(6,182,212,0.16))', color: '#16a34a', fontWeight: 950 }}>P</div>
               <div>
                 <div style={{ color: '#0f172a', fontSize: '16px', fontWeight: 850, marginBottom: '4px' }}>Zatím tu nejsou pracovníci.</div>
                 <p style={{ margin: 0, color: '#6b7280' }}>{dictionary.workers.empty}</p>
-                <Link href="/workers/new" style={{ display: 'inline-flex', marginTop: '10px', padding: '8px 11px', borderRadius: '999px', background: 'linear-gradient(135deg, #7c3aed 0%, #2563eb 52%, #06b6d4 100%)', color: '#ffffff', textDecoration: 'none', fontSize: '13px', fontWeight: 900 }}>
+                <Link href="/workers/new" data-tour="workers-new-button" style={{ display: 'inline-flex', marginTop: '10px', padding: '8px 11px', borderRadius: '999px', background: 'linear-gradient(135deg, #7c3aed 0%, #2563eb 52%, #06b6d4 100%)', color: '#ffffff', textDecoration: 'none', fontSize: '13px', fontWeight: 900 }}>
                   {dictionary.workers.addWorker}
                 </Link>
               </div>
             </div>
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px' }}>
+          <div data-tour="workers-list" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px' }}>
             {workers.map((worker) => {
               const absenceVisual = getAbsenceVisual(worker.absenceState)
               const absenceLabel = getAbsenceLabel(worker.absenceState)
@@ -764,31 +888,31 @@ export default async function WorkersPage({ searchParams }: WorkersPageProps) {
                     <div style={miniStatStyle}>
                       <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '4px' }}>{dictionary.workers.advancesForThisPayroll}</div>
                       <div style={{ fontSize: '17px', fontWeight: 750 }}>
-                        {worker.workerType === 'contractor' ? '-' : formatCurrency(worker.advancePaidInPeriod)}
+                        {formatCurrency(worker.advancePaidInPeriod)}
                       </div>
                     </div>
                   </div>
 
                   <div style={summaryWideBoxStyle}>
                     <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '4px' }}>
-                      {worker.workerType === 'contractor' ? 'Vyuctovani subdodavatele' : dictionary.workers.totalRewardAfterAdvances}
+                      {worker.workerType === 'contractor' ? 'Vyúčtování subdodavatele' : dictionary.workers.totalRewardAfterAdvances}
                     </div>
                     <div style={{ fontSize: '22px', fontWeight: 750, lineHeight: 1.1, color: '#111827' }}>{formatCurrency(worker.totalRewardAfterAdvance)}</div>
                     <div style={{ marginTop: '6px', display: 'inline-flex', borderRadius: '999px', padding: '5px 8px', fontSize: '11px', fontWeight: 900, background: worker.payrollPaidAt ? '#dcfce7' : '#fff7ed', color: worker.payrollPaidAt ? '#166534' : '#9a3412' }}>
                       {worker.payrollPaidAt ? 'Výplata uhrazena' : 'Čeká na úhradu'}
                     </div>
                     <div style={{ marginTop: '6px', fontSize: '11px', color: '#6b7280', lineHeight: 1.35 }}>
-                      {worker.workerType === 'contractor'
-                        ? `Externi prace ${formatCurrency(worker.jobAssignmentReward)} - zalohy se nepouzivaji`
-                        : `Zakázky ${formatCurrency(worker.jobAssignmentReward)} + směny mimo zakázky ${formatCurrency(Math.max(0, worker.shiftHoursMonth - worker.jobAssignmentHours) * worker.defaultHourlyRate)} - ${dictionary.workers.advancesForThisPayroll.toLowerCase()} ${formatCurrency(worker.advancePaidInPeriod)}`}
+                      {worker.payrollBaseSource === 'job'
+                        ? `Úkolově podle zakázek ${formatCurrency(worker.jobAssignmentReward)} - ${dictionary.workers.advancesForThisPayroll.toLowerCase()} ${formatCurrency(worker.advancePaidInPeriod)}`
+                        : `Směny ${formatCurrency(worker.shiftReward)}; zakázky ${formatCurrency(worker.jobAssignmentReward)} jen pro rozpad nákladů - ${dictionary.workers.advancesForThisPayroll.toLowerCase()} ${formatCurrency(worker.advancePaidInPeriod)}`}
                     </div>
                   </div>
 
                   <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '10px', display: 'grid', gap: '6px', fontSize: '13px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}><span style={{ color: '#6b7280' }}>{dictionary.workers.defaultHourlyRate}</span><strong>{worker.defaultHourlyRate > 0 ? formatCurrency(worker.defaultHourlyRate) : '-'}</strong></div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}><span style={{ color: '#6b7280' }}>{dictionary.workers.workPeriod}</span><strong>{workPeriodLabel}</strong></div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}><span style={{ color: '#6b7280' }}>{dictionary.workers.advancesPeriod}</span><strong>{worker.workerType === 'contractor' ? 'Nepouziva se' : advancePeriodLabel}</strong></div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}><span style={{ color: '#6b7280' }}>{dictionary.workers.payrollDueLabel}</span><strong>{worker.workerType === 'contractor' ? 'Nepouziva se' : payDateLabel}</strong></div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}><span style={{ color: '#6b7280' }}>{dictionary.workers.advancesPeriod}</span><strong>{advancePeriodLabel}</strong></div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}><span style={{ color: '#6b7280' }}>{dictionary.workers.payrollDueLabel}</span><strong>{worker.workerType === 'contractor' ? 'Podle vyúčtování' : payDateLabel}</strong></div>
                   </div>
                 </Link>
               )

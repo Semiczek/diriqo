@@ -134,7 +134,7 @@ export default async function NewStandaloneCalculationPage({ searchParams }: New
       >
         <SecondaryAction href="/kalkulace/nova">Zpět na výběr</SecondaryAction>
 
-        <section style={heroCardStyle}>
+        <section data-tour="calculation-create-header" style={heroCardStyle}>
           <div style={heroContentStyle}>
             <div style={eyebrowStyle}>Interní kalkulace</div>
             <h1 style={heroTitleStyle}>Nová kalkulace bez zákazníka</h1>

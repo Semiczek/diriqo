@@ -133,61 +133,61 @@ export default async function AdminCompanyDetailPage({ params, searchParams }: D
 
   return (
     <main style={pageStyle}>
-      <Link href="/admin/companies" style={backLinkStyle}>Back to companies</Link>
+      <Link href="/admin/companies" style={backLinkStyle}>Zpět na firmy</Link>
       <header style={headerStyle}>
         <p style={eyebrowStyle}>Superadmin detail</p>
-        <h1 style={titleStyle}>{company.name || 'Company without name'}</h1>
+        <h1 style={titleStyle}>{company.name || 'Firma bez názvu'}</h1>
       </header>
 
       {resolvedSearchParams.support === 'allowed' ? (
-        <section style={successStyle}>Support access je aktivni. Pokus o vstup byl zalogovan jako uspesny.</section>
+        <section style={successStyle}>Support přístup je aktivní. Pokus o vstup byl zalogován jako úspěšný.</section>
       ) : null}
       {resolvedSearchParams.support === 'denied' ? (
-        <section style={warningStyle}>Support access neni aktivni. Pokus o vstup byl zalogovan a provozni data zustavaji zamcena.</section>
+        <section style={warningStyle}>Support přístup není aktivní. Pokus o vstup byl zalogován a provozní data zůstávají zamčená.</section>
       ) : null}
 
       <section style={gridStyle}>
         <article style={cardStyle}>
-          <h2 style={cardTitleStyle}>Zakladni info</h2>
+          <h2 style={cardTitleStyle}>Základní info</h2>
           <dl style={detailsStyle}>
-            <div><dt>Email</dt><dd>{company.email ?? '-'}</dd></div>
-            <div><dt>Support email</dt><dd>{company.support_email ?? '-'}</dd></div>
-            <div><dt>Country</dt><dd>{company.billing_country ?? '-'}</dd></div>
-            <div><dt>Language</dt><dd>{company.locale ?? '-'}</dd></div>
-            <div><dt>Currency</dt><dd>{company.currency ?? '-'}</dd></div>
-            <div><dt>Created</dt><dd>{formatDate(company.created_at)}</dd></div>
+            <div><dt>E-mail</dt><dd>{company.email ?? '-'}</dd></div>
+            <div><dt>Support e-mail</dt><dd>{company.support_email ?? '-'}</dd></div>
+            <div><dt>Země</dt><dd>{company.billing_country ?? '-'}</dd></div>
+            <div><dt>Jazyk</dt><dd>{company.locale ?? '-'}</dd></div>
+            <div><dt>Měna</dt><dd>{company.currency ?? '-'}</dd></div>
+            <div><dt>Vytvořeno</dt><dd>{formatDate(company.created_at)}</dd></div>
           </dl>
         </article>
 
         <article style={cardStyle}>
-          <h2 style={cardTitleStyle}>Subscription</h2>
+          <h2 style={cardTitleStyle}>Předplatné</h2>
           <dl style={detailsStyle}>
-            <div><dt>Plan</dt><dd>{subscription?.plan_key ?? '-'}</dd></div>
-            <div><dt>Status</dt><dd>{subscription?.status ?? '-'}</dd></div>
-            <div><dt>Trial started</dt><dd>{formatDate(subscription?.trial_started_at)}</dd></div>
-            <div><dt>Trial ends</dt><dd>{formatDate(subscription?.trial_ends_at)}</dd></div>
-            <div><dt>Current period start</dt><dd>{formatDate(subscription?.current_period_start)}</dd></div>
-            <div><dt>Current period end</dt><dd>{formatDate(subscription?.current_period_end)}</dd></div>
-            <div><dt>Worker limit</dt><dd>{subscription?.plan_key ? getWorkerLimit(subscription.plan_key) ?? 'custom' : '-'}</dd></div>
-            <div><dt>Cancel at period end</dt><dd>{subscription?.cancel_at_period_end ? 'yes' : 'no'}</dd></div>
+            <div><dt>Plán</dt><dd>{subscription?.plan_key ?? '-'}</dd></div>
+            <div><dt>Stav</dt><dd>{subscription?.status ?? '-'}</dd></div>
+            <div><dt>Zkušební období od</dt><dd>{formatDate(subscription?.trial_started_at)}</dd></div>
+            <div><dt>Zkušební období do</dt><dd>{formatDate(subscription?.trial_ends_at)}</dd></div>
+            <div><dt>Aktuální období od</dt><dd>{formatDate(subscription?.current_period_start)}</dd></div>
+            <div><dt>Aktuální období do</dt><dd>{formatDate(subscription?.current_period_end)}</dd></div>
+            <div><dt>Limit pracovníků</dt><dd>{subscription?.plan_key ? getWorkerLimit(subscription.plan_key) ?? 'individuální' : '-'}</dd></div>
+            <div><dt>Zrušit na konci období</dt><dd>{subscription?.cancel_at_period_end ? 'ano' : 'ne'}</dd></div>
           </dl>
         </article>
 
         <article style={cardStyle}>
           <h2 style={cardTitleStyle}>Stripe</h2>
           <dl style={detailsStyle}>
-            <div><dt>Customer id</dt><dd>{subscription?.stripe_customer_id ?? '-'}</dd></div>
-            <div><dt>Subscription id</dt><dd>{subscription?.stripe_subscription_id ?? '-'}</dd></div>
-            <div><dt>Price id</dt><dd>{subscription?.stripe_price_id ?? '-'}</dd></div>
+            <div><dt>ID zákazníka</dt><dd>{subscription?.stripe_customer_id ?? '-'}</dd></div>
+            <div><dt>ID předplatného</dt><dd>{subscription?.stripe_subscription_id ?? '-'}</dd></div>
+            <div><dt>ID ceny</dt><dd>{subscription?.stripe_price_id ?? '-'}</dd></div>
           </dl>
         </article>
 
         <article style={cardStyle}>
-          <h2 style={cardTitleStyle}>Support access</h2>
+          <h2 style={cardTitleStyle}>Support přístup</h2>
           {supportGrant ? (
-            <p style={successStyle}>Aktivni do {formatDate(supportGrant.expires_at)}</p>
+            <p style={successStyle}>Aktivní do {formatDate(supportGrant.expires_at)}</p>
           ) : (
-            <p style={warningStyle}>Provozni data nejsou bez aktivniho grantu dostupna.</p>
+            <p style={warningStyle}>Provozní data nejsou bez aktivního grantu dostupná.</p>
           )}
           <form action={attemptSupportEntryAction}>
             <input type="hidden" name="company_id" value={company.id} />
@@ -200,27 +200,27 @@ export default async function AdminCompanyDetailPage({ params, searchParams }: D
 
       <section style={gridStyle}>
         <article style={cardStyle}>
-          <h2 style={cardTitleStyle}>Provozni souhrn</h2>
+          <h2 style={cardTitleStyle}>Provozní souhrn</h2>
           {supportGrant ? (
             <dl style={detailsStyle}>
-              <div><dt>Pocet zakazek</dt><dd>{jobsCountResponse.count ?? 0}</dd></div>
-              <div><dt>Pocet zakazniku</dt><dd>{customersCountResponse.count ?? 0}</dd></div>
+              <div><dt>Počet zakázek</dt><dd>{jobsCountResponse.count ?? 0}</dd></div>
+              <div><dt>Počet zákazníků</dt><dd>{customersCountResponse.count ?? 0}</dd></div>
             </dl>
           ) : (
-            <p style={mutedStyle}>Souhrn provoznich dat vyzaduje aktivni support access grant.</p>
+            <p style={mutedStyle}>Souhrn provozních dat vyžaduje aktivní support grant.</p>
           )}
         </article>
 
         <article style={cardStyle}>
-          <h2 style={cardTitleStyle}>Clenove firmy</h2>
+          <h2 style={cardTitleStyle}>Členové firmy</h2>
           <div style={memberListStyle}>
             {members.map((member) => {
               const profile = asSingle(member.profiles)
               return (
                 <div key={member.id} style={memberRowStyle}>
-                  <strong>{profile?.full_name || profile?.email || 'Unknown member'}</strong>
+                  <strong>{profile?.full_name || profile?.email || 'Neznámý člen'}</strong>
                   <span>{profile?.email ?? '-'}</span>
-                  <span>{member.role ?? '-'} / {member.is_active ? 'active' : 'inactive'}</span>
+                  <span>{member.role ?? '-'} / {member.is_active ? 'aktivní' : 'neaktivní'}</span>
                 </div>
               )
             })}

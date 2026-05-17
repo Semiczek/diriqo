@@ -105,7 +105,7 @@ export async function createQuoteFromCalculation(ctx: DalContext, calculationId:
   )
 
   if (customerItems.length === 0) {
-    throw new Error('Kalkulace nema zadne zakaznicke polozky pro vytvoreni nabidky.')
+    throw new Error('Kalkulace nemá žádné zákaznické položky pro vytvoření nabídky.')
   }
 
   const { data: quote, error: quoteError } = await ctx.supabase
@@ -130,13 +130,13 @@ export async function createQuoteFromCalculation(ctx: DalContext, calculationId:
     .select('id')
     .single()
 
-  if (quoteError || !quote?.id) throw quoteError ?? new Error('Nabidku se nepodarilo vytvorit.')
+  if (quoteError || !quote?.id) throw quoteError ?? new Error('Nabídku se nepodařilo vytvořit.')
 
   const quoteItems = customerItems.map((item) => ({
     company_id: ctx.companyId,
     quote_id: quote.id,
     sort_order: item.sort_order ?? 0,
-    name: item.name?.trim() || 'Polozka',
+      name: item.name?.trim() || 'Položka',
     description: item.description ?? null,
     quantity: Number(item.quantity ?? 0),
     unit: item.unit ?? null,
@@ -160,14 +160,14 @@ export async function approveQuote(ctx: FlowContext, quoteId: string) {
     .eq('company_id', ctx.companyId)
     .maybeSingle()
 
-  if (quoteError || !quote?.id) throw new TenantScopeError('Nabidka nepatri do aktivni firmy.')
+  if (quoteError || !quote?.id) throw new TenantScopeError('Nabídka nepatří do aktivní firmy.')
 
   if (quote.accepted_at || quote.status === 'accepted') {
     return { accepted: false, alreadyAccepted: true }
   }
 
   if (!canAcceptQuote(quote.status, quote.accepted_at)) {
-    throw new Error('Tuto nabidku uz neni mozne schvalit.')
+    throw new Error('Tuto nabídku už není možné schválit.')
   }
 
   const { data: updated, error: updateError } = await ctx.supabase
@@ -227,13 +227,13 @@ export async function createJobFromQuote(
     .eq('company_id', ctx.companyId)
     .maybeSingle()
 
-  if (quoteError || !quote?.id) throw new TenantScopeError('Nabidka nepatri do aktivni firmy.')
-  if (!canCreateJobFromQuote(quote.status)) throw new Error('Z teto nabidky uz nelze vytvorit zakazku.')
+  if (quoteError || !quote?.id) throw new TenantScopeError('Nabídka nepatří do aktivní firmy.')
+  if (!canCreateJobFromQuote(quote.status)) throw new Error('Z této nabídky už nelze vytvořit zakázku.')
 
   const baseJob = {
     company_id: ctx.companyId,
     customer_id: quote.customer_id,
-    title: input.title || quote.title || 'Zakazka z cenove nabidky',
+    title: input.title || quote.title || 'Zakázka z cenové nabídky',
     description: input.description,
     address: input.address,
     status: 'planned',
@@ -261,7 +261,7 @@ export async function createJobFromQuote(
         .select('id')
         .single()
 
-      if (parentError || !parentJob?.id) throw parentError ?? new Error('Zakazku se nepodarilo vytvorit.')
+      if (parentError || !parentJob?.id) throw parentError ?? new Error('Zakázku se nepodařilo vytvořit.')
 
       const childJobs = splitDays.map((day) => ({
         ...baseJob,
@@ -292,7 +292,7 @@ export async function createJobFromQuote(
       })
       .select('id')
 
-    if (insertError || !jobs?.[0]?.id) throw insertError ?? new Error('Zakazku se nepodarilo vytvorit.')
+    if (insertError || !jobs?.[0]?.id) throw insertError ?? new Error('Zakázku se nepodařilo vytvořit.')
 
     await approveQuote(ctx, input.quoteId)
     return { jobId: jobs[0].id, created: true }

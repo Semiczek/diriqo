@@ -1,5 +1,6 @@
 'use server'
 
+import { randomUUID } from 'node:crypto'
 import { revalidatePath } from 'next/cache'
 
 import { COMPANY_MODULE_KEYS, type CompanyModuleKey } from '@/lib/company-settings-shared'
@@ -14,6 +15,9 @@ export type SettingsActionResult = {
 }
 
 const ADMIN_ROLES = new Set(['super_admin', 'company_admin'])
+const COMPANY_ASSETS_BUCKET = 'company-assets'
+const LOGO_MIME_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'])
+const LOGO_MAX_BYTES = 2 * 1024 * 1024
 
 type LogoUrlResult =
   | { ok: true; value: string | null }
@@ -44,6 +48,21 @@ function asLogoUrl(formData: FormData, key: string): LogoUrlResult {
   }
 
   return { ok: false, message: 'Logo firmy musí být platná URL adresa začínající http://, https:// nebo /.' }
+}
+
+function getLogoFile(formData: FormData) {
+  const value = formData.get('logo_file')
+  if (!(value instanceof File) || value.size === 0) return null
+  return value
+}
+
+function extensionFromLogoFile(file: File) {
+  if (file.type === 'image/png') return 'png'
+  if (file.type === 'image/jpeg') return 'jpg'
+  if (file.type === 'image/webp') return 'webp'
+  if (file.type === 'image/svg+xml') return 'svg'
+  const fromName = file.name.split('.').pop()?.toLowerCase()
+  return fromName && /^[a-z0-9]+$/.test(fromName) ? fromName : 'logo'
 }
 
 function asRequiredText(formData: FormData, key: string, fallback: string) {
@@ -130,12 +149,40 @@ export async function updateCompanyBasicInfo(formData: FormData): Promise<Settin
   try {
     const { activeCompany, supabase } = await requireCompanySettingsAccess()
     const logoUrl = asLogoUrl(formData, 'logo_url')
+    const logoFile = getLogoFile(formData)
     const registrationNumber = asBusinessIdentifier(formData, 'registration_number')
     const taxNumber = asBusinessIdentifier(formData, 'tax_number')
 
     if (!logoUrl.ok) return result(false, logoUrl.message)
     if (!registrationNumber.ok) return result(false, registrationNumber.message)
     if (!taxNumber.ok) return result(false, taxNumber.message)
+
+    let nextLogoUrl = logoUrl.value
+
+    if (logoFile) {
+      if (!LOGO_MIME_TYPES.has(logoFile.type)) {
+        return result(false, 'Logo musí být PNG, JPG, WebP nebo SVG.')
+      }
+
+      if (logoFile.size > LOGO_MAX_BYTES) {
+        return result(false, 'Logo může mít nejvýše 2 MB.')
+      }
+
+      const extension = extensionFromLogoFile(logoFile)
+      const path = `${activeCompany.companyId}/logo-${randomUUID()}.${extension}`
+      const upload = await supabase.storage.from(COMPANY_ASSETS_BUCKET).upload(path, logoFile, {
+        cacheControl: '31536000',
+        contentType: logoFile.type,
+        upsert: true,
+      })
+
+      if (upload.error) {
+        return result(false, `Logo se nepodařilo nahrát: ${upload.error.message}`)
+      }
+
+      const publicUrl = supabase.storage.from(COMPANY_ASSETS_BUCKET).getPublicUrl(path)
+      nextLogoUrl = publicUrl.data.publicUrl
+    }
 
     const countryCode = asRequiredText(formData, 'country_code', 'CZ').toUpperCase()
     const countryConfig = getCompanyCountryConfig(countryCode)
@@ -158,7 +205,7 @@ export async function updateCompanyBasicInfo(formData: FormData): Promise<Settin
         email: asText(formData, 'email'),
         phone: asText(formData, 'phone'),
         web: asText(formData, 'web'),
-        logo_url: logoUrl.value,
+        logo_url: nextLogoUrl,
         address: asText(formData, 'address'),
         billing_country: countryCode,
         currency,
@@ -307,6 +354,60 @@ export async function updateWorkerPaymentSettings(formData: FormData): Promise<S
   }
 }
 
+export async function updateCompanyMemberRole(formData: FormData): Promise<SettingsActionResult> {
+  try {
+    const { activeCompany, supabase } = await requireCompanySettingsAccess()
+    const memberId = asText(formData, 'member_id')
+    const nextRole = enumValue(formData, 'role', ['company_admin', 'manager', 'worker'] as const, 'worker')
+
+    if (!memberId) return result(false, 'Chybí člen firmy.')
+
+    const memberResponse = await supabase
+      .from('company_members')
+      .select('id, role')
+      .eq('id', memberId)
+      .eq('company_id', activeCompany.companyId)
+      .eq('is_active', true)
+      .maybeSingle()
+
+    if (memberResponse.error || !memberResponse.data) {
+      return result(false, 'Člen nepatří do aktivní firmy.')
+    }
+
+    const currentRole = String(memberResponse.data.role ?? '').toLowerCase()
+    if (currentRole === 'super_admin') {
+      return result(false, 'Interní roli super admin nelze měnit z nastavení firmy.')
+    }
+
+    if (currentRole === 'company_admin' && nextRole !== 'company_admin') {
+      const adminsResponse = await supabase
+        .from('company_members')
+        .select('id', { count: 'exact', head: true })
+        .eq('company_id', activeCompany.companyId)
+        .eq('role', 'company_admin')
+        .eq('is_active', true)
+
+      if (adminsResponse.error) return result(false, adminsResponse.error.message)
+      if ((adminsResponse.count ?? 0) <= 1) {
+        return result(false, 'Ve firmě musí zůstat alespoň jeden admin firmy.')
+      }
+    }
+
+    const { error } = await supabase
+      .from('company_members')
+      .update({ role: nextRole })
+      .eq('id', memberId)
+      .eq('company_id', activeCompany.companyId)
+
+    if (error) return result(false, error.message)
+
+    revalidateSettings()
+    return result(true, 'Role uživatele byla uložena.')
+  } catch (error) {
+    return result(false, error instanceof Error ? error.message : 'Roli uživatele se nepodařilo uložit.')
+  }
+}
+
 export async function updateCompanyBillingSettings(formData: FormData): Promise<SettingsActionResult> {
   try {
     const { activeCompany, supabase } = await requireCompanySettingsAccess()
@@ -314,7 +415,7 @@ export async function updateCompanyBillingSettings(formData: FormData): Promise<
     const { error } = await supabase.from('company_billing_settings').upsert(
       {
         company_id: activeCompany.companyId,
-        billing_enabled: asBoolean(formData, 'billing_enabled'),
+        billing_enabled: true,
         default_invoice_due_days: asInteger(formData, 'default_invoice_due_days') ?? 14,
         default_vat_rate: asNumber(formData, 'default_vat_rate') ?? 21,
         is_vat_payer: asBoolean(formData, 'is_vat_payer'),

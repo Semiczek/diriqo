@@ -18,6 +18,7 @@ export const enDictionary: TranslationDictionary = {
     calculations: 'Calculations',
     quotes: 'Quotes',
     invoices: 'Invoicing',
+    costs: 'Costs',
     companySettings: 'Company',
     billing: 'Subscription',
     setupGuide: 'Setup guide',

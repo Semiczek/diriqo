@@ -1,11 +1,23 @@
-import { getWorkerType } from '@/lib/payroll-settings'
+import { getContractorBillingType, getWorkerType } from '../payroll-settings'
 
 export type WorkerPayrollTypeInput = Parameters<typeof getWorkerType>[0]
+export type WorkerPayrollBaseSource = 'shift' | 'job'
+
+export function getWorkerPayrollBaseSource(worker: WorkerPayrollTypeInput): WorkerPayrollBaseSource {
+  const workerType = getWorkerType(worker)
+
+  if (workerType === 'contractor' && getContractorBillingType(worker?.contractor_billing_type) !== 'hourly') {
+    return 'job'
+  }
+
+  return 'shift'
+}
 
 export function calculateWorkerPayroll(input: {
   worker: WorkerPayrollTypeInput
   jobReward: number
-  standaloneShiftReward: number
+  shiftReward?: number
+  standaloneShiftReward?: number
   bonusTotal: number
   mealTotal: number
   deductionTotal: number
@@ -13,15 +25,18 @@ export function calculateWorkerPayroll(input: {
 }) {
   const workerType = getWorkerType(input.worker)
   const isContractor = workerType === 'contractor'
-  const grossReward = isContractor
-    ? input.jobReward
-    : input.jobReward + input.standaloneShiftReward + input.bonusTotal + input.mealTotal - input.deductionTotal
-  const advanceTotal = isContractor ? 0 : input.advanceTotal
+  const baseSource = getWorkerPayrollBaseSource(input.worker)
+  const shiftReward = input.shiftReward ?? input.jobReward + (input.standaloneShiftReward ?? 0)
+  const baseReward = baseSource === 'job' ? input.jobReward : shiftReward
+  const grossReward = baseReward + input.bonusTotal + input.mealTotal - input.deductionTotal
+  const advanceTotal = input.advanceTotal
   const netPayout = grossReward - advanceTotal
 
   return {
     workerType,
     isContractor,
+    baseSource,
+    baseReward,
     grossReward,
     advanceTotal,
     netPayout,

@@ -38,6 +38,7 @@ export type InvoiceSupplierSnapshot = {
   bankCode: string | null
   iban: string | null
   swiftBic: string | null
+  logoUrl: string | null
   isVatPayer: boolean
   vatNote: string | null
 }
@@ -81,6 +82,7 @@ type SupplierSnapshotRow = {
   bank_code?: string | null
   iban?: string | null
   swift_bic?: string | null
+  logo_url?: string | null
 }
 
 export const DEFAULT_INVOICE_VAT_RATE = 21
@@ -162,6 +164,7 @@ export function buildSupplierSnapshot(row: SupplierSnapshotRow): InvoiceSupplier
     bankCode: row.bank_code ?? null,
     iban: row.iban ?? null,
     swiftBic: row.swift_bic ?? null,
+    logoUrl: row.logo_url ?? null,
     isVatPayer,
     vatNote: isVatPayer ? null : NON_VAT_PAYER_NOTE,
   }

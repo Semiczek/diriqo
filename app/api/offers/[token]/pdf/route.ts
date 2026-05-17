@@ -262,7 +262,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
   const normalizedQuote = quote as PublicQuoteRow
   const status = resolveQuoteStatus(normalizedQuote.status, normalizedQuote.valid_until)
   if (status === 'expired' || status === 'draft') {
-    return NextResponse.json({ error: 'Cenova nabidka neni verejne dostupna.' }, { status: 410 })
+    return NextResponse.json({ error: 'Cenová nabídka není veřejně dostupná.' }, { status: 410 })
   }
 
   const pdf = buildPdf(normalizedQuote, (items ?? []) as PublicQuoteItemRow[])

@@ -18,8 +18,13 @@ type CompanyBillingRow = {
   bank_code: string | null
   iban: string | null
   swift_bic: string | null
-  ares_last_checked_at: string | null
+  ares_last_checked_at?: string | null
 }
+
+const COMPANY_BILLING_SELECT_BASE =
+  'id, name, billing_name, company_number, vat_number, billing_street, billing_city, billing_postal_code, billing_country, bank_account_number, bank_code, iban, swift_bic'
+
+const COMPANY_BILLING_SELECT_WITH_ARES = `${COMPANY_BILLING_SELECT_BASE}, ares_last_checked_at`
 
 function normalizeText(value: unknown, maxLength: number) {
   const normalized = String(value ?? '').trim()
@@ -30,6 +35,31 @@ function normalizeText(value: unknown, maxLength: number) {
 function normalizeCompanyNumber(value: unknown) {
   const normalized = String(value ?? '').replace(/\D/g, '')
   return normalized || null
+}
+
+function getSupabaseErrorMessage(error: unknown) {
+  if (!error || typeof error !== 'object') return String(error ?? '')
+  return String((error as { message?: unknown }).message ?? '')
+}
+
+function getSupabaseErrorCode(error: unknown) {
+  if (!error || typeof error !== 'object') return ''
+  return String((error as { code?: unknown }).code ?? '')
+}
+
+function isMissingAresLastCheckedAtError(error: unknown) {
+  const message = getSupabaseErrorMessage(error)
+  const code = getSupabaseErrorCode(error)
+
+  return (
+    message.includes('ares_last_checked_at') &&
+    (
+      message.includes('does not exist') ||
+      message.includes('Could not find') ||
+      code === '42703' ||
+      code === 'PGRST204'
+    )
+  )
 }
 
 function mapCompanyBilling(row: CompanyBillingRow) {
@@ -47,7 +77,7 @@ function mapCompanyBilling(row: CompanyBillingRow) {
     bankCode: row.bank_code,
     iban: row.iban,
     swiftBic: row.swift_bic,
-    aresLastCheckedAt: row.ares_last_checked_at,
+    aresLastCheckedAt: row.ares_last_checked_at ?? null,
   }
 }
 
@@ -60,13 +90,25 @@ export async function GET() {
     }
 
     const supabase = await createSupabaseServerClient()
-    const { data, error } = await supabase
+    const companyBillingResponse = await supabase
       .from('companies')
-      .select(
-        'id, name, billing_name, company_number, vat_number, billing_street, billing_city, billing_postal_code, billing_country, bank_account_number, bank_code, iban, swift_bic, ares_last_checked_at'
-      )
+      .select(COMPANY_BILLING_SELECT_WITH_ARES)
       .eq('id', activeCompany.companyId)
       .maybeSingle()
+
+    let data = companyBillingResponse.data as CompanyBillingRow | null
+    let error = companyBillingResponse.error
+
+    if (isMissingAresLastCheckedAtError(error)) {
+      const retry = await supabase
+        .from('companies')
+        .select(COMPANY_BILLING_SELECT_BASE)
+        .eq('id', activeCompany.companyId)
+        .maybeSingle()
+
+      data = retry.data as CompanyBillingRow | null
+      error = retry.error
+    }
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 400 })
@@ -141,14 +183,29 @@ export async function PATCH(request: NextRequest) {
     }
 
     const supabase = await createSupabaseServerClient()
-    const { data, error } = await supabase
+    const companyBillingUpdateResponse = await supabase
       .from('companies')
       .update(updatePayload)
       .eq('id', activeCompany.companyId)
-      .select(
-        'id, name, billing_name, company_number, vat_number, billing_street, billing_city, billing_postal_code, billing_country, bank_account_number, bank_code, iban, swift_bic, ares_last_checked_at'
-      )
+      .select(COMPANY_BILLING_SELECT_WITH_ARES)
       .maybeSingle()
+
+    let data = companyBillingUpdateResponse.data as CompanyBillingRow | null
+    let error = companyBillingUpdateResponse.error
+
+    if (isMissingAresLastCheckedAtError(error)) {
+      const fallbackPayload = { ...updatePayload }
+      delete fallbackPayload.ares_last_checked_at
+      const retry = await supabase
+        .from('companies')
+        .update(fallbackPayload)
+        .eq('id', activeCompany.companyId)
+        .select(COMPANY_BILLING_SELECT_BASE)
+        .maybeSingle()
+
+      data = retry.data as CompanyBillingRow | null
+      error = retry.error
+    }
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 400 })

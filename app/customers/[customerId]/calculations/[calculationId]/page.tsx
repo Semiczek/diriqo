@@ -1,5 +1,6 @@
 ﻿import Link from 'next/link'
 import CalculationDangerZone from '@/components/CalculationDangerZone'
+import { redirect } from 'next/navigation'
 import CreateQuoteFromCalculationButton from '@/components/CreateQuoteFromCalculationButton'
 import DashboardShell from '@/components/DashboardShell'
 import {
@@ -24,7 +25,7 @@ type PageProps = {
 type CalculationRow = {
   id: string
   company_id: string
-  customer_id: string
+  customer_id: string | null
   title: string
   description: string | null
   status: 'draft' | 'ready' | 'archived' | null
@@ -135,7 +136,6 @@ export default async function CalculationDetailPage({ params }: PageProps) {
           'id, company_id, customer_id, title, description, status, calculation_date, internal_note, subtotal_cost, subtotal_price, margin_amount, total_price, currency, customers(id, name)'
         )
         .eq('id', calculationId)
-        .eq('customer_id', customerId)
         .maybeSingle(),
       supabase
         .from('calculation_items')
@@ -147,7 +147,7 @@ export default async function CalculationDetailPage({ params }: PageProps) {
         .order('created_at', { ascending: true }),
     ])
 
-  if (calculationError || !calculation) {
+  if (calculationError || !calculation || !calculation.customer_id) {
     return (
       <DashboardShell activeItem="customers">
         <main style={pageShellStyle}>
@@ -155,6 +155,10 @@ export default async function CalculationDetailPage({ params }: PageProps) {
         </main>
       </DashboardShell>
     )
+  }
+
+  if (calculation.customer_id !== customerId) {
+    redirect(`/customers/${calculation.customer_id}/calculations/${calculation.id}`)
   }
 
   const customer = Array.isArray(calculation.customers)

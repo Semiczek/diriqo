@@ -66,13 +66,13 @@ const pageStyle: React.CSSProperties = {
 }
 
 const heroStyle: React.CSSProperties = {
-  borderRadius: '28px',
-  padding: '28px',
-  marginBottom: '18px',
+  borderRadius: '20px',
+  padding: '18px 20px',
+  marginBottom: '12px',
   background:
     'linear-gradient(135deg, rgba(255,255,255,0.92), rgba(239,246,255,0.88) 48%, rgba(207,250,254,0.72))',
   border: '1px solid rgba(148,163,184,0.25)',
-  boxShadow: '0 22px 55px rgba(15,23,42,0.09)',
+  boxShadow: '0 12px 32px rgba(15,23,42,0.065)',
 }
 
 const sectionCardStyle: React.CSSProperties = {
@@ -552,21 +552,22 @@ export default function EditJobPage() {
             href={`/jobs/${jobId}`}
             style={{
               display: 'inline-flex',
-              marginBottom: '14px',
+              marginBottom: '8px',
               color: '#475569',
               textDecoration: 'none',
+              fontSize: '14px',
               fontWeight: 900,
             }}
           >
             ← {dictionary.jobs.editPage.backToDetail}
           </Link>
-          <div style={{ color: '#475569', fontSize: '13px', fontWeight: 900, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+          <div style={{ color: '#475569', fontSize: '11px', fontWeight: 900, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
             {dictionary.jobs.editPage.eyebrow}
           </div>
-          <h1 style={{ margin: '8px 0 8px', color: '#0f172a', fontSize: '44px', lineHeight: 1.05 }}>
+          <h1 style={{ margin: '7px 0 0', color: '#0f172a', fontSize: '32px', lineHeight: 1.08 }}>
             {dictionary.jobs.editPage.title}
           </h1>
-          <p style={{ margin: 0, color: '#475569', fontSize: '17px', fontWeight: 650 }}>
+          <p style={{ margin: '7px 0 0', color: '#475569', fontSize: '14px', lineHeight: 1.45, fontWeight: 650 }}>
             {dictionary.jobs.editPage.subtitle}
           </p>
         </section>
@@ -577,13 +578,14 @@ export default function EditJobPage() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} style={{ display: 'grid', gap: '18px' }}>
-          <section style={sectionCardStyle}>
+        <form onSubmit={handleSubmit} data-tour="job-edit-form" style={{ display: 'grid', gap: '18px' }}>
+          <section data-tour="job-edit-settings" style={sectionCardStyle}>
             <h2 style={sectionTitleStyle}>{dictionary.jobs.editPage.settings}</h2>
             <div style={fieldGridStyle}>
           <label>
             <div style={labelTextStyle}>{dictionary.jobs.customer}</div>
             <select
+              data-tour="job-customer"
               value={customerId}
               onChange={(e) => {
                 setCustomerId(e.target.value)
@@ -614,17 +616,17 @@ export default function EditJobPage() {
 
           <label>
             <div style={labelTextStyle}>{dictionary.jobs.titleLabel}</div>
-            <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} style={inputStyle} />
+            <input type="text" data-tour="job-title" value={title} onChange={(e) => setTitle(e.target.value)} style={inputStyle} />
           </label>
             </div>
           </section>
 
-          <section style={sectionCardStyle}>
+          <section data-tour="job-edit-schedule" style={sectionCardStyle}>
             <h2 style={sectionTitleStyle}>{dictionary.jobs.editPage.scheduleAndPlace}</h2>
             <div style={fieldGridStyle}>
           <label>
             <div style={labelTextStyle}>{dictionary.jobs.startJob}</div>
-            <input type="datetime-local" value={startAt} onChange={(e) => setStartAt(e.target.value)} style={inputStyle} />
+            <input type="datetime-local" data-tour="job-date" value={startAt} onChange={(e) => setStartAt(e.target.value)} style={inputStyle} />
           </label>
 
           <label>
@@ -639,7 +641,7 @@ export default function EditJobPage() {
             </div>
           </section>
 
-          <section style={sectionCardStyle}>
+          <section data-tour="job-edit-finance" style={sectionCardStyle}>
             <h2 style={sectionTitleStyle}>{dictionary.jobs.editPage.finance}</h2>
             <div style={fieldGridStyle}>
           <label>
@@ -862,7 +864,7 @@ export default function EditJobPage() {
             </div>
           </details>
 
-            <button type="submit" disabled={saving} style={{ ...primaryButtonStyle, justifySelf: 'start', opacity: saving ? 0.7 : 1, cursor: saving ? 'not-allowed' : 'pointer' }}>
+            <button type="submit" data-tour="job-save" disabled={saving} style={{ ...primaryButtonStyle, justifySelf: 'start', opacity: saving ? 0.7 : 1, cursor: saving ? 'not-allowed' : 'pointer' }}>
               {saving ? dictionary.jobs.saving : dictionary.common.save}
           </button>
         </form>

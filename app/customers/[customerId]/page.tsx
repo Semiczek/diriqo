@@ -139,7 +139,7 @@ function formatPrice(value: number | null | undefined, locale = 'cs-CZ') {
 }
 
 function formatDateTime(value: string | null | undefined, locale = 'cs-CZ') {
-  if (!value) return 'â€”'
+  if (!value) return '—'
 
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return value

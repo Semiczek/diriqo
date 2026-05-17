@@ -1626,7 +1626,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             border-color: rgba(37, 99, 235, 0.16) !important;
           }
         `}</style>
-        <section style={companyStateStyle}>
+        <section data-tour="dashboard-hero" style={companyStateStyle}>
           <div style={heroGlowOne} />
           <div style={heroGlowTwo} />
           <div style={companyStateMain}>
@@ -1690,18 +1690,20 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               </div>
             </div>
 
-            <DashboardQuickNotes
-              storageKey={`diriqo:dashboard:quick-notes:${companyId}`}
-              labels={{
-                title: t.quickNoteTitle,
-                placeholder: t.quickNotePlaceholder,
-                add: t.quickNoteAdd,
-                empty: t.quickNoteEmpty,
-                deleteNote: t.quickNoteDelete,
-                starterCallCustomer: t.quickNoteStarterCallCustomer,
-                starterCheckJobs: t.quickNoteStarterCheckJobs,
-              }}
-            />
+            <div data-tour="dashboard-quick-notes">
+              <DashboardQuickNotes
+                storageKey={`diriqo:dashboard:quick-notes:${companyId}`}
+                labels={{
+                  title: t.quickNoteTitle,
+                  placeholder: t.quickNotePlaceholder,
+                  add: t.quickNoteAdd,
+                  empty: t.quickNoteEmpty,
+                  deleteNote: t.quickNoteDelete,
+                  starterCallCustomer: t.quickNoteStarterCallCustomer,
+                  starterCheckJobs: t.quickNoteStarterCheckJobs,
+                }}
+              />
+            </div>
           </div>
         </section>
 
@@ -1742,7 +1744,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           }}
         />
 
-        <section style={kpiSection}>
+        <section data-tour="dashboard-kpi-section" style={kpiSection}>
           <div style={kpiHeader}>
             <div>
               <div style={summaryEyebrow}>KPI</div>
@@ -1752,6 +1754,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
           <div style={statsGrid}>
             <StatCard
+              dataTour="dashboard-kpi-today-jobs"
               title={t.todayJobsTitle}
               value={String(todayJobs.length)}
               subvalue={t.today}
@@ -1759,6 +1762,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               accent="#2563eb"
             />
             <StatCard
+              dataTour="dashboard-kpi-active-workers"
               title={t.workers}
               value={String(todaysWorkers.length)}
               subvalue={t.activeShifts}
@@ -1766,6 +1770,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               accent="#16a34a"
             />
             <StatCard
+              dataTour="dashboard-kpi-completed-jobs"
               title={t.done}
               value={String(monthCompletedJobs.length)}
               subvalue={`${t.completedJobs} - ${summaryMonthLabel}`}
@@ -1773,6 +1778,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               accent="#8b5cf6"
             />
             <StatCard
+              dataTour="dashboard-kpi-waiting-invoice"
               title={t.waitingForInvoice}
               value={formatCurrency(waitingInvoiceTotal, intlLocale)}
               subvalue={`${waitingInvoiceJobs.length} ${t.jobsWaitingForInvoice}`}
@@ -1781,6 +1787,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               urgent={waitingInvoiceTotal > 0 || waitingInvoiceJobs.length > 0}
             />
             <StatCard
+              dataTour="dashboard-kpi-profit"
               title={t.profit}
               value={formatCurrency(monthProfit, intlLocale)}
               subvalue={t.monthEconomySubtitle}
@@ -1791,7 +1798,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           </div>
         </section>
 
-        <section id="command-center" style={actionStrip}>
+        <section id="command-center" data-tour="dashboard-attention" style={actionStrip}>
           <div style={actionStripHeader}>
             <div>
               <div style={stripEyebrow}>{t.commandCenterEyebrow}</div>
@@ -1807,7 +1814,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               text={t.commandCenterEmptyText}
             />
           ) : (
-            <div style={actionStripGrid}>
+            <div data-tour="dashboard-attention-list" style={actionStripGrid}>
               {actionPanels.filter((item) => item.value > 0).map((item) =>
                 <ActionDisclosure
                   key={item.label}
@@ -1826,7 +1833,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           )}
         </section>
 
-        <section id="dnesni-zakazky" style={operationsPanel}>
+        <section id="dnesni-zakazky" data-tour="dashboard-today" style={operationsPanel}>
           <div style={operationsHeader}>
             <div>
               <div style={panelTitle}>{t.today}</div>
@@ -1835,7 +1842,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             <div style={monthBadge}>{formatDateLabel(todayStart, companyTimeZone, intlLocale)}</div>
           </div>
 
-          <div style={operationsSummaryGrid}>
+          <div data-tour="dashboard-today-metrics" style={operationsSummaryGrid}>
             <OperationMetric label={t.activeShifts} value={todaysWorkers.length} />
             <OperationMetric label={t.todayJobsTitle} value={todayJobs.length} />
             <OperationMetric label={t.workedTodayTitle} value={`${roundHours(workedTodayHours)} h`} />
@@ -1850,7 +1857,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               actionLabel={t.newJob}
             />
           ) : (
-            <div style={todayWorkerList}>
+            <div data-tour="dashboard-today-workers" style={todayWorkerList}>
               {todaysWorkers.slice(0, 6).map((worker) => (
                 <Link
                   key={worker.profileId ?? worker.name}
@@ -1875,13 +1882,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         </section>
 
         <section style={dashboardJobsGrid}>
-          <div style={operationsPanel}>
+          <div data-tour="dashboard-day-jobs" style={operationsPanel}>
             <div style={operationsHeader}>
               <div>
                 <div style={panelTitle}>{t.todayJobsTitle}</div>
                 <div style={panelSubtitle}>{t.operationsSubtitle}</div>
               </div>
-              <div style={dayToggleWrap}>
+              <div data-tour="dashboard-day-toggle" style={dayToggleWrap}>
                 <Link
                   href={buildDashboardHref({
                     jobsDay: 'today',
@@ -1911,7 +1918,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               </div>
             </div>
 
-            <div style={operationsSummaryGrid}>
+            <div data-tour="dashboard-day-jobs-metrics" style={operationsSummaryGrid}>
               <OperationMetric label={t.jobs} value={selectedJobs.length} />
               <OperationMetric label={t.activeShifts} value={selectedDayShifts.length} />
             </div>
@@ -1974,13 +1981,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             )}
           </div>
 
-          <div style={operationsPanel}>
+          <div data-tour="dashboard-month-summary" style={operationsPanel}>
             <div style={operationsHeader}>
               <div>
                 <div style={panelTitle}>{t.summaryTitle}</div>
                 <div style={panelSubtitle}>{t.monthlyOverviewSubtitle}</div>
               </div>
-              <div style={weekToggleWrap}>
+              <div data-tour="dashboard-week-toggle" style={weekToggleWrap}>
                 {summaryWeekSegments.map((segment) => (
                   <Link
                     key={segment.value}
@@ -2000,7 +2007,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               </div>
             </div>
 
-            <div style={operationsSummaryGrid}>
+            <div data-tour="dashboard-month-summary-metrics" style={operationsSummaryGrid}>
               <OperationMetric label={t.jobs} value={selectedWeekJobs.length} />
               <OperationMetric label={t.done} value={summary.jobs_done} />
               <OperationMetric label={t.waitingForInvoice} value={summary.jobs_waiting_for_invoice} />
@@ -2052,7 +2059,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           </div>
         </section>
 
-        <section style={operationsPanel}>
+        <section data-tour="dashboard-month-economy" style={operationsPanel}>
           <div style={operationsHeader}>
             <div>
               <div style={panelTitle}>{t.currentMonth}</div>
@@ -2062,7 +2069,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           </div>
 
           <div style={monthOverviewGrid}>
-            <div style={compactChartPanel}>
+            <div data-tour="dashboard-economy-chart" style={compactChartPanel}>
               <div style={chartCommentBox}>{chartComment}</div>
               {hasProfitChartData ? (
                 <MonthlyProfitChart
@@ -2080,7 +2087,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               )}
             </div>
 
-            <div style={financeTable}>
+            <div data-tour="dashboard-economy-table" style={financeTable}>
               <EconomyLine label={t.ordered} value={formatCurrency(monthOrdered, intlLocale)} />
               <EconomyLine label={t.invoiced} value={formatCurrency(monthInvoiced, intlLocale)} />
               <EconomyLine label={t.readyToInvoice} value={formatCurrency(monthReadyToInvoice, intlLocale)} />
@@ -2092,7 +2099,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           </div>
         </section>
 
-        <section style={jobDecisionGrid}>
+        <section data-tour="dashboard-job-decisions" style={jobDecisionGrid}>
           <Panel title={t.topJobsTitle} subtitle={t.topJobsSubtitle}>
             {topJobs.length === 0 ? (
               <EmptyState text={t.noTopJobs} />
@@ -2346,6 +2353,7 @@ function TodaySummaryItem({
 }
 
 function StatCard({
+  dataTour,
   title,
   value,
   subvalue,
@@ -2355,6 +2363,7 @@ function StatCard({
   highlight = false,
   urgent = false,
 }: {
+  dataTour?: string
   title: string
   value: string
   subvalue: string
@@ -2367,7 +2376,7 @@ function StatCard({
   const cardStyle = highlight ? highlightedStatCard : urgent ? urgentStatCard : statCard
 
   return (
-    <div className="dashboard-kpi-card" style={cardStyle}>
+    <div className="dashboard-kpi-card" data-tour={dataTour} style={cardStyle}>
       <div style={statCardTopRow}>
         <div style={highlight ? highlightedStatTitle : urgent ? urgentStatTitle : statTitle}>{title}</div>
         {icon ? (
@@ -2821,21 +2830,22 @@ const pageWrap: CSSProperties = {
 const heroCard: CSSProperties = {
   display: 'grid',
   gridTemplateColumns: '1.6fr 0.9fr',
-  gap: '18px',
-  padding: '24px',
+  gap: '14px',
+  padding: '18px 20px',
   background:
     'linear-gradient(135deg, rgba(255,255,255,1) 0%, rgba(248,250,252,1) 100%)',
   border: '1px solid #e5e7eb',
-  borderRadius: '24px',
+  borderRadius: '20px',
+  boxShadow: '0 12px 32px rgba(15, 23, 42, 0.065)',
 }
 
 const heroLeft: CSSProperties = {
   display: 'grid',
-  gap: '14px',
+  gap: '8px',
 }
 
 const eyebrow: CSSProperties = {
-  fontSize: '12px',
+  fontSize: '11px',
   letterSpacing: '0.08em',
   textTransform: 'uppercase',
   color: '#6b7280',
@@ -2844,15 +2854,15 @@ const eyebrow: CSSProperties = {
 
 const heroTitle: CSSProperties = {
   margin: 0,
-  fontSize: '42px',
-  lineHeight: 1.05,
+  fontSize: '32px',
+  lineHeight: 1.08,
   color: '#111827',
 }
 
 const heroText: CSSProperties = {
   margin: 0,
-  fontSize: '16px',
-  lineHeight: 1.6,
+  fontSize: '14px',
+  lineHeight: 1.45,
   color: '#4b5563',
   maxWidth: '700px',
 }

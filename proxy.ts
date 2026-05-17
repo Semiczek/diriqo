@@ -23,6 +23,7 @@ const PROTECTED_MATCHERS = [
   '/kalkulace',
   '/settings',
   '/billing',
+  '/costs',
   '/admin',
   '/invoices',
   '/work-shifts',
@@ -30,6 +31,7 @@ const PROTECTED_MATCHERS = [
   '/ucet',
   '/logout',
   '/napoveda',
+  '/help',
   '/debug-auth',
   '/dashboard',
   '/api/active-company',
@@ -91,6 +93,7 @@ export async function proxy(request: NextRequest) {
     request.headers.get('cf-ipcountry')
 
   const locale =
+    normalizeLocale(request.nextUrl.searchParams.get('locale')) ??
     normalizeLocale(request.cookies.get(LOCALE_COOKIE_NAME)?.value) ??
     getPreferredLocaleFromHeader(request.headers.get('accept-language')) ??
     getFallbackLocaleFromCountry(detectedCountry)
@@ -298,6 +301,10 @@ export async function proxy(request: NextRequest) {
       return ensureLocaleCookie(NextResponse.redirect(new URL('/portal', request.url)))
     }
 
+    if (hasCompanyAccess) {
+      return ensureLocaleCookie(NextResponse.redirect(new URL('/moje-prace', request.url)))
+    }
+
     const loginUrl = new URL('/sign-in', request.url)
     loginUrl.searchParams.set('error', 'no-hub-access')
     return ensureLocaleCookie(NextResponse.redirect(loginUrl))
@@ -312,6 +319,8 @@ export const config = {
     '/login',
     '/sign-in',
     '/sign-up',
+    '/register',
+    '/pricing',
     '/dashboard',
     '/dashboard/:path*',
     '/absences/:path*',
@@ -326,6 +335,8 @@ export const config = {
     '/settings/:path*',
     '/billing',
     '/billing/:path*',
+    '/costs',
+    '/costs/:path*',
     '/admin',
     '/admin/:path*',
     '/invoices/:path*',
@@ -335,6 +346,8 @@ export const config = {
     '/ucet/:path*',
     '/logout',
     '/napoveda/:path*',
+    '/help',
+    '/help/:path*',
     '/debug-auth/:path*',
     '/api/active-company',
     '/api/company-billing',

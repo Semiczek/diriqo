@@ -47,7 +47,7 @@ export default async function NewCustomerCalculationPage({ params }: PageProps) 
           {dictionary.customers.calculationNewPage.backToCalculations}
         </SecondaryAction>
 
-        <section style={heroCardStyle}>
+        <section data-tour="calculation-create-header" style={heroCardStyle}>
           <div style={heroContentStyle}>
             <div style={eyebrowStyle}>Nová kalkulace</div>
             <h1 style={heroTitleStyle}>{dictionary.customers.calculationNewPage.title}</h1>

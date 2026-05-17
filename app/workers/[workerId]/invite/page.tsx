@@ -126,7 +126,7 @@ export default async function WorkerInvitePage({ params }: InvitePageProps) {
           <div>
             <h1 style={heroTitleStyle}>Pozvat pracovníka</h1>
             <p style={heroTextStyle}>
-              Připravte WhatsApp zprávu, QR kód nebo odkaz pro {getWorkerName(profile)}.
+              Připravte e-mail, WhatsApp zprávu, QR kód nebo odkaz pro {getWorkerName(profile)}.
             </p>
           </div>
           <Link href={`/workers/${workerId}`} style={primaryButtonStyle}>
@@ -138,6 +138,7 @@ export default async function WorkerInvitePage({ params }: InvitePageProps) {
           workerId={workerId}
           workerName={getWorkerName(profile)}
           phone={profile.phone ?? null}
+          email={profile.email ?? null}
           locale={locale}
           autoCreate
           initialInvite={{
@@ -153,8 +154,8 @@ export default async function WorkerInvitePage({ params }: InvitePageProps) {
         <section style={sectionCardStyle}>
           <h2 style={cardTitleStyle}>Co se stane dál</h2>
           <p style={{ margin: '8px 0 0', color: '#64748b', lineHeight: 1.5 }}>
-            WhatsApp se otevře po kliknutí na tlačítko. Zpráva bude předvyplněná, ale odeslání musí
-            potvrdit člověk přímo ve WhatsAppu.
+            E-mail odejde přímo z aplikace. WhatsApp se otevře s předvyplněnou zprávou a odeslání ještě
+            potvrdí člověk přímo ve WhatsAppu.
           </p>
         </section>
       </main>

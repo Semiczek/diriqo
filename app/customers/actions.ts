@@ -97,7 +97,7 @@ export async function createCustomerAction(
 
     const name = cleanString(input.name)
     if (!name) {
-      return { ok: false, error: 'Zadejte nazev zakaznika.' }
+      return { ok: false, error: 'Zadejte název zákazníka.' }
     }
 
     const email = cleanOptionalString(input.email)
@@ -151,7 +151,7 @@ export async function createCustomerAction(
     }
 
     if (error || !data?.id) {
-      return { ok: false, error: error?.message ?? 'Zakaznika se nepodarilo vytvorit.' }
+      return { ok: false, error: error?.message ?? 'Zákazníka se nepodařilo vytvořit.' }
     }
 
     revalidatePath('/customers')
@@ -164,7 +164,7 @@ export async function createCustomerAction(
   } catch (error) {
     return {
       ok: false,
-      error: error instanceof Error ? error.message : 'Zakaznika se nepodarilo vytvorit.',
+      error: error instanceof Error ? error.message : 'Zákazníka se nepodařilo vytvořit.',
     }
   }
 }
@@ -178,11 +178,11 @@ export async function updateCustomerAction(input: UpdateCustomerInput): Promise<
     const name = cleanString(input.name)
 
     if (!customerId) {
-      return { ok: false, error: 'Chybi zakaznik.' }
+      return { ok: false, error: 'Chybí zákazník.' }
     }
 
     if (!name) {
-      return { ok: false, error: 'Zadejte nazev zakaznika.' }
+      return { ok: false, error: 'Zadejte název zákazníka.' }
     }
 
     const existingResponse = await supabase
@@ -193,7 +193,7 @@ export async function updateCustomerAction(input: UpdateCustomerInput): Promise<
       .maybeSingle()
 
     if (existingResponse.error || !existingResponse.data?.id) {
-      return { ok: false, error: 'Zakaznik nebyl nalezen v aktivni firme.' }
+      return { ok: false, error: 'Zákazník nebyl nalezen v aktivní firmě.' }
     }
 
     const email = cleanOptionalString(input.email)
@@ -244,7 +244,7 @@ export async function updateCustomerAction(input: UpdateCustomerInput): Promise<
     }
 
     if (error) {
-      return { ok: false, error: error.message || 'Zakaznika se nepodarilo ulozit.' }
+      return { ok: false, error: error.message || 'Zákazníka se nepodařilo uložit.' }
     }
 
     revalidatePath('/customers')
@@ -254,7 +254,7 @@ export async function updateCustomerAction(input: UpdateCustomerInput): Promise<
   } catch (error) {
     return {
       ok: false,
-      error: error instanceof Error ? error.message : 'Zakaznika se nepodarilo ulozit.',
+      error: error instanceof Error ? error.message : 'Zákazníka se nepodařilo uložit.',
     }
   }
 }

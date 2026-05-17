@@ -126,7 +126,7 @@ function mapAddress(address: AresAddress | null | undefined) {
 
   const city = normalizeText(address.nazevObce) || normalizeText(address.castObceNazev) || null
   const postalCode = normalizeText(address.psc) || null
-  const country = normalizeText(address.nazevStatu) || 'Ceska republika'
+  const country = normalizeText(address.nazevStatu) || 'Česká republika'
 
   return {
     street,
@@ -148,7 +148,7 @@ export async function GET(request: NextRequest) {
 
   if (!checkRateLimit(rateLimitKey)) {
     return NextResponse.json(
-      { error: 'Prilis mnoho dotazu do ARES. Zkuste to prosim za chvili.' },
+      { error: 'Příliš mnoho dotazů do ARES. Zkuste to prosím za chvíli.' },
       { status: 429 }
     )
   }
@@ -182,7 +182,7 @@ export async function GET(request: NextRequest) {
     const message = error instanceof Error ? error.message : 'unknown error'
 
     return NextResponse.json(
-      { error: `Nepodarilo se spojit s ARES. ${message}` },
+      { error: `Nepodařilo se spojit s ARES. ${message}` },
       { status: 502 }
     )
   }

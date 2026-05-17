@@ -15,6 +15,7 @@ export type NavigationMessages = {
   calculations: string
   quotes: string
   invoices: string
+  costs: string
   companySettings: string
   billing: string
   setupGuide: string

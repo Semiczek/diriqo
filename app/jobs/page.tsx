@@ -1451,7 +1451,7 @@ export default function JobsPage() {
       return
     }
 
-    setDropMessage('Byla vytvorena nova matka a obe zakazky jsou pod ni jako dcery.')
+    setDropMessage('Byla vytvořena nová matka a obě zakázky jsou pod ní jako dcery.')
     setGroupingJob(false)
     setDataVersion((version) => version + 1)
     router.refresh()
@@ -1518,26 +1518,26 @@ export default function JobsPage() {
           overflow: 'hidden',
           display: 'flex',
           justifyContent: 'space-between',
-          alignItems: 'stretch',
-          gap: '18px',
-          marginBottom: '22px',
+          alignItems: 'center',
+          gap: '14px',
+          marginBottom: '12px',
           flexWrap: 'wrap',
-          padding: '28px',
-          borderRadius: '28px',
+          padding: '18px 20px',
+          borderRadius: '20px',
           background:
             'linear-gradient(135deg, rgba(250,245,255,0.96) 0%, rgba(239,246,255,0.94) 52%, rgba(236,254,255,0.9) 100%)',
           border: '1px solid rgba(203, 213, 225, 0.78)',
-          boxShadow: '0 22px 58px rgba(15, 23, 42, 0.10)',
+          boxShadow: '0 12px 32px rgba(15, 23, 42, 0.065)',
         }}
       >
         <div>
-          <div style={{ display: 'inline-flex', marginBottom: '12px', padding: '7px 11px', borderRadius: '999px', backgroundColor: 'rgba(255,255,255,0.72)', border: '1px solid rgba(124,58,237,0.2)', color: '#5b21b6', fontSize: '12px', fontWeight: 900 }}>
+          <div style={{ display: 'inline-flex', marginBottom: '8px', padding: '4px 9px', borderRadius: '999px', backgroundColor: 'rgba(255,255,255,0.72)', border: '1px solid rgba(124,58,237,0.2)', color: '#5b21b6', fontSize: '11px', fontWeight: 900 }}>
             {dictionary.jobs.eyebrow}
           </div>
-          <h1 style={{ fontSize: '42px', margin: 0, color: '#0f172a', lineHeight: 1.05 }}>
+          <h1 style={{ fontSize: '32px', margin: 0, color: '#0f172a', lineHeight: 1.08 }}>
             {dictionary.jobs.title}
           </h1>
-          <p style={{ margin: '10px 0 0', color: '#64748b', lineHeight: 1.6, fontSize: '15px' }}>
+          <p style={{ margin: '7px 0 0', color: '#64748b', lineHeight: 1.45, fontSize: '14px' }}>
             {dictionary.jobs.subtitle}
           </p>
         </div>
@@ -1545,37 +1545,40 @@ export default function JobsPage() {
         <div
           style={{
             display: 'grid',
-            gap: '12px',
-            minWidth: 'min(100%, 430px)',
+            gap: '8px',
+            minWidth: 'min(100%, 360px)',
           }}
         >
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(82px, 1fr))', gap: '8px' }}>
+          <div data-tour="jobs-overview-summary" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(82px, 1fr))', gap: '8px' }}>
             {[
               [dictionary.jobs.total, groupedJobBlocks.length],
               [dictionary.jobs.today, jobsTodayCount],
               [dictionary.jobs.done, jobsDoneCount],
               [dictionary.jobs.readyForInvoice, jobsWaitingInvoiceCount],
             ].map(([label, value]) => (
-              <div key={label} style={{ padding: '12px', borderRadius: '18px', backgroundColor: 'rgba(255,255,255,0.72)', border: '1px solid rgba(226,232,240,0.9)' }}>
+              <div key={label} style={{ padding: '9px 11px', borderRadius: '14px', backgroundColor: 'rgba(255,255,255,0.72)', border: '1px solid rgba(226,232,240,0.9)' }}>
                 <div style={{ color: '#64748b', fontSize: '12px', fontWeight: 800 }}>{label}</div>
-                <div style={{ color: '#0f172a', fontSize: '24px', fontWeight: 900 }}>{value}</div>
+                <div style={{ color: '#0f172a', fontSize: '22px', fontWeight: 900 }}>{value}</div>
               </div>
             ))}
           </div>
           <Link
             href="/jobs/new"
+            data-tour="new-job-button"
             style={{
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
               gap: '8px',
-              padding: '13px 18px',
+              minHeight: '36px',
+              padding: '8px 12px',
               borderRadius: '999px',
               background: 'linear-gradient(135deg, #7c3aed 0%, #2563eb 52%, #06b6d4 100%)',
               color: 'white',
               textDecoration: 'none',
+              fontSize: '14px',
               fontWeight: 900,
-              boxShadow: '0 16px 34px rgba(37, 99, 235, 0.24)',
+              boxShadow: '0 10px 22px rgba(37, 99, 235, 0.16)',
               justifySelf: 'end',
             }}
           >
@@ -1585,6 +1588,7 @@ export default function JobsPage() {
       </div>
 
       <div
+        data-tour="jobs-filters"
         style={{
           display: 'grid',
           gap: '14px',
@@ -1795,6 +1799,7 @@ export default function JobsPage() {
 
       {error && (
         <div
+          data-tour="jobs-list"
           style={{
             marginBottom: '16px',
             padding: '12px 14px',
@@ -1817,9 +1822,9 @@ export default function JobsPage() {
             marginBottom: '16px',
             padding: '12px 14px',
             borderRadius: '10px',
-            backgroundColor: dropMessage.includes('vytvorena') ? '#f0fdf4' : '#fef2f2',
-            border: dropMessage.includes('vytvorena') ? '1px solid #bbf7d0' : '1px solid #fecaca',
-            color: dropMessage.includes('vytvorena') ? '#166534' : '#991b1b',
+    backgroundColor: dropMessage.includes('vytvořena') ? '#f0fdf4' : '#fef2f2',
+    border: dropMessage.includes('vytvořena') ? '1px solid #bbf7d0' : '1px solid #fecaca',
+    color: dropMessage.includes('vytvořena') ? '#166534' : '#991b1b',
             fontWeight: 800,
           }}
         >
@@ -1859,7 +1864,7 @@ export default function JobsPage() {
           </div>
         </div>
       ) : (
-        <div style={{ display: 'grid', gap: '16px' }}>
+        <div data-tour="jobs-list" style={{ display: 'grid', gap: '16px' }}>
           {filteredJobs.map((job) => {
             const childJobs = job.memberJobs.filter((memberJob) => memberJob.id !== job.id)
             const hasChildJobs = childJobs.length > 0

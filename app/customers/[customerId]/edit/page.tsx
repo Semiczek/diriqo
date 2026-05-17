@@ -83,7 +83,7 @@ function mapBrowserAresPayload(subject: BrowserAresSubject, fallbackIco: string)
     billingStreet: subject.sidlo?.textovaAdresa?.trim() || null,
     billingCity: subject.sidlo?.nazevObce?.trim() || subject.sidlo?.castObceNazev?.trim() || null,
     billingPostalCode: subject.sidlo?.psc?.trim() || null,
-    billingCountry: subject.sidlo?.nazevStatu?.trim() || 'Ceska republika',
+    billingCountry: subject.sidlo?.nazevStatu?.trim() || 'Česká republika',
   }
 }
 
@@ -104,7 +104,7 @@ export default function EditCustomerPage() {
   const [billingStreet, setBillingStreet] = useState('')
   const [billingCity, setBillingCity] = useState('')
   const [billingPostalCode, setBillingPostalCode] = useState('')
-  const [billingCountry, setBillingCountry] = useState('Ceska republika')
+  const [billingCountry, setBillingCountry] = useState('Česká republika')
   const [companyNumber, setCompanyNumber] = useState('')
   const [vatNumber, setVatNumber] = useState('')
   const [loadingAres, setLoadingAres] = useState(false)
@@ -159,7 +159,7 @@ export default function EditCustomerPage() {
       setBillingStreet(customer.billing_street ?? '')
       setBillingCity(customer.billing_city ?? '')
       setBillingPostalCode(customer.billing_postal_code ?? '')
-      setBillingCountry(customer.billing_country ?? 'Ceska republika')
+      setBillingCountry(customer.billing_country ?? 'Česká republika')
       setCompanyNumber(customer.company_number ?? '')
       setVatNumber(customer.vat_number ?? '')
       setLoading(false)
@@ -232,7 +232,7 @@ export default function EditCustomerPage() {
       setBillingStreet(payload.billingStreet ?? '')
       setBillingCity(payload.billingCity ?? '')
       setBillingPostalCode(payload.billingPostalCode ?? '')
-      setBillingCountry(payload.billingCountry ?? 'Ceska republika')
+      setBillingCountry(payload.billingCountry ?? 'Česká republika')
 
       if (!name.trim() && payload.name) {
         setName(payload.name)

@@ -148,7 +148,7 @@ function defaultPayrollSettings(companyId: string): CompanyPayrollSettings {
 function defaultBillingSettings(companyId: string): CompanyBillingSettings {
   return {
     company_id: companyId,
-    billing_enabled: false,
+    billing_enabled: true,
     default_invoice_due_days: 14,
     default_vat_rate: 21,
     is_vat_payer: false,

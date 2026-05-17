@@ -479,7 +479,7 @@ export default function CalendarPage() {
             <span>{dictionary.calendar.thisWeek}</span>
             <strong>{stats.week}</strong>
           </div>
-          <Link href="/calendar/new" className="calendar-primary-action">
+          <Link href="/calendar/new" className="calendar-primary-action" data-tour="calendar-new-button">
             + {dictionary.calendar.addEvent}
           </Link>
         </div>
@@ -487,7 +487,7 @@ export default function CalendarPage() {
 
       <section className="calendar-toolbar">
         <div className="calendar-toolbar-top">
-          <div className="calendar-tabs" aria-label={dictionary.calendar.calendarView}>
+          <div className="calendar-tabs" aria-label={dictionary.calendar.calendarView} data-tour="calendar-view-switcher">
             {(['list', 'week', 'month'] as CalendarView[]).map((mode) => (
               <button
                 key={mode}
@@ -512,7 +512,7 @@ export default function CalendarPage() {
           </div>
         </div>
 
-        <div className="calendar-filter-grid">
+        <div className="calendar-filter-grid" data-tour="calendar-filters">
           <select value={itemFilter} onChange={(e) => setItemFilter(e.target.value as ItemFilter)}>
             <option value="all">{dictionary.calendar.allItems}</option>
             <option value="jobs">{dictionary.calendar.jobsOnly}</option>
@@ -567,16 +567,16 @@ export default function CalendarPage() {
       ) : error ? (
         <div className="calendar-state-card error">{error}</div>
       ) : filteredItems.length === 0 ? (
-        <div className="calendar-empty">
+        <div className="calendar-empty" data-tour="calendar-items">
           <div className="calendar-empty-icon">K</div>
           <div>
             <h2>{dictionary.calendar.empty}</h2>
             <p>{dictionary.calendar.emptyDescription}</p>
-            <Link href="/calendar/new">{dictionary.calendar.addEvent}</Link>
+            <Link href="/calendar/new" data-tour="calendar-new-button">{dictionary.calendar.addEvent}</Link>
           </div>
         </div>
       ) : view === 'list' ? (
-        <div className="calendar-list-view">
+        <div className="calendar-list-view" data-tour="calendar-items">
           {listDays.map((day) => {
             const dayItems = filteredItems.filter((item) => itemOccursOnDay(item, day))
             if (dayItems.length === 0) return null
@@ -600,7 +600,7 @@ export default function CalendarPage() {
           })}
         </div>
       ) : view === 'week' ? (
-        <div className="calendar-week-view">
+        <div className="calendar-week-view" data-tour="calendar-items">
           {weekDays.map((day) => {
             const dayItems = filteredItems.filter((item) => itemOccursOnDay(item, day))
             const isTodayFlag = isSameDay(day, today)
@@ -626,7 +626,7 @@ export default function CalendarPage() {
           })}
         </div>
       ) : (
-        <div className="calendar-month-view">
+        <div className="calendar-month-view" data-tour="calendar-items">
           <div className="calendar-month-weekdays">
             {Array.from({ length: 7 }, (_, index) =>
               new Intl.DateTimeFormat(intlLocale, { weekday: 'short' }).format(new Date(2026, 0, 5 + index))
@@ -672,89 +672,90 @@ export default function CalendarPage() {
           overflow: hidden;
           display: flex;
           justify-content: space-between;
-          align-items: flex-end;
-          gap: 24px;
-          margin-bottom: 22px;
-          padding: 34px 36px;
-          border-radius: 30px;
+          align-items: center;
+          gap: 14px;
+          margin-bottom: 12px;
+          padding: 18px 20px;
+          border-radius: 20px;
           background: linear-gradient(135deg, rgba(250,245,255,0.98) 0%, rgba(239,246,255,0.96) 52%, rgba(236,254,255,0.92) 100%);
           border: 1px solid rgba(203, 213, 225, 0.78);
-          box-shadow: 0 24px 64px rgba(15, 23, 42, 0.11);
+          box-shadow: 0 12px 32px rgba(15, 23, 42, 0.065);
         }
 
         .calendar-hero h1 {
           margin: 0;
           color: #0f172a;
-          font-size: 52px;
+          font-size: 32px;
           font-weight: 900;
-          line-height: 1;
+          line-height: 1.08;
           letter-spacing: 0;
         }
 
         .calendar-hero p {
           max-width: 560px;
-          margin: 14px 0 0;
+          margin: 7px 0 0;
           color: #475569;
-          font-size: 18px;
-          line-height: 1.55;
+          font-size: 14px;
+          line-height: 1.45;
         }
 
         .calendar-eyebrow {
           display: inline-flex;
-          margin-bottom: 14px;
-          padding: 8px 13px;
+          margin-bottom: 8px;
+          padding: 4px 9px;
           border: 1px solid rgba(124,58,237,0.22);
           border-radius: 999px;
           background: rgba(255,255,255,0.72);
           color: #5b21b6;
-          font-size: 13px;
+          font-size: 11px;
           font-weight: 900;
         }
 
         .calendar-hero-side {
           display: grid;
-          grid-template-columns: repeat(2, minmax(110px, 1fr));
-          gap: 12px;
-          min-width: min(460px, 100%);
+          grid-template-columns: repeat(2, minmax(90px, 1fr));
+          gap: 8px;
+          min-width: min(360px, 100%);
         }
 
         .calendar-mini-stat {
-          padding: 16px;
+          padding: 9px 11px;
           border: 1px solid rgba(226,232,240,0.9);
-          border-radius: 22px;
+          border-radius: 14px;
           background: rgba(255,255,255,0.78);
-          box-shadow: 0 14px 30px rgba(15,23,42,0.06);
+          box-shadow: 0 8px 18px rgba(15,23,42,0.045);
         }
 
         .calendar-mini-stat span,
         .calendar-stat-row span {
           display: block;
           color: #64748b;
-          font-size: 13px;
+          font-size: 12px;
           font-weight: 800;
         }
 
         .calendar-mini-stat strong {
           display: block;
-          margin-top: 4px;
+          margin-top: 2px;
           color: #0f172a;
-          font-size: 30px;
+          font-size: 22px;
           font-weight: 900;
         }
 
         .calendar-primary-action {
           grid-column: 1 / -1;
           display: inline-flex;
-          min-height: 52px;
+          min-height: 36px;
           align-items: center;
           justify-content: center;
-          padding: 13px 18px;
+          padding: 8px 12px;
           border-radius: 999px;
           background: linear-gradient(135deg, #7c3aed 0%, #2563eb 52%, #06b6d4 100%);
           color: #fff;
           text-decoration: none;
+          font-size: 14px;
           font-weight: 900;
-          box-shadow: 0 18px 38px rgba(37,99,235,0.24);
+          box-shadow: 0 10px 22px rgba(37,99,235,0.16);
         }
 
         .calendar-toolbar,
@@ -1267,11 +1268,11 @@ export default function CalendarPage() {
           }
 
           .calendar-hero h1 {
-            font-size: 40px;
+            font-size: 30px;
           }
 
           .calendar-hero p {
-            font-size: 16px;
+            font-size: 14px;
           }
 
           .calendar-hero-side {

@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import AdminAuthGuard from './AdminAuthGuard'
 import DashboardSidebar from './DashboardSidebar'
+import FloatingHelpWidget from './FloatingHelpWidget'
 import LanguageSwitcher from './LanguageSwitcher'
 import { useI18n } from './I18nProvider'
 import type { CompanyModuleKey } from '@/lib/company-settings-shared'
@@ -26,6 +27,7 @@ type DashboardShellProps = {
     | 'kalkulace'
     | 'quotes'
     | 'invoices'
+    | 'costs'
     | 'help'
     | 'account'
     | 'companySettings'
@@ -55,6 +57,52 @@ type CompanyModulesPayload = {
   modules?: Partial<Record<CompanyModuleKey, boolean>>
 }
 
+type DashboardContextPayload = {
+  activeCompany: ActiveCompanyPayload
+  modules: Partial<Record<CompanyModuleKey, boolean>> | null
+}
+
+let dashboardContextCache: { value: DashboardContextPayload; expiresAt: number } | null = null
+let dashboardContextPromise: Promise<DashboardContextPayload> | null = null
+
+async function loadDashboardContext() {
+  if (dashboardContextCache && dashboardContextCache.expiresAt > Date.now()) {
+    return dashboardContextCache.value
+  }
+
+  dashboardContextPromise ??= Promise.all([
+    fetch('/api/active-company', { cache: 'no-store' }),
+    fetch('/api/company-modules', { cache: 'no-store' }),
+  ])
+    .then(async ([response, modulesResponse]) => {
+      if (!response.ok) {
+        throw new Error('active-company-load-failed')
+      }
+
+      const payload = (await response.json()) as ActiveCompanyPayload
+      const modulesPayload = modulesResponse.ok
+        ? ((await modulesResponse.json().catch(() => null)) as CompanyModulesPayload | null)
+        : null
+
+      const nextPayload: DashboardContextPayload = {
+        activeCompany: payload,
+        modules: modulesPayload?.modules ?? null,
+      }
+
+      dashboardContextCache = {
+        value: nextPayload,
+        expiresAt: Date.now() + 10_000,
+      }
+
+      return nextPayload
+    })
+    .finally(() => {
+      dashboardContextPromise = null
+    })
+
+  return dashboardContextPromise
+}
+
 export default function DashboardShell({
   children,
   activeItem = 'dashboard',
@@ -77,32 +125,19 @@ export default function DashboardShell({
     async function loadActiveCompany() {
       setActiveCompanyLoading(true)
       try {
-        const [response, modulesResponse] = await Promise.all([
-          fetch('/api/active-company', { cache: 'no-store' }),
-          fetch('/api/company-modules', { cache: 'no-store' }),
-        ])
-
-        if (!response.ok) {
-          if (!cancelled) setCompanySwitchError(dictionary.common.activeCompanyLoadFailed)
-          return
-        }
-
-        const payload = (await response.json()) as ActiveCompanyPayload
-        const modulesPayload = modulesResponse.ok
-          ? ((await modulesResponse.json().catch(() => null)) as CompanyModulesPayload | null)
-          : null
+        const payload = await loadDashboardContext()
 
         if (!cancelled) {
           setActiveCompany({
-            companyId: payload.companyId,
-            companyName: payload.companyName?.trim() || null,
-            profileId: payload.profileId ?? null,
-            profileName: payload.profileName?.trim() || null,
-            profileEmail: payload.profileEmail?.trim() || null,
-            role: payload.role ?? null,
-            companyMemberships: payload.companyMemberships ?? [],
+            companyId: payload.activeCompany.companyId,
+            companyName: payload.activeCompany.companyName?.trim() || null,
+            profileId: payload.activeCompany.profileId ?? null,
+            profileName: payload.activeCompany.profileName?.trim() || null,
+            profileEmail: payload.activeCompany.profileEmail?.trim() || null,
+            role: payload.activeCompany.role ?? null,
+            companyMemberships: payload.activeCompany.companyMemberships ?? [],
           })
-          setCompanyModules(modulesPayload?.modules ?? null)
+          setCompanyModules(payload.modules)
           setCompanySwitchError(null)
         }
 
@@ -164,6 +199,7 @@ export default function DashboardShell({
 
       setCompanyMenuOpen(false)
       setUserMenuOpen(false)
+      dashboardContextCache = null
       router.replace('/')
       router.refresh()
     } finally {
@@ -526,7 +562,7 @@ export default function DashboardShell({
                         <Link className="topbar-user-menu-item" href="/ucet" onClick={() => setUserMenuOpen(false)} style={topbarMenuItem}>
                           {dictionary.navigation.account}
                         </Link>
-                        <Link className="topbar-user-menu-item" href="/napoveda" onClick={() => setUserMenuOpen(false)} style={topbarMenuItem}>
+                        <Link className="topbar-user-menu-item" href="/help" onClick={() => setUserMenuOpen(false)} style={topbarMenuItem}>
                           {dictionary.navigation.help}
                         </Link>
                         <button
@@ -552,14 +588,7 @@ export default function DashboardShell({
               </div>
 
               {children}
-              <Link
-                href="/napoveda"
-                className="floating-help-button"
-                aria-label={dictionary.navigation.help}
-                title={dictionary.navigation.help}
-              >
-                ?
-              </Link>
+              <FloatingHelpWidget activeItem={activeItem} />
               <style>{`
                 .topbar-company-menu-item:hover {
                   background: #f8fafc !important;

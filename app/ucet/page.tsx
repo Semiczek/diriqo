@@ -215,7 +215,7 @@ export default function AccountPage() {
   const [billingStreet, setBillingStreet] = useState('')
   const [billingCity, setBillingCity] = useState('')
   const [billingPostalCode, setBillingPostalCode] = useState('')
-  const [billingCountry, setBillingCountry] = useState('Ceska republika')
+  const [billingCountry, setBillingCountry] = useState('Česká republika')
   const [bankAccountNumber, setBankAccountNumber] = useState('')
   const [bankCode, setBankCode] = useState('')
   const [iban, setIban] = useState('')
@@ -260,7 +260,7 @@ export default function AccountPage() {
     setBillingStreet(payload.billingStreet ?? '')
     setBillingCity(payload.billingCity ?? '')
     setBillingPostalCode(payload.billingPostalCode ?? '')
-    setBillingCountry(payload.billingCountry ?? 'Ceska republika')
+    setBillingCountry(payload.billingCountry ?? 'Česká republika')
     setBankAccountNumber(payload.bankAccountNumber ?? '')
     setBankCode(payload.bankCode ?? '')
     setIban(payload.iban ?? '')
@@ -369,7 +369,7 @@ export default function AccountPage() {
       setBillingStreet(payload.billingStreet ?? '')
       setBillingCity(payload.billingCity ?? '')
       setBillingPostalCode(payload.billingPostalCode ?? '')
-      setBillingCountry(payload.billingCountry ?? 'Ceska republika')
+      setBillingCountry(payload.billingCountry ?? 'Česká republika')
       setAresLoadedThisEdit(true)
       setBillingMessage('Údaje z ARES byly načtené. Zkontrolujte je a uložte.')
     } catch (lookupError) {
@@ -516,35 +516,35 @@ export default function AccountPage() {
 
   return (
     <DashboardShell activeItem="account">
-      <div style={{ display: 'grid', gap: '20px' }}>
+      <div style={{ display: 'grid', gap: '12px' }}>
         <section
           style={{
             display: 'grid',
             gridTemplateColumns: 'auto minmax(0, 1fr)',
-            gap: '22px',
+            gap: '14px',
             alignItems: 'center',
-            borderRadius: '28px',
+            borderRadius: '20px',
             border: '1px solid rgba(148, 163, 184, 0.25)',
             background:
               'radial-gradient(circle at 6% 10%, rgba(124, 58, 237, 0.16), transparent 28%), radial-gradient(circle at 100% 0%, rgba(6, 182, 212, 0.18), transparent 28%), linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(239,246,255,0.92) 55%, rgba(240,253,250,0.9) 100%)',
-            padding: '30px',
-            boxShadow: '0 24px 60px rgba(15, 23, 42, 0.1)',
+            padding: '18px 20px',
+            boxShadow: '0 12px 32px rgba(15, 23, 42, 0.065)',
             overflow: 'hidden',
           }}
         >
           <div
             style={{
-              width: '76px',
-              height: '76px',
-              borderRadius: '24px',
+              width: '54px',
+              height: '54px',
+              borderRadius: '18px',
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
               background: 'linear-gradient(135deg, #7c3aed 0%, #2563eb 52%, #14b8a6 100%)',
               color: '#ffffff',
-              fontSize: '24px',
+              fontSize: '18px',
               fontWeight: 950,
-              boxShadow: '0 16px 32px rgba(37, 99, 235, 0.24)',
+              boxShadow: '0 10px 22px rgba(37, 99, 235, 0.16)',
             }}
           >
             {profileInitials}
@@ -556,22 +556,22 @@ export default function AccountPage() {
                 display: 'inline-flex',
                 alignItems: 'center',
                 borderRadius: '999px',
-                padding: '7px 11px',
-                marginBottom: '12px',
+                padding: '4px 9px',
+                marginBottom: '8px',
                 background: 'rgba(124, 58, 237, 0.1)',
                 border: '1px solid rgba(124, 58, 237, 0.2)',
                 color: '#5b21b6',
-                fontSize: '12px',
+                fontSize: '11px',
                 fontWeight: 850,
                 letterSpacing: '0.02em',
               }}
             >
               Účet a firma
             </div>
-            <h1 style={{ margin: '0 0 8px 0', color: '#020617', fontSize: '40px', lineHeight: 1.05 }}>
+            <h1 style={{ margin: 0, color: '#020617', fontSize: '32px', lineHeight: 1.08 }}>
               Můj účet
             </h1>
-            <p style={{ margin: '0 0 18px', color: '#475569', fontSize: '16px', lineHeight: 1.6 }}>
+            <p style={{ margin: '7px 0 10px', color: '#475569', fontSize: '14px', lineHeight: 1.45 }}>
               Přihlášení, aktivní firma a role v systému.
             </p>
             <h2 style={{ margin: 0, color: '#0f172a', fontSize: '26px', lineHeight: 1.15 }}>

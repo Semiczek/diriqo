@@ -619,13 +619,13 @@ export default function NewJobPage() {
                 fontWeight: 750,
               }}
             >
-              VytvÃ¡Å™Ã­te dceÅ™inou zakÃ¡zku pod: {parentJob.title ?? dictionary.jobs.untitledJob}. Cena zÅ¯stane jen na hlavnÃ­ zakÃ¡zce.
+              Vytváříte dceřinou zakázku pod: {parentJob.title ?? dictionary.jobs.untitledJob}. Cena zůstane jen na hlavní zakázce.
             </div>
           ) : null}
 
           <label>
             <div style={{ marginBottom: '6px', fontWeight: 600 }}>{dictionary.jobs.customer}</div>
-            <select name="customerId" value={customerId} onChange={(e) => setCustomerId(e.target.value)} disabled={Boolean(parentJob)} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db', backgroundColor: parentJob ? '#f9fafb' : 'white' }}>
+            <select name="customerId" data-tour="job-customer" value={customerId} onChange={(e) => setCustomerId(e.target.value)} disabled={Boolean(parentJob)} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db', backgroundColor: parentJob ? '#f9fafb' : 'white' }}>
               <option value="">{dictionary.jobs.noCustomerOption}</option>
               {customers.map((customer) => (
                 <option key={customer.id} value={customer.id}>{customer.name ?? dictionary.jobs.noName}</option>
@@ -643,11 +643,11 @@ export default function NewJobPage() {
             </select>
           </label>
 
-          <label><div style={{ marginBottom: '6px', fontWeight: 600 }}>{dictionary.jobs.titleLabel}</div><input name="title" type="text" value={title} onChange={(e) => setTitle(e.target.value)} required style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db' }} /></label>
+          <label><div style={{ marginBottom: '6px', fontWeight: 600 }}>{dictionary.jobs.titleLabel}</div><input name="title" data-tour="job-title" type="text" value={title} onChange={(e) => setTitle(e.target.value)} required style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db' }} /></label>
           <label><div style={{ marginBottom: '6px', fontWeight: 600 }}>{dictionary.jobs.descriptionLabel}</div><textarea name="description" value={description} onChange={(e) => setDescription(e.target.value)} rows={4} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db' }} /></label>
           <label><div style={{ marginBottom: '6px', fontWeight: 600 }}>{dictionary.jobs.addressLabel}</div><input name="address" type="text" value={address} onChange={(e) => setAddress(e.target.value)} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db' }} /></label>
-          <label><div style={{ marginBottom: '6px', fontWeight: 600 }}>{dictionary.jobs.price}</div><input name="price" type="number" value={parentJob ? '' : price} onChange={(e) => setPrice(e.target.value)} disabled={Boolean(parentJob)} placeholder={parentJob ? 'Cena je na hlavnÃ­ zakÃ¡zce' : undefined} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db', backgroundColor: parentJob ? '#f9fafb' : '#fff' }} /></label>
-          <label><div style={{ marginBottom: '6px', fontWeight: 600 }}>{dictionary.jobs.startJob}</div><input name="startAt" type="datetime-local" value={startAt} onInput={(e) => handleStartAtInput(e.currentTarget.value)} onChange={(e) => handleStartAtInput(e.currentTarget.value)} required style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db' }} /></label>
+          <label><div style={{ marginBottom: '6px', fontWeight: 600 }}>{dictionary.jobs.price}</div><input name="price" type="number" value={parentJob ? '' : price} onChange={(e) => setPrice(e.target.value)} disabled={Boolean(parentJob)} placeholder={parentJob ? 'Cena je na hlavní zakázce' : undefined} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db', backgroundColor: parentJob ? '#f9fafb' : '#fff' }} /></label>
+          <label><div style={{ marginBottom: '6px', fontWeight: 600 }}>{dictionary.jobs.startJob}</div><input name="startAt" data-tour="job-date" type="datetime-local" value={startAt} onInput={(e) => handleStartAtInput(e.currentTarget.value)} onChange={(e) => handleStartAtInput(e.currentTarget.value)} required style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db' }} /></label>
           <label><div style={{ marginBottom: '6px', fontWeight: 600 }}>{dictionary.jobs.expectedEnd}</div><input name="endAt" type="datetime-local" value={endAt} onInput={(e) => handleEndAtInput(e.currentTarget.value)} onChange={(e) => handleEndAtInput(e.currentTarget.value)} required style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db' }} /></label>
 
           {!isRecurringWeekly && generatedWorkDays.length > 1 ? (
@@ -736,7 +736,7 @@ export default function NewJobPage() {
               </div>
             </label>
 
-          <div>
+          <div data-tour="job-workers">
             <div style={{ marginBottom: '10px', fontWeight: 600 }}>{dictionary.jobs.workers}</div>
             <div style={{ display: 'grid', gap: '10px' }}>
               {assignedProfiles.map((selectedId, index) => (
@@ -758,7 +758,7 @@ export default function NewJobPage() {
             </button>
           </div>
 
-          <button type="submit" disabled={loading || !companyId} style={{ padding: '12px 16px', borderRadius: '8px', border: 'none', backgroundColor: loading || !companyId ? '#6b7280' : 'black', color: 'white', fontWeight: 600, cursor: loading || !companyId ? 'default' : 'pointer' }}>
+          <button type="submit" data-tour="job-save" disabled={loading || !companyId} style={{ padding: '12px 16px', borderRadius: '8px', border: 'none', backgroundColor: loading || !companyId ? '#6b7280' : 'black', color: 'white', fontWeight: 600, cursor: loading || !companyId ? 'default' : 'pointer' }}>
             {loading ? dictionary.jobs.saving : dictionary.jobs.createJob}
           </button>
         </form>

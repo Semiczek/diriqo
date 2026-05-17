@@ -300,12 +300,12 @@ export default function HelpCenterClient({
         style={{
           position: 'relative',
           overflow: 'hidden',
-          borderRadius: '28px',
-          padding: '34px',
-          marginBottom: '20px',
+          borderRadius: '20px',
+          padding: '18px 20px',
+          marginBottom: '12px',
           background: 'linear-gradient(135deg, #070B1F 0%, #0B1733 48%, #083344 100%)',
           color: '#ffffff',
-          boxShadow: '0 26px 70px rgba(15, 23, 42, 0.22)',
+          boxShadow: '0 12px 32px rgba(15, 23, 42, 0.14)',
           border: '1px solid rgba(6, 182, 212, 0.2)',
         }}
       >
@@ -335,18 +335,18 @@ export default function HelpCenterClient({
             filter: 'blur(14px)',
           }}
         />
-        <div style={{ position: 'relative', display: 'grid', gap: '16px' }}>
+        <div style={{ position: 'relative', display: 'grid', gap: '8px' }}>
           <div
             style={{
               display: 'inline-flex',
               width: 'fit-content',
               alignItems: 'center',
-              gap: '10px',
-              padding: '8px 13px',
+              gap: '6px',
+              padding: '4px 9px',
               borderRadius: '999px',
               backgroundColor: 'rgba(255,255,255,0.12)',
               border: '1px solid rgba(255,255,255,0.18)',
-              fontSize: '13px',
+              fontSize: '11px',
               fontWeight: 800,
               letterSpacing: '0.04em',
               textTransform: 'uppercase',
@@ -355,8 +355,8 @@ export default function HelpCenterClient({
             <span
               aria-hidden="true"
               style={{
-                width: '24px',
-                height: '24px',
+                width: '18px',
+                height: '18px',
                 borderRadius: '999px',
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -370,16 +370,16 @@ export default function HelpCenterClient({
           </div>
 
           <div>
-            <h1 style={{ margin: '0 0 10px', fontSize: '42px', lineHeight: 1.08, maxWidth: '820px' }}>
+            <h1 style={{ margin: 0, fontSize: '32px', lineHeight: 1.08, maxWidth: '820px' }}>
               {dictionary.help.title}
             </h1>
             <p
               style={{
-                margin: 0,
+                margin: '7px 0 0',
                 maxWidth: '840px',
                 color: 'rgba(255,255,255,0.88)',
-                fontSize: '16px',
-                lineHeight: 1.7,
+                fontSize: '14px',
+                lineHeight: 1.45,
               }}
             >
               {intro.length > 0 ? intro.join(' ') : dictionary.help.subtitle}

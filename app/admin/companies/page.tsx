@@ -99,19 +99,19 @@ export default async function AdminCompaniesPage() {
           <thead>
             <tr>
               {[
-                'Company',
-                'Country',
-                'Language',
-                'Currency',
-                'Plan',
-                'Status',
-                'Trial ends',
-                'Period end',
-                'Worker limit',
-                'Members',
+                'Firma',
+                'Země',
+                'Jazyk',
+                'Měna',
+                'Plán',
+                'Stav',
+                'Konec zkušebního období',
+                'Konec období',
+                'Limit pracovníků',
+                'Členové',
                 'Admin',
-                'Created',
-                'Last activity',
+                'Vytvořeno',
+                'Poslední aktivita',
               ].map((heading) => (
                 <th key={heading} style={thStyle}>{heading}</th>
               ))}
@@ -125,7 +125,7 @@ export default async function AdminCompaniesPage() {
                 <tr key={company.id}>
                   <td style={tdStyle}>
                     <Link href={`/admin/companies/${company.id}`} style={linkStyle}>
-                      {company.name || 'Company without name'}
+                      {company.name || 'Firma bez názvu'}
                     </Link>
                   </td>
                   <td style={tdStyle}>{company.billing_country ?? '-'}</td>
@@ -135,7 +135,7 @@ export default async function AdminCompaniesPage() {
                   <td style={tdStyle}>{subscription?.status ?? '-'}</td>
                   <td style={tdStyle}>{formatDate(subscription?.trial_ends_at)}</td>
                   <td style={tdStyle}>{formatDate(subscription?.current_period_end)}</td>
-                  <td style={tdStyle}>{subscription?.plan_key ? getWorkerLimit(subscription.plan_key) ?? 'custom' : '-'}</td>
+                  <td style={tdStyle}>{subscription?.plan_key ? getWorkerLimit(subscription.plan_key) ?? 'individuální' : '-'}</td>
                   <td style={tdStyle}>{memberCountByCompany.get(company.id) ?? 0}</td>
                   <td style={tdStyle}>{adminEmailByCompany.get(company.id) ?? '-'}</td>
                   <td style={tdStyle}>{formatDate(company.created_at)}</td>

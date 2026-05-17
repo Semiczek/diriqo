@@ -1,12 +1,12 @@
 import DashboardShell from '@/components/DashboardShell'
 import {
   getCompanyBillingSettings,
-  getCompanyModules,
   getCompanyPayrollSettings,
   getCompanySettings,
 } from '@/lib/company-settings'
 import { requireHubAccess } from '@/lib/require-hub-access'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
+import { getCompanySubscription } from '@/lib/subscription'
 import CompanySettingsClient from './CompanySettingsClient'
 
 type CompanyRow = {
@@ -99,7 +99,7 @@ export default async function CompanySettingsPage() {
     companySettings,
     payrollSettings,
     billingSettings,
-    modules,
+    subscription,
     membersResponse,
     workerPaymentResponse,
   ] =
@@ -112,7 +112,7 @@ export default async function CompanySettingsPage() {
       getCompanySettings(activeCompany.companyId),
       getCompanyPayrollSettings(activeCompany.companyId),
       getCompanyBillingSettings(activeCompany.companyId),
-      getCompanyModules(activeCompany.companyId),
+      getCompanySubscription(activeCompany.companyId),
       supabase
         .from('company_members')
         .select('id, role, is_active, profile_id, profiles(id, full_name, email)')
@@ -159,7 +159,7 @@ export default async function CompanySettingsPage() {
         companySettings={companySettings}
         payrollSettings={payrollSettings}
         billingSettings={billingSettings}
-        modules={modules}
+        subscription={subscription}
         members={members}
       />
     </DashboardShell>

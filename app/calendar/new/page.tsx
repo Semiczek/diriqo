@@ -225,6 +225,7 @@ export default function NewCalendarEventPage() {
             </div>
             <label>{t.eventTitle}</label>
             <input
+              data-tour="calendar-event-title"
               type="text"
               placeholder={t.titlePlaceholder}
               value={title}
@@ -246,7 +247,7 @@ export default function NewCalendarEventPage() {
               <h2>{t.scheduleTitle}</h2>
               <p>{t.scheduleDescription}</p>
             </div>
-            <div className="calendar-new-two">
+            <div className="calendar-new-two" data-tour="calendar-event-time">
               <div>
                 <label>{t.from}</label>
                 <input
@@ -269,7 +270,7 @@ export default function NewCalendarEventPage() {
             </div>
           </section>
 
-          <section className="calendar-new-card">
+          <section className="calendar-new-card" data-tour="calendar-event-relations">
             <div>
               <h2>{t.relationsTitle}</h2>
               <p>{t.relationsDescription}</p>
@@ -329,7 +330,7 @@ export default function NewCalendarEventPage() {
             <button type="button" onClick={() => router.push('/calendar')}>
               {dictionary.common.cancel}
             </button>
-            <button type="submit" disabled={loading}>
+            <button type="submit" disabled={loading} data-tour="calendar-event-save">
               {loading ? t.saving : t.create}
             </button>
           </div>
@@ -345,47 +346,48 @@ export default function NewCalendarEventPage() {
         .calendar-new-hero,
         .calendar-new-card {
           border: 1px solid rgba(226,232,240,0.92);
-          border-radius: 26px;
+          border-radius: 20px;
           background: rgba(255,255,255,0.92);
-          box-shadow: 0 16px 40px rgba(15,23,42,0.07);
+          box-shadow: 0 12px 32px rgba(15,23,42,0.065);
         }
 
         .calendar-new-hero {
           display: flex;
-          align-items: flex-end;
+          align-items: center;
           justify-content: space-between;
-          gap: 20px;
-          margin-bottom: 22px;
-          padding: 30px;
+          gap: 14px;
+          margin-bottom: 12px;
+          padding: 18px 20px;
           background: linear-gradient(135deg, rgba(250,245,255,0.98), rgba(239,246,255,0.96), rgba(236,254,255,0.92));
         }
 
         .calendar-new-eyebrow {
           display: inline-flex;
-          margin-bottom: 12px;
-          padding: 7px 12px;
+          margin-bottom: 8px;
+          padding: 4px 9px;
           border: 1px solid rgba(124,58,237,0.22);
           border-radius: 999px;
           background: rgba(255,255,255,0.72);
           color: #5b21b6;
-          font-size: 13px;
+          font-size: 11px;
           font-weight: 900;
         }
 
         .calendar-new-hero h1 {
           margin: 0;
           color: #0f172a;
-          font-size: 44px;
+          font-size: 32px;
           font-weight: 950;
+          line-height: 1.08;
           letter-spacing: 0;
         }
 
         .calendar-new-hero p,
         .calendar-new-card p {
-          margin: 10px 0 0;
+          margin: 7px 0 0;
           color: #64748b;
-          font-size: 16px;
-          line-height: 1.5;
+          font-size: 14px;
+          line-height: 1.45;
         }
 
         .calendar-new-hero button,

@@ -279,10 +279,10 @@ export function buildInvoicePdf(invoice: InvoicePdfRow, items: InvoicePdfItemRow
     y -= 52
   }
 
-  addText(contentLines, 44, y, 13, 'Polozky faktury', { font: 'bold' })
+  addText(contentLines, 44, y, 13, 'Položky faktury', { font: 'bold' })
   y -= 26
   addRect(contentLines, 44, y - 7, 507, 24, { fill: [0.05, 0.09, 0.16] })
-  addText(contentLines, 58, y, 8, 'NAZEV', { color: [1, 1, 1], font: 'bold' })
+  addText(contentLines, 58, y, 8, 'NÁZEV', { color: [1, 1, 1], font: 'bold' })
   addRightText(contentLines, 322, y, 8, 'MNOZSTVI', { color: [1, 1, 1], font: 'bold' })
   addRightText(contentLines, 410, y, 8, 'BEZ DPH', { color: [1, 1, 1], font: 'bold' })
   addRightText(contentLines, 462, y, 8, 'DPH', { color: [1, 1, 1], font: 'bold' })

@@ -33,6 +33,11 @@ yarn-error.log*
 .next-dev.*.log
 lint-report*.json
 
+# local audit/dev artifacts
+.tmp-*
+audit-click-*.json
+audit-screenshots*/
+
 # local backups
 /backups/
 

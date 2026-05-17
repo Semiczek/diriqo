@@ -99,7 +99,7 @@ export async function resolveJobPhotoAccessScope(jobId: string, activeCompany: A
     .maybeSingle()
 
   if (jobResponse.error) {
-    throw new Error(`Nepodarilo se overit zakazku: ${jobResponse.error.message}`)
+    throw new Error(`Nepodařilo se ověřit zakázku: ${jobResponse.error.message}`)
   }
 
   const job = jobResponse.data as JobPhotoJobScopeRow | null
@@ -116,7 +116,7 @@ export async function resolveJobPhotoAccessScope(jobId: string, activeCompany: A
     .or(`id.eq.${rootJobId},parent_job_id.eq.${rootJobId}`)
 
   if (groupJobsResponse.error) {
-    throw new Error(`Nepodarilo se nacist skupinu zakazek: ${groupJobsResponse.error.message}`)
+    throw new Error(`Nepodařilo se načíst skupinu zakázek: ${groupJobsResponse.error.message}`)
   }
 
   const groupJobIds = uniqueValues([
@@ -138,7 +138,7 @@ export async function resolveJobPhotoAccessScope(jobId: string, activeCompany: A
     .is('archived_at', null)
 
   if (assignmentResponse.error) {
-    throw new Error(`Nepodarilo se overit prirazeni: ${assignmentResponse.error.message}`)
+    throw new Error(`Nepodařilo se ověřit přiřazení: ${assignmentResponse.error.message}`)
   }
 
   const assignedGroupJobIds = uniqueValues(

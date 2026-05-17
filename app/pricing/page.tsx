@@ -4,17 +4,17 @@ import type { CSSProperties } from 'react'
 import { addOns, mainPlans } from '@/lib/plans'
 
 function formatMonthlyPrice(value: number | null) {
-  if (value === null) return 'Custom pricing'
-  return `${value.toLocaleString('cs-CZ')} EUR / month`
+  if (value === null) return 'Individuální cena'
+  return `${value.toLocaleString('cs-CZ')} EUR / měsíc`
 }
 
 function formatSetupPrice(value: number | null) {
   if (value === null) return null
-  return `+${value.toLocaleString('cs-CZ')} EUR setup`
+  return `+${value.toLocaleString('cs-CZ')} EUR nastavení`
 }
 
 function formatWorkerLimit(value: number | null) {
-  return value === null ? 'Custom worker limit' : `${value} active workers`
+  return value === null ? 'Individuální limit pracovníků' : `${value} aktivních pracovníků`
 }
 
 export default function PricingPage() {
@@ -27,19 +27,19 @@ export default function PricingPage() {
           </Link>
           <div style={navActionsStyle}>
             <Link href="/sign-in" style={secondaryLinkStyle}>
-              Sign in
+              Přihlásit se
             </Link>
-            <Link href="/sign-up" style={primaryLinkStyle}>
-              Start free
+            <Link href="/register?locale=cs" style={primaryLinkStyle}>
+              Začít zdarma
             </Link>
           </div>
         </nav>
 
         <header style={headerStyle}>
-          <p style={eyebrowStyle}>Pricing</p>
-          <h1 style={titleStyle}>Plans for service teams</h1>
+          <p style={eyebrowStyle}>Ceník</p>
+          <h1 style={titleStyle}>Plány pro servisní týmy</h1>
           <p style={subtitleStyle}>
-            Choose a worker limit that fits your team. Website setup is available as a separate add-on.
+            Vyberte limit pracovníků podle velikosti týmu. Nastavení webu je dostupné jako samostatný doplněk.
           </p>
         </header>
 
@@ -48,7 +48,7 @@ export default function PricingPage() {
             <article key={plan.key} style={plan.recommended ? recommendedCardStyle : cardStyle}>
               <div style={planHeaderStyle}>
                 <h2 style={planTitleStyle}>{plan.name}</h2>
-                {plan.recommended ? <span style={badgeStyle}>Recommended</span> : null}
+                {plan.recommended ? <span style={badgeStyle}>Doporučeno</span> : null}
               </div>
               <div style={priceStyle}>{formatMonthlyPrice(plan.priceMonthly)}</div>
               <p style={mutedStyle}>{formatWorkerLimit(plan.workerLimit)}</p>
@@ -58,13 +58,13 @@ export default function PricingPage() {
 
         {addOns.length > 0 ? (
           <section style={addOnSectionStyle}>
-            <h2 style={sectionTitleStyle}>Add-ons</h2>
+            <h2 style={sectionTitleStyle}>Doplňky</h2>
             <div style={plansGridStyle}>
               {addOns.map((plan) => (
                 <article key={plan.key} style={cardStyle}>
                   <h3 style={planTitleStyle}>{plan.name}</h3>
                   <div style={priceStyle}>{formatSetupPrice(plan.setupPrice)}</div>
-                  <p style={mutedStyle}>Optional website setup add-on.</p>
+                  <p style={mutedStyle}>Volitelný balíček pro nastavení webu.</p>
                 </article>
               ))}
             </div>

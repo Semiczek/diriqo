@@ -68,7 +68,7 @@ export async function updateAccountPayrollSettingsAction(input: {
     const advanceLimit = parseNullableNumber(input.advanceLimitAmount)
 
     if (requestedCompanyId && requestedCompanyId !== companyId) {
-      return { ok: false, error: 'Nastaveni lze ulozit jen pro aktivni firmu.' }
+    return { ok: false, error: 'Nastavení lze uložit jen pro aktivní firmu.' }
     }
 
     if (
@@ -104,7 +104,7 @@ export async function updateAccountPayrollSettingsAction(input: {
       .single()
 
     if (response.error || !response.data) {
-      return { ok: false, error: response.error?.message ?? 'Vyplatni nastaveni se nepodarilo ulozit.' }
+    return { ok: false, error: response.error?.message ?? 'Výplatní nastavení se nepodařilo uložit.' }
     }
 
     revalidatePath('/ucet')
@@ -119,7 +119,7 @@ export async function updateAccountPayrollSettingsAction(input: {
   } catch (error) {
     return {
       ok: false,
-      error: error instanceof Error ? error.message : 'Vyplatni nastaveni se nepodarilo ulozit.',
+    error: error instanceof Error ? error.message : 'Výplatní nastavení se nepodařilo uložit.',
     }
   }
 }

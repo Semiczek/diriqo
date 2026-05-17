@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
     const response = Array.isArray(data) ? data[0] : data
 
     if (!response?.success) {
-      return NextResponse.json({ ok: false, error: 'Reakci se nepodarilo ulozit.' }, { status: 400 })
+    return NextResponse.json({ ok: false, error: 'Reakci se nepodařilo uložit.' }, { status: 400 })
     }
 
     return NextResponse.json({

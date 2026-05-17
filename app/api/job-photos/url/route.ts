@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
   const photoId = searchParams.get('photoId')?.trim() ?? ''
 
   if (!photoId) {
-    return NextResponse.json({ error: 'Chybi photoId.' }, { status: 400 })
+    return NextResponse.json({ error: 'Chybí photoId.' }, { status: 400 })
   }
 
   const activeCompany = await getActiveCompanyContext()
@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
 
   if (error || !photo?.storage_path || !photo.job_id || job?.company_id !== activeCompany.companyId) {
     return NextResponse.json(
-      { error: `Nepodarilo se nacist fotografii: ${error?.message ?? 'Chybi storage path.'}` },
+      { error: `Nepodařilo se načíst fotografii: ${error?.message ?? 'Chybí storage path.'}` },
       { status: 404 }
     )
   }
@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
   try {
     hasJobAccess = await verifyJobPhotoAccess(photo.job_id, activeCompany)
   } catch {
-    return NextResponse.json({ error: 'Nepodarilo se overit pristup k fotografii.' }, { status: 500 })
+    return NextResponse.json({ error: 'Nepodařilo se ověřit přístup k fotografii.' }, { status: 500 })
   }
 
   if (!hasJobAccess) {
@@ -77,7 +77,7 @@ export async function GET(request: NextRequest) {
 
   if (signedError || !signedData?.signedUrl) {
     return NextResponse.json(
-      { error: `Nepodarilo se vytvorit URL fotografie: ${signedError?.message ?? 'Chybi URL.'}` },
+      { error: `Nepodařilo se vytvořit URL fotografie: ${signedError?.message ?? 'Chybí URL.'}` },
       { status: 500 }
     )
   }

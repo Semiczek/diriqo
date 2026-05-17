@@ -65,6 +65,7 @@ export function getAdvanceFrequency(value: string | null | undefined): AdvanceFr
 }
 
 export function getContractorBillingType(value: string | null | undefined): ContractorBillingType {
+  if ((value ?? '').trim().toLowerCase() === 'fixed_per_job') return 'fixed'
   return normalizeEnum(value, ['hourly', 'fixed', 'invoice'] as const, 'hourly')
 }
 
@@ -102,6 +103,11 @@ export function getEffectivePayrollSettings(
   companySettings: CompanyPayrollSettingsLike
 ): EffectivePayrollSettings {
   if (getWorkerType(worker) === 'contractor') {
+    const advancesAllowed =
+      worker?.allow_advances_override ??
+      companySettings?.allow_advances ??
+      true
+
     return {
       applies: false,
       label: 'Externí pracovník / subdodavatel',
@@ -110,9 +116,11 @@ export function getEffectivePayrollSettings(
       payrollDayOfMonth: null,
       payrollWeekday: null,
       payrollAnchorDate: null,
-      advancesAllowed: false,
-      advanceLimitAmount: null,
-      advanceFrequency: null,
+      advancesAllowed,
+      advanceLimitAmount:
+        toNullableNumber(worker?.advance_limit_amount_override) ??
+        toNullableNumber(companySettings?.advance_limit_amount),
+      advanceFrequency: getAdvanceFrequency(companySettings?.advance_frequency),
       usesCompanySettings: false,
     }
   }

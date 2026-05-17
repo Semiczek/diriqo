@@ -277,7 +277,7 @@ export default function QuoteActionsPanel({
       alert('Cenova kalkulace v nabidce byla aktualizovana podle posledni verze kalkulace.')
       router.refresh()
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'Nepodarilo se aktualizovat cenovou kalkulaci.')
+      alert(error instanceof Error ? error.message : 'Nepodařilo se aktualizovat cenovou kalkulaci.')
     } finally {
       setSyncingPricing(false)
     }

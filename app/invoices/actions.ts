@@ -258,7 +258,7 @@ export async function createInvoiceFromJobs(formData: FormData) {
       supabase
         .from('companies')
         .select(
-          'id, name, billing_name, company_number, vat_number, billing_street, billing_city, billing_postal_code, billing_country, bank_account_number, bank_code, iban, swift_bic'
+          'id, name, billing_name, company_number, vat_number, billing_street, billing_city, billing_postal_code, billing_country, bank_account_number, bank_code, iban, swift_bic, logo_url'
         )
         .eq('id', activeCompany.companyId)
         .maybeSingle(),
@@ -533,7 +533,7 @@ export async function refreshDraftInvoiceSupplierSnapshot(formData: FormData) {
   const companyResponse = await supabase
     .from('companies')
     .select(
-      'id, name, billing_name, company_number, vat_number, billing_street, billing_city, billing_postal_code, billing_country, bank_account_number, bank_code, iban, swift_bic'
+      'id, name, billing_name, company_number, vat_number, billing_street, billing_city, billing_postal_code, billing_country, bank_account_number, bank_code, iban, swift_bic, logo_url'
     )
     .eq('id', activeCompany.companyId)
     .maybeSingle()

@@ -107,7 +107,7 @@ export default function SignInForm() {
           </button>
         </form>
 
-        <Link href="/sign-up" style={footerLinkStyle}>
+        <Link href="/register?locale=cs" style={footerLinkStyle}>
           {dictionary.auth.dontHaveAccountStartFree}
         </Link>
       </section>

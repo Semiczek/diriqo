@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import React, { useState } from 'react'
 import { useI18n } from '@/components/I18nProvider'
 import ShiftRowEditor from '@/components/ShiftRowEditor'
@@ -30,6 +31,7 @@ export default function WorkerShiftsSection({
   workerId,
   companyId,
   selectedMonth,
+  exportHref,
   createShiftAction,
 }: {
   workPeriodLabel: string
@@ -40,6 +42,7 @@ export default function WorkerShiftsSection({
   workerId: string
   companyId: string | null
   selectedMonth: string
+  exportHref: string
   createShiftAction: (formData: FormData) => Promise<void>
 }) {
   const { dictionary } = useI18n()
@@ -68,13 +71,18 @@ export default function WorkerShiftsSection({
     <section style={sectionCardStyle}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
         <h2 style={{ ...cardTitleStyle, margin: 0 }}>{t.shifts} ({workPeriodLabel})</h2>
-        <button
-          type="button"
-          onClick={() => setIsCreating((value) => !value)}
-          style={{ ...(isCreating ? buttonStyle : primaryButtonStyle), cursor: 'pointer' }}
-        >
-          {isCreating ? dictionary.common.cancel : 'Vytvořit směnu'}
-        </button>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <Link href={exportHref} download style={{ ...buttonStyle, textDecoration: 'none' }}>
+            Export do Excelu
+          </Link>
+          <button
+            type="button"
+            onClick={() => setIsCreating((value) => !value)}
+            style={{ ...(isCreating ? buttonStyle : primaryButtonStyle), cursor: 'pointer' }}
+          >
+            {isCreating ? dictionary.common.cancel : 'Vytvořit směnu'}
+          </button>
+        </div>
       </div>
 
       {isCreating ? (

@@ -44,7 +44,7 @@ async function assertJobInCompany(ctx: DalContext, jobId: string) {
     .maybeSingle()
 
   if (error || !data?.id) {
-    throw new TenantScopeError('Zakazka nepatri do aktivni firmy.')
+    throw new TenantScopeError('Zakázka nepatří do aktivní firmy.')
   }
 }
 
@@ -132,7 +132,7 @@ export async function createJobCostItem(
     .select('id, job_id, cost_type, title, quantity, unit, unit_price, total_price, note')
     .single()
 
-  if (error || !data) throw error ?? new Error('Naklad se nepodarilo ulozit.')
+  if (error || !data) throw error ?? new Error('Náklad se nepodařilo uložit.')
 
   await logJobEconomicsAudit(ctx, {
     jobId: input.jobId,
@@ -237,7 +237,7 @@ export async function updateWorkShift(
     .select(selectColumns)
     .single()
 
-  if (error || !data) throw error ?? new Error('Smenu se nepodarilo ulozit.')
+  if (error || !data) throw error ?? new Error('Směnu se nepodařilo uložit.')
 
   return data as unknown as WorkShiftDto
 }

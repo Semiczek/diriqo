@@ -30,7 +30,7 @@ export async function updateQuote(
     .maybeSingle()
 
   if (quoteError || !quote?.id) {
-    throw new TenantScopeError('Nabidka nepatri do aktivni firmy.')
+  throw new TenantScopeError('Nabídka nepatří do aktivní firmy.')
   }
 
   const { error } = await ctx.supabase

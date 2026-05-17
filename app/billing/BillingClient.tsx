@@ -17,24 +17,24 @@ type BillingClientProps = {
 }
 
 function formatMonthlyPrice(plan: PricingPlanView) {
-  if (plan.priceMonthly === null) return 'Custom pricing'
-  return `${plan.priceMonthly.toLocaleString('cs-CZ')} ${plan.currency} / month`
+  if (plan.priceMonthly === null) return 'Individuální cena'
+  return `${plan.priceMonthly.toLocaleString('cs-CZ')} ${plan.currency} / měsíc`
 }
 
 function formatSetupPrice(plan: PricingPlanView) {
   if (plan.setupPrice === null) return null
-  return `+${plan.setupPrice.toLocaleString('cs-CZ')} ${plan.currency} setup`
+  return `+${plan.setupPrice.toLocaleString('cs-CZ')} ${plan.currency} nastavení`
 }
 
 function formatWorkerLimit(value: number | null) {
-  return value === null ? 'Custom worker limit' : `${value} active workers`
+  return value === null ? 'Individuální limit pracovníků' : `${value} aktivních pracovníků`
 }
 
 export default function BillingClient({ mainPlans, addOns }: BillingClientProps) {
   return (
     <section style={sectionStyle}>
       <div style={toolbarStyle}>
-        <h2 style={sectionTitleStyle}>Subscription plans</h2>
+        <h2 style={sectionTitleStyle}>Předplatné</h2>
       </div>
 
       <div style={plansGridStyle}>
@@ -42,7 +42,7 @@ export default function BillingClient({ mainPlans, addOns }: BillingClientProps)
           <article key={plan.key} style={plan.recommended ? recommendedPlanCardStyle : planCardStyle}>
             <div style={planHeaderStyle}>
               <h3 style={planTitleStyle}>{plan.name}</h3>
-              {plan.recommended ? <span style={badgeStyle}>Recommended</span> : null}
+              {plan.recommended ? <span style={badgeStyle}>Doporučeno</span> : null}
             </div>
             <div>
               <div style={priceStyle}>{formatMonthlyPrice(plan)}</div>
@@ -54,13 +54,13 @@ export default function BillingClient({ mainPlans, addOns }: BillingClientProps)
 
       {addOns.length > 0 ? (
         <div style={addOnSectionStyle}>
-          <h2 style={sectionTitleStyle}>Add-ons</h2>
+          <h2 style={sectionTitleStyle}>Doplňky</h2>
           <div style={plansGridStyle}>
             {addOns.map((plan) => (
               <article key={plan.key} style={addOnCardStyle}>
                 <h3 style={planTitleStyle}>{plan.name}</h3>
                 <div style={priceStyle}>{formatSetupPrice(plan)}</div>
-                <div style={mutedStyle}>Optional website setup add-on</div>
+                <div style={mutedStyle}>Volitelný balíček pro nastavení webu</div>
               </article>
             ))}
           </div>

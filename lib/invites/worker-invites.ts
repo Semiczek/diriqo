@@ -151,22 +151,26 @@ export async function createWorkerInviteRecord({
   companyId,
   workerProfileId,
   phone,
+  contactFallback,
   createdBy,
   token,
 }: {
   supabase: SupabaseClient
   companyId: string
   workerProfileId: string
-  phone: string
+  phone: string | null
+  contactFallback?: string | null
   createdBy: string
   token: string
 }) {
+  const normalizedPhone = phone?.trim() ? normalizePhoneForStorage(phone) : ''
+  const inviteContact = normalizedPhone || contactFallback?.trim() || 'email'
   const { data, error } = await supabase
     .from('worker_invites')
     .insert({
       company_id: companyId,
       worker_profile_id: workerProfileId,
-      phone: normalizePhoneForStorage(phone),
+      phone: inviteContact,
       token_hash: hashInviteToken(token),
       status: 'pending',
       expires_at: getWorkerInviteExpiry().toISOString(),

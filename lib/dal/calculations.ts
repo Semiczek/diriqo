@@ -61,7 +61,7 @@ export async function createCalculation(
     .select('id')
     .single()
 
-  if (error || !data?.id) throw error ?? new Error('Kalkulaci se nepodarilo ulozit.')
+  if (error || !data?.id) throw error ?? new Error('Kalkulaci se nepodařilo uložit.')
 
   const rows = input.items.map((item) => ({
     calculation_id: data.id,
@@ -151,7 +151,7 @@ export async function updateCalculation(
     .single()
 
   if (versionError || !version?.id) {
-    throw versionError ?? new Error('Verzi kalkulace se nepodarilo ulozit.')
+    throw versionError ?? new Error('Verzi kalkulace se nepodařilo uložit.')
   }
 
   const versionItems = (currentItems ?? []).map((item) => ({

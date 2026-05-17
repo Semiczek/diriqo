@@ -1999,6 +1999,7 @@ export default function JobDetailPageClient({
     <DashboardShell activeItem="jobs">
       <main style={pageShellStyle}>
       <section
+        data-tour="job-detail-header"
         style={{
           ...heroCardStyle,
           display: 'grid',
@@ -2087,6 +2088,7 @@ export default function JobDetailPageClient({
           {resolvedWorkState !== 'done' ? (
             <button
               type="button"
+              data-tour="job-detail-status"
               onClick={markJobAsDone}
               disabled={markingJobDone}
               style={{
@@ -2099,6 +2101,7 @@ export default function JobDetailPageClient({
           ) : null}
           <Link
             href={`/jobs/${job.id}/edit`}
+            data-tour="job-detail-edit"
             style={{
               ...primaryButtonStyle,
               textDecoration: 'none',
@@ -2114,7 +2117,7 @@ export default function JobDetailPageClient({
                 textDecoration: 'none',
               }}
             >
-              PÅ™idat dceru
+              Přidat dceru
             </Link>
           ) : null}
         </div>
@@ -2173,7 +2176,7 @@ export default function JobDetailPageClient({
           marginBottom: '18px',
         }}
       >
-        <section style={sectionCardStyle}>
+        <section data-tour="job-detail-status" style={sectionCardStyle}>
           <h2 style={{ ...cardTitleStyle, marginTop: 0, marginBottom: '14px', fontSize: '20px' }}>
             {detailMessages.jobStatus}
           </h2>
@@ -2187,7 +2190,7 @@ export default function JobDetailPageClient({
           </div>
         </section>
 
-        <section style={sectionCardStyle}>
+        <section data-tour="job-detail-billing" style={sectionCardStyle}>
           <div
             style={{
               display: 'flex',
@@ -2605,6 +2608,7 @@ export default function JobDetailPageClient({
 
       <div
         className="job-detail-workers-card"
+        data-tour="job-detail-workers"
         style={sectionCardStyle}
       >
         <div
@@ -3019,6 +3023,7 @@ export default function JobDetailPageClient({
 
       <div className="job-detail-grid">
         <div style={{ gridColumn: '1 / -1' }}>
+          <div data-tour="job-detail-economics">
           <JobEconomicsSection
             jobId={jobId}
             companyId={job.company_id ?? null}
@@ -3034,6 +3039,7 @@ export default function JobDetailPageClient({
             onCostItemAdded={handleCostItemAdded}
             onCostItemDeleted={handleCostItemDeleted}
           />
+          </div>
         </div>
         <div style={{ gridColumn: '1 / -1' }}>
           <JobPhotosSection jobId={job.id} compact canManage={canManageJobPhotos} />
@@ -3041,6 +3047,7 @@ export default function JobDetailPageClient({
       </div>
 
       {canManageCommunication ? (
+        <div data-tour="job-detail-communication">
         <JobCommunicationSection
           jobId={job.id}
           customerId={job.customer_id ?? null}
@@ -3054,6 +3061,7 @@ export default function JobDetailPageClient({
           }
           feedItems={initialCommunicationFeed}
         />
+        </div>
       ) : null}
 
       {false && (

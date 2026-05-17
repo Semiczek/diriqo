@@ -1,5 +1,6 @@
 ﻿import Link from 'next/link'
 import CalculationEditForm from '@/components/CalculationEditForm'
+import { redirect } from 'next/navigation'
 import DashboardShell from '@/components/DashboardShell'
 import {
   SecondaryAction,
@@ -41,9 +42,8 @@ export default async function EditCustomerCalculationPage({ params }: PageProps)
     await Promise.all([
       supabase
         .from('calculations')
-        .select('id, title, description, status, calculation_date, internal_note, customers(id, name)')
+        .select('id, customer_id, title, description, status, calculation_date, internal_note, customers(id, name)')
         .eq('id', calculationId)
-        .eq('customer_id', customerId)
         .maybeSingle(),
       supabase
         .from('calculation_items')
@@ -53,7 +53,7 @@ export default async function EditCustomerCalculationPage({ params }: PageProps)
         .order('created_at', { ascending: true }),
     ])
 
-  if (calculationError || itemsError || !calculation) {
+  if (calculationError || itemsError || !calculation || !calculation.customer_id) {
     return (
       <DashboardShell activeItem="customers">
         <main style={pageShellStyle}>
@@ -61,6 +61,10 @@ export default async function EditCustomerCalculationPage({ params }: PageProps)
         </main>
       </DashboardShell>
     )
+  }
+
+  if (calculation.customer_id !== customerId) {
+    redirect(`/customers/${calculation.customer_id}/calculations/${calculation.id}/edit`)
   }
 
   const calculationItems = (items ?? []) as CalculationItemRow[]

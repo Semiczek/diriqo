@@ -4,6 +4,7 @@ import {
   getCappedJobShiftLaborCalculation,
   type LaborCalculationSource,
 } from '@/lib/labor-calculation'
+import { getContractorBillingType, getWorkerType } from '@/lib/payroll-settings'
 import {
   cardStyle,
   sectionCardStyle,
@@ -69,6 +70,9 @@ export type JobAssignmentRow = {
   profile_id: string | null
   labor_hours: number | null
   hourly_rate: number | null
+  worker_type_snapshot?: string | null
+  assignment_billing_type?: string | null
+  external_amount?: number | null
   work_started_at?: string | null
   work_completed_at?: string | null
   effective_hours?: number | null
@@ -285,6 +289,25 @@ export function getEffectiveAssignmentRate(assignment: JobAssignmentRow, default
   }
 
   return Number(defaultRate ?? 0)
+}
+
+export function getEffectiveAssignmentReward(
+  assignment: JobAssignmentRow,
+  defaultRate: number,
+  worker?: Pick<ProfileRow, 'worker_type' | 'contractor_billing_type'> | null,
+) {
+  const workerType = getWorkerType({
+    worker_type: assignment.worker_type_snapshot ?? worker?.worker_type,
+  })
+  const billingType = getContractorBillingType(
+    assignment.assignment_billing_type ?? worker?.contractor_billing_type,
+  )
+
+  if (workerType === 'contractor' && billingType !== 'hourly' && assignment.external_amount != null) {
+    return Number(assignment.external_amount)
+  }
+
+  return getEffectiveAssignmentHours(assignment) * getEffectiveAssignmentRate(assignment, defaultRate)
 }
 
 export function getWorkerName(profile: ProfileRow) {
@@ -782,6 +805,16 @@ export function normalizeJobAssignments(data: unknown[]): JobAssignmentRow[] {
       getRowRecord(item)?.labor_hours != null ? Number(getRowRecord(item)?.labor_hours) : null,
     hourly_rate:
       getRowRecord(item)?.hourly_rate != null ? Number(getRowRecord(item)?.hourly_rate) : null,
+    worker_type_snapshot:
+      typeof getRowRecord(item)?.worker_type_snapshot === 'string'
+        ? (getRowRecord(item)?.worker_type_snapshot as string)
+        : null,
+    assignment_billing_type:
+      typeof getRowRecord(item)?.assignment_billing_type === 'string'
+        ? (getRowRecord(item)?.assignment_billing_type as string)
+        : null,
+    external_amount:
+      getRowRecord(item)?.external_amount != null ? Number(getRowRecord(item)?.external_amount) : null,
     work_started_at:
       typeof getRowRecord(item)?.work_started_at === 'string'
         ? (getRowRecord(item)?.work_started_at as string)

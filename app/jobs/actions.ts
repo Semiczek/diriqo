@@ -499,7 +499,7 @@ export async function createJobsAction(input: CreateJobsInput): Promise<CreateJo
       }
 
       if (parentResponse.data.parent_job_id) {
-        return { ok: false, error: 'Dcera se dÃ¡ pÅ™idat jen pod hlavnÃ­ zakÃ¡zku.' }
+        return { ok: false, error: 'Dcera se dá přidat jen pod hlavní zakázku.' }
       }
 
       effectiveCustomerId = parentResponse.data.customer_id ?? null
@@ -889,9 +889,9 @@ export async function attachJobToParentAction(input: {
     const parentJobId = cleanString(input.parentJobId)
 
     if (!moduleAccess.ok) return { ok: false, error: moduleAccess.error }
-    if (!childJobId || !parentJobId) return { ok: false, error: 'ChybÃ­ zakÃ¡zka.' }
+    if (!childJobId || !parentJobId) return { ok: false, error: 'Chybí zakázka.' }
     if (childJobId === parentJobId) {
-      return { ok: false, error: 'ZakÃ¡zku nejde pÅ™esunout pod sebe samu.' }
+      return { ok: false, error: 'Zakázku nejde přesunout pod sebe samu.' }
     }
 
     const jobsResponse = await supabase
@@ -913,15 +913,15 @@ export async function attachJobToParentAction(input: {
     const childJob = jobsById.get(childJobId)
     const parentJob = jobsById.get(parentJobId)
 
-    if (!childJob || !parentJob) return { ok: false, error: 'ZakÃ¡zka nebyla nalezena.' }
+    if (!childJob || !parentJob) return { ok: false, error: 'Zakázka nebyla nalezena.' }
     if (childJob.parent_job_id) {
-      return { ok: false, error: 'Tato zakÃ¡zka uÅ¾ je pod hlavnÃ­ zakÃ¡zkou. NejdÅ™Ã­v ji odpojte.' }
+      return { ok: false, error: 'Tato zakázka už je pod hlavní zakázkou. Nejdřív ji odpojte.' }
     }
     if (parentJob.parent_job_id) {
-      return { ok: false, error: 'CÃ­lovÃ¡ zakÃ¡zka uÅ¾ je dcerou jinÃ© zakÃ¡zky.' }
+      return { ok: false, error: 'Cílová zakázka už je dcerou jiné zakázky.' }
     }
     if (childJob.customer_id && parentJob.customer_id && childJob.customer_id !== parentJob.customer_id) {
-      return { ok: false, error: 'ZakÃ¡zky s rozdÃ­lnÃ½m zÃ¡kaznÃ­kem nejde seskupit.' }
+      return { ok: false, error: 'Zakázky s rozdílným zákazníkem nejde seskupit.' }
     }
 
     const childChildrenResponse = await supabase
@@ -933,7 +933,7 @@ export async function attachJobToParentAction(input: {
 
     if (childChildrenResponse.error) return { ok: false, error: childChildrenResponse.error.message }
     if ((childChildrenResponse.data ?? []).length > 0) {
-      return { ok: false, error: 'Tato zakÃ¡zka uÅ¾ mÃ¡ dcery a nejde pÅ™esunout pod jinou zakÃ¡zku.' }
+      return { ok: false, error: 'Tato zakázka už má dcery a nejde přesunout pod jinou zakázku.' }
     }
 
     const updateResponse = await supabase
@@ -958,7 +958,7 @@ export async function attachJobToParentAction(input: {
   } catch (error) {
     return {
       ok: false,
-      error: error instanceof Error ? error.message : 'ZakÃ¡zku se nepodaÅ™ilo pÅ™ipojit k hlavnÃ­ zakÃ¡zce.',
+      error: error instanceof Error ? error.message : 'Zakázku se nepodařilo připojit k hlavní zakázce.',
     }
   }
 }
@@ -975,9 +975,9 @@ export async function createJobGroupFromDropAction(input: {
     const targetJobId = cleanString(input.targetJobId)
 
     if (!moduleAccess.ok) return { ok: false, error: moduleAccess.error }
-    if (!draggedJobId || !targetJobId) return { ok: false, error: 'Chybi zakazka.' }
+    if (!draggedJobId || !targetJobId) return { ok: false, error: 'Chybí zakázka.' }
     if (draggedJobId === targetJobId) {
-      return { ok: false, error: 'Zakazku nejde seskupit samu se sebou.' }
+      return { ok: false, error: 'Zakázku nejde seskupit samu se sebou.' }
     }
 
     const jobsResponse = await supabase
@@ -1009,12 +1009,12 @@ export async function createJobGroupFromDropAction(input: {
     const draggedJob = jobsById.get(draggedJobId)
     const targetJob = jobsById.get(targetJobId)
 
-    if (!draggedJob || !targetJob) return { ok: false, error: 'Zakazka nebyla nalezena.' }
+    if (!draggedJob || !targetJob) return { ok: false, error: 'Zakázka nebyla nalezena.' }
     if (draggedJob.parent_job_id || targetJob.parent_job_id) {
-      return { ok: false, error: 'Zakazka uz je ve skupine. Nejdriv ji odpojte.' }
+      return { ok: false, error: 'Zakázka už je ve skupině. Nejdřív ji odpojte.' }
     }
     if (draggedJob.customer_id && targetJob.customer_id && draggedJob.customer_id !== targetJob.customer_id) {
-      return { ok: false, error: 'Zakazky s rozdilnym zakaznikem nejde seskupit.' }
+      return { ok: false, error: 'Zakázky s rozdílným zákazníkem nejde seskupit.' }
     }
 
     const childrenResponse = await supabase
@@ -1026,7 +1026,7 @@ export async function createJobGroupFromDropAction(input: {
 
     if (childrenResponse.error) return { ok: false, error: childrenResponse.error.message }
     if ((childrenResponse.data ?? []).length > 0) {
-      return { ok: false, error: 'Zakazka uz ma dcery a nejde ji vlozit do nove skupiny.' }
+      return { ok: false, error: 'Zakázka už má dcery a nejde ji vložit do nové skupiny.' }
     }
 
     const groupStartAt = [draggedJob.start_at, targetJob.start_at].filter(Boolean).sort()[0] ?? null
@@ -1039,7 +1039,7 @@ export async function createJobGroupFromDropAction(input: {
         company_id: companyId,
         customer_id: targetJob.customer_id ?? draggedJob.customer_id,
         contact_id: targetJob.contact_id ?? draggedJob.contact_id,
-        title: 'Skupina zakazek',
+        title: 'Skupina zakázek',
         description: targetJob.description ?? draggedJob.description ?? '',
         address: targetJob.address ?? draggedJob.address ?? '',
         status: targetJob.status ?? draggedJob.status ?? 'future',
@@ -1060,7 +1060,7 @@ export async function createJobGroupFromDropAction(input: {
       .single()
 
     if (parentResponse.error || !parentResponse.data?.id) {
-      return { ok: false, error: parentResponse.error?.message ?? 'Matku se nepodarilo vytvorit.' }
+      return { ok: false, error: parentResponse.error?.message ?? 'Matku se nepodařilo vytvořit.' }
     }
 
     const parentJobId = parentResponse.data.id
@@ -1086,7 +1086,7 @@ export async function createJobGroupFromDropAction(input: {
   } catch (error) {
     return {
       ok: false,
-      error: error instanceof Error ? error.message : 'Skupinu zakazek se nepodarilo vytvorit.',
+      error: error instanceof Error ? error.message : 'Skupinu zakázek se nepodařilo vytvořit.',
     }
   }
 }

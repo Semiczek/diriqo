@@ -3,8 +3,8 @@ import type { CSSProperties, ReactNode } from 'react'
 
 export const pageShellStyle: CSSProperties = {
   display: 'grid',
-  gap: '18px',
-  maxWidth: '1180px',
+  gap: '12px',
+  maxWidth: '1120px',
   color: '#111827',
 }
 
@@ -14,14 +14,14 @@ export const heroCardStyle: CSSProperties = {
   display: 'flex',
   alignItems: 'flex-end',
   justifyContent: 'space-between',
-  gap: '18px',
+  gap: '14px',
   flexWrap: 'wrap',
-  padding: '24px',
-  borderRadius: '24px',
+  padding: '18px 20px',
+  borderRadius: '20px',
   border: '1px solid rgba(148, 163, 184, 0.22)',
   background:
     'linear-gradient(135deg, rgba(250,245,255,0.96) 0%, rgba(239,246,255,0.94) 48%, rgba(236,254,255,0.9) 100%)',
-  boxShadow: '0 18px 44px rgba(15, 23, 42, 0.09)',
+  boxShadow: '0 12px 32px rgba(15, 23, 42, 0.065)',
 }
 
 export const heroContentStyle: CSSProperties = {
@@ -35,29 +35,29 @@ export const eyebrowStyle: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   gap: '6px',
-  marginBottom: '10px',
-  padding: '5px 10px',
+  marginBottom: '8px',
+  padding: '4px 9px',
   borderRadius: '999px',
   backgroundColor: 'rgba(255,255,255,0.72)',
   border: '1px solid rgba(124, 58, 237, 0.2)',
   color: '#5b21b6',
-  fontSize: '12px',
+  fontSize: '11px',
   fontWeight: 900,
 }
 
 export const heroTitleStyle: CSSProperties = {
   margin: 0,
   color: '#111827',
-  fontSize: '42px',
-  lineHeight: 1.05,
+  fontSize: '32px',
+  lineHeight: 1.08,
   fontWeight: 900,
 }
 
 export const heroTextStyle: CSSProperties = {
-  margin: '10px 0 0',
+  margin: '7px 0 0',
   color: '#475569',
-  fontSize: '17px',
-  lineHeight: 1.5,
+  fontSize: '14px',
+  lineHeight: 1.45,
   maxWidth: '680px',
 }
 
@@ -74,28 +74,30 @@ export const primaryButtonStyle: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
-  minHeight: '42px',
-  padding: '10px 16px',
+  minHeight: '36px',
+  padding: '8px 12px',
   borderRadius: '999px',
   border: 0,
   background: 'linear-gradient(135deg, #7c3aed 0%, #2563eb 52%, #06b6d4 100%)',
   color: '#ffffff',
   textDecoration: 'none',
+  fontSize: '14px',
   fontWeight: 850,
-  boxShadow: '0 14px 28px rgba(37, 99, 235, 0.2)',
+  boxShadow: '0 10px 22px rgba(37, 99, 235, 0.16)',
 }
 
 export const secondaryButtonStyle: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
-  minHeight: '42px',
-  padding: '10px 16px',
+  minHeight: '36px',
+  padding: '8px 12px',
   borderRadius: '999px',
   border: '1px solid rgba(148, 163, 184, 0.35)',
   backgroundColor: 'rgba(255,255,255,0.82)',
   color: '#0f172a',
   textDecoration: 'none',
+  fontSize: '14px',
   fontWeight: 820,
 }
 
@@ -206,17 +208,17 @@ export const sectionCardStyle: CSSProperties = {
   padding: '20px',
 }
 
-export function PrimaryAction({ href, children }: { href: string; children: ReactNode }) {
+export function PrimaryAction({ href, children, dataTour }: { href: string; children: ReactNode; dataTour?: string }) {
   return (
-    <Link href={href} style={primaryButtonStyle}>
+    <Link href={href} data-tour={dataTour} style={primaryButtonStyle}>
       {children}
     </Link>
   )
 }
 
-export function SecondaryAction({ href, children }: { href: string; children: ReactNode }) {
+export function SecondaryAction({ href, children, dataTour }: { href: string; children: ReactNode; dataTour?: string }) {
   return (
-    <Link href={href} style={secondaryButtonStyle}>
+    <Link href={href} data-tour={dataTour} style={secondaryButtonStyle}>
       {children}
     </Link>
   )

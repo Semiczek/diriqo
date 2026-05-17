@@ -164,20 +164,21 @@ export default async function InvoicesPage({ searchParams }: PageProps) {
 
   return (
     <DashboardShell activeItem="invoices">
-      <main style={{ display: 'grid', gap: '20px', color: '#111827' }}>
+      <main style={{ display: 'grid', gap: '12px', color: '#111827' }}>
         <header
+          data-tour="invoices-header"
           style={{
             display: 'grid',
             gridTemplateColumns: 'minmax(0, 1.15fr) minmax(260px, 0.85fr)',
-            gap: '22px',
+            gap: '14px',
             alignItems: 'stretch',
             overflow: 'hidden',
-            borderRadius: '28px',
+            borderRadius: '20px',
             border: '1px solid rgba(148, 163, 184, 0.25)',
             background:
               'radial-gradient(circle at 8% 8%, rgba(124, 58, 237, 0.16), transparent 30%), radial-gradient(circle at 100% 0%, rgba(6, 182, 212, 0.16), transparent 28%), linear-gradient(135deg, rgba(255,255,255,0.96), rgba(239,246,255,0.9) 55%, rgba(240,253,250,0.88))',
-            padding: '30px',
-            boxShadow: '0 24px 60px rgba(15, 23, 42, 0.1)',
+            padding: '18px 20px',
+            boxShadow: '0 12px 32px rgba(15, 23, 42, 0.065)',
           }}
         >
           <div>
@@ -185,36 +186,39 @@ export default async function InvoicesPage({ searchParams }: PageProps) {
               style={{
                 display: 'inline-flex',
                 borderRadius: '999px',
-                padding: '7px 11px',
-                marginBottom: '14px',
+                padding: '4px 9px',
+                marginBottom: '8px',
                 background: 'rgba(37, 99, 235, 0.1)',
                 border: '1px solid rgba(37, 99, 235, 0.18)',
                 color: '#1d4ed8',
-                fontSize: '12px',
+                fontSize: '11px',
                 fontWeight: 850,
               }}
             >
               Finance
             </div>
-            <h1 style={{ margin: '0 0 10px 0', fontSize: '42px', lineHeight: 1.05, color: '#020617' }}>
+            <h1 style={{ margin: 0, fontSize: '32px', lineHeight: 1.08, color: '#020617' }}>
               Fakturace
             </h1>
-            <p style={{ margin: 0, color: '#475569', lineHeight: 1.6, fontSize: '16px', maxWidth: '620px' }}>
+            <p style={{ margin: '7px 0 0', color: '#475569', lineHeight: 1.45, fontSize: '14px', maxWidth: '620px' }}>
               Přehled interních faktur, stavů a exportu do Pohody.
             </p>
           </div>
 
           <Link
             href="/invoices/new"
+            data-tour="new-invoice-button"
             style={{
               alignSelf: 'start',
               borderRadius: '999px',
               background: 'linear-gradient(135deg, #7c3aed 0%, #2563eb 52%, #06b6d4 100%)',
               color: '#ffffff',
-              padding: '13px 18px',
+              minHeight: '36px',
+              padding: '8px 12px',
               textDecoration: 'none',
+              fontSize: '14px',
               fontWeight: 850,
-              boxShadow: '0 16px 30px rgba(37, 99, 235, 0.22)',
+              boxShadow: '0 10px 22px rgba(37, 99, 235, 0.16)',
             }}
           >
             Vytvořit fakturu
@@ -223,6 +227,7 @@ export default async function InvoicesPage({ searchParams }: PageProps) {
 
         <form
           method="get"
+          data-tour="invoices-filters"
           style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr)) auto',
@@ -318,6 +323,7 @@ export default async function InvoicesPage({ searchParams }: PageProps) {
 
         <div style={{ display: 'grid', gap: '12px' }}>
           <section
+            data-tour="invoices-list"
             style={{
               border: '1px solid rgba(148, 163, 184, 0.22)',
               borderRadius: '24px',

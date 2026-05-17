@@ -84,7 +84,7 @@ export async function createCustomerContactAction(input: {
     const fullName = cleanString(input.fullName)
     const email = normalizeEmail(input.email)
 
-    if (!customerId) return { ok: false, error: 'Chybi zakaznik.' }
+if (!customerId) return { ok: false, error: 'Chybí zákazník.' }
     if (!fullName) return { ok: false, error: 'Zadejte jmeno kontaktu.' }
     if (input.createPortalAccess && !email) {
       return { ok: false, error: 'Pro zakaznicky portal je nutne vyplnit e-mail kontaktu.' }
@@ -108,7 +108,7 @@ export async function createCustomerContactAction(input: {
       .single()
 
     if (response.error || !response.data?.id) {
-      return { ok: false, error: response.error?.message ?? 'Kontakt se nepodarilo ulozit.' }
+    return { ok: false, error: response.error?.message ?? 'Kontakt se nepodařilo uložit.' }
     }
 
     revalidateCustomer(customerId)
@@ -117,7 +117,7 @@ export async function createCustomerContactAction(input: {
   } catch (error) {
     return {
       ok: false,
-      error: error instanceof Error ? error.message : 'Kontakt se nepodarilo ulozit.',
+    error: error instanceof Error ? error.message : 'Kontakt se nepodařilo uložit.',
     }
   }
 }
@@ -137,7 +137,7 @@ export async function updateCustomerContactAction(input: {
     const contactId = cleanString(input.contactId)
     const fullName = cleanString(input.fullName)
 
-    if (!customerId || !contactId) return { ok: false, error: 'Chybi kontakt.' }
+  if (!customerId || !contactId) return { ok: false, error: 'Chybí kontakt.' }
     if (!fullName) return { ok: false, error: 'Zadejte jmeno kontaktu.' }
 
     await assertCustomerInActiveCompany({ supabase, companyId, customerId })
@@ -159,7 +159,7 @@ export async function updateCustomerContactAction(input: {
       .eq('company_id', companyId)
 
     if (response.error) {
-      return { ok: false, error: response.error.message || 'Kontakt se nepodarilo ulozit.' }
+    return { ok: false, error: response.error.message || 'Kontakt se nepodařilo uložit.' }
     }
 
     revalidateCustomer(customerId)
@@ -168,7 +168,7 @@ export async function updateCustomerContactAction(input: {
   } catch (error) {
     return {
       ok: false,
-      error: error instanceof Error ? error.message : 'Kontakt se nepodarilo ulozit.',
+    error: error instanceof Error ? error.message : 'Kontakt se nepodařilo uložit.',
     }
   }
 }
@@ -182,7 +182,7 @@ export async function deleteCustomerContactAction(input: {
     const customerId = cleanString(input.customerId)
     const contactId = cleanString(input.contactId)
 
-    if (!customerId || !contactId) return { ok: false, error: 'Chybi kontakt.' }
+  if (!customerId || !contactId) return { ok: false, error: 'Chybí kontakt.' }
 
     await assertCustomerInActiveCompany({ supabase, companyId, customerId })
     await assertContactInCustomer({ supabase, companyId, customerId, contactId })
@@ -205,7 +205,7 @@ export async function deleteCustomerContactAction(input: {
       .eq('company_id', companyId)
 
     if (response.error) {
-      return { ok: false, error: response.error.message || 'Kontakt se nepodarilo smazat.' }
+    return { ok: false, error: response.error.message || 'Kontakt se nepodařilo smazat.' }
     }
 
     revalidateCustomer(customerId)
@@ -215,7 +215,7 @@ export async function deleteCustomerContactAction(input: {
   } catch (error) {
     return {
       ok: false,
-      error: error instanceof Error ? error.message : 'Kontakt se nepodarilo smazat.',
+    error: error instanceof Error ? error.message : 'Kontakt se nepodařilo smazat.',
     }
   }
 }

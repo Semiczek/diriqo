@@ -21,7 +21,7 @@ function actionError(error: unknown): WorkerActionResult<never> {
     return { ok: false, error: error.message }
   }
 
-  return { ok: false, error: 'Akci se nepodarilo dokoncit.' }
+    return { ok: false, error: 'Akci se nepodařilo dokončit.' }
 }
 
 function requiredId(value: unknown, fieldName: string) {
@@ -78,7 +78,7 @@ async function assertAssignedJob(
     .limit(1)
 
   if (assignmentResponse.error) {
-    throw new Error(`Zakazku se nepodarilo overit: ${assignmentResponse.error.message}`)
+    throw new Error(`Zakázku se nepodařilo ověřit: ${assignmentResponse.error.message}`)
   }
 
   const assignment = assignmentResponse.data?.[0] as
@@ -93,7 +93,7 @@ async function assertAssignedJob(
   const job = Array.isArray(assignment?.jobs) ? assignment?.jobs[0] : assignment?.jobs
 
   if (!assignment?.id || job?.company_id !== companyId) {
-    throw new Error('Zakazka neni prirazena aktualnimu pracovnikovi.')
+    throw new Error('Zakázka není přiřazena aktuálnímu pracovníkovi.')
   }
 
   return assignment
@@ -105,7 +105,7 @@ export async function startMyJobShiftAction(input: {
   try {
     const { supabase, companyId, profileId } = await getWorkerContext()
     const admin = createSupabaseAdminClient()
-    const jobId = requiredId(input.jobId, 'Zakazka')
+  const jobId = requiredId(input.jobId, 'Zakázka')
     await assertAssignedJob(supabase, companyId, profileId, jobId)
 
     const existingShiftResponse = await admin
@@ -119,7 +119,7 @@ export async function startMyJobShiftAction(input: {
       .limit(1)
 
     if (existingShiftResponse.error) {
-      throw new Error(`Smenu se nepodarilo nacist: ${existingShiftResponse.error.message}`)
+    throw new Error(`Směnu se nepodařilo načíst: ${existingShiftResponse.error.message}`)
     }
 
     const existingShiftId = existingShiftResponse.data?.[0]?.id
@@ -144,7 +144,7 @@ export async function startMyJobShiftAction(input: {
       .single()
 
     if (insertResponse.error || !insertResponse.data?.id) {
-      throw new Error(`Smenu se nepodarilo spustit: ${insertResponse.error?.message ?? 'neznamy problem'}`)
+    throw new Error(`Směnu se nepodařilo spustit: ${insertResponse.error?.message ?? 'neznámý problém'}`)
     }
 
     await admin
@@ -172,7 +172,7 @@ export async function stopMyJobShiftAction(input: {
   try {
     const { companyId, profileId } = await getWorkerContext()
     const admin = createSupabaseAdminClient()
-    const shiftId = requiredId(input.shiftId, 'Smena')
+  const shiftId = requiredId(input.shiftId, 'Směna')
 
     const shiftResponse = await admin
       .from('work_shifts')
@@ -183,11 +183,11 @@ export async function stopMyJobShiftAction(input: {
       .maybeSingle()
 
     if (shiftResponse.error) {
-      throw new Error(`Smenu se nepodarilo nacist: ${shiftResponse.error.message}`)
+    throw new Error(`Směnu se nepodařilo načíst: ${shiftResponse.error.message}`)
     }
 
     if (!shiftResponse.data?.id) {
-      throw new Error('Smena nebyla nalezena.')
+    throw new Error('Směna nebyla nalezena.')
     }
 
     if (shiftResponse.data.ended_at) {
@@ -204,7 +204,7 @@ export async function stopMyJobShiftAction(input: {
       .is('ended_at', null)
 
     if (updateResponse.error) {
-      throw new Error(`Smenu se nepodarilo ukoncit: ${updateResponse.error.message}`)
+    throw new Error(`Směnu se nepodařilo ukončit: ${updateResponse.error.message}`)
     }
 
     revalidatePath('/moje-prace')
@@ -225,7 +225,7 @@ export async function completeMyJobAction(input: {
   try {
     const { supabase, companyId, profileId } = await getWorkerContext()
     const admin = createSupabaseAdminClient()
-    const jobId = requiredId(input.jobId, 'Zakazka')
+  const jobId = requiredId(input.jobId, 'Zakázka')
     const assignment = await assertAssignedJob(supabase, companyId, profileId, jobId)
 
     if (assignment.completed_at || assignment.work_completed_at || assignment.status === 'completed') {
@@ -244,7 +244,7 @@ export async function completeMyJobAction(input: {
       .is('archived_at', null)
 
     if (assignmentUpdateResponse.error) {
-      throw new Error(`Zakazku se nepodarilo oznacit jako hotovou: ${assignmentUpdateResponse.error.message}`)
+    throw new Error(`Zakázku se nepodařilo označit jako hotovou: ${assignmentUpdateResponse.error.message}`)
     }
 
     await admin

@@ -95,8 +95,8 @@ export async function POST(request: NextRequest) {
         plan_key: planKey,
       },
     },
-    success_url: `${appUrl}/billing?checkout=success`,
-    cancel_url: `${appUrl}/billing?checkout=cancel`,
+    success_url: `${appUrl}/settings/company?checkout=success`,
+    cancel_url: `${appUrl}/settings/company?checkout=cancel`,
   })
 
   if (!session.url) {

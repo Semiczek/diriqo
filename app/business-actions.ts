@@ -90,12 +90,12 @@ function actionError(error: unknown): ActionResult<never> {
     return { ok: false, error: error.message }
   }
 
-  return { ok: false, error: 'Akci se nepodarilo dokoncit.' }
+  return { ok: false, error: 'Akci se nepodařilo dokončit.' }
 }
 
 function requiredString(value: unknown, fieldName: string) {
   if (typeof value !== 'string' || value.trim().length === 0) {
-    throw new Error(`${fieldName} je povinne.`)
+    throw new Error(`${fieldName} je povinné.`)
   }
 
   return value.trim()
@@ -103,7 +103,7 @@ function requiredString(value: unknown, fieldName: string) {
 
 function optionalString(value: unknown) {
   if (value === null || value === undefined) return null
-  if (typeof value !== 'string') throw new Error('Neplatna textova hodnota.')
+  if (typeof value !== 'string') throw new Error('Neplatná textová hodnota.')
   const trimmed = value.trim()
   return trimmed.length > 0 ? trimmed : null
 }
@@ -112,7 +112,7 @@ function numberValue(value: unknown, fieldName: string) {
   const nextValue = typeof value === 'number' ? value : Number(value)
 
   if (!Number.isFinite(nextValue)) {
-    throw new Error(`${fieldName} musi byt cislo.`)
+    throw new Error(`${fieldName} musí být číslo.`)
   }
 
   return nextValue
@@ -122,7 +122,7 @@ function nonNegativeNumber(value: unknown, fieldName: string) {
   const nextValue = numberValue(value, fieldName)
 
   if (nextValue < 0) {
-    throw new Error(`${fieldName} nesmi byt zaporne.`)
+    throw new Error(`${fieldName} nesmí být záporné.`)
   }
 
   return nextValue
@@ -144,57 +144,57 @@ function isoString(value: unknown, fieldName: string) {
   const date = new Date(rawValue)
 
   if (Number.isNaN(date.getTime())) {
-    throw new Error(`${fieldName} musi byt platne datum.`)
+    throw new Error(`${fieldName} musí být platné datum.`)
   }
 
   return date.toISOString()
 }
 
 function parseCalculationItems(value: unknown): CalculationItemInput[] {
-  if (!Array.isArray(value)) throw new Error('Polozky kalkulace musi byt seznam.')
+  if (!Array.isArray(value)) throw new Error('Položky kalkulace musí být seznam.')
 
   const items = value.map((item) => {
     if (!item || typeof item !== 'object') {
-      throw new Error('Polozka kalkulace ma neplatny format.')
+      throw new Error('Položka kalkulace má neplatný formát.')
     }
 
     const row = item as Record<string, unknown>
 
     return {
-      sortOrder: nonNegativeNumber(row.sortOrder, 'Poradi polozky'),
+    sortOrder: nonNegativeNumber(row.sortOrder, 'Pořadí položky'),
       itemType: optionalString(row.itemType),
-      name: requiredString(row.name, 'Nazev polozky'),
+    name: requiredString(row.name, 'Název položky'),
       description: optionalString(row.description),
-      quantity: nonNegativeNumber(row.quantity, 'Mnozstvi'),
+    quantity: nonNegativeNumber(row.quantity, 'Množství'),
       unit: optionalString(row.unit),
-      unitCost: nonNegativeNumber(row.unitCost, 'Nakladova cena'),
-      unitPrice: nonNegativeNumber(row.unitPrice, 'Jednotkova cena'),
+    unitCost: nonNegativeNumber(row.unitCost, 'Nákladová cena'),
+    unitPrice: nonNegativeNumber(row.unitPrice, 'Jednotková cena'),
       vatRate: nonNegativeNumber(row.vatRate, 'DPH'),
-      totalCost: nonNegativeNumber(row.totalCost, 'Celkove naklady'),
-      totalPrice: nonNegativeNumber(row.totalPrice, 'Celkova cena'),
+    totalCost: nonNegativeNumber(row.totalCost, 'Celkové náklady'),
+    totalPrice: nonNegativeNumber(row.totalPrice, 'Celková cena'),
       note: optionalString(row.note),
     }
   })
 
   if (items.length === 0) {
-    throw new Error('Pridavejte alespon jednu polozku kalkulace.')
+    throw new Error('Přidávejte alespoň jednu položku kalkulace.')
   }
 
   return items
 }
 
 function parseCalculationInput(input: unknown): SaveCalculationInput {
-  if (!input || typeof input !== 'object') throw new Error('Neplatna data kalkulace.')
+  if (!input || typeof input !== 'object') throw new Error('Neplatná data kalkulace.')
   const row = input as Record<string, unknown>
 
   return {
     customerId: optionalString(row.customerId),
-    title: requiredString(row.title, 'Nazev kalkulace'),
+    title: requiredString(row.title, 'Název kalkulace'),
     description: optionalString(row.description),
     status: optionalString(row.status) ?? 'draft',
     calculationDate: optionalString(row.calculationDate),
     internalNote: optionalString(row.internalNote),
-    subtotalCost: nonNegativeNumber(row.subtotalCost, 'Naklady celkem'),
+    subtotalCost: nonNegativeNumber(row.subtotalCost, 'Náklady celkem'),
     subtotalPrice: nonNegativeNumber(row.subtotalPrice, 'Cena celkem'),
     marginAmount: numberValue(row.marginAmount, 'Marze'),
     totalPrice: nonNegativeNumber(row.totalPrice, 'Cena celkem'),
@@ -219,7 +219,7 @@ async function getScopedQuote(ctx: DalContext, quoteId: string, customerId?: str
   const { data, error } = await query.maybeSingle()
 
   if (error || !data?.id) {
-    throw new TenantScopeError('Nabidka nepatri do aktivni firmy.')
+    throw new TenantScopeError('Nabídka nepatří do aktivní firmy.')
   }
 
   return data as QuoteScopeRow
@@ -253,9 +253,9 @@ export async function updateQuoteAction(input: {
     const ctx = await requireCompanyRoleDalContext('company_admin', 'super_admin')
 
     await updateQuote(ctx, {
-      quoteId: requiredString(input.quoteId, 'Nabidka'),
-      customerId: requiredString(input.customerId, 'Zakaznik'),
-      title: requiredString(input.title, 'Nazev nabidky'),
+      quoteId: requiredString(input.quoteId, 'Nabídka'),
+      customerId: requiredString(input.customerId, 'Zákazník'),
+      title: requiredString(input.title, 'Název nabídky'),
       shareToken: optionalString(input.shareToken),
       status,
       quoteDate: optionalString(input.quoteDate),
@@ -278,7 +278,7 @@ export async function deleteQuoteAction(input: {
   customerId?: string | null
 }): Promise<ActionResult> {
   try {
-    const quoteId = requiredString(input.quoteId, 'Nabidka')
+    const quoteId = requiredString(input.quoteId, 'Nabídka')
     const customerId = optionalString(input.customerId)
     const ctx = await requireCompanyRoleDalContext('company_admin', 'super_admin')
 
@@ -295,7 +295,7 @@ export async function deleteQuoteAction(input: {
       .select('id')
 
     if (error) throw error
-    if (!data || data.length === 0) throw new Error('Nabidku se nepodarilo smazat.')
+    if (!data || data.length === 0) throw new Error('Nabídku se nepodařilo smazat.')
 
     if (customerId) {
       revalidatePath(`/customers/${customerId}/quotes`)
@@ -317,14 +317,14 @@ export async function syncQuotePricingFromCalculationAction(input: {
   sourceCalculationId: string
 }): Promise<ActionResult<{ subtotalPrice: number; totalPrice: number }>> {
   try {
-    const quoteId = requiredString(input.quoteId, 'Nabidka')
+    const quoteId = requiredString(input.quoteId, 'Nabídka')
     const customerId = optionalString(input.customerId)
-    const sourceCalculationId = requiredString(input.sourceCalculationId, 'Zdrojova kalkulace')
+    const sourceCalculationId = requiredString(input.sourceCalculationId, 'Zdrojová kalkulace')
     const ctx = await requireCompanyRoleDalContext('company_admin', 'super_admin')
     const quote = await getScopedQuote(ctx, quoteId, customerId)
 
     if (quote.source_calculation_id && quote.source_calculation_id !== sourceCalculationId) {
-      throw new Error('Zdrojova kalkulace nepatri k teto nabidce.')
+      throw new Error('Zdrojová kalkulace nepatří k této nabídce.')
     }
 
     const { data: calculation, error: calculationError } = await ctx.supabase
@@ -335,14 +335,14 @@ export async function syncQuotePricingFromCalculationAction(input: {
       .maybeSingle()
 
     if (calculationError || !calculation?.id) {
-      throw new TenantScopeError('Kalkulace nepatri do aktivni firmy.')
+      throw new TenantScopeError('Kalkulace nepatří do aktivní firmy.')
     }
 
     if (customerId && calculation.customer_id && calculation.customer_id !== customerId) {
-      throw new TenantScopeError('Kalkulace nepatri k zakaznikovi teto nabidky.')
+      throw new TenantScopeError('Kalkulace nepatří k zákazníkovi této nabídky.')
     }
     if (!customerId && calculation.customer_id) {
-      throw new TenantScopeError('Kalkulace patri k zakaznikovi, ale nabidka je bez zakaznika.')
+      throw new TenantScopeError('Kalkulace patří k zákazníkovi, ale nabídka je bez zákazníka.')
     }
 
     const { data: items, error: itemsError } = await ctx.supabase
@@ -357,7 +357,7 @@ export async function syncQuotePricingFromCalculationAction(input: {
 
     const customerItems = ((items ?? []) as QuoteCalculationItemRow[]).filter((item) => item.name?.trim())
     if (customerItems.length === 0) {
-      throw new Error('Zdrojova kalkulace nema zadne zakaznicke polozky pro aktualizaci nabidky.')
+      throw new Error('Zdrojová kalkulace nemá žádné zákaznické položky pro aktualizaci nabídky.')
     }
 
     const deleteResponse = await ctx.supabase.from('quote_items').delete().eq('quote_id', quoteId)
@@ -367,7 +367,7 @@ export async function syncQuotePricingFromCalculationAction(input: {
       company_id: ctx.companyId,
       quote_id: quoteId,
       sort_order: item.sort_order ?? 0,
-      name: item.name?.trim() || 'Polozka',
+      name: item.name?.trim() || 'Položka',
       description: item.description ?? null,
       quantity: Number(item.quantity ?? 0),
       unit: item.unit ?? null,
@@ -410,7 +410,7 @@ export async function markQuoteSentAction(input: {
   customerId?: string | null
 }): Promise<ActionResult<{ status: QuoteStatus }>> {
   try {
-    const quoteId = requiredString(input.quoteId, 'Nabidka')
+    const quoteId = requiredString(input.quoteId, 'Nabídka')
     const customerId = optionalString(input.customerId)
     const ctx = await requireCompanyRoleDalContext('company_admin', 'super_admin')
     const quote = await getScopedQuote(ctx, quoteId, customerId)
@@ -444,7 +444,7 @@ export async function rejectQuoteAction(input: {
   customerId?: string | null
 }): Promise<ActionResult> {
   try {
-    const quoteId = requiredString(input.quoteId, 'Nabidka')
+    const quoteId = requiredString(input.quoteId, 'Nabídka')
     const customerId = optionalString(input.customerId)
     const ctx = await requireCompanyRoleDalContext('company_admin', 'super_admin')
 
@@ -529,17 +529,17 @@ export async function createJobFromQuoteAction(input: {
     const splitDays = Array.isArray(input.splitDays)
       ? input.splitDays.map((day) => ({
           label: requiredString(day.label, 'Den realizace'),
-          startAt: isoString(day.startAt, 'Zacatek realizace dne'),
+          startAt: isoString(day.startAt, 'Začátek realizace dne'),
           endAt: isoString(day.endAt, 'Konec realizace dne'),
         }))
       : []
 
     const result = await createJobFromQuote(ctx, {
-      quoteId: requiredString(input.quoteId, 'Nabidka'),
-      title: requiredString(input.title, 'Nazev zakazky'),
+      quoteId: requiredString(input.quoteId, 'Nabídka'),
+      title: requiredString(input.title, 'Název zakázky'),
       description: optionalString(input.description),
       address: optionalString(input.address),
-      startAt: isoString(input.startAt, 'Zacatek realizace'),
+      startAt: isoString(input.startAt, 'Začátek realizace'),
       endAt: isoString(input.endAt, 'Konec realizace'),
       splitDays,
     })
@@ -559,7 +559,7 @@ export async function markJobCompletedAction(input: {
 }): Promise<ActionResult> {
   try {
     const ctx = await requireCompanyRoleDalContext('company_admin', 'super_admin')
-    const jobId = requiredString(input.jobId, 'Zakazka')
+    const jobId = requiredString(input.jobId, 'Zakázka')
     await markJobCompleted(ctx, jobId)
     await markReadyForInvoice(ctx, jobId)
     revalidatePath(`/jobs/${jobId}`)
@@ -603,7 +603,7 @@ export async function updateJobPriceAction(input: {
 }): Promise<ActionResult> {
   try {
     const ctx = await requireCompanyRoleDalContext('company_admin', 'super_admin')
-    const jobId = requiredString(input.jobId, 'Zakazka')
+    const jobId = requiredString(input.jobId, 'Zakázka')
     await updateJobPrice(ctx, jobId, nonNegativeNumber(input.price, 'Cena'))
     revalidatePath(`/jobs/${jobId}`)
     revalidatePath('/')
@@ -626,15 +626,15 @@ export async function createJobCostItemAction(input: {
   try {
     const costType = costTypes.includes(input.costType) ? input.costType : 'other'
     const ctx = await requireCompanyRoleDalContext('company_admin', 'super_admin')
-    const jobId = requiredString(input.jobId, 'Zakazka')
+    const jobId = requiredString(input.jobId, 'Zakázka')
     const item = await createJobCostItem(ctx, {
       jobId,
       costType,
-      title: requiredString(input.title, 'Nazev nakladu'),
-      quantity: nonNegativeNumber(input.quantity, 'Mnozstvi'),
+      title: requiredString(input.title, 'Název nákladu'),
+      quantity: nonNegativeNumber(input.quantity, 'Množství'),
       unit: optionalString(input.unit),
-      unitPrice: nonNegativeNumber(input.unitPrice, 'Jednotkova cena'),
-      totalPrice: nonNegativeNumber(input.totalPrice, 'Celkova cena'),
+      unitPrice: nonNegativeNumber(input.unitPrice, 'Jednotková cena'),
+      totalPrice: nonNegativeNumber(input.totalPrice, 'Celková cena'),
       note: optionalString(input.note),
     })
 
@@ -653,8 +653,8 @@ export async function deleteJobCostItemAction(input: {
 }): Promise<ActionResult> {
   try {
     const ctx = await requireCompanyRoleDalContext('company_admin', 'super_admin')
-    const jobId = requiredString(input.jobId, 'Zakazka')
-    await deleteJobCostItem(ctx, requiredString(input.id, 'Naklad'))
+    const jobId = requiredString(input.jobId, 'Zakázka')
+    await deleteJobCostItem(ctx, requiredString(input.id, 'Náklad'))
     revalidatePath(`/jobs/${jobId}`)
     revalidatePath('/')
     return { ok: true, data: undefined }
@@ -671,10 +671,10 @@ export async function updateJobAssignmentEconomicsAction(input: {
 }): Promise<ActionResult> {
   try {
     const ctx = await requireCompanyRoleDalContext('company_admin', 'super_admin')
-    const jobId = requiredString(input.jobId, 'Zakazka')
+    const jobId = requiredString(input.jobId, 'Zakázka')
     await updateJobAssignmentEconomics(ctx, {
       jobId,
-      profileId: requiredString(input.profileId, 'Pracovnik'),
+      profileId: requiredString(input.profileId, 'Pracovník'),
       laborHours: nonNegativeNumber(input.laborHours, 'Hodiny'),
       hourlyRate: nonNegativeNumber(input.hourlyRate, 'Sazba'),
     })
@@ -701,13 +701,13 @@ export async function updateWorkShiftAction(input: {
   try {
     const ctx = await requireCompanyRoleDalContext('company_admin', 'super_admin')
     const shift = await updateWorkShift(ctx, {
-      shiftId: requiredString(input.shiftId, 'Smena'),
+      shiftId: requiredString(input.shiftId, 'Směna'),
       jobId: optionalString(input.jobId),
       shiftDate: optionalString(input.shiftDate),
       startedAt: optionalString(input.startedAt),
       endedAt: optionalString(input.endedAt),
       hoursOverride: optionalNonNegativeNumber(input.hoursOverride, 'Hodiny'),
-      jobHoursOverride: optionalNonNegativeNumber(input.jobHoursOverride, 'Hodiny zakazky'),
+      jobHoursOverride: optionalNonNegativeNumber(input.jobHoursOverride, 'Hodiny zakázky'),
       note: optionalString(input.note),
       supportsJobAssignment: Boolean(input.supportsJobAssignment),
     })

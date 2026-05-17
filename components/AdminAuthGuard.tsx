@@ -49,38 +49,6 @@ export default function AdminAuthGuard({ children }: AdminAuthGuardProps) {
           return
         }
 
-        const activeCompanyResponse = await fetch('/api/active-company', {
-          credentials: 'same-origin',
-          cache: 'no-store',
-        })
-
-        if (!mounted) return
-
-        if (!activeCompanyResponse.ok) {
-          const portalUserResponse = await supabase
-            .from('customer_portal_users')
-            .select('id')
-            .eq('auth_user_id', session.user.id)
-            .eq('is_active', true)
-            .maybeSingle()
-
-          if (!mounted) return
-
-          setAllowed(false)
-          setLoading(false)
-
-          if (portalUserResponse.data?.id) {
-            router.replace('/portal')
-            return
-          }
-
-          if (pathname !== '/onboarding/company') {
-            router.replace('/onboarding/company')
-          }
-
-          return
-        }
-
         setAllowed(true)
         setLoading(false)
       } catch {
@@ -108,11 +76,13 @@ export default function AdminAuthGuard({ children }: AdminAuthGuardProps) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
       if (!mounted) return
 
       if (session) {
-        void checkAuth()
+        if (event !== 'INITIAL_SESSION') {
+          void checkAuth()
+        }
         return
       }
 
@@ -129,7 +99,7 @@ export default function AdminAuthGuard({ children }: AdminAuthGuardProps) {
       window.clearTimeout(timeout)
       subscription.unsubscribe()
     }
-  }, [dictionary.auth.verifyingSession, pathname, router])
+  }, [pathname, router])
 
   if (loading) {
     return (

@@ -361,33 +361,35 @@ export default function AbsencesPage() {
       <main
         style={{
           display: 'grid',
-          gap: '20px',
-          maxWidth: '1200px',
+          gap: '12px',
+          maxWidth: '1120px',
           fontFamily: 'Arial, Helvetica, sans-serif',
           color: '#111827',
         }}
       >
         <section
+          data-tour="absences-header"
           style={{
             ...cardStyle,
             position: 'relative',
             overflow: 'hidden',
-            borderRadius: '28px',
+            borderRadius: '20px',
             background:
               'radial-gradient(circle at 8% 8%, rgba(124, 58, 237, 0.14), transparent 30%), radial-gradient(circle at 100% 0%, rgba(6, 182, 212, 0.14), transparent 28%), linear-gradient(135deg, rgba(255,255,255,0.96), rgba(239,246,255,0.9) 55%, rgba(240,253,250,0.88))',
-            padding: '30px',
+            padding: '18px 20px',
+            boxShadow: '0 12px 32px rgba(15, 23, 42, 0.065)',
           }}
         >
           <div
             style={{
               display: 'inline-flex',
               borderRadius: '999px',
-              padding: '7px 11px',
-              marginBottom: '14px',
+              padding: '4px 9px',
+              marginBottom: '8px',
               background: 'rgba(124, 58, 237, 0.1)',
               border: '1px solid rgba(124, 58, 237, 0.2)',
               color: '#5b21b6',
-              fontSize: '12px',
+              fontSize: '11px',
               fontWeight: 850,
             }}
           >
@@ -395,9 +397,9 @@ export default function AbsencesPage() {
           </div>
           <h1
             style={{
-              margin: '0 0 8px 0',
-              fontSize: '42px',
-              lineHeight: 1.05,
+              margin: 0,
+              fontSize: '32px',
+              lineHeight: 1.08,
               color: '#020617',
             }}
           >
@@ -406,10 +408,10 @@ export default function AbsencesPage() {
 
           <p
             style={{
-              margin: 0,
+              margin: '7px 0 0',
               color: '#475569',
-              fontSize: '16px',
-              lineHeight: 1.6,
+              fontSize: '14px',
+              lineHeight: 1.45,
               maxWidth: '620px',
             }}
           >
@@ -418,6 +420,7 @@ export default function AbsencesPage() {
         </section>
 
         <section
+          data-tour="absences-summary"
           style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
@@ -441,6 +444,7 @@ export default function AbsencesPage() {
         </section>
 
         <section
+          data-tour="absences-filters"
           style={{
             ...cardStyle,
             display: 'grid',
@@ -549,7 +553,7 @@ export default function AbsencesPage() {
               <span>{t.empty}</span>
             </div>
           ) : (
-            <div style={{ display: 'grid', gap: '14px' }}>
+            <div data-tour="absences-list" style={{ display: 'grid', gap: '14px' }}>
               {filteredItems.map((item) => {
                 const isSaving = savingId === item.id
 
@@ -630,6 +634,7 @@ export default function AbsencesPage() {
                       }}
                     >
                       <div
+                        data-tour="absence-actions"
                         style={{
                           ...getStatusBadgeStyle(item.status),
                           borderRadius: '999px',

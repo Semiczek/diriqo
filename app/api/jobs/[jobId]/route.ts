@@ -157,7 +157,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     }
 
     if (parentCheckResponse.data.parent_job_id) {
-      return NextResponse.json({ error: 'CÃ­lovÃ¡ zakÃ¡zka uÅ¾ je dcerou jinÃ© zakÃ¡zky.' }, { status: 400 })
+      return NextResponse.json({ error: 'Cílová zakázka už je dcerou jiné zakázky.' }, { status: 400 })
     }
 
     if (
@@ -165,7 +165,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       parentCheckResponse.data.customer_id &&
       existingJob.customer_id !== parentCheckResponse.data.customer_id
     ) {
-      return NextResponse.json({ error: 'ZakÃ¡zky s rozdÃ­lnÃ½m zÃ¡kaznÃ­kem nejde seskupit.' }, { status: 400 })
+      return NextResponse.json({ error: 'Zakázky s rozdílným zákazníkem nejde seskupit.' }, { status: 400 })
     }
   }
 

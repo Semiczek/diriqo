@@ -201,16 +201,17 @@ export default async function KalkulacePage({ searchParams }: PageProps) {
   return (
     <DashboardShell activeItem="kalkulace">
       <main style={pageShellStyle}>
-        <section style={heroCardStyle}>
+        <section data-tour="calculations-header" style={heroCardStyle}>
           <div style={heroContentStyle}>
             <div style={eyebrowStyle}>Finance</div>
             <h1 style={heroTitleStyle}>Kalkulace</h1>
             <p style={heroTextStyle}>Přehled posledních interních kalkulací napříč zákazníky.</p>
           </div>
-          <PrimaryAction href="/kalkulace/nova">+ Nová kalkulace</PrimaryAction>
+          <PrimaryAction href="/kalkulace/nova" dataTour="new-calculation-button">+ Nová kalkulace</PrimaryAction>
         </section>
 
         <div
+          data-tour="calculations-month"
           style={{
             display: 'flex',
             justifyContent: 'space-between',
@@ -258,6 +259,7 @@ export default async function KalkulacePage({ searchParams }: PageProps) {
 
         <form
           method="get"
+          data-tour="calculations-filters"
           style={filterCardStyle}
         >
           <label style={fieldLabelStyle}>
@@ -313,14 +315,14 @@ export default async function KalkulacePage({ searchParams }: PageProps) {
             Data se nepodařilo načíst. Technický detail je v konzoli.
           </div>
         ) : filteredCalculations.length === 0 ? (
-          <div style={emptyStateStyle}>
+          <div data-tour="calculations-list" style={emptyStateStyle}>
             <div style={{ fontSize: '30px', marginBottom: '8px' }}>+</div>
             <h2 style={{ margin: '0 0 6px', color: '#0f172a' }}>Zatím tu nejsou žádné kalkulace.</h2>
             <p style={{ margin: '0 0 16px' }}>Vytvoř první kalkulaci a připrav z ní nabídku.</p>
             <PrimaryAction href="/kalkulace/nova">Nová kalkulace</PrimaryAction>
           </div>
         ) : (
-          <div style={{ display: 'grid', gap: '14px' }}>
+          <div data-tour="calculations-list" style={{ display: 'grid', gap: '14px' }}>
             {filteredCalculations.map((item) => (
               <Link
                 key={item.id}

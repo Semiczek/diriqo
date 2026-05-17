@@ -86,19 +86,19 @@ export async function createCalendarEventAction(input: {
     const end = parseDate(cleanOptionalId(input.endAt))
 
     if (!title) {
-      return { ok: false, error: 'Zadejte nazev udalosti.' }
+      return { ok: false, error: 'Zadejte název události.' }
     }
 
     if (requestedCompanyId && requestedCompanyId !== companyId) {
-      return { ok: false, error: 'Udalost lze vytvorit jen v aktivni firme.' }
+      return { ok: false, error: 'Událost lze vytvořit jen v aktivní firmě.' }
     }
 
     if (!start || !end) {
-      return { ok: false, error: 'Vyplnte platny zacatek a konec udalosti.' }
+      return { ok: false, error: 'Vyplňte platný začátek a konec události.' }
     }
 
     if (end <= start) {
-      return { ok: false, error: 'Konec udalosti musi byt po zacatku.' }
+      return { ok: false, error: 'Konec události musí být po začátku.' }
     }
 
     if (jobId) {
@@ -110,7 +110,7 @@ export async function createCalendarEventAction(input: {
         .maybeSingle()
 
       if (jobResponse.error || !jobResponse.data?.id) {
-        return { ok: false, error: 'Vybrana zakazka nepatri do aktivni firmy.' }
+        return { ok: false, error: 'Vybraná zakázka nepatří do aktivní firmy.' }
       }
     }
 
@@ -125,7 +125,7 @@ export async function createCalendarEventAction(input: {
         .in('profile_id', selectedProfileIds)
 
       if (membersResponse.error) {
-        return { ok: false, error: 'Nepodarilo se overit pracovniky.' }
+        return { ok: false, error: 'Nepodařilo se ověřit pracovníky.' }
       }
 
       const allowedProfileIds = new Set(
@@ -135,7 +135,7 @@ export async function createCalendarEventAction(input: {
       )
 
       if (selectedProfileIds.some((profileId) => !allowedProfileIds.has(profileId))) {
-        return { ok: false, error: 'Nektery pracovnik nepatri do aktivni firmy.' }
+          return { ok: false, error: 'Některý pracovník nepatří do aktivní firmy.' }
       }
     }
 
@@ -155,7 +155,7 @@ export async function createCalendarEventAction(input: {
       .single()
 
     if (eventResponse.error || !eventResponse.data?.id) {
-      return { ok: false, error: eventResponse.error?.message || 'Udalost se nepodarilo vytvorit.' }
+      return { ok: false, error: eventResponse.error?.message || 'Událost se nepodařilo vytvořit.' }
     }
 
     if (selectedProfileIds.length > 0) {
@@ -169,7 +169,7 @@ export async function createCalendarEventAction(input: {
       if (assignResponse.error) {
         return {
           ok: false,
-          error: `Udalost vznikla, ale pracovniky se nepodarilo priradit: ${assignResponse.error.message}`,
+          error: `Událost vznikla, ale pracovníky se nepodařilo přiřadit: ${assignResponse.error.message}`,
         }
       }
     }
@@ -183,7 +183,7 @@ export async function createCalendarEventAction(input: {
   } catch (error) {
     return {
       ok: false,
-      error: error instanceof Error ? error.message : 'Udalost se nepodarilo vytvorit.',
+      error: error instanceof Error ? error.message : 'Událost se nepodařilo vytvořit.',
     }
   }
 }
@@ -203,7 +203,7 @@ async function verifyCalendarProfiles(input: {
     .in('profile_id', input.profileIds)
 
   if (membersResponse.error) {
-    return 'Nepodarilo se overit pracovniky.'
+    return 'Nepodařilo se ověřit pracovníky.'
   }
 
   const allowedProfileIds = new Set(
@@ -213,7 +213,7 @@ async function verifyCalendarProfiles(input: {
   )
 
   if (input.profileIds.some((profileId) => !allowedProfileIds.has(profileId))) {
-    return 'Nektery pracovnik nepatri do aktivni firmy.'
+      return 'Některý pracovník nepatří do aktivní firmy.'
   }
 
   return null
@@ -245,13 +245,13 @@ export async function updateCalendarEventAction(input: {
     const start = parseDate(cleanOptionalId(input.startAt))
     const end = parseDate(cleanOptionalId(input.endAt))
 
-    if (!eventId) return { ok: false, error: 'Chybi udalost.' }
-    if (!title) return { ok: false, error: 'Zadejte nazev udalosti.' }
+    if (!eventId) return { ok: false, error: 'Chybí událost.' }
+    if (!title) return { ok: false, error: 'Zadejte název události.' }
     if (requestedCompanyId && requestedCompanyId !== companyId) {
-      return { ok: false, error: 'Udalost lze upravit jen v aktivni firme.' }
+      return { ok: false, error: 'Událost lze upravit jen v aktivní firmě.' }
     }
-    if (!start || !end) return { ok: false, error: 'Vyplnte platny zacatek a konec udalosti.' }
-    if (end <= start) return { ok: false, error: 'Konec udalosti musi byt po zacatku.' }
+    if (!start || !end) return { ok: false, error: 'Vyplňte platný začátek a konec události.' }
+    if (end <= start) return { ok: false, error: 'Konec události musí být po začátku.' }
 
     const eventResponse = await supabase
       .from('calendar_events')
@@ -261,7 +261,7 @@ export async function updateCalendarEventAction(input: {
       .maybeSingle()
 
     if (eventResponse.error || !eventResponse.data?.id) {
-      return { ok: false, error: 'Udalost nebyla nalezena v aktivni firme.' }
+      return { ok: false, error: 'Událost nebyla nalezena v aktivní firmě.' }
     }
 
     if (jobId) {
@@ -273,7 +273,7 @@ export async function updateCalendarEventAction(input: {
         .maybeSingle()
 
       if (jobResponse.error || !jobResponse.data?.id) {
-        return { ok: false, error: 'Vybrana zakazka nepatri do aktivni firmy.' }
+        return { ok: false, error: 'Vybraná zakázka nepatří do aktivní firmy.' }
       }
     }
 
@@ -302,7 +302,7 @@ export async function updateCalendarEventAction(input: {
       .eq('company_id', companyId)
 
     if (updateResponse.error) {
-      return { ok: false, error: updateResponse.error.message || 'Udalost se nepodarilo ulozit.' }
+      return { ok: false, error: updateResponse.error.message || 'Událost se nepodařilo uložit.' }
     }
 
     const deleteAssignmentsResponse = await supabase
@@ -311,7 +311,7 @@ export async function updateCalendarEventAction(input: {
       .or(`event_id.eq.${eventId},calendar_event_id.eq.${eventId}`)
 
     if (deleteAssignmentsResponse.error) {
-      return { ok: false, error: deleteAssignmentsResponse.error.message || 'Pracovniky se nepodarilo aktualizovat.' }
+      return { ok: false, error: deleteAssignmentsResponse.error.message || 'Pracovníky se nepodařilo aktualizovat.' }
     }
 
     if (selectedProfileIds.length > 0) {
@@ -323,7 +323,7 @@ export async function updateCalendarEventAction(input: {
       const insertAssignmentsResponse = await supabase.from('calendar_event_assignments').insert(rows)
 
       if (insertAssignmentsResponse.error) {
-        return { ok: false, error: insertAssignmentsResponse.error.message || 'Pracovniky se nepodarilo priradit.' }
+        return { ok: false, error: insertAssignmentsResponse.error.message || 'Pracovníky se nepodařilo přiřadit.' }
       }
     }
 
@@ -340,7 +340,7 @@ export async function updateCalendarEventAction(input: {
   } catch (error) {
     return {
       ok: false,
-      error: error instanceof Error ? error.message : 'Udalost se nepodarilo ulozit.',
+      error: error instanceof Error ? error.message : 'Událost se nepodařilo uložit.',
     }
   }
 }
@@ -353,7 +353,7 @@ export async function deleteCalendarEventAction(eventIdInput: string): Promise<C
     const eventId = cleanOptionalId(eventIdInput)
 
     if (!moduleAccess.ok) return { ok: false, error: moduleAccess.error }
-    if (!eventId) return { ok: false, error: 'Chybi udalost.' }
+    if (!eventId) return { ok: false, error: 'Chybí událost.' }
 
     const eventResponse = await supabase
       .from('calendar_events')
@@ -363,7 +363,7 @@ export async function deleteCalendarEventAction(eventIdInput: string): Promise<C
       .maybeSingle()
 
     if (eventResponse.error || !eventResponse.data?.id) {
-      return { ok: false, error: 'Udalost nebyla nalezena v aktivni firme.' }
+      return { ok: false, error: 'Událost nebyla nalezena v aktivní firmě.' }
     }
 
     const assignmentsResponse = await supabase
@@ -372,7 +372,7 @@ export async function deleteCalendarEventAction(eventIdInput: string): Promise<C
       .or(`event_id.eq.${eventId},calendar_event_id.eq.${eventId}`)
 
     if (assignmentsResponse.error) {
-      return { ok: false, error: assignmentsResponse.error.message || 'Prirazeni se nepodarilo smazat.' }
+      return { ok: false, error: assignmentsResponse.error.message || 'Přiřazení se nepodařilo smazat.' }
     }
 
     const deleteResponse = await supabase
@@ -382,7 +382,7 @@ export async function deleteCalendarEventAction(eventIdInput: string): Promise<C
       .eq('company_id', companyId)
 
     if (deleteResponse.error) {
-      return { ok: false, error: deleteResponse.error.message || 'Udalost se nepodarilo smazat.' }
+      return { ok: false, error: deleteResponse.error.message || 'Událost se nepodařilo smazat.' }
     }
 
     revalidatePath('/calendar')
@@ -390,7 +390,7 @@ export async function deleteCalendarEventAction(eventIdInput: string): Promise<C
   } catch (error) {
     return {
       ok: false,
-      error: error instanceof Error ? error.message : 'Udalost se nepodarilo smazat.',
+      error: error instanceof Error ? error.message : 'Událost se nepodařilo smazat.',
     }
   }
 }

@@ -20,7 +20,7 @@ export async function grantSupportAccessAction() {
     company_id: activeCompany.companyId,
     granted_by: activeCompany.profileId,
     expires_at: expiresAt,
-    reason: 'Company admin granted Diriqo support access for 24 hours.',
+      reason: 'Firemní admin povolil Diriqo support přístup na 24 hodin.',
   })
 
   if (error) {
