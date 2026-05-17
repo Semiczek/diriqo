@@ -13,6 +13,10 @@ import { supabase } from '@/lib/supabase'
 type SignUpFormProps = {
   plan?: string
   interval?: string
+  legalVersions: {
+    terms: string
+    privacy: string
+  }
 }
 
 const localeLabels: Record<Locale, string> = {
@@ -36,6 +40,7 @@ const registerCopy: Record<
     navIndustries: string
     navDemo: string
     navContact: string
+    navLogin: string
     eyebrow: string
     title: string
     subtitle: string
@@ -45,6 +50,10 @@ const registerCopy: Record<
     googleDisabled: string
     signInPrompt: string
     signInAction: string
+    legalConsent: string
+    legalRequired: string
+    termsLink: string
+    privacyLink: string
   }
 > = {
   cs: {
@@ -54,6 +63,7 @@ const registerCopy: Record<
     navIndustries: 'Obory',
     navDemo: 'Demo',
     navContact: 'Kontakt',
+    navLogin: 'Přihlášení',
     eyebrow: 'Registrace',
     title: 'Vytvořit účet',
     subtitle: 'Vytvořte účet, založte firmu a začněte spravovat zakázky, pracovníky a zákazníky během pár minut.',
@@ -63,6 +73,10 @@ const registerCopy: Record<
     googleDisabled: 'Google přihlášení zatím není nakonfigurované.',
     signInPrompt: 'Už účet máte?',
     signInAction: 'Přihlásit se',
+    legalConsent: 'Souhlasím s podmínkami používání a beru na vědomí zpracování osobních údajů.',
+    legalRequired: 'Pro vytvoření účtu je potřeba potvrdit podmínky používání a ochranu osobních údajů.',
+    termsLink: 'Podmínky používání',
+    privacyLink: 'Ochrana osobních údajů',
   },
   en: {
     navFeatures: 'Features',
@@ -71,6 +85,7 @@ const registerCopy: Record<
     navIndustries: 'Industries',
     navDemo: 'Demo',
     navContact: 'Contact',
+    navLogin: 'Sign in',
     eyebrow: 'Registration',
     title: 'Create account',
     subtitle: 'Create an account, set up your company and start managing jobs, workers and customers in minutes.',
@@ -80,6 +95,10 @@ const registerCopy: Record<
     googleDisabled: 'Google sign-in is not configured yet.',
     signInPrompt: 'Already have an account?',
     signInAction: 'Sign in',
+    legalConsent: 'I agree to the Terms of Use and acknowledge the Privacy Notice.',
+    legalRequired: 'You need to accept the Terms of Use and Privacy Notice to create an account.',
+    termsLink: 'Terms of Use',
+    privacyLink: 'Privacy Notice',
   },
   de: {
     navFeatures: 'Funktionen',
@@ -88,6 +107,7 @@ const registerCopy: Record<
     navIndustries: 'Branchen',
     navDemo: 'Demo',
     navContact: 'Kontakt',
+    navLogin: 'Anmelden',
     eyebrow: 'Registrierung',
     title: 'Konto erstellen',
     subtitle: 'Erstellen Sie ein Konto, richten Sie Ihre Firma ein und verwalten Sie Aufträge, Mitarbeiter und Kunden in wenigen Minuten.',
@@ -97,6 +117,10 @@ const registerCopy: Record<
     googleDisabled: 'Google-Anmeldung ist noch nicht konfiguriert.',
     signInPrompt: 'Sie haben schon ein Konto?',
     signInAction: 'Anmelden',
+    legalConsent: 'Ich stimme den Nutzungsbedingungen zu und nehme die Datenschutzhinweise zur Kenntnis.',
+    legalRequired: 'Zum Erstellen des Kontos musst du Nutzungsbedingungen und Datenschutz bestätigen.',
+    termsLink: 'Nutzungsbedingungen',
+    privacyLink: 'Datenschutz',
   },
 }
 
@@ -108,7 +132,7 @@ function getRegisterHref(locale: Locale) {
   return `/register?locale=${locale}`
 }
 
-export default function SignUpForm({ plan, interval }: SignUpFormProps) {
+export default function SignUpForm({ plan, interval, legalVersions }: SignUpFormProps) {
   const { dictionary, locale } = useI18n()
   const copy = registerCopy[locale]
   const intendedPlan = useMemo(() => normalizePlanKey(plan), [plan])
@@ -116,6 +140,7 @@ export default function SignUpForm({ plan, interval }: SignUpFormProps) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [legalAccepted, setLegalAccepted] = useState(false)
   const [loading, setLoading] = useState(false)
   const [localeSaving, setLocaleSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -160,7 +185,14 @@ export default function SignUpForm({ plan, interval }: SignUpFormProps) {
       return
     }
 
+    if (!legalAccepted) {
+      setError(copy.legalRequired)
+      setLoading(false)
+      return
+    }
+
     const normalizedEmail = email.trim()
+    const legalAcceptedAt = new Date().toISOString()
     window.localStorage.setItem('diriqo.pendingSignupEmail', normalizedEmail)
 
     const { data, error: signUpError } = await supabase.auth.signUp({
@@ -171,6 +203,14 @@ export default function SignUpForm({ plan, interval }: SignUpFormProps) {
         data: {
           intended_plan_key: intendedPlan,
           intended_billing_interval: intendedInterval,
+          legal_acceptance: {
+            accepted_at: legalAcceptedAt,
+            locale,
+            documents: {
+              terms: legalVersions.terms,
+              privacy: legalVersions.privacy,
+            },
+          },
         },
       },
     })
@@ -188,6 +228,7 @@ export default function SignUpForm({ plan, interval }: SignUpFormProps) {
     }
 
     window.localStorage.removeItem('diriqo.pendingSignupEmail')
+    await fetch('/api/legal/accept', { method: 'POST' }).catch(() => null)
     window.location.assign('/onboarding/company')
   }
 
@@ -197,7 +238,19 @@ export default function SignUpForm({ plan, interval }: SignUpFormProps) {
 
       <header className="register-nav">
         <a className="register-brand" href="https://diriqo.com" aria-label="Diriqo">
-          <Image src="/diriqo-logo-full.png" alt="Diriqo" fill priority sizes="170px" style={{ objectFit: 'contain' }} />
+          <Image
+            src="/diriqo-logo-full.png"
+            alt="Diriqo"
+            fill
+            priority
+            sizes="190px"
+            style={{
+              objectFit: 'cover',
+              objectPosition: 'left center',
+              transform: 'translateX(-25%) scale(1.35)',
+              transformOrigin: 'left center',
+            }}
+          />
         </a>
 
         <nav className="register-nav-links" aria-label="Diriqo">
@@ -211,7 +264,7 @@ export default function SignUpForm({ plan, interval }: SignUpFormProps) {
 
         <div className="register-nav-actions">
           <Link href="/sign-in" className="register-login">
-            {dictionary.auth.signIn}
+            {copy.navLogin}
           </Link>
           <Link href={getRegisterHref(locale)} className="register-start">
             {dictionary.auth.startFree}
@@ -282,6 +335,25 @@ export default function SignUpForm({ plan, interval }: SignUpFormProps) {
             {error ? <div className="register-error">{error}</div> : null}
             {notice ? <div className="register-notice">{notice}</div> : null}
 
+            <label className="register-legal-consent">
+              <input
+                type="checkbox"
+                checked={legalAccepted}
+                required
+                onChange={(event) => setLegalAccepted(event.target.checked)}
+              />
+              <span>
+                {copy.legalConsent}{' '}
+                <Link href="/legal?doc=terms" target="_blank">
+                  {copy.termsLink}
+                </Link>
+                {' · '}
+                <Link href="/legal?doc=privacy" target="_blank">
+                  {copy.privacyLink}
+                </Link>
+              </span>
+            </label>
+
             <button type="submit" disabled={loading}>
               {loading ? copy.submitting : copy.submit}
             </button>
@@ -306,8 +378,9 @@ const registerStyles = `
     min-height: 100vh;
     color: #ffffff;
     background:
-      linear-gradient(90deg, rgba(5, 83, 110, 0.62) 0%, rgba(9, 21, 58, 0.7) 48%, rgba(45, 28, 112, 0.78) 100%),
-      radial-gradient(circle at 17% 21%, rgba(20, 184, 166, 0.18), transparent 28%),
+      radial-gradient(circle at 65% 28%, rgba(120, 92, 255, 0.18), transparent 21%),
+      linear-gradient(90deg, rgba(5, 83, 110, 0.7) 0%, rgba(9, 21, 58, 0.74) 48%, rgba(45, 28, 112, 0.86) 100%),
+      radial-gradient(circle at 17% 21%, rgba(20, 184, 166, 0.2), transparent 28%),
       linear-gradient(135deg, #042437 0%, #080d2a 48%, #150b44 100%);
     overflow-x: hidden;
   }
@@ -324,13 +397,26 @@ const registerStyles = `
     mask-image: linear-gradient(to bottom, transparent, black 18%, black 82%, transparent);
   }
 
+  .register-page::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(circle at 18% 19%, rgba(45, 212, 191, 0.45) 0 2px, transparent 3px),
+      radial-gradient(circle at 37% 3%, rgba(124, 92, 255, 0.45) 0 2px, transparent 3px),
+      radial-gradient(circle at 66% 26%, rgba(124, 92, 255, 0.32) 0 3px, transparent 4px),
+      radial-gradient(circle at 10% 46%, rgba(124, 92, 255, 0.38) 0 3px, transparent 4px);
+    opacity: 0.85;
+  }
+
   .register-nav {
     min-height: 96px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 24px;
-    padding: 18px clamp(24px, 4vw, 52px);
+    gap: clamp(22px, 2.4vw, 42px);
+    padding: 16px clamp(38px, 2.8vw, 54px);
     border-bottom: 1px solid rgba(45, 212, 191, 0.34);
     background: linear-gradient(90deg, rgba(7, 67, 94, 0.92), rgba(31, 32, 100, 0.88), rgba(70, 52, 130, 0.82));
     box-shadow: 0 16px 38px rgba(5, 7, 29, 0.22);
@@ -340,17 +426,20 @@ const registerStyles = `
 
   .register-brand {
     position: relative;
-    width: 168px;
-    height: 48px;
+    width: 188px;
+    height: 64px;
     flex: 0 0 auto;
+    overflow: hidden;
   }
 
   .register-nav-links {
     display: flex;
     align-items: center;
-    gap: clamp(22px, 3vw, 54px);
-    font-size: 15px;
-    font-weight: 850;
+    justify-content: center;
+    gap: clamp(30px, 4vw, 70px);
+    flex: 1 1 auto;
+    font-size: 16px;
+    font-weight: 900;
   }
 
   .register-nav-links a,
@@ -363,7 +452,7 @@ const registerStyles = `
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    gap: 14px;
+    gap: 16px;
     flex: 0 0 auto;
   }
 
@@ -375,7 +464,7 @@ const registerStyles = `
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 17px;
+    font-size: 18px;
     font-weight: 900;
   }
 
@@ -394,7 +483,7 @@ const registerStyles = `
 
   .register-language {
     gap: 10px;
-    padding: 0 14px 0 10px;
+    padding: 0 22px 0 12px;
     border: 1px solid rgba(148, 163, 255, 0.36);
     background: rgba(255, 255, 255, 0.1);
   }
@@ -429,46 +518,53 @@ const registerStyles = `
     z-index: 1;
     min-height: calc(100vh - 96px);
     display: grid;
-    grid-template-columns: minmax(0, 0.9fr) minmax(360px, 740px);
-    gap: clamp(34px, 6vw, 82px);
-    align-items: center;
-    max-width: 1460px;
+    grid-template-columns: minmax(420px, 0.64fr) minmax(560px, 1fr);
+    gap: clamp(42px, 2.8vw, 54px);
+    align-items: start;
+    max-width: none;
     margin: 0 auto;
-    padding: clamp(44px, 8vw, 100px) clamp(24px, 5vw, 70px);
+    padding: clamp(56px, 7vh, 74px) 40px 44px;
   }
 
   .register-copy {
-    max-width: 660px;
+    max-width: 680px;
   }
 
   .register-eyebrow {
-    margin: 0 0 20px;
+    display: inline-flex;
+    min-height: 46px;
+    align-items: center;
+    margin: 0 0 52px;
+    padding: 0 22px;
+    border: 1px solid rgba(125, 224, 242, 0.45);
+    border-radius: 999px;
+    background: rgba(125, 224, 242, 0.12);
     color: #8cecff;
-    font-size: 17px;
+    font-size: 18px;
     font-weight: 950;
-    letter-spacing: 0.03em;
+    letter-spacing: 0;
     text-transform: uppercase;
   }
 
   .register-copy h1 {
     margin: 0;
-    font-size: clamp(54px, 7vw, 76px);
-    line-height: 0.98;
+    font-size: clamp(82px, 7.1vw, 132px);
+    line-height: 0.92;
     font-weight: 950;
     letter-spacing: 0;
   }
 
   .register-subtitle {
-    margin: 28px 0 0;
-    max-width: 660px;
+    margin: 42px 0 0;
+    max-width: 700px;
     color: rgba(226, 232, 240, 0.9);
-    font-size: clamp(21px, 2vw, 25px);
-    line-height: 1.62;
-    font-weight: 560;
+    font-size: clamp(25px, 2.05vw, 32px);
+    line-height: 1.55;
+    font-weight: 760;
   }
 
   .register-note {
-    margin-top: 28px;
+    margin-top: 44px;
     display: inline-flex;
     width: min(100%, 632px);
     min-height: 62px;
@@ -485,11 +581,12 @@ const registerStyles = `
 
   .register-card {
     width: 100%;
+    margin-top: clamp(54px, 6.6vh, 78px);
     border: 1px solid rgba(148, 163, 184, 0.22);
-    border-radius: 20px;
-    background: rgba(48, 55, 102, 0.78);
+    border-radius: 22px;
+    background: rgba(48, 55, 102, 0.82);
     box-shadow: 0 24px 70px rgba(3, 7, 28, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.08);
-    padding: 32px;
+    padding: clamp(32px, 2.2vw, 40px);
   }
 
   .register-form {
@@ -506,6 +603,38 @@ const registerStyles = `
     color: rgba(255, 255, 255, 0.92);
     font-size: 17px;
     font-weight: 900;
+  }
+
+  .register-legal-consent {
+    display: grid !important;
+    grid-template-columns: 20px minmax(0, 1fr);
+    align-items: start;
+    gap: 12px !important;
+    margin-top: 2px;
+    padding: 14px;
+    border: 1px solid rgba(125, 224, 242, 0.25);
+    border-radius: 9px;
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  .register-legal-consent input {
+    width: 18px !important;
+    height: 18px !important;
+    min-height: 18px !important;
+    margin: 2px 0 0;
+    accent-color: #05b6d3;
+  }
+
+  .register-legal-consent span {
+    color: rgba(226, 232, 240, 0.92) !important;
+    font-size: 14px !important;
+    line-height: 1.5;
+    font-weight: 760 !important;
+  }
+
+  .register-legal-consent a {
+    color: #7ee7ff;
+    text-decoration: none;
   }
 
   .register-form input {

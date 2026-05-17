@@ -21,6 +21,9 @@ export type NavigationMessages = {
   setupGuide: string
   account: string
   help: string
+  terms: string
+  privacy: string
+  gdpr: string
 }
 
 export type CommonMessages = {
@@ -86,6 +89,10 @@ export type AuthMessages = {
   companyNameMinLength: string
   requiredFields: string
   companyCreateFailed: string
+  companyIdentifierInvalid: string
+  companyCreateProfileFailed: string
+  companyCreateSetupFailed: string
+  companyCreateSchemaFailed: string
   companyOnboardingSubmit: string
   companyOnboardingSaving: string
   signIn: string

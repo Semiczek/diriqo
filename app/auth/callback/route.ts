@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 import { getPostLoginRedirect } from '@/lib/auth-redirect'
+import { ensureUserLegalAcceptancesFromMetadata, getClientIpFromHeaders } from '@/lib/legal'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 
 function safeRedirectPath(value: string | null) {
@@ -43,6 +44,12 @@ export async function GET(request: NextRequest) {
   if (!user) {
     return NextResponse.redirect(buildAuthErrorUrl(requestUrl, 'missing_session'))
   }
+
+  await ensureUserLegalAcceptancesFromMetadata({
+    user,
+    ipAddress: getClientIpFromHeaders(request.headers),
+    userAgent: request.headers.get('user-agent'),
+  })
 
   return NextResponse.redirect(new URL(next ?? (await getPostLoginRedirect(user.id)), request.url))
 }

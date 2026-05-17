@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase'
 import AdminAuthGuard from './AdminAuthGuard'
 import DashboardSidebar from './DashboardSidebar'
 import FloatingHelpWidget from './FloatingHelpWidget'
+import LegalConsentGate from './legal/LegalConsentGate'
 import LanguageSwitcher from './LanguageSwitcher'
 import { useI18n } from './I18nProvider'
 import type { CompanyModuleKey } from '@/lib/company-settings-shared'
@@ -33,6 +34,9 @@ type DashboardShellProps = {
     | 'companySettings'
     | 'billing'
     | 'setupGuide'
+    | 'legalTerms'
+    | 'legalPrivacy'
+    | 'legalGdpr'
 }
 
 type CompanyMembership = {
@@ -588,6 +592,7 @@ export default function DashboardShell({
               </div>
 
               {children}
+              <LegalConsentGate />
               <FloatingHelpWidget activeItem={activeItem} />
               <style>{`
                 .topbar-company-menu-item:hover {

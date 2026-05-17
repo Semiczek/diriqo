@@ -24,6 +24,9 @@ type SidebarItemKey =
   | 'companySettings'
   | 'billing'
   | 'setupGuide'
+  | 'legalTerms'
+  | 'legalPrivacy'
+  | 'legalGdpr'
 
 type DashboardSidebarProps = {
   activeItem?: SidebarItemKey
@@ -94,6 +97,9 @@ export default function DashboardSidebar({
     {
       title: dictionary.navigation.supportGroup,
       items: [
+        { href: '/settings/legal?doc=terms', label: dictionary.navigation.terms, key: 'legalTerms', icon: '§' },
+        { href: '/settings/legal?doc=privacy', label: dictionary.navigation.privacy, key: 'legalPrivacy', icon: 'P' },
+        { href: '/settings/legal?doc=dpa', label: dictionary.navigation.gdpr, key: 'legalGdpr', icon: 'G' },
         { href: '/help', label: dictionary.navigation.help, key: 'help', icon: '?' },
       ],
     },
