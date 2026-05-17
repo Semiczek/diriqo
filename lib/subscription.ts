@@ -59,6 +59,9 @@ export type SubscriptionAccessState = {
 const SUBSCRIPTION_SELECT =
   'id, company_id, plan_key, billing_interval, status, trial_started_at, trial_ends_at, stripe_customer_id, stripe_subscription_id, stripe_price_id, current_period_start, current_period_end, cancel_at_period_end, created_at, updated_at'
 
+const LEGACY_SUBSCRIPTION_SELECT =
+  'id, company_id, plan_key, status, trial_started_at, trial_ends_at, stripe_customer_id, stripe_subscription_id, stripe_price_id, current_period_start, current_period_end, cancel_at_period_end, created_at, updated_at'
+
 function toDate(value: string | null | undefined) {
   if (!value) return null
   const date = new Date(value)
@@ -67,6 +70,11 @@ function toDate(value: string | null | undefined) {
 
 function addDays(date: Date, days: number) {
   return new Date(date.getTime() + days * 24 * 60 * 60 * 1000)
+}
+
+function isMissingBillingIntervalError(error: { code?: string; message?: string; details?: string } | null) {
+  const text = `${error?.message ?? ''} ${error?.details ?? ''}`.toLowerCase()
+  return text.includes('billing_interval') && (text.includes('column') || text.includes('schema cache'))
 }
 
 function normalizeSubscription(row: unknown): CompanySubscription | null {
@@ -90,6 +98,20 @@ export async function getCompanySubscription(companyId: string) {
     .eq('company_id', companyId)
     .maybeSingle()
 
+  if (isMissingBillingIntervalError(error)) {
+    const fallback = await supabase
+      .from('company_subscriptions')
+      .select(LEGACY_SUBSCRIPTION_SELECT)
+      .eq('company_id', companyId)
+      .maybeSingle()
+
+    if (fallback.error) {
+      throw new Error(fallback.error.message)
+    }
+
+    return normalizeSubscription(fallback.data)
+  }
+
   if (error) {
     throw new Error(error.message)
   }
@@ -104,22 +126,42 @@ export async function getOrCreateTrialSubscription(companyId: string) {
   const admin = createSupabaseAdminClient()
   const now = new Date()
   const trialEndsAt = addDays(now, 7)
+  const payload = {
+    company_id: companyId,
+    plan_key: 'starter',
+    billing_interval: 'monthly',
+    status: 'trialing',
+    trial_started_at: now.toISOString(),
+    trial_ends_at: trialEndsAt.toISOString(),
+    updated_at: now.toISOString(),
+  }
   const { data, error } = await admin
     .from('company_subscriptions')
-    .upsert(
-      {
-        company_id: companyId,
-        plan_key: 'starter',
-        billing_interval: 'monthly',
-        status: 'trialing',
-        trial_started_at: now.toISOString(),
-        trial_ends_at: trialEndsAt.toISOString(),
-        updated_at: now.toISOString(),
-      },
-      { onConflict: 'company_id' }
-    )
+    .upsert(payload, { onConflict: 'company_id' })
     .select(SUBSCRIPTION_SELECT)
     .single()
+
+  if (isMissingBillingIntervalError(error)) {
+    const legacyPayload = {
+      company_id: payload.company_id,
+      plan_key: payload.plan_key,
+      status: payload.status,
+      trial_started_at: payload.trial_started_at,
+      trial_ends_at: payload.trial_ends_at,
+      updated_at: payload.updated_at,
+    }
+    const fallback = await admin
+      .from('company_subscriptions')
+      .upsert(legacyPayload, { onConflict: 'company_id' })
+      .select(LEGACY_SUBSCRIPTION_SELECT)
+      .single()
+
+    if (fallback.error) {
+      throw new Error(fallback.error.message)
+    }
+
+    return normalizeSubscription(fallback.data)
+  }
 
   if (error) {
     throw new Error(error.message)

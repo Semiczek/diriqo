@@ -16,7 +16,7 @@ type Props = {
   initialCountryCode: string
   hasCompanyNameError: boolean
   hasRequiredError: boolean
-  hasCreateError: boolean
+  createErrorMessage: string | null
 }
 
 const languageLabels: Record<string, string> = {
@@ -41,7 +41,7 @@ export default function CompanyOnboardingForm({
   initialCountryCode,
   hasCompanyNameError,
   hasRequiredError,
-  hasCreateError,
+  createErrorMessage,
 }: Props) {
   const { dictionary } = useI18n()
   const t = dictionary.auth
@@ -159,7 +159,7 @@ export default function CompanyOnboardingForm({
 
       {hasRequiredError ? <div style={errorStyle}>{t.requiredFields}</div> : null}
 
-      {hasCreateError ? <div style={errorStyle}>{t.companyCreateFailed}</div> : null}
+      {createErrorMessage ? <div style={errorStyle}>{createErrorMessage}</div> : null}
 
       <SubmitButton />
     </form>

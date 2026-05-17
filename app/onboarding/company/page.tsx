@@ -20,6 +20,15 @@ function getDefaultCountryCode(locale: string) {
   return 'CZ'
 }
 
+function getCreateErrorMessage(error: string | undefined, t: Awaited<ReturnType<typeof getRequestDictionary>>['auth']) {
+  if (!error || error === 'company-name' || error === 'required') return null
+  if (error === 'registration-number' || error === 'tax-number') return t.companyIdentifierInvalid
+  if (error === 'profile') return t.companyCreateProfileFailed
+  if (error === 'membership' || error === 'setup' || error === 'mailbox') return t.companyCreateSetupFailed
+  if (error === 'schema') return t.companyCreateSchemaFailed
+  return t.companyCreateFailed
+}
+
 export default async function CompanyOnboardingPage({ searchParams }: Props) {
   const supabase = await createSupabaseServerClient()
   const {
@@ -43,7 +52,7 @@ export default async function CompanyOnboardingPage({ searchParams }: Props) {
   const params = searchParams ? await searchParams : {}
   const hasCompanyNameError = params.error === 'company-name'
   const hasRequiredError = params.error === 'required'
-  const hasCreateError = params.error === 'create'
+  const createErrorMessage = getCreateErrorMessage(params.error, t)
 
   return (
     <main style={pageStyle}>
@@ -58,7 +67,7 @@ export default async function CompanyOnboardingPage({ searchParams }: Props) {
           initialCountryCode={defaults.countryCode}
           hasCompanyNameError={hasCompanyNameError}
           hasRequiredError={hasRequiredError}
-          hasCreateError={hasCreateError}
+          createErrorMessage={createErrorMessage}
         />
       </section>
     </main>

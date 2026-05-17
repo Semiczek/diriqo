@@ -23,7 +23,7 @@ function optionalBusinessIdentifier(formData: FormData, key: string) {
   if (!value) return null
 
   if (value.length > 64 || !/^[\p{L}\p{N}\s./-]+$/u.test(value)) {
-    redirectWithOnboardingError('required')
+    redirectWithOnboardingError(key === 'tax_number' ? 'tax-number' : 'registration-number')
   }
 
   return value
@@ -31,6 +31,58 @@ function optionalBusinessIdentifier(formData: FormData, key: string) {
 
 function redirectWithOnboardingError(error: string): never {
   redirect(`/onboarding/company?error=${encodeURIComponent(error)}`)
+}
+
+function normalizeSupabaseErrorText(error: {
+  code?: string
+  message?: string
+  details?: string | null
+  hint?: string | null
+}) {
+  return [error.code, error.message, error.details, error.hint]
+    .filter((value): value is string => typeof value === 'string' && value.length > 0)
+    .join(' ')
+    .toLowerCase()
+}
+
+function getCompanyCreateErrorCode(error: {
+  code?: string
+  message?: string
+  details?: string | null
+  hint?: string | null
+}) {
+  const message = normalizeSupabaseErrorText(error)
+
+  if (message.includes('company_name_required')) return 'company-name'
+  if (message.includes('country_required') || message.includes('language_required') || message.includes('currency_required')) {
+    return 'required'
+  }
+  if (message.includes('registration_number_invalid') || message.includes('companies_registration_number_length_chk')) {
+    return 'registration-number'
+  }
+  if (
+    message.includes('tax_number_invalid') ||
+    message.includes('companies_tax_number_length_chk') ||
+    message.includes('companies_vat_number_length_chk')
+  ) {
+    return 'tax-number'
+  }
+  if (message.includes('profile') || message.includes('profiles')) return 'profile'
+  if (message.includes('company_members')) return 'membership'
+  if (
+    message.includes('company_settings') ||
+    message.includes('company_payroll_settings') ||
+    message.includes('company_billing_settings') ||
+    message.includes('company_modules')
+  ) {
+    return 'setup'
+  }
+  if (message.includes('mailboxes')) return 'mailbox'
+  if (message.includes('schema cache') || message.includes('pgrst') || message.includes('could not find the function')) {
+    return 'schema'
+  }
+
+  return 'create'
 }
 
 const onboardingAllowedRoles = ['super_admin', 'company_admin', 'manager', 'worker'] as const
@@ -149,13 +201,16 @@ export async function createCompanyOnboarding(formData: FormData) {
   })
 
   if (error || typeof companyId !== 'string') {
-    const message = error?.message ?? ''
-
-    if (message.includes('company_name_required')) {
-      redirectWithOnboardingError('company-name')
+    if (error) {
+      console.error('createCompanyOnboarding failed', {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+      })
     }
 
-    redirectWithOnboardingError('create')
+    redirectWithOnboardingError(error ? getCompanyCreateErrorCode(error) : 'create')
   }
 
   const cookieStore = await cookies()
