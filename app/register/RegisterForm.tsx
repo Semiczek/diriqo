@@ -5,10 +5,11 @@ import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 
 import { normalizeBillingInterval, normalizePlanKey } from '@/lib/billing-shared'
+import { getPublicAppBaseUrl } from '@/lib/public-app-url'
 import { supabase } from '@/lib/supabase'
 
 function getAuthRedirectTo() {
-  return `${window.location.origin}/auth/callback`
+  return new URL('/auth/callback', getPublicAppBaseUrl()).toString()
 }
 
 type RegisterFormProps = {
@@ -33,8 +34,11 @@ export default function RegisterForm({ plan, interval }: RegisterFormProps) {
     setError(null)
     setNotice(null)
 
+    const normalizedEmail = email.trim()
+    window.localStorage.setItem('diriqo.pendingSignupEmail', normalizedEmail)
+
     const { data, error: signUpError } = await supabase.auth.signUp({
-      email,
+      email: normalizedEmail,
       password,
       options: {
         emailRedirectTo: getAuthRedirectTo(),
@@ -58,6 +62,7 @@ export default function RegisterForm({ plan, interval }: RegisterFormProps) {
       return
     }
 
+    window.localStorage.removeItem('diriqo.pendingSignupEmail')
     router.replace(`/onboarding?plan=${intendedPlan}&interval=${intendedInterval}`)
     router.refresh()
   }

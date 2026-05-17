@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="cs">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Obnovení hesla do Diriqo</title>
+  </head>
+  <body style="margin:0;padding:0;background:#071024;color:#0f172a;font-family:Arial,Helvetica,sans-serif;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#071024;padding:32px 14px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:620px;background:#ffffff;border-radius:18px;overflow:hidden;border:1px solid #dbeafe;">
+            <tr>
+              <td style="padding:28px 30px;background:linear-gradient(135deg,#0f2d57,#27246b 58%,#11a8c8);color:#ffffff;">
+                <div style="font-size:28px;font-weight:900;letter-spacing:.02em;">Diriqo</div>
+                <div style="margin-top:10px;font-size:14px;font-weight:700;color:#c7f9ff;">Bezpečné nastavení hesla</div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:34px 30px 28px;">
+                <div style="font-size:13px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:#0891b2;">Obnovení hesla</div>
+                <h1 style="margin:12px 0 0;font-size:30px;line-height:1.16;color:#020617;">Nastavte si nové heslo</h1>
+                <p style="margin:18px 0 0;font-size:16px;line-height:1.65;color:#475569;">
+                  Kliknutím na tlačítko otevřete bezpečnou stránku, kde si nastavíte nové heslo k Diriqo.
+                </p>
+                <table role="presentation" cellspacing="0" cellpadding="0" style="margin-top:28px;">
+                  <tr>
+                    <td style="border-radius:10px;background:linear-gradient(135deg,#7c4dff 0%,#168eea 58%,#05b6d3 100%);">
+                      <a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:15px 24px;color:#ffffff;text-decoration:none;font-size:16px;font-weight:900;border-radius:10px;">
+                        Nastavit nové heslo
+                      </a>
+                    </td>
+                  </tr>
+                </table>
+                <p style="margin:26px 0 0;font-size:13px;line-height:1.6;color:#64748b;">
+                  Pokud tlačítko nefunguje, zkopírujte do prohlížeče tento odkaz:<br>
+                  <a href="{{ .ConfirmationURL }}" style="color:#0ea5e9;word-break:break-all;">{{ .ConfirmationURL }}</a>
+                </p>
+                <p style="margin:22px 0 0;font-size:13px;line-height:1.6;color:#64748b;">
+                  Pokud jste o změnu hesla nežádali, e-mail můžete ignorovat.
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

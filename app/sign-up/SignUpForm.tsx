@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { useI18n } from '@/components/I18nProvider'
 import { normalizeBillingInterval, normalizePlanKey } from '@/lib/billing-shared'
 import { LOCALES, type Locale } from '@/lib/i18n/config'
+import { getPublicAppBaseUrl } from '@/lib/public-app-url'
 import { supabase } from '@/lib/supabase'
 
 type SignUpFormProps = {
@@ -100,9 +101,7 @@ const registerCopy: Record<
 }
 
 function getAuthRedirectTo() {
-  const callbackUrl = new URL('/auth/callback', window.location.origin)
-  callbackUrl.searchParams.set('next', '/onboarding/company')
-  return callbackUrl.toString()
+  return new URL('/auth/callback', getPublicAppBaseUrl()).toString()
 }
 
 function getRegisterHref(locale: Locale) {
@@ -161,8 +160,11 @@ export default function SignUpForm({ plan, interval }: SignUpFormProps) {
       return
     }
 
+    const normalizedEmail = email.trim()
+    window.localStorage.setItem('diriqo.pendingSignupEmail', normalizedEmail)
+
     const { data, error: signUpError } = await supabase.auth.signUp({
-      email: email.trim(),
+      email: normalizedEmail,
       password,
       options: {
         emailRedirectTo: getAuthRedirectTo(),
@@ -185,6 +187,7 @@ export default function SignUpForm({ plan, interval }: SignUpFormProps) {
       return
     }
 
+    window.localStorage.removeItem('diriqo.pendingSignupEmail')
     window.location.assign('/onboarding/company')
   }
 

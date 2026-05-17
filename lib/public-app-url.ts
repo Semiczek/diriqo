@@ -1,5 +1,7 @@
 import type { NextRequest } from 'next/server'
 
+const DEFAULT_PUBLIC_APP_BASE_URL = 'https://app.diriqo.com'
+
 function normalizeBaseUrl(value: string | null | undefined) {
   const normalized = value?.trim()
   if (!normalized) return null
@@ -20,10 +22,15 @@ function isLocalhostUrl(value: string | null | undefined) {
 function buildUrlFromHost(host: string | null | undefined, protocol = 'https') {
   const normalizedHost = host?.trim()
   if (!normalizedHost) return null
+
+  if (/^https?:\/\//i.test(normalizedHost)) {
+    return normalizeBaseUrl(normalizedHost)
+  }
+
   return `${protocol}://${normalizedHost.replace(/\/$/, '')}`
 }
 
-export function getPublicAppBaseUrl(request?: NextRequest) {
+export function getPublicAppBaseUrl(request?: NextRequest): string {
   const appBaseUrl = normalizeBaseUrl(process.env.APP_BASE_URL)
   const explicitBaseUrl = normalizeBaseUrl(process.env.NEXT_PUBLIC_APP_URL)
   const vercelProductionUrl = normalizeBaseUrl(process.env.VERCEL_PROJECT_PRODUCTION_URL)
@@ -38,7 +45,7 @@ export function getPublicAppBaseUrl(request?: NextRequest) {
   }
 
   if (vercelProductionUrl) {
-    return buildUrlFromHost(vercelProductionUrl)
+    return buildUrlFromHost(vercelProductionUrl) ?? DEFAULT_PUBLIC_APP_BASE_URL
   }
 
   if (request) {
@@ -57,12 +64,13 @@ export function getPublicAppBaseUrl(request?: NextRequest) {
   }
 
   if (vercelPreviewUrl) {
-    return buildUrlFromHost(vercelPreviewUrl)
+    return buildUrlFromHost(vercelPreviewUrl) ?? DEFAULT_PUBLIC_APP_BASE_URL
   }
 
-  if (appBaseUrl || explicitBaseUrl) {
-    return appBaseUrl ?? explicitBaseUrl ?? ''
+  if (request) {
+    const requestOrigin = normalizeBaseUrl(request.nextUrl.origin)
+    return requestOrigin && !isLocalhostUrl(requestOrigin) ? requestOrigin : DEFAULT_PUBLIC_APP_BASE_URL
   }
 
-  return request ? normalizeBaseUrl(request.nextUrl.origin) ?? '' : ''
+  return DEFAULT_PUBLIC_APP_BASE_URL
 }

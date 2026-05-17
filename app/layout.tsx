@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 
+import AuthHashErrorRedirect from '@/components/AuthHashErrorRedirect'
 import { I18nProvider } from '@/components/I18nProvider'
 import { getRequestDictionary, getRequestLocale } from '@/lib/i18n/server'
 
@@ -42,6 +43,7 @@ export default async function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
+        <AuthHashErrorRedirect />
         <I18nProvider locale={locale} dictionary={dictionary}>
           {children}
         </I18nProvider>

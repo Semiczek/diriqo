@@ -11,6 +11,17 @@ function safeRedirectPath(value: string | null) {
   return value
 }
 
+function buildAuthErrorUrl(requestUrl: URL, errorCode: string, description?: string) {
+  const errorUrl = new URL('/auth/error', requestUrl)
+  errorUrl.searchParams.set('error_code', errorCode)
+
+  if (description) {
+    errorUrl.searchParams.set('error_description', description)
+  }
+
+  return errorUrl
+}
+
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url)
   const code = requestUrl.searchParams.get('code')
@@ -21,9 +32,7 @@ export async function GET(request: NextRequest) {
     const { error } = await supabase.auth.exchangeCodeForSession(code)
 
     if (error) {
-      const signInUrl = new URL('/sign-in', request.url)
-      signInUrl.searchParams.set('error', 'callback')
-      return NextResponse.redirect(signInUrl)
+      return NextResponse.redirect(buildAuthErrorUrl(requestUrl, 'auth_callback_failed', error.message))
     }
   }
 
@@ -32,7 +41,7 @@ export async function GET(request: NextRequest) {
   } = await supabase.auth.getUser()
 
   if (!user) {
-    return NextResponse.redirect(new URL('/sign-in', request.url))
+    return NextResponse.redirect(buildAuthErrorUrl(requestUrl, 'missing_session'))
   }
 
   return NextResponse.redirect(new URL(next ?? (await getPostLoginRedirect(user.id)), request.url))

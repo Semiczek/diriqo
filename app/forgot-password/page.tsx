@@ -5,6 +5,7 @@ import { FormEvent, useState } from 'react'
 
 import LanguageSwitcher from '@/components/LanguageSwitcher'
 import { useI18n } from '@/components/I18nProvider'
+import { getPublicAppBaseUrl } from '@/lib/public-app-url'
 import { supabase } from '@/lib/supabase'
 
 function mapResetError(message: string | undefined, fallback: string, invalidEmail: string) {
@@ -26,7 +27,7 @@ export default function ForgotPasswordPage() {
     setError(null)
     setMessage(null)
 
-    const redirectTo = `${window.location.origin}/reset-password`
+    const redirectTo = new URL('/reset-password', getPublicAppBaseUrl()).toString()
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
       redirectTo,
     })

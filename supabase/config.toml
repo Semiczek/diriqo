@@ -151,9 +151,19 @@ max_indexes = 5
 enabled = true
 # The base URL of your website. Used as an allow-list for redirects and for constructing URLs used
 # in emails.
-site_url = "http://127.0.0.1:3000"
+site_url = "https://app.diriqo.com"
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
-additional_redirect_urls = ["https://127.0.0.1:3000"]
+additional_redirect_urls = [
+  "https://app.diriqo.com/auth/callback",
+  "https://app.diriqo.com/reset-password",
+  "https://app.diriqo.com/portal/reset-password",
+  "http://localhost:3000/auth/callback",
+  "http://localhost:3000/reset-password",
+  "http://localhost:3000/portal/reset-password",
+  "http://127.0.0.1:3000/auth/callback",
+  "http://127.0.0.1:3000/reset-password",
+  "http://127.0.0.1:3000/portal/reset-password",
+]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
 # JWT issuer URL. If not set, defaults to the local API URL (http://127.0.0.1:<port>/auth/v1).
@@ -226,17 +236,21 @@ otp_expiry = 3600
 # Use a production-ready SMTP server
 # [auth.email.smtp]
 # enabled = true
-# host = "smtp.sendgrid.net"
+# host = "smtp.example.com"
 # port = 587
-# user = "apikey"
-# pass = "env(SENDGRID_API_KEY)"
-# admin_email = "admin@email.com"
-# sender_name = "Admin"
+# user = "env(SUPABASE_AUTH_SMTP_USER)"
+# pass = "env(SUPABASE_AUTH_SMTP_PASS)"
+# admin_email = "noreply@app.diriqo.com"
+# sender_name = "Diriqo"
 
-# Uncomment to customize email template
-# [auth.email.template.invite]
-# subject = "You have been invited"
-# content_path = "./supabase/templates/invite.html"
+# Customize auth emails so hosted Supabase does not send the default English templates.
+[auth.email.template.confirmation]
+subject = "Potvrďte registraci do Diriqo"
+content_path = "./supabase/templates/confirmation.html"
+
+[auth.email.template.recovery]
+subject = "Obnovení hesla do Diriqo"
+content_path = "./supabase/templates/recovery.html"
 
 # Uncomment to customize notification email template
 # [auth.email.notification.password_changed]

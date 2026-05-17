@@ -3,6 +3,7 @@
 import { FormEvent, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 
+import { getPublicAppBaseUrl } from '@/lib/public-app-url'
 import { supabase } from '@/lib/supabase'
 
 function getErrorMessage(error: string | null) {
@@ -57,10 +58,7 @@ export default function PortalLoginPage() {
 
     setResetSending(true)
 
-    const redirectTo =
-      typeof window !== 'undefined'
-        ? `${window.location.origin}/portal/reset-password`
-        : undefined
+    const redirectTo = new URL('/portal/reset-password', getPublicAppBaseUrl()).toString()
 
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
       redirectTo,
