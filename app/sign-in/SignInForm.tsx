@@ -7,7 +7,12 @@ import { useSearchParams } from 'next/navigation'
 
 import LanguageSwitcher from '@/components/LanguageSwitcher'
 import { useI18n } from '@/components/I18nProvider'
-import { supabase } from '@/lib/supabase'
+
+type SignInResponse = {
+  ok?: boolean
+  error?: string
+  redirectTo?: string
+}
 
 function getAuthErrorMessage(message: string | undefined, fallback: string, invalidEmail: string, invalidCredentials: string) {
   const normalized = (message ?? '').trim().toLowerCase()
@@ -33,15 +38,32 @@ export default function SignInForm() {
     setLoading(true)
     setError(null)
 
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password,
-    })
+    let result: SignInResponse | null = null
+    let response: Response
 
-    if (signInError) {
+    try {
+      response = await fetch('/auth/sign-in', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          email: email.trim(),
+          password,
+        }),
+      })
+      result = (await response.json().catch(() => null)) as SignInResponse | null
+    } catch {
+      setError(dictionary.auth.signInFailed)
+      setLoading(false)
+      return
+    }
+
+    if (!response.ok || !result?.ok) {
       setError(
         getAuthErrorMessage(
-          signInError.message,
+          result?.error,
           dictionary.auth.signInFailed,
           dictionary.auth.invalidEmail,
           dictionary.auth.invalidCredentials
@@ -51,7 +73,7 @@ export default function SignInForm() {
       return
     }
 
-    window.location.assign('/auth/continue')
+    window.location.assign(result.redirectTo || '/auth/continue')
   }
 
   return (
