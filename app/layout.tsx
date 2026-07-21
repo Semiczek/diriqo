@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
+import { Analytics } from '@vercel/analytics/next'
 
 import AuthHashErrorRedirect from '@/components/AuthHashErrorRedirect'
 import CookieConsentManager from '@/components/CookieConsentManager'
@@ -49,6 +50,7 @@ export default async function RootLayout({
           {children}
           <CookieConsentManager />
         </I18nProvider>
+        <Analytics />
       </body>
     </html>
   )
