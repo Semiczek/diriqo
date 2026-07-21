@@ -22,9 +22,11 @@ export type LegalDocumentDefinition = {
 }
 
 export const CURRENT_LEGAL_VERSION = '2026.05.17'
+export const CURRENT_COOKIE_LEGAL_VERSION = '2026.07.21'
 export const REQUIRED_LEGAL_ACCEPTANCE_TYPES: LegalDocumentType[] = ['terms', 'privacy']
 
 const publishedAt = '2026-05-17T00:00:00.000Z'
+const cookiePublishedAt = '2026-07-21T00:00:00.000Z'
 
 const csDocuments: LegalDocumentDefinition[] = [
   {
@@ -214,20 +216,20 @@ const csDocuments: LegalDocumentDefinition[] = [
   },
   {
     type: 'cookies',
-    version: CURRENT_LEGAL_VERSION,
+    version: CURRENT_COOKIE_LEGAL_VERSION,
     locale: 'cs',
     title: 'Cookies a podobné technologie',
     shortTitle: 'Cookies',
     summary:
-      'Přehled technologií používaných pro přihlášení, bezpečnost, preference, měření a budoucí produktovou analytiku.',
-    publishedAt,
+      'Přehled technologií používaných pro přihlášení, bezpečnost, preference a volitelné měření návštěvnosti.',
+    publishedAt: cookiePublishedAt,
     requiresAcceptance: false,
     sections: [
       {
         id: 'essential',
         title: '1. Nezbytné cookies',
         body: [
-          'Diriqo používá nezbytné cookies a lokální úložiště pro přihlášení, bezpečnost, relaci, jazyk, aktivní firmu a základní fungování aplikace. Bez nich nelze službu spolehlivě poskytovat.',
+          'Diriqo používá nezbytné cookies a lokální úložiště pro přihlášení, bezpečnost, relaci, jazyk, aktivní firmu, zapamatování cookie volby a základní fungování aplikace. Bez nich nelze službu spolehlivě poskytovat.',
         ],
       },
       {
@@ -239,9 +241,11 @@ const csDocuments: LegalDocumentDefinition[] = [
       },
       {
         id: 'analytics',
-        title: '3. Analytika a budoucí rozšíření',
+        title: '3. Volitelná analytika',
         body: [
-          'V budoucnu může Diriqo používat analytiku, monitoring výkonu, crash reporting, produktové měření nebo marketingové cookies. Pokud to bude vyžadovat právo, bude před jejich použitím získán odpovídající souhlas.',
+          'Diriqo může po souhlasu uživatele používat Vercel Web Analytics pro agregované měření návštěvnosti a používaných stránek. Analytika se nespouští před udělením souhlasu a preference lze později změnit.',
+          'Do analytiky neposíláme e-mail, jméno uživatele, obsah firemních dat ani query parametry. Cesty s tokeny nebo identifikátory aplikace rediguje na obecné názvy tras.',
+          'Marketingové cookies nejsou v současné verzi aktivní. Pokud budou později přidány, budou řešeny oddělenou volbou souhlasu.',
         ],
       },
     ],

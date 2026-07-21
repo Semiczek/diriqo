@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 
 import AuthHashErrorRedirect from '@/components/AuthHashErrorRedirect'
+import CookieConsentManager from '@/components/CookieConsentManager'
 import { I18nProvider } from '@/components/I18nProvider'
 import { getRequestDictionary, getRequestLocale } from '@/lib/i18n/server'
 
@@ -46,6 +47,7 @@ export default async function RootLayout({
         <AuthHashErrorRedirect />
         <I18nProvider locale={locale} dictionary={dictionary}>
           {children}
+          <CookieConsentManager />
         </I18nProvider>
       </body>
     </html>
