@@ -195,13 +195,19 @@ export default function CookieConsentManager() {
   const [doNotTrack, setDoNotTrack] = useState(false)
 
   useEffect(() => {
-    const storedConsent = readStoredConsent()
-    const dnt = hasDoNotTrackEnabled()
+    const timeoutId = window.setTimeout(() => {
+      const storedConsent = readStoredConsent()
+      const dnt = hasDoNotTrackEnabled()
 
-    setConsent(storedConsent)
-    setAnalyticsEnabled(storedConsent?.analytics === true && !dnt)
-    setDoNotTrack(dnt)
-    setLoaded(true)
+      setConsent(storedConsent)
+      setAnalyticsEnabled(storedConsent?.analytics === true && !dnt)
+      setDoNotTrack(dnt)
+      setLoaded(true)
+    }, 0)
+
+    return () => {
+      window.clearTimeout(timeoutId)
+    }
   }, [])
 
   useEffect(() => {
