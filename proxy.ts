@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { hasAnyHubAccessRole, hasCompanyMemberRole } from '@/lib/hub-access'
+import { hasPlatformAdminAccess } from '@/lib/platform/platform-admin'
 import {
   LOCALE_COUNTRY_HEADER_NAME,
   LOCALE_COOKIE_NAME,
@@ -179,6 +180,7 @@ export async function proxy(request: NextRequest) {
 
   const {
     data: { user },
+    error: authError,
   } = await supabase.auth.getUser()
 
   const getPortalUserId = async () => {
@@ -196,7 +198,7 @@ export async function proxy(request: NextRequest) {
     return ensureLocaleCookie(response)
   }
 
-  if (!user) {
+  if (authError || !user) {
     if (portalPath) {
       if (portalLoginPath || portalResetPasswordPath) {
         return ensureLocaleCookie(response)
@@ -226,6 +228,16 @@ export async function proxy(request: NextRequest) {
     return ensureLocaleCookie(
       portalLoginPath ? NextResponse.redirect(new URL('/portal', request.url)) : response
     )
+  }
+
+  // Platform operators may have no company/profile. Check their independent grant first.
+  if (isAdminPath(pathname)) {
+    if (!(await hasPlatformAdminAccess(supabase))) {
+      const loginUrl = new URL('/sign-in', request.url)
+      loginUrl.searchParams.set('error', 'no-hub-access')
+      return ensureLocaleCookie(NextResponse.redirect(loginUrl))
+    }
+    return ensureLocaleCookie(response)
   }
 
   let profileId: string | null = null
@@ -280,16 +292,6 @@ export async function proxy(request: NextRequest) {
 
   const hasHubAccess = hasAnyHubAccessRole(memberships.map((item) => item.role))
   const hasCompanyAccess = memberships.some((item) => hasCompanyMemberRole(item.role))
-  const isSuperAdmin = memberships.some(
-    (item) => (item.role ?? '').toString().trim().toLowerCase() === 'super_admin'
-  )
-
-  if (isAdminPath(pathname) && !isSuperAdmin) {
-    const loginUrl = new URL('/sign-in', request.url)
-    loginUrl.searchParams.set('error', 'no-hub-access')
-    return ensureLocaleCookie(NextResponse.redirect(loginUrl))
-  }
-
   if (isWorkerAppPath(pathname) && hasCompanyAccess) {
     return ensureLocaleCookie(response)
   }

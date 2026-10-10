@@ -2,31 +2,38 @@ import 'server-only'
 
 import { redirect } from 'next/navigation'
 
-import { getActiveCompanyContext } from '@/lib/active-company'
+import { hasPlatformAdminAccess } from '@/lib/platform/platform-admin'
+import { createSupabaseServerClient } from '@/lib/supabase-server'
 import { createSupabaseAdminClient } from '@/lib/supabase-admin'
 
 export type SuperadminContext = {
-  profileId: string
+  authUserId: string
+  profileId: string | null
   email: string | null
   name: string | null
 }
 
 export async function requireSuperAdmin(): Promise<SuperadminContext> {
-  const activeCompany = await getActiveCompanyContext({ allowedRoles: ['super_admin'] })
+  const supabase = await createSupabaseServerClient()
+  const { data: { user }, error } = await supabase.auth.getUser()
 
-  if (!activeCompany || (activeCompany.role ?? '').trim().toLowerCase() !== 'super_admin') {
+  if (error || !user || !(await hasPlatformAdminAccess(supabase))) {
     redirect('/sign-in?error=no-hub-access')
   }
 
+  // Profile is optional descriptive context, never the source of platform authority.
+  const profile = await supabase.rpc('current_profile_id')
   return {
-    profileId: activeCompany.profileId,
-    email: activeCompany.profileEmail,
-    name: activeCompany.profileName,
+    authUserId: user.id,
+    profileId: !profile.error && typeof profile.data === 'string' ? profile.data : null,
+    email: user.email ?? null,
+    name: null,
   }
 }
 
 export async function logSuperadminAction(input: {
-  superadminProfileId: string
+  superadminAuthUserId: string
+  superadminProfileId: string | null
   companyId?: string | null
   action: string
   reason?: string | null
@@ -35,6 +42,7 @@ export async function logSuperadminAction(input: {
   const admin = createSupabaseAdminClient()
   const { error } = await admin.from('superadmin_audit_log').insert({
     superadmin_user_id: input.superadminProfileId,
+    actor_auth_user_id: input.superadminAuthUserId,
     company_id: input.companyId ?? null,
     action: input.action,
     reason: input.reason ?? null,

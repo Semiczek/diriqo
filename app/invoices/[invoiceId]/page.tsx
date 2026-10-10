@@ -336,10 +336,10 @@ export default async function InvoiceDetailPage({ params, searchParams }: PagePr
               </form>
             ) : null}
 
-            {invoice.pohoda_export_status !== 'exported' ? (
+            {invoice.status === 'draft' && invoice.pohoda_export_status !== 'exported' ? (
               <form action={deleteInvoicePermanently}>
                 <input type="hidden" name="invoiceId" value={invoice.id} />
-                <ActionButton danger>Smazat natrvalo</ActionButton>
+                <ActionButton danger>Smazat koncept</ActionButton>
               </form>
             ) : null}
           </div>
@@ -799,7 +799,7 @@ export default async function InvoiceDetailPage({ params, searchParams }: PagePr
           <DetailBox label="DUZP" value={formatDate(invoice.taxable_supply_date)} />
           <DetailBox label="Splatnost" value={formatDate(invoice.due_date)} />
           <DetailBox label="Forma úhrady" value={invoice.payment_method === 'bank_transfer' ? 'Převodem' : invoice.payment_method} />
-          <DetailBox label="DPH" value={invoice.is_vat_payer ? 'Plátce DPH' : 'Neplátce DPH'} />
+          <DetailBox label="DPH" value={invoice.is_vat_payer === true ? 'Plátce DPH' : invoice.is_vat_payer === false ? 'Neplátce DPH' : 'Neuvedeno'} />
           <DetailBox label="Export Pohoda" value={formatPohodaExportStatus(invoice.pohoda_export_status)} />
           <DetailBox label="Exportováno" value={formatDateTime(invoice.pohoda_exported_at)} />
         </section>

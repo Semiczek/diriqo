@@ -4,7 +4,8 @@ import { randomBytes } from 'crypto'
 
 import type { DalContext, SupabaseServerClient } from '@/lib/dal/auth'
 import { TenantScopeError } from '@/lib/dal/companies'
-import { canAcceptQuote, canCreateJobFromQuote, canIssueInvoice } from '@/lib/flow-status'
+import { canAcceptQuote, canCreateJobFromQuote } from '@/lib/flow-status'
+import { issueInvoiceAtomic, type InvoiceIssueContext } from '@/lib/dal/invoices'
 
 type CalculationItemRow = {
   sort_order: number | null
@@ -329,27 +330,7 @@ export async function markReadyForInvoice(ctx: FlowContext, jobId: string) {
   if (error) throw error
 }
 
-export async function issueInvoice(ctx: FlowContext, invoiceId: string) {
-  const { data: invoice, error: invoiceError } = await ctx.supabase
-    .from('invoices')
-    .select('id, status')
-    .eq('id', invoiceId)
-    .eq('company_id', ctx.companyId)
-    .maybeSingle()
-
-  if (invoiceError || !invoice?.id) throw new TenantScopeError('Faktura nepatri do aktivni firmy.')
-  if (!canIssueInvoice(invoice.status)) return { issued: false, alreadyIssued: true }
-
-  const { error } = await ctx.supabase
-    .from('invoices')
-    .update({
-      status: 'issued',
-      issued_at: nowIso(),
-    })
-    .eq('id', invoiceId)
-    .eq('company_id', ctx.companyId)
-    .eq('status', 'draft')
-
-  if (error) throw error
-  return { issued: true, alreadyIssued: false }
+export async function issueInvoice(ctx: InvoiceIssueContext, invoiceId: string) {
+  const { issued, alreadyIssued } = await issueInvoiceAtomic(ctx, invoiceId)
+  return { issued, alreadyIssued }
 }

@@ -1,0 +1,112 @@
+{
+  "rollback": [
+    {
+      "result": {
+        "count": 45,
+        "passed": [
+          "unenrolled_company_keeps_legacy_issue",
+          "unpaid_rpc_issue_denied",
+          "unpaid_direct_issue_denied",
+          "unpaid_draft_insert_denied",
+          "unpaid_invoice_number_allocation_denied",
+          "tenant_cannot_change_rollout",
+          "expired_grant_does_not_authorize",
+          "future_grant_does_not_authorize",
+          "wrong_mode_grant_does_not_authorize",
+          "history_capability_only_grant_does_not_authorize",
+          "missing_base_grant_does_not_authorize",
+          "paid_pos_satisfies_invoicing_base_dependency",
+          "payment_receipts_create_paid_module_and_base",
+          "paid_invoice_issue_succeeds",
+          "invoice_issue_updates_linked_job",
+          "retry_preserves_number_and_does_not_consume_sequence",
+          "issue_records_persisted_paid_authority",
+          "direct_issue_uses_same_atomic_number_and_job_path",
+          "paid_draft_creation_allowed",
+          "direct_draft_to_paid_cannot_skip_issue",
+          "direct_draft_to_sent_cannot_skip_issue",
+          "direct_draft_to_overdue_cannot_skip_issue",
+          "non_draft_insert_cannot_skip_issue",
+          "invoice_cannot_move_between_companies",
+          "issued_timestamp_cannot_be_backdated",
+          "issued_invoice_cannot_return_to_draft",
+          "worker_cannot_issue_paid_company_invoice",
+          "worker_cannot_allocate_invoice_number",
+          "worker_cannot_delete_draft",
+          "other_company_admin_cannot_issue",
+          "own_company_parameter_cannot_rebind_foreign_invoice",
+          "removed_membership_denies_stale_auth_token",
+          "expired_module_preserves_invoice_history",
+          "expired_module_allows_export_bookkeeping",
+          "expired_module_allows_prior_invoice_settlement",
+          "historic_retry_is_not_new_issuance",
+          "issued_delete_denied_before_job_or_link_mutation",
+          "exported_draft_delete_denied",
+          "unenrolled_draft_delete_allowed",
+          "expired_pilot_draft_delete_allowed",
+          "paid_draft_delete_keeps_job_state",
+          "draft_delete_cascades_links_and_items",
+          "provenance_write_failure_is_not_swallowed",
+          "provenance_failure_rolls_back_header_sequence_and_linked_job",
+          "anonymous_rpc_denied"
+        ],
+        "fixtures": "rolled_back",
+        "concurrency": "not_tested_single_session",
+        "cleanup_assertions": 6
+      }
+    }
+  ],
+  "concurrencyAttempt": [
+    [
+      {
+        "result": {
+          "pid": 1508316,
+          "result": {
+            "issued": true,
+            "status": "issued",
+            "invoice_id": "75aac76c-a95f-4a43-8f0c-94342f9bcec2",
+            "invoice_number": "2026-0001"
+          },
+          "started_at": "2026-10-10T19:05:37.235821+00:00",
+          "finished_at": "2026-10-10T19:05:40.254517+00:00"
+        }
+      }
+    ],
+    [
+      {
+        "result": {
+          "pid": 1508317,
+          "result": {
+            "issued": false,
+            "status": "issued",
+            "invoice_id": "75aac76c-a95f-4a43-8f0c-94342f9bcec2",
+            "invoice_number": "2026-0001"
+          },
+          "started_at": "2026-10-10T19:05:41.093626+00:00",
+          "finished_at": "2026-10-10T19:05:41.097771+00:00"
+        }
+      }
+    ]
+  ],
+  "cleanup": [
+    {
+      "company_removed": true,
+      "invoice_removed": true,
+      "job_removed": true,
+      "customer_removed": true,
+      "profile_removed": true,
+      "auth_removed": true
+    }
+  ],
+  "migration": "20261010190442_add_invoice_issue_authority",
+  "local": {
+    "tests": 503,
+    "files": 18,
+    "invoiceTests": 44,
+    "build": "PASS",
+    "pages": 83,
+    "eslint": "PASS"
+  },
+  "concurrencyConclusion": "Two backend sessions ran sequentially; no overlapping-transaction proof. Both returned 2026-0001, exactly one issued:true; sequence=1 and job=due.",
+  "scope": "Only invoice creation/first issuance licensing pilot; not whole invoicing domain or Stripe E2E."
+}

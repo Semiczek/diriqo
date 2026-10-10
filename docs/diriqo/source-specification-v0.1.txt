@@ -1,0 +1,1045 @@
+Diriqo zadání pro Codex
+
+Datum sestavení: 10. 10. 2026
+
+Kompletní specifikace produktů, modulů a převodu z JSPD HUBu
+
+Verze 0.1 • 10. října 2026 • Jazyk produktu a zadání: čeština s připravenou lokalizací
+
+Tento dokument je hlavní zadání pro následnou implementaci. Rozlišuje požadované cílové chování, konkrétně přečtené zdrojové podklady a obchodní návrhy. Vytvoření této specifikace samo nemění aplikace, databáze ani zákaznická předplatná. Ceny a nově navržené provozní limity níže jsou výchozí testovací konfigurace; jejich veřejné nasazení je samostatné obchodní rozhodnutí.
+
+1 Cíl a instrukce pro Codex
+
+Z existujícího JSPD HUBu přenes potřebné funkce do existujícího Diriqa a dokonči je jako modulární SaaS pro nezávislé firmy. DiriPOS musí fungovat samostatně i společně s Diriqem. Zachovej rozpracované a fungující části cílového Diriqa, jeho onboarding, oprávnění a data. Nepřepisuj cílový projekt pouhým forkem HUBu.
+
+Zdroj pro analýzu je Semiczek/jspdhubhotovy; hlavní cíl je Semiczek/diriqo. Mobilní Semiczek/diriqoapp, marketingový Semiczek/diriqoweb a mobilní aplikace uvnitř HUBu řeš podle jejich skutečné úlohy a nezbytných návazností. Nezalož nový nezávislý DiriPOS backend nebo druhou databázi zákazníků jen kvůli samostatné značce.
+
+Nejprve přečti aktuální AGENTS.md v kořeni i v dotčených podadresářích, architektonické smlouvy a příslušnou lokální dokumentaci používané verze Next.js. Ověř checkout, aktuální commity, spouštění, závislosti a stav pracovního stromu. Zachovej cizí rozpracované změny. Použij izolovanou větev nebo pracovní kopii. Neměň závislosti na nejnovější verze bez konkrétní potřeby.
+
+Před prvním implementačním zásahem sestav mapu rozdílů. Každý požadavek označ jako existující, částečný, chybějící nebo vyžadující ověření. Uveď obrazovku, serverovou funkci, skutečnou tabulku či pohled, poslední účinnou migraci, kontrolu oprávnění a dostupný test. Pouhá existence obrazovky nebo tvrzení v README nejsou důkaz funkčnosti. Pokud potřebný repozitář není dostupný, zdokumentuj blokaci a pokračuj nezávislou prací v dostupném cíli; nevymýšlej jeho obsah.
+
+Po analýze průběžně implementuj v ohraničených, ověřitelných dávkách podle kapitol 12 a 13. Rutinní vratné úpravy, cílené testy a opravy nevyžadují další potvrzení po každém kroku. Skutečně chybějící obchodní rozhodnutí eviduj odděleně; pracuj s výslovně označeným návrhem konfigurace. Toto zadání nedává pokyn měnit produkční účty, vybírat peníze, rozesílat zákazníkům zprávy, migrovat jejich živá data nebo nasadit do produkce. Takové kroky vyžadují odpovídající samostatné oprávnění v navazující relaci.
+
+Výsledek musí být provozuschopná aplikace s doloženými průchody, nikoli pouze nové menu, makety obrazovek nebo seznam úkolů. Pokud relace skončí dříve, zanech přesný checkpoint dokončených změn, příkazů, výsledků a následujícího kroku, aby další relace pokračovala bez opakování a bez předstírání dokončení.
+
+2 Ověřená východiska a mapa převodu
+
+Při přípravě byly přečteny vybrané soubory repozitářů a jejich dokumentace. Nebyla provedena úplná kontrola kódu, běžící aplikace ani produkční databáze. Uvedené snapshoty slouží k dohledání podkladů; Codex musí ověřit aktuální stav a rozdíly proti nim.
+
+Repozitář
+
+Úloha v zadání
+
+Přečtený snapshot main
+
+Semiczek/​jspdhubhotovy
+
+Zdroj obchodních a provozních funkcí
+
+7aa079882a87f0cb7619009df​c7061c1e1eb9058
+
+Semiczek/diriqo
+
+Existující cílový SaaS
+
+208c9ead6dface1b0a25bfedd​71ff398eb9dd480
+
+Semiczek/​diriqoapp
+
+Mobilní projekt s Expo
+
+fbf5e9e55418f77fc0d3d7338​7414af913341a11
+
+Semiczek/​diriqoweb
+
+Web značky a nabídky produktu, roli znovu ověřit
+
+14fc8e3f53f72bc7de8fe2f50​a9e307c5ffbbefe
+
+
+Ve skutečném lib/menu/menuConfig.ts HUBu jsou moduly cleaning, gastro a vehicles. Gastro dnes sdružuje řadu různých obchodních funkcí. Nové rozdělení proto potřebuje oddělit sklad, POS, výrobu, OCR a další schopnosti při zachování společných dat.
+
+V cílovém Diriqu již existují moduly, tarify a kontrola přístupu. lib/​company-​settings-​shared.​ts obsahuje klíče jobs, workers, shifts, finance, calendar, quotes, invoices, photos, customer_portal, public_leads, email, payroll. Starý klíč quotes je nutné rozdělit na jednoduché nabídky v jádru a placené pokročilé schopnosti. finance a payroll nemají automaticky odemknout legislativní mzdy jen proto, že jádro eviduje čas a zálohy.
+
+Přečtená implementace lib/module-access.ts vyhodnocuje modul jako zapnutý, pokud jeho hodnota není výslovně false. To samo bez návazného kódu nedokazuje zneužitelnou chybu. Pro nový obchodní model však požadujeme výslovné platné oprávnění ke známé funkci; neznámý klíč či chybějící nárok nesmí automaticky odemknout placený zápis. Codex musí zkontrolovat zdroj konfigurace i všechny volající cesty.
+
+lib/plans.ts cíle obsahuje existující tarify starter, growth, business, scale v EUR s měsíčními hodnotami 19, 39, 79 a 149. Nový návrh CZK proto není kosmetické přejmenování konstant. Potřebuje verzovaný katalog, převod starých oprávnění a zachování historie skutečných odběratelů. lib/​company-​country-​config.​ts obsahuje země, měny, jazyky a popisky identifikátorů; existence země v této konfiguraci není doložením právní podpory fakturace nebo POS.
+
+Z architektury cíle zachovej zejména lib/server-guards.ts, kontexty v lib/dal/, ověřené členství ve firmě a soukromé přílohy. Z architektury HUBu zachovej doménové služby, databázové transakce a jejich historické významy. Nejnovější účinnou SQL funkci dohledávej přes celé pořadí migrací včetně oprav a opakovaných definic.
+
+2.1 Praktická mapa míst k prozkoumání
+
+Následující seznam je odvozen ze zdrojové mapy modulů a vybraného kódu. Cesty jsou výchozí body analýzy, nikoli potvrzení, že všechny požadavky už fungují.
+
+• Firma, role a navigace: HUB lib/active-company.ts, lib/hub-rbac.ts, proxy.ts, lib/menu/menuConfig.ts; cíl lib/server-guards.ts, lib/dal/, lib/module-access.ts.
+
+• Zákazníci a dodavatelé: app/customers, app/suppliers, lib/​suppliers/​supplierService.​ts.
+
+• Kalkulace, jednoduché i chytré nabídky: app/customer-work/actions.ts, components/​CalculationEditForm.​tsx, components/QuoteEditForm.tsx, components/​QuoteActionsPanel.​tsx, app/offer/[token].
+
+• Zakázky a podzakázky: app/jobs, související přidělení, časové záznamy a nákladové položky. Zachovat vlastní hodnoty rodiče i agregace.
+
+• Pracovníci: app/workers, lib/​workers/​workerEmployment.​ts; zdrojová mapa používá zejména profiles a company_members. Koncept pracovníka v tomto dokumentu neznamená pokyn vytvořit novou tabulku workers.
+
+• Docházka: app/work-shifts, components/​ShiftRowEditor.​tsx, lib/labor-calculation.ts; prověřit vazbu work_shifts přes triggery na job_assignments a ekonomické pohledy.
+
+• Zálohy: app/​workers/​[workerId]/​finance/​edit/​actions.​ts, lib/advance-dedupe.ts a vazby advance_requests, worker_advances, payroll_items.
+
+• Fakturace: app/invoices, lib/invoices.ts; přijaté doklady lib/​purchase-​invoices/​purchaseInvoiceService.​ts, vazby na sklad a platby.
+
+• Dokumenty a portál: lib/​documents/​documentService.​ts, lib/​documents/​documentAuth.​ts, lib/customer-portal/auth.ts, lib/customer-portal/data.ts, app/portal.
+
+• Katalog a sklad: lib/​gastro/​gastroProductCatalogService.​ts, lib/​gastro/​gastroInventoryService.​ts, app/gastro/inventory.
+
+• POS: lib/​gastro/​gastroPosService.​ts, lib/​gastro/​gastroPosSyncService.​ts, app/​api/​gastro/​pos/​sync-​events/​route.​ts, apps/android-pos.
+
+• Mobilní oprávnění a OCR: apps/android-device-access, lib/​mobile/​deviceAccountLogin.​ts, apps/​android-​document-​capture, služby pod lib/documents včetně příjmu a zachování ručně opravených OCR řádků.
+
+• Vozidla: lib/​vehicles/​vehicleService.​ts, lib/vehicles/vehicleAuth.ts.
+
+• Další fáze: lib/​gastro/​gastroRecipesService.​ts, gastroProductionOrdersServic​e.​ts, gastroBakeryOperationsServic​e.​ts, lib/haccp, služby objednávek a app/api/gastro/commerce.
+
+Kalendář a nepřítomnosti jsou doložené v deklaraci modulů nebo rozhraní; přesné implementační cesty a současné stavové automaty musí inventura teprve doložit. Historické importy Dotykačky se nesmějí automaticky vydávat za aktuální kanonické prodeje DiriPOSu.
+
+3 Produktové hranice a oprávnění k funkcím
+
+Technická platforma je společná: identity, firmy, členství, role, zařízení, audit, licence, soubory, notifikace, měření spotřeby a základní identita kontaktů a položek. Obchodní jádro Diriqa je placený produkt. Samostatný DiriPOS využívá platformu bez nákupu zakázek, docházky a ostatních funkcí jádra.
+
+Pro první vydání veřejně nabízej dva vstupy: Diriqo a DiriPOS. Ostatní funkce jsou doplňky. Technická samostatnost skladu nebo vozového parku není požadavek okamžitě uvést na trh další samostatný produkt. V katalogu rozliš technickou závislost a obchodně povolenou kombinaci. Sklad, fakturaci a případně Diriqenta lze nabídnout také zákazníkovi samotného POS; Chytré nabídky a vozový park v prvním veřejném ceníku připoj k Diriqu.
+
+Kód nároku v novém katalogu
+
+Zpřístupněný rozsah
+
+Závislost
+
+diriqo_core
+
+Kapitola 5 v plném základním rozsahu
+
+Technická platforma
+
+inventory
+
+Skladové pohyby, inventury, nákup a dodavatelé
+
+Platforma, sdílené položky
+
+invoicing
+
+Doklady a platby zákazníkovy firmy
+
+Platforma, podporovaný zemský režim
+
+smart_quotes
+
+Pokročilé nabídky nad základní evidencí
+
+V prvním veřejném ceníku jádro
+
+fleet
+
+Vozidla, jízdy, servis a náklady
+
+V prvním veřejném ceníku jádro
+
+ai_assistant
+
+Firemní konverzace a nástroje Diriqenta
+
+Oprávnění k požadovaným datům a rozpočet
+
+pos
+
+Prodejní schopnosti podle tarifu pokladny
+
+Platforma, podporovaný zemský režim
+
+
+Názvy jsou návrh stabilního veřejného katalogu. Nemusí přejmenovat fyzické tabulky. Pod nimi eviduj jemnější schopnosti, například čtení historie, prodej, vratku, potvrzení příjemky, vydání faktury či použití OCR. Cena tarifu ani jeho marketingový název nejsou oprávnění.
+
+Povolená operace vyžaduje známou schopnost, dostupnost v dané zemi, odpovídající režim licence, aktivní členství či ověřenou identitu zařízení, právo k akci a povolený rozsah konkrétních dat. Oborový profil pouze upravuje navigaci, výchozí formuláře a doporučené procesy. Nemění bezpečnostní pravidla.
+
+Sdílený zákazník může mít obchodní, dodavatelskou i pokladní roli ve stejné firmě. Sdílená položka může sloužit nabídce, prodeji nebo skladové evidenci. Přístup ke společné identitě nepovoluje automaticky nákupní ceny, mzdy, historii jiného zákazníka ani obrazovky nezakoupeného modulu. Vlastnictví a citlivost jednotlivých polí zůstávají kontrolované.
+
+3.1 Jednotný kontrakt každého modulu
+
+Každý modul musí dodat použitelné obrazovky seznamu, detailu a tvorby nebo příslušného pracovního postupu; filtrování, stránkování, oprávněný export, stavy načítání, prázdná data a srozumitelné chyby. Úprava má ukázat souběžnou změnu namísto tichého přepsání. Mobilní rozhraní musí zvládnout běžné terénní úkony. Pouhé tlačítko bez serverového uložení není dokončená funkce.
+
+Každý zápis má serverový vstup, validovaný kontext, cílový objekt, očekávanou verzi tam, kde hrozí souběh, a identifikátor opakovatelné operace tam, kde vznikají obchodní nebo finanční účinky. Rozliš odmítnutí přístupu, vypnutou funkci, neplatný stav, konflikt verze, vyčerpaný limit a externí chybu. Uživatelská chyba nesmí prozradit existenci cizího objektu. Existující server actions, API a RPC používej podle architektury cíle; tento dokument nevynucuje duplicitní REST API.
+
+Omezení čtení a zápisu musí platit v uživatelském rozhraní, API, DAL, přímém přístupu do databáze, RPC, exportech, importech, souborech, vyhledávání, úlohách a AI nástrojích. Pokud přímé databázové čtení danou schopnost nemá podporovat, odpovídající tabulky a funkce vůbec nevystavuj dané roli; nespoléhej na serverový guard, který přímá cesta obchází.
+
+4 Návrh ceníku a účtovacích jednotek
+
+Částky jsou měsíčně v CZK bez DPH, pokud není uvedeno jinak. Jde o verzi návrhu katalogu, nikoli příkaz změnit existující EUR předplatná. V dalších měnách použij explicitní ceník; neodvozuj cenu každý den od kurzu. Diriqo předplatné odděl v názvech, datech i obrazovkách od faktur, které zákazník sám vystavuje svým odběratelům.
+
+Tarif jádra
+
+Cena za firmu
+
+Plní uživatelé
+
+Další pracovníci
+
+Solo
+
+299 Kč
+
+1
+
+0
+
+Team
+
+699 Kč
+
+3
+
+10
+
+Company
+
+1 299 Kč
+
+5
+
+30
+
+
+Všechny tarify obsahují stejné funkce jádra. Plný uživatel zahrnuje svůj vlastní pracovní profil; nevzniká druhý poplatek jen proto, že si manažer zapisuje docházku. Další plný uživatel stojí 149 Kč měsíčně, dalších deset pracovníků 199 Kč měsíčně. Pracovník bez přihlášení se započítá, pokud je v placené kapacitě aktivně veden. Archivované osoby ponechají historii. Změna role v jedné firmě neovlivní cenu jiné firmy.
+
+Navržené jednotky jsou kapacity zakoupené na období, nikoli měření každého přihlášení. Při překročení ukaž návrh navýšení oprávněnému správci, nevytvářej skrytý doplatek. Snížení kapacity platí od dalšího období; pokud počet používaných míst přesahuje nižší limit, správce musí předem vybrat, které přístupy či evidence archivovat. Data se kvůli limitu automaticky nemažou. Vlastník musí zachovat cestu ke správě předplatného.
+
+Doplněk
+
+Návrh ceny a rozsahu
+
+Sklad a dodavatelé
+
+299 Kč za firmu, navržené 3 aktivní sklady; vyšší kapacitu řešit samostatným nárokem
+
+Fakturace
+
+199 Kč za firmu
+
+Chytré nabídky
+
+299 Kč za firmu; spotřební AI nad rámec ručních funkcí přes kredit
+
+Vozový park
+
+199 Kč za firmu včetně 5 aktivních vozidel; další kapacita 29 Kč za vozidlo
+
+Diriqent
+
+199 Kč za firmu včetně 100 Kč prodejního AI kreditu za měsíc
+
+AI kredit
+
+Dobití 100, 300 nebo 1 000 Kč; samostatně od licence asistenta
+
+
+Vozidlo v servisu zůstává v aktivní kapacitě. Navýšení vozidel nebo uživatelů má zobrazit cenu a období před aktivací, snížení se provede na další obnově. Přesný výpočet poměrné ceny se řídí verzovaným předplatným a potvrzeným nákupem, nikoli nevratným účtováním při otevření formuláře. Sklad se platí jednou za firmu, i když jej současně používají zakázky, výroba a POS. Dodavatelé nejsou druhý poplatek nad sklad.
+
+4.1 Navržené tarify DiriPOS
+
+Všechny částky jsou za jednu současně aktivní logickou pokladnu. Jedna pokladna má jedno aktivní prodejní zařízení; výměna zařízení musí bezpečně převést oprávnění. Přehledy správce nejsou druhá pokladna. Obsluhy s omezeným pokladním PINem nejsou placení plní uživatelé Diriqa. Tarif nezpoplatňuje jednotlivé účtenky.
+
+Tarif
+
+Cena
+
+Navržená funkční hranice
+
+Mini
+
+100 Kč měsíčně nebo 1 000 Kč ročně
+
+Jednoduchý rychlý prodej, vlastní katalog, hotovost a evidence jiného způsobu platby, doklad v podporované zemi, základní přehled a uzávěrka
+
+Classic
+
+399 Kč měsíčně
+
+Mini plus plný produktový katalog a kódy, vracení a částečné opravy, práce s obsluhami a směnami, provozní reporty, podporovaný offline hotovostní provoz
+
+Gastro
+
+699 Kč měsíčně
+
+Classic plus stoly a otevřené účty, přesuny a dělení účtu, modifikátory, chod nebo fáze přípravy a předání objednávky do kuchyně
+
+
+Jde o navržené rozdělení funkcí, které je nutné ověřit proti skutečnému HUBu. Vratka nebo oprava již přijatého prodeje musí být bezpečně vypořádatelná i u Mini; vyšší tarif může přidat pohodlí a širší workflow, nesmí zákazníka uvěznit u chyby. Podpora konkrétní tiskárny, terminálu, kuchyňského displeje a offline zemského režimu je samostatná ověřovaná schopnost, nikoli automatický důsledek názvu Gastro. Plný sklad, receptury a výrobní plánování nejsou součástí Gastro jen podle názvu tarifu.
+
+Firma se dvěma pokladnami může koupit dvě licence. Nárok se řídí schopnostmi každé pokladny a případnými firemními obrazovkami; prodej přes Mini nesmí získat funkce Gastro pouze proto, že druhá pokladna ve firmě má vyšší tarif. Pokud první implementace podporuje pouze společný tarif všech pokladen, musí to katalog výslovně uvést a smíšený nákup nenabízet.
+
+4.2 Další obchodní pravidla pro testovací konfiguraci
+
+Zkušební období navrhujeme 30 dní na firmu s explicitně vybranými zkušebními funkcemi a omezeným rozpočtem AI. Roční platba má návrh slevy 10 procent z dvanácti měsíčních plateb; Mini používá vlastní roční cenu 1 000 Kč. Zahrnutý měsíční AI kredit se přiděluje postupně i při roční platbě. Navržená výchozí cena Solo ročně je tedy 3 229,20 Kč, nikoli automaticky stará EUR cena.
+
+Zákaznický přístup k vlastním zpřístupněným dokumentům a omezený účet účetní pro účetní čtení a exporty nečerpají plná místa. Nemají práva manažera, plánování lidí nebo změny cen. Plnohodnotná účetní práce v aplikaci a správa firmy vyžadují příslušná placená a bezpečnostní oprávnění. Samostatná evidence zákazníka bez jeho přihlášení žádné místo nečerpá.
+
+Domovský podporovaný zemský režim potřebný k použití zakoupené funkce zahrň do její ceny. Pokročilé lokální agendy lze ocenit samostatně. Přepnutí jazyka nebo oborového profilu samo o sobě není placený modul. Ceny, limity, trial a toleranční období ukládej v konfigurovatelném katalogu s verzí a datem účinnosti; nevkládej je do podmínek roztroušených v komponentách.
+
+5 Globální obchodní jádro
+
+Následující názvy entit popisují požadovaný význam dat. Codex je musí namapovat na skutečný model a nesmí vytvářet paralelní tabulky jen kvůli jinému pojmenování. Všechny níže uvedené oblasti jsou součástí jádra; firmy nedoplácejí za každou jeho obrazovku.
+
+Jedna provozní firma tvoří samostatný tenant. Každý obchodní záznam patří právě jednomu tenantovi; společná identita přihlášeného člověka může mít členství a odlišná oprávnění ve více firmách. Přepnutí firmy mění celý datový kontext. Holdingový přehled nikdy neopravňuje slučovat nebo zpřístupňovat data bez výslovného oprávnění.
+
+Jádro musí samostatně pokrýt postup zákazník → kalkulace → zakázka → plánování → provedená práce → náklady → předání. Zakázka může vzniknout také bez nabídky. Sklad, fakturace, AI, POS ani placené integrace nejsou povinné závislosti. Vypnutý modul nesmí způsobit chybu při uložení ruční položky nebo při dokončení zakázky.
+
+Oprávnění rozlišují akci i rozsah dat: vlastní, přidělené, podřízený tým nebo celá firma. Výchozí role jsou vlastník/správce, vedoucí a pracovník; konkrétní pravomoci jsou nastavitelné. Přístup k nákladovým sazbám, penězům, personálním dokumentům a schvalování je samostatný. Kontrola probíhá na serveru včetně exportů, vyhledávání a souborů.
+
+Peníze a množství se počítají přesnou desetinnou aritmetikou. Záznamy nesou měnu; různé měny se nesčítají bez doloženého převodu. Časové okamžiky se ukládají jednoznačně a zobrazují v příslušné časové zóně. Celodenní nepřítomnost je místní kalendářní datum, nikoli libovolně posunutá půlnoc.
+
+Schválení, změny stavů, opravy finančních údajů a administrativní zásahy mají audit autora, času a důvodu. Opakované odeslání stejného úkonu nesmí vytvářet duplicity. Použité zákazníky, pracovníky a doklady se primárně archivují; historické vazby a dokumentové snímky zůstávají zachovány.
+
+Docházka musí rozlišovat skutečně odpracované hodiny, hodiny použité pro odměnu pracovníka a hodiny účtované zákazníkovi. Zdrojový řetězec časových záznamů, triggerů, přidělení a ekonomiky musí Codex doložit; rozdílné typy hodin nesmí sloučit do jediného pole. Změna sazby nebo schválení se promítne přesně jednou a se zachováním historického snímku.
+
+5.1 Zakázky
+
+Účel: společná evidence práce, odpovědnosti, termínů a výsledku od přípravy po uzavření.
+
+Workflow a stavy: koncept → naplánováno → probíhá → práce dokončena → uzavřeno. Pozastaveno a zrušeno jsou samostatné odbočky. Zahájení zakázky není totéž co přijetí nabídky; dokončení práce není totéž co potvrzení předání. Uzavření se neváže na vystavení faktury nebo přijetí platby. Opětovné otevření uzavřené zakázky vyžaduje oprávnění a důvod. Zrušení zachová již odpracované hodiny a náklady.
+
+Konceptuální entity a data: zakázka, rodičovská zakázka/podzakázka, úkol/etapa, přidělení pracovníka, místo realizace, historie stavu. Zakázka má identifikátor unikátní ve firmě, název, zákazníka, popis rozsahu, odpovědnou osobu, termíny, stav, měnu, štítky, případně odkaz na konkrétní přijatou verzi nabídky a rozpočet. Úkol má vlastní odpovědnost, termín a stav. Přidělení pracovníka nesmí být zaměňováno s jeho docházkou.
+
+Zachovat existující význam rodičů a podzakázek při převodu z HUBu. Hierarchie nesmí obsahovat cyklus nebo vazbu do jiné firmy. Rozlišovat vlastní hodnoty rodiče a souhrn za jeho podzakázky. Při zobrazení podzakázek nelze jejich náklady znovu přičíst k již agregované částce rodiče; každý původní časový nebo nákladový záznam se započítá právě jednou.
+
+Oprávnění a závislosti: vedoucí spravuje povolené zakázky, pracovník vidí přidělenou práci a provádí povolené zápisy. Viditelnost zákazníkových kontaktů a ekonomiky se řídí zvlášť. Vazby na zákazníky, lidi, kalendář, docházku a přílohy patří do jádra; externí moduly jsou pouze rozšíření.
+
+Akceptační scénáře:
+
+1. C01-01 Firma bez skladu, fakturace a AI založí zakázku, zadá ruční rozpočet, eviduje práci a zakázku uzavře.
+
+2. C01-02 Opakovaný požadavek na převod stejné přijaté nabídky vrátí již vytvořenou zakázku, nevytvoří další.
+
+3. C01-03 Rodič s vlastním nákladem 100 Kč a dvěma podzakázkami s náklady 200 a 300 Kč ukáže souhrn 600 Kč. Rozbalení podzakázek ani přepnutí pohledu součet nezmění.
+
+5.2 Zákazníci a místa realizace
+
+Účel: jedna použitelná evidence zákazníka pro komunikaci, nabídky a zakázky.
+
+Workflow a stavy: aktivní → archivovaný; obnovení je možné s oprávněním. Potenciální zákazník může být označen štítkem nebo obchodním stavem bez nutnosti zavádět plnohodnotný CRM modul. Sloučení duplicit vyžaduje přehled dopadů a zachování vazeb.
+
+Konceptuální entity a data: zákazník typu osoba nebo organizace, kontaktní osoba, adresa, provozovna/místo realizace, poznámka. Uchovávat zobrazovaný název, relevantní identifikátory, zemi, kontakty a vazby na zakázky. České IČO není globálně povinný klíč. Jedna organizace může mít více kontaktů a více míst práce. Dokument při vydání uchovává potřebný snímek názvu a adresy, aby se minulost nezměnila editací kontaktu.
+
+Oprávnění a závislosti: pracovník může získat kontakt potřebný pro přidělenou zakázku bez přístupu k celé obchodní databázi. Interní poznámky mají vlastní viditelnost. Zákazníky lze používat bez fakturace, skladu i zákaznického portálu.
+
+Akceptační scénáře:
+
+1. C02-01 Zahraniční zákazník bez českého identifikátoru má dvě místa realizace a zakázku v každém z nich.
+
+2. C02-02 Změna aktuální adresy zákazníka nezmění adresu v již vydané nabídce.
+
+3. C02-03 Archivace zákazníka zachová minulou zakázku a její dokumenty, ale zákazníka nenabízí jako výchozí volbu pro novou práci.
+
+5.3 Pracovníci a členství uživatelů
+
+Účel: evidence lidí vykonávajících práci a jejich provozních oprávnění, oddělená od samotného přihlášení.
+
+Workflow a stavy: připravovaný → aktivní → neaktivní/archivovaný. Pracovník může existovat bez uživatelského účtu, například když docházku zapisuje vedoucí. Přizvání účtu a jeho propojení s pracovníkem je kontrolovaný krok. Ukončení přístupu neodstraňuje historii práce.
+
+Konceptuální entity a data: pracovník, členství uživatele ve firmě, zařazení do týmu, oprávnění, historie nákladových sazeb. Základ tvoří jméno, potřebné kontakty, aktivita od/do, tým, vedoucí a případné provozní označení pracovního vztahu. Globální jádro nevynucuje české typy smluv. Rodné číslo, diagnózy nebo soukromé doklady nejsou povinnými daty tohoto modulu. Nákladová sazba má měnu, jednotku, účinnost a vlastní přístupová práva.
+
+Oprávnění a závislosti: pracovník spravuje pouze povolenou část svého profilu. Vedoucí nepotřebuje automatický přístup ke všem finančním údajům týmu. Správa uživatelů sama o sobě nesmí zpřístupnit osobní údaje jiné firmy. Personální jádro nevytváří mzdové výpočty ani legislativní smlouvy.
+
+Akceptační scénáře:
+
+1. C03-01 Vedoucí zaeviduje docházku pracovníka bez přihlášení; pozdější propojení jeho účtu nezaloží druhou osobu.
+
+2. C03-02 Jedna přihlášená osoba je vedoucím ve firmě A a pracovníkem ve firmě B; práva se mezi firmami nepřenášejí.
+
+3. C03-03 Zvýšení nákladové sazby od listopadu samo nepřepočítá již schválené říjnové náklady.
+
+5.4 Docházka a záznam práce
+
+Účel: evidovat skutečný čas a přiřadit jej zakázce nebo povolené režijní činnosti.
+
+Workflow a stavy: běžící měření / koncept → odesláno ke schválení → schváleno nebo vráceno k opravě. Schválený záznam se nepřepisuje bez stopy; oprava vytvoří navázanou revizi a nové rozhodnutí. Ruční záznam i časovač mají stejnou cílovou datovou reprezentaci. Pravidla schvalování musí umožnit explicitně nastavený režim samostatného podnikatele.
+
+Konceptuální entity a data: časový záznam, přestávka, přiřazení činnosti/zakázky, rozhodnutí schvalovatele, revize. Evidovat pracovníka, začátek, konec, časovou zónu, přestávky, činnost, stav, zdroj a autora. Kontrolovat konec před začátkem, překryv přestávek a souběžné časové záznamy. Přesnoční směna je podporovaná. Délka vychází z časových okamžiků, takže změna letního času nesmí vytvořit chybný výsledek.
+
+Oprávnění a závislosti: pracovník zapisuje vlastní čas; zápis za jiného a schvalování vyžadují zvláštní právo. Schválený čas vstupuje do základních nákladů, neschválený je označen jako předběžný. Provozní evidence času nepředstírá hotový legislativní výpočet příplatků, přesčasů nebo mezd.
+
+Akceptační scénáře:
+
+1. C04-01 Dvojí kliknutí nebo dvě otevřené karty nevytvoří dva současně běžící časovače stejného pracovníka ve firmě.
+
+2. C04-02 Přesnoční směna s přestávkou a změnou času má správnou skutečnou délku.
+
+3. C04-03 Oprava schválených hodin zachová původní verzi; náklady zakázky se po schválení revize opraví právě jednou.
+
+5.5 Kalkulace a jednoduché nabídky
+
+Účel: spočítat očekávanou cenu a náklady práce a předat zákazníkovi jednoduchou nabídku bez nákupu dalších modulů.
+
+Workflow a stavy: kalkulace se edituje jako koncept a podle potřeby ukládá do verzí. Nabídka: koncept → připraveno → odesláno → přijato, odmítnuto nebo vypršelo. Nahrazená či odvolaná verze zůstává dohledatelná. Přijetí musí odkazovat na konkrétní obsah a verzi. V jádru postačí ruční zaznamenání přijetí s autorem, časem a doložením; produkt nesmí vydávat tento zápis za elektronický podpis zákazníka.
+
+Konceptuální entity a data: kalkulace, verze, položka, nabídka, snímek dokumentu, záznam o předání/přijetí. Položka má popis, typ práce/​materiál/​doprava/​ostatní, množství, jednotku, interní jednotkový náklad a prodejní cenu. Dokument má měnu, platnost, jednoznačný cenový režim a uvedené podmínky. Interní náklady a marže se do zákaznického PDF neposílají.
+
+Oprávnění a závislosti: kalkulaci upravuje oprávněný obchodník nebo vedoucí; viditelnost interních nákladů je oddělená. Ruční materiál nepotřebuje skladovou kartu. Pokročilé knihovny, variantní nabídky, automatická cenotvorba a AI patří do rozšíření, nikoli do povinného základu.
+
+Akceptační scénáře:
+
+1. C05-01 Uživatel bez skladu vytvoří položku materiálu ručně a stáhne jednoduchou nabídku do PDF.
+
+2. C05-02 Zákaznický dokument ani jeho exportní odpověď neobsahují skryté interní sazby a marže.
+
+3. C05-03 Nová verze nabídky nemění přijatou verzi; zakázka používá jednoznačně vybraný snímek.
+
+5.6 Kalendář a plánování
+
+Účel: zobrazit práci, dostupnost lidí a důležité termíny v jednom provozním pohledu.
+
+Workflow a stavy: kalendář zobrazuje původní záznamy přidělení, termínů zakázek a nepřítomností; nekopíruje jejich stavy do druhé nezávislé evidence. Samostatná událost má stav plánováno, dokončeno nebo zrušeno. Čekající žádost o nepřítomnost je vizuálně odlišena od schválené.
+
+Konceptuální entity a data: plánované přidělení, kalendářová událost, účastník, zdroj události. Ukládat interval, časovou zónu, celodennost, zdrojový identifikátor, účastníky, místo a viditelnost. Přesun přidělení v kalendáři mění jeho původní záznam. Plánovaná směna automaticky nevytváří odpracované hodiny. Kolize se schválenou nepřítomností nebo jiným přidělením je viditelná; případné povolené překrytí vyžaduje vědomé potvrzení.
+
+Oprávnění a závislosti: pracovník vidí svůj plán; dostupnost kolegy lze zobrazit bez soukromého důvodu nepřítomnosti. Úpravy zdrojové zakázky nebo přidělení vyžadují stejná práva i při provedení z kalendáře. Externí kalendář není povinný.
+
+Akceptační scénáře:
+
+1. C06-01 Schválení nepřítomnosti okamžitě změní dostupnost a označí dotčená plánovaná přidělení.
+
+2. C06-02 Pracovník bez práva plánovat nemůže přidělení přesunout ani přímým požadavkem na server.
+
+3. C06-03 Souběžné přesunutí stejné události dvěma vedoucími vyvolá řešitelný konflikt, ne tiché přepsání.
+
+5.7 Nepřítomnosti
+
+Účel: podávání a schvalování nepřítomností a jejich promítnutí do plánování.
+
+Workflow a stavy: koncept → podáno → schváleno nebo zamítnuto. Stažení neschválené žádosti je jiné než zrušení již schválené absence; druhé může vyžadovat nové rozhodnutí. Správce může oprávněně zadat nepřítomnost za pracovníka s dohledatelným důvodem.
+
+Konceptuální entity a data: žádost, typ nepřítomnosti, časový rozsah, rozhodnutí, žádost o změnu/zrušení. Podporovat celé místní dny i část dne. Evidovat pracovníka, typ, interval, poznámku, schvalovatele a historii. Typy jsou nastavitelné; nepotvrzují právní nárok. Případný ručně vedený zůstatek volna musí být označen jako provozní údaj, pokud není napojený ověřený zemský výpočet. Nevyžadovat zdravotní diagnózu.
+
+Oprávnění a závislosti: vlastní žádosti patří pracovníkovi, schválení určenému vedoucímu. Ostatní kolegové mohou vidět nedostupnost bez důvodu a citlivé poznámky. Schválení nepřítomnosti nepřepisuje skutečnou docházku; zjištěný rozpor se nabídne k vyřešení.
+
+Akceptační scénáře:
+
+1. C07-01 Žádost přes několik dnů v různých časových zónách zůstane žádostí o správná místní data.
+
+2. C07-02 Vedoucí při schvalování uvidí kolidující směnu; kolega vidí pouze nedostupnost.
+
+3. C07-03 Schválené zrušení absence opraví dostupnost a historii, nevytvoří automaticky docházku ani novou směnu.
+
+5.8 Zaměstnanecké zálohy
+
+Účel: evidovat žádost pracovníka o peněžní zálohu, rozhodnutí, skutečné vyplacení a následné vypořádání. Nejde o zálohové faktury zákazníkům.
+
+Workflow a stavy: schvalovací stav koncept → podáno → schváleno, zamítnuto nebo zrušeno. Samostatně se odvozuje finanční stav nevyplaceno, částečně vyplaceno, vyplaceno a stav vypořádání. Schválení není výplata. Částka schválená odlišně od požadované má důvod. Vyplacený záznam se nesmí prostým zrušením odstranit.
+
+Konceptuální entity a data: žádost, rozhodnutí, výplata, vypořádání/vrácení. Evidovat požadovanou a schválenou částku, měnu, termín, důvod, autora, skutečná plnění s datem, metodou a referencí. Oddělit dosud nevyplacenou schválenou částku od již vyplacené a nevypořádané částky. Základ žádný bankovní převod ani mzdovou srážku sám neprovádí; zaznamenává skutečnost a předává podklady.
+
+Oprávnění a závislosti: pracovník vidí své žádosti; rozhodnutí, evidence výplaty a opravy vypořádání jsou oddělená práva. Celková výplata nesmí bez nového schválení překročit schválenou částku. Není vyžadována fakturace, účetnictví ani bankovní modul.
+
+Akceptační scénáře:
+
+1. C08-01 Žádost na 5 000 Kč je schválena na 3 000 Kč a vyplacena ve dvou částkách; přehled správně ukazuje obě salda.
+
+2. C08-02 Opakované potvrzení téže výplaty nevytvoří další pohyb.
+
+3. C08-03 Záloha se nepřičte k nákladům zakázky podruhé vedle nákladů odpracovaného času; vypořádání má doložený záznam.
+
+5.9 Soubory, fotodokumentace a předání
+
+Účel: uchovat důkazy průběhu a výsledku práce a vytvořit jednoduchý předávací dokument.
+
+Workflow a stavy: soubor se nahraje k oprávněnému objektu, uloží s metadaty a podle potřeby nahradí novou verzí. Předání: koncept → připraveno → předloženo → potvrzeno nebo vráceno k doplnění; zrušené verze zůstávají dohledatelné. Ručně zaznamenané potvrzení má být takto označeno, bez tvrzení o kvalifikovaném podpisu.
+
+Konceptuální entity a data: soubor, vazba na objekt, verze, předávací protokol, položka plnění, výhrada, potvrzení. Ukládat tenant, původní název, typ, velikost, autora, čas, vazbu a oprávnění; fyzické úložiště není veřejný katalog. Protokol obsahuje zakázku, rozsah předání, datum, strany, dokončené položky, případné výhrady a relevantní přílohy. Vydaný dokument má stabilní snímek.
+
+Oprávnění a závislosti: přístup vychází také z navázaného objektu, ne pouze ze společné firmy. Příloha personální žádosti se nesmí zpřístupnit přes obecný seznam souborů. Jednoduché PDF a ruční předání fungují bez AI, OCR nebo podpisové služby.
+
+Akceptační scénáře:
+
+1. C09-01 Pracovník nahraje fotku k přidělené zakázce a vedoucí ji zahrne do předání.
+
+2. C09-02 Znalost identifikátoru nevydá nový přístupový odkaz pracovníkovi bez aktuálního oprávnění. Již vydané podepsané URL mají ověřenou omezenou platnost; pokud je požadováno okamžité odvolání, soubor se doručuje přes cestu znovu ověřující oprávnění.
+
+3. C09-03 Oprava předání vytvoří novou verzi; původní potvrzený dokument zůstane dohledatelný.
+
+5.10 Základní ekonomika zakázek
+
+Účel: srovnat plán s dostupnými skutečnými náklady a sjednanou cenou; neposkytovat nepravdivý obraz úplného účetního zisku.
+
+Workflow a stavy: rozpočet má verzovaný plán. Skutečné náklady přicházejí ze schválené práce a ručních položek; budoucí moduly mohou připojit další jednoznačně identifikované zdroje. Neschválená práce a chybějící sazby jsou označené jako předběžné nebo neúplné. Přehled rozlišuje sjednanou hodnotu, evidovanou fakturaci, případně evidované platby; nesčítá je jako tři výnosy. Celková smluvní cena rodičovské zakázky a její rozdělení mezi podzakázky nejsou dva různé výnosy. Model musí odlišit rozdělený rozpočet od samostatně sjednaného dalšího plnění.
+
+Konceptuální entity a data: rozpočtová položka, skutečný náklad, snímek sazby schválené práce, provozní údaj o výnosu/fakturaci, zdrojová reference. Náklad nese zakázku, kategorii, částku, měnu, datum, zdroj a autora. Práce používá doloženou nákladovou sazbu účinnou pro příslušné období. Přepočet historie po změně sazby musí být vědomý, oprávněný a auditovaný. Číselné přehledy používají jednotnou cenovou bázi; rozdílné měny nebo nesrovnatelné daňové režimy nesmějí tiše míchat.
+
+Oprávnění a závislosti: ekonomika vyžaduje zvláštní právo; pracovník může vykázat čas, aniž uvidí sazby a marže. Bez skladu fungují ruční náklady na materiál, bez fakturace ruční odkaz a částka evidované fakturace. Záloha pracovníkovi není samostatný náklad práce. Souhrny musí označit, které náklady nebo skutečnosti v datech chybějí.
+
+Akceptační scénáře:
+
+1. C10-01 Zakázka bez skladu obsahuje schválené hodiny, ruční materiál a dopravu; plán a skutečnost se srovnají ve stejné měně.
+
+2. C10-02 Chybějící sazba pracovníka nevytvoří falešný nulový náklad a zdánlivě vysokou marži; přehled ukáže neúplnost.
+
+3. C10-03 Opakované zpracování stejného zdroje nebo pozdější propojení již zaevidované faktury nenavýší náklady či výnosy podruhé.
+
+6 Volitelné moduly
+
+Při převodu zachovej společnou identitu položek a finanční původ. Architektura HUBu stanoví jako kanonickou identitu gastro_items; gastro_products patří historickému nebo importnímu toku. gastro_stock_movements tvoří historii přidáváním pohybů a gastro_stock_balances jsou odvozené zůstatky. OCR připravuje návrh, zásobu mění až potvrzený příjem. Jde o doložené architektonické smlouvy, jejich skutečné dodržení musí implementační inventura ověřit.
+
+Nové obchodní operace vyžadují aktivní příslušnou schopnost. Po obchodním vypnutí modulu zůstane samostatné oprávnění ke čtení a exportu historie po dobu nastavené retence, pokud má osoba stále platný přístup k daným datům. Odebrání členství nebo bezpečnostní blokace osoby takové právo nezachovává. Vypořádání dříve oprávněně vzniklého prodeje či platby má úzce vymezenou systémovou cestu, kterou nelze využít k vytváření nových obchodů. Podrobné pravidlo je v kapitole 9.
+
+Každý modul musí navíc k níže uvedeným scénářům projít společnou maticí oprávnění a testy oddělení firem. Příslušné scénáře v této kapitole používají označení M01 až M06.
+
+6.0 Jeden skutečný náklad a jeden evidenční původ
+
+Rozpočet, nabídka a rezervace jsou plán. Výdej materiálu, schválená práce nebo potvrzená spotřeba služby vytvářejí skutečnost. Doklad, který tuto skutečnost pouze vyúčtuje nebo zaplatí, nesmí vytvořit další stejný náklad. Každý nákladový záznam musí nést původní událost a řádek, podle nichž se zabrání duplicitě.
+
+Příjem zásoby není automaticky spotřeba zakázky. Následná dodavatelská faktura může upřesnit ocenění; do nákladů již spotřebovaného materiálu se přenese pouze rozdíl. Přímá neskladová služba smí náklad založit z potvrzeného plnění nebo z faktury podle zvoleného postupu, vždy právě jednou. Úhrada faktury nepřidává náklad podruhé. Zaměstnanecká záloha, zákaznická záloha a záloha dodavateli mají oddělené typy, vazby i vypořádání.
+
+Pro opakovatelná volání používej identifikátor operace, unikátní původ a transakční nebo obnovitelný postup. Retry znamená vrátit existující výsledek či dokončit nedokončený krok. Událost nesmí opakovaně vytvořit pohyb zásoby, platbu, fakturu nebo odečet kreditu.
+
+6.1 Sklad a dodavatelé
+
+Rozsah, workflow a data
+
+Modul poskytne skladové karty, varianty, měrné jednotky a převody, více skladových míst, rezervace, příjmy, výdeje, převody, inventury a opravy. Dodavatelé zahrnují kontakty, jejich označení položek, nákupní ceny, objednávky a historii dodávek. Dodavatel a zákazník mohou odkazovat na stejný subjekt; nepřidávej druhý neslučitelný adresář.
+
+Objednávka prochází stavy koncept, schválená, odeslaná, částečně přijatá, přijatá a uzavřená, případně zrušená. Stav odvozuj také z řádkových množství. Příjemka, výdejka a převod mají koncept a potvrzený stav. Potvrzený pohyb opravuje návazný opravný pohyb; historie se nepřepisuje. Převod mezi sklady je jedna propojená operace, nikoli spotřeba a nový firemní nákup.
+
+Inventura prochází přípravou, počítáním, kontrolou rozdílů a potvrzením korekcí. Před potvrzením musí být zřejmé, k jakému okamžiku byl stav porovnán a jak se řeší souběžné pohyby. Rezervace snižuje dostupnost, nikoli fyzický zůstatek. U každé položky rozliš skladové zboží, neskladovou položku a službu.
+
+Konceptuální entity: položka, varianta, jednotka, sklad, umístění, dodavatelská vazba, nákupní objednávka a řádek, skladový pohyb, rezervace, inventura, ocenění a vazba na původní plnění. Záporné stavy, šarže, sériová čísla a metoda ocenění musí být explicitní konfigurací nebo označeným chybějícím rozsahem. Codex nesmí potichu změnit existující metodu ocenění.
+
+Oprávnění, závislosti a vypnutí
+
+Rozliš čtení dostupnosti, čtení nákupních cen, příjem, výdej, rezervace, inventurní korekce a správu dodavatelů. Skladník nemusí vidět marži ani firemní finance. Terénní pracovník může mít pouze žádost o materiál a převzetí výdeje. Vazba na zakázku vyžaduje dostupnou příslušnou funkci jádra. Sklad může technicky fungovat nad platformou a v prvním ceníku se prodává k Diriqu nebo DiriPOSu podle kapitoly 3.
+
+DiriPOS má základní prodejní katalog i bez tohoto modulu. Teprve připojený sklad vede skladové množství a navazující skladové operace. Po vypnutí skladu zůstávají historické pohyby a poslední známé zůstatky s datem. Před vypnutím skladu musí správce potvrdit režim prodeje bez další skladové evidence. Bez zvoleného režimu pozastav nové prodeje skladově řízených položek. Při pozdější aktivaci skladu vyžaduj odsouhlasení zůstatků; nevytvářej potichu zpětné pohyby za celé vypnuté období. Nesmí se tiše tvářit, že zásoba dále odpovídá skutečnosti.
+
+Akceptační scénáře
+
+1. M01-01 Objednávka na deset kusů přijme šest kusů. Sklad vzroste o šest, objednávka zůstane částečně přijatá se čtyřmi nedodanými kusy. Opakované potvrzení stejné příjemky nepřidá dalších šest.
+
+2. M01-02 Přijde deset kusů za předběžných 100 Kč, tři se vydají na zakázku. Pozdější doklad upřesní cenu na 110 Kč. V řízeném scénáři bez jiných pohybů činí náklad zakázky 330 Kč a ocenění sedmi zbývajících kusů 770 Kč; faktura nezaloží další plný náklad.
+
+3. M01-03 Uživatel smí číst dostupnost, ale nesmí nákupní ceny. Nedostane je ani přes export či přímé API. Vypnutý sklad odmítne nový pohyb, zatímco oprávněný export historie funguje.
+
+6.2 Fakturace
+
+Rozsah, workflow a data
+
+Modul zahrne vydané faktury, přijaté doklady, platební výzvy, opravné doklady, úhrady a párování. Dokument a pohyb peněz jsou samostatné entity. Způsob vystavení, číselné řady, daňové náležitosti a případné elektronické odesílání určuje ověřený adaptér země. Bez něho neprezentuj obecný dokument jako plně podporovaný místní daňový doklad.
+
+Vydaná faktura má koncept, připravená ke schválení a vydaná. Odeslání je samostatná událost; neodeslaný dokument může být vydaný. Částečná úhrada, úplná úhrada a prodlení vycházejí z termínu a párovaných plateb. Koncept lze upravit nebo zahodit, vydaný dokument se opravuje dohledatelným postupem podle příslušných pravidel.
+
+Přijatý doklad prochází konceptem nebo importem, kontrolou, schválením a evidencí splatnosti. Platby mají vlastní stav a vazby pro částečné úhrady, přeplatky a rozdělení mezi více dokladů. Automatické párování musí ukázat jistotu a sporné případy nechat ke kontrole. Importované údaje z OCR jsou návrh, dokud neprojdou potvrzením.
+
+Konceptuální entity: doklad, verze nebo uložený obsah při vydání, řádek, protistrana, číselná řada, daňový profil, platební událost, rozdělení platby, opravná vazba, příloha a záznam o doručení. U dokladu z nabídky, zakázky či prodeje zachovej jednoznačnou vazbu na zdroj.
+
+Zákaznická záloha se eviduje a odečte při konečném vyúčtování. Stejná přijatá částka není dvakrát tržbou jen proto, že vznikly dva dokumenty. Zaměstnanecká žádost o zálohu z jádra není vydaná faktura a její vyplacení ani vypořádání nesmí měnit výnosy zákaznické zakázky. Tento modul nenahrazuje mzdový systém ani účetnictví bez výslovně implementovaného rozsahu.
+
+Oprávnění, závislosti a vypnutí
+
+Samostatně řiď přípravu, vydání, schválení, opravné doklady, úhrady a export. Připojení k zakázkám či skladu je volitelné. Faktura vystavená k již zaplacenému prodeji převezme existující úhradu; nezopakuje prodej, inkaso ani skladový výdej. Po vypnutí blokuj nové vydávání a automatické odesílání, ale zachovej čtení. Externí platební oznámení k dříve vydaným dokladům umožni vypořádat a auditovat určeným systémovým postupem, i když dorazí až po vypnutí.
+
+Akceptační scénáře
+
+1. M02-01 Dvakrát dorazí požadavek na vydání stejného konceptu. Vznikne jedna faktura s jedním číslem a jedním záznamem o vydání; obě odpovědi odkazují na tentýž dokument.
+
+2. M02-02 Zakázka má konečnou cenu 10 000 Kč a přijatou zálohu 3 000 Kč. Konečné vyúčtování ukáže již uhrazených 3 000 Kč a zbývajících 7 000 Kč. Přehled nezobrazí 13 000 Kč prodeje ani další příjem původní zálohy.
+
+3. M02-03 Faktura navazuje na zaplacený prodej z DiriPOS. Stav úhrady odpovídá původní platbě a počet prodejů i skladových výdejů zůstane stejný. Uživatel bez práva vydávat doklady neobejde omezení přímým API.
+
+6.3 Chytré nabídky
+
+Rozsah, workflow a data
+
+Základní kalkulace zůstává součástí jádra. Tento modul přidává pokročilé šablony, knihovny položek, varianty řešení, pravidla cenotvorby a schvalování marže, online přijetí zákazníkem a řízený převod schváleného rozsahu. Jednoduchý obchodní dokument, základní verze a ruční záznam přijetí již patří do jádra. Manuální vytvoření a odeslání nabídky musí fungovat bez koupeného konverzačního AI asistenta.
+
+Nabídka prochází konceptem, interním schválením, odesláním a výsledkem přijata, odmítnuta, vypršela nebo nahrazena novou verzí. Zobrazení zákazníkem je pouze doplňková událost. Odeslaná verze má neměnný obsah; změna množství, ceny, termínu nebo podmínek vytváří novou verzi. Přijetí se váže ke konkrétní verzi a variantě, včetně doloženého času a osoby či použitého ověřovacího mechanismu.
+
+Konceptuální entity: nabídka, verze, varianta, položka, kalkulační zdroj, šablona, schválení, veřejný přístupový token, přijetí a převod do objednávky nebo zakázky. Odděl interní pořizovací ceny, mzdy a marže od obsahu určeného zákazníkovi. Neposílej interní data do veřejného dokumentu ani do odpovědi API pro zákaznický odkaz.
+
+Přijatá nabídka může založit zakázku, pokud je dostupné jádro. Po skončení licence jádra uchovej historii a export podle kapitoly 9. Nové zakázky nevytvářej. Samostatný veřejný prodej modulu bez jádra se v prvním ceníku nenabízí; případné budoucí zpřístupnění vyžaduje jasnou obchodní konfiguraci. Rezervace materiálu potřebuje sklad a nikdy sama neznamená skutečný výdej. Plánované náklady nabídky nevstupují mezi skutečné náklady zakázky.
+
+OCR podkladů a generování textů jsou doménové schopnosti modulu. Používají sdílené měření spotřeby a explicitní rozpočet; nesmějí vyžadovat licenci celého Diriqenta. AI navrhne řádky, množství, předpoklady a zdroje, které uživatel potvrdí. Neověřený výměr nebo chybějící podklad musí zůstat viditelně označený, nikoli změněný v údaj vydávaný za jistotu.
+
+Oprávnění, závislosti a vypnutí
+
+Rozliš přípravu, přístup k nákladům, schválení podlimitní marže, odeslání a převod do zakázky. Zákaznický token dovolí pouze vymezené operace nad jednou nabídkou. Vypnutí zastaví nové verze, odesílání i placené generování. Dříve odeslané odkazy zobrazí uloženou verzi po dobu povolené retence, ale po skončení oprávnění k přijímání nabídek nový souhlas nepřijmou; zákazník uvidí jasnou výzvu kontaktovat dodavatele. Dříve přijatý souhlas se nezruší. Po obnovení modulu se musí stále ověřit platnost konkrétní verze.
+
+Akceptační scénáře
+
+1. M03-01 Zákazník přijme verzi 2; verze 1 již byla nahrazena. Přijetí verze 1 je odmítnuto s vysvětlením. Dvojí callback přijetí verze 2 založí jen jednu následnou objednávku či zakázku.
+
+2. M03-02 Chytré nabídky jsou zapnuté, konverzační AI vypnuté. Ruční nabídka funguje a oprávněný OCR požadavek proběhne podle dostupného rozpočtu. Bez kreditu zůstává ruční práce dostupná.
+
+3. M03-03 Nabídka plánuje materiál za 5 000 Kč a rezervuje jej. Skutečný náklad zakázky je zatím nulový. Vznikne až potvrzeným výdejem; zákaznický export nikdy neobsahuje interní marži.
+
+6.4 Správa vozového parku
+
+Rozsah, workflow a data
+
+Modul zahrne vozidla, přiřazení řidičům, knihu jízd, tankování a nabíjení, servis, termíny, přílohy a náklady. Cena 199 Kč obsahuje pět aktivních vozidel, každé další stojí pracovně 29 Kč měsíčně. Definici účtovaného vozidla a změn v průběhu měsíce implementuj v centrální fakturační konfiguraci; archiv nesmí automaticky vytvářet další zpoplatněnou položku.
+
+Vozidlo může být aktivní, v servisu, neaktivní nebo archivované. Servisní odstávka sama o sobě neznamená archivaci ani odpojení historie. Jízda prochází konceptem, odesláním ke kontrole, schválením a případným uzamčením; vrácení ke změně musí uchovat historii. Servisní úkol má naplánováno, probíhá, dokončeno nebo zrušeno. Připomenutí termínu musí mít dohledatelné nastavení a zabránění opakovanému odeslání stejné události.
+
+Konceptuální entity: vozidlo, přiřazení řidiče, jízda, úsek nebo účel jízdy, tachometr, tankování či nabíjení, servis, dokument, termín a rozdělení nákladů. Kontroluj nenavazující tachometr, překrývající se jízdy a podezřelé duplicity dokladů. Automatické sledování polohy je samostatná případná integrace, nikoli předpoklad fungování modulu.
+
+Pro zakázkové náklady zvol explicitní režim: kalkulační sazba za kilometr, nebo skutečné náklady s rozdělením. Pokud kilometrová sazba obsahuje palivo, stejné palivo se nesmí přičíst podruhé. Kombinovaný režim vyžaduje pojmenované nepřekrývající se složky. Částka rozdělená mezi zakázky nesmí přesáhnout částku původního nákladového záznamu bez samostatně evidované korekce. Dodavatelská faktura za servis pouze naváže na již zaevidovaný náklad nebo jej jako první založí.
+
+Oprávnění, závislosti a vypnutí
+
+Řidič eviduje vlastní přidělené jízdy, správce vozidel schvaluje, manažer vidí povolené náklady. Datovou evidenci vozidel a jízd technicky odděl od zakázek. V prvním ceníku však nové operace vyžadují platné jádro i modul vozového parku. Po skončení jádra zůstává historie a vymezené vypořádání podle kapitoly 9. Sklad ani konverzační AI nejsou povinné. Po vypnutí zachovej knihu jízd a přílohy ke čtení, zastav nové záznamy, importy a upozornění. Dříve uzamčené období se nezmění pouhým opětovným zapnutím.
+
+Akceptační scénáře
+
+1. M04-01 Firma má pět aktivních vozidel a dvě archivovaná. Cena modulu je 199 Kč. Přidání šestého aktivního vozidla aktivuje jednu položku za 29 Kč podle schváleného pravidla účtovacího období.
+
+2. M04-02 Zakázce se připíše sto kilometrů po 10 Kč včetně paliva. Následné tankování nezvýší stejný zakázkový náklad o celé palivo; přehled jasně ukáže použitou metodiku.
+
+3. M04-03 Jeden servisní náklad 2 000 Kč se rozdělí mezi dvě zakázky po 1 000 Kč. Import související faktury ani jeho opakování nevytvoří dalších 2 000 Kč nákladů. Řidič bez schvalovacího oprávnění rozdělení nezmění.
+
+6.5 DiriPOS samostatně a v Diriqu
+
+Rozsah, workflow a data
+
+Pracovní tarify jsou 100, 399 a 699 Kč za současně aktivní pokladnu. Výchozí návrh jejich schopností stanoví kapitola 4.1, skutečně podporované možnosti musí doložit inventura a akceptace. Společný požadavek: samostatná registrace firmy a pokladny bez placeného obchodního jádra, prodejní katalog, ceny, způsob platby a doklad v podporovaném režimu země.
+
+Prodej má koncept, čekání na platbu, potvrzený či zaplacený stav, zrušený koncept a návaznou částečnou nebo úplnou vratku. Platba má vlastní stav vytvořena, probíhá, potvrzena, zamítnuta nebo neznámý výsledek. Neznámý výsledek terminálu nesmí znamenat automaticky neúspěch ani nové stržení. Nejprve se dohledá stav původní operace.
+
+Konceptuální entity: pokladna, zařízení, obsluha, směna, prodej, řádek, cenový a daňový snímek, platební operace, pokladní pohyb, vratka, doklad, lokální synchronizační fronta a hardwarový požadavek. Pokladní PINy jsou přístupové identity v rozsahu licence pokladny; stejnou osobu nepřidávej dvakrát do evidence pracovníků. Ručně označená platba kartou nesmí předstírat skutečné potvrzení platebním terminálem.
+
+Offline provoz je cílový požadavek, jeho dokončenost a přenos do cíle musí Codex ověřit. Zdrojová architektura již popisuje Room/outbox a identitu pro retry; zachovej je a nebuduj souběžnou frontu bez prokázané potřeby. Zajisti trvalé lokální uložení, stabilní identifikátory, obnovení po pádu, omezenou platnost oprávnění a dohledatelnou synchronizaci. Offline karetní platba je možná jen při doložené podpoře terminálu a integrace. Číslování a vydávání dokladů offline musí odpovídat podporovanému zemskému režimu. Konflikt zásoby nebo cen nesmí smazat již uskutečněný prodej.
+
+Zachovej rozlišení fází synchronizace, vzniku účtenky, navazující platby a skladového zpracování a nakonec uzávěrky. Nejde o jediný univerzální příznak dokončeno: přijatý záznam nemusí znamenat zaplacenou účtenku a uzávěrka nesmí znovu vyvolat její skladové pohyby. Při kontrole přihlášení a oprávnění zařízení audituj existující apps/android-device-access a lib/​mobile/​deviceAccountLogin.​ts; sdílený přístup zařízení nesmí obejít firmu, licenci pokladny ani oprávnění konkrétní obsluhy.
+
+Propojení se skladem vytvoří jeden výdej a vratka odpovídající opravu. Převod prodeje na fakturu zachová jeden prodej a jednu úhradu. Směnové vklady, výběry a zaměstnanecké zálohy jsou samostatné pokladní pohyby s důvodem, nikoli další tržby. Tisk účtenky, volba bez tisku a otevření zásuvky musí mít explicitní obsluhu chyb. Opakovaný tisk je označená kopie; fyzické provedení USB tiskárnou nelze bez ověření protokolu vydávat za zaručeně právě jednou.
+
+Oprávnění, závislosti a vypnutí
+
+Rozliš prodej, slevu, vratku, otevření zásuvky, uzávěrku a správu zařízení. DiriPOS potřebuje platformu, nikoli licenci jádra; sklad a fakturace přidávají pouze své funkce. Po vypnutí zamez novým prodejům po vypršení oprávnění. Dříve autorizované offline prodeje umožni dosynchronizovat, sporné případy uchovej k vypořádání. Okamžité vzdálené odvolání práv trvale odpojenému zařízení neslibuj.
+
+Akceptační scénáře
+
+1. M05-01 Firma koupí pouze DiriPOS, vytvoří katalog a provede prodej. Rozhraní ani API po ní nevyžaduje placené jádro. Pozdější přikoupení jádra zpřístupní vazby nad stejnými zákazníky a prodeji.
+
+2. M05-02 Offline hotovostní prodej přežije restart a synchronizuje se třikrát. Na serveru vznikne jeden prodej, jedna platba a při zapnutém skladu jeden výdej. Ztracené potvrzení synchronizace nezpůsobí další operaci.
+
+3. M05-03 Terminál potvrdí platbu, ale pokladně vyprší spojení. Obnova dohledá původní transakci bez dalšího stržení. Následná faktura ani opakovaná vratka nevytvoří duplicitní inkaso, výdej či vrácení peněz.
+
+6.6 AI asistent Diriqent
+
+Rozsah, workflow a data
+
+Pracovní cena činí 199 Kč měsíčně včetně 100 Kč prodejního kreditu. Prodejní kredit je rozpočet zákazníka podle ceníku spotřeby; není totožný se skutečným nákladem na API ani příslibem stejného počtu zpráv. Verzi cenového přepočtu, zahrnutý kredit, dokoupený kredit a jejich případnou platnost eviduj odděleně. Výchozí testovací pravidla převádění a účtování kreditu jsou výslovně navržena v kapitole 9.2; veřejné podmínky se musí shodovat s jejich finální obchodní konfigurací.
+
+Asistent odpovídá z povolených firemních dat, vysvětluje přehledy a připravuje návrhy akcí. Odděl rozhovor, získání podkladů, návrh změny, schválení a vykonání. Zápisy do obchodních dat provádí vymezené serverové nástroje. Před provedením znovu ověř uživatele, firmu, licenci cílové funkce, rozsah a aktuálnost schválených dat. Text v příloze nebo výsledku vyhledávání nesmí přepsat tato oprávnění.
+
+Konceptuální entity: rozhovor, zpráva, povolený datový zdroj, návrh akce, schválení, provedení nástroje, účtovací požadavek, rezervace kreditu, skutečná spotřeba, vyúčtování a korekce. Před nákladným úkonem zobraz nebo uplatni schválený limit. Kredit rezervuj, po dokončení vypořádej a nepoužitou rezervaci uvolni. Duplicitní odpověď poskytovatele či retry nesmí znamenat další odečet. Neúspěch nesmí být účtován jako úspěšný výsledek; případné náklady selhání potřebují explicitní obchodní pravidlo.
+
+Sdílená služba OCR a generování pro nabídky, faktury či jiný modul ověřuje licenci dané doménové funkce a její rozpočet. Konverzační licence Diriqenta není podmínkou. Veřejný Diriqent pro informace o projektech má oddělený kontext a pravidla bezplatných dotazů; nepřipojuje soukromá firemní data a nečerpá firemní kredit bez příslušného přihlášení a oprávnění.
+
+Oprávnění, závislosti a vypnutí
+
+Asistent nesmí rozšířit oprávnění uživatele: člověk s vlastní docházkou nedostane mzdy ostatních, manažer jedné firmy nedostane druhou firmu. Totéž platí pro vyhledávací indexy, přílohy, cache a historii zpráv. Klíče poskytovatelů zůstávají na serveru. Vypnutí konverzačního modulu zastaví nové rozhovory a jeho automatizace; oprávněná historie zůstane čitelná. Ostatní zaplacené moduly mohou dál používat své samostatně povolené OCR či generování.
+
+Akceptační scénáře
+
+1. M06-01 Pracovník požádá o mzdy kolegů a podklad obsahuje instrukci obejít omezení. Server odmítne nepovolené načtení; informace neunikne ani citací, náhledem přílohy nebo výsledkem hledání.
+
+2. M06-02 Jedna operace stojí podle uloženého ceníku 15 Kč prodejního kreditu. Tři retry vytvoří jednu rezervaci a jeden konečný odečet 15 Kč. Pokud asistent připravuje zakázku, stejné schválení nezaloží několik zakázek.
+
+3. M06-03 Firma vypne Diriqenta, ale ponechá Chytré nabídky. Nový firemní chat není dostupný, autorizované OCR nabídky se svým rozpočtem funguje a historické rozhovory zůstávají dostupné pouze aktuálně oprávněným osobám.
+
+7 Globální jádro a části pro jednotlivé země
+
+Oddělit zemi relevantní pro právní a účetní pravidla, jazyk rozhraní, měnu, časové pásmo a oborový profil. Přepnutí jazyka české firmy do angličtiny nesmí změnit pravidla jejích dokladů. Obor řídí vhodné obrazovky a pracovní postupy; nezajišťuje sám o sobě přístupová oprávnění.
+
+Pravidla zemí mají explicitní verze a účinnost. Dokument uchovává rozhodnou konfiguraci, aby změna aktuálního nastavení nezměnila historický obsah. Povinná lokální část placené funkce musí být součástí definované kombinace oprávnění; globální přístup nesmí obejít její pravidla. Pro více právních subjektů a zemí je nutné předem určit vztah organizace, právního subjektu a provozovny.
+
+K ověření v repozitáři: české texty a pravidla natvrdo v kódu, časové zóny, měny, číselné řady, validace dokladů a předpoklad jedné země na celý systém.
+
+7.1 Konkrétní rozdělení odpovědnosti
+
+Vrstva
+
+Co řídí
+
+Globální jádro
+
+Zákazník, práce, položka, čas, schválení, vazby, audit a obecné peněžní částky
+
+Jazyk a formát
+
+Překlady rozhraní, formát čísel, dat, adres a dokumentových textů
+
+Zemský adaptér
+
+Podporované identifikátory, pravidla dokladů, číslování, daňové profily, účinnost pravidel a konkrétní lokální integrace
+
+Oborový profil
+
+Výchozí navigace, pole a šablony pro úklid, řemesla, servis, obchod nebo gastro
+
+Firma a provozovna
+
+Vlastní nastavení firmy, právní subjekt, místní časové pásmo, provozní režim a přidělené licence
+
+
+V prvním cílovém modelu odpovídá tenant jednomu právnímu subjektu; jeho více provozoven nesmí duplikovat předplatné modulu účtovaného za firmu. Další právní subjekt má vlastní tenant, členství a účetní data. Skupinový přehled může číst více oprávněných tenantů, ale nevytváří společnou nekontrolovanou databázi. Přeshraniční transakce uvnitř jednoho subjektu vyžadují podporu příslušného daňového scénáře, nikoli jen změnu jazyka zákazníka.
+
+Navržená implementační priorita je český profil a anglické rozhraní, další země podle ověřené poptávky a doložených pravidel. Jádro musí být od začátku jazykově neutrální a nesmí vyžadovat české identifikátory. Pro každou kombinaci země a citlivé funkce eviduj stav nepodporováno, experimentální v testu nebo ověřeno pro stanovený rozsah. Chybějící adaptér se nesmí tiše nahradit českými pravidly. Obecnou evidenci lze používat, ale vydání místního daňového dokladu nebo regulovaná POS operace se zablokuje s konkrétním důvodem.
+
+Codex nemá odhadovat aktuální daňové sazby, mzdové nároky nebo požadavky na elektronické doklady. Při implementaci je musí ověřit z aktuálních oficiálních zdrojů, zaznamenat rozsah a účinnost a vytvořit cílené scénáře. Změna země po vydání dokladů je řízená změna konfigurace budoucích operací, nikoli přepis minulosti.
+
+8 Firmy a přístup k datům
+
+Identita přihlašovaného člověka může být společná více firmám. Jeho členství, role, pracovní vztah, docházka a žádosti jsou však vždy vázané na konkrétní organizaci. Shodný e-mail nesmí způsobit sloučení personálních záznamů mezi firmami. Přístup účetní nebo vedoucího do více organizací vzniká samostatnými platnými členstvími.
+
+Každý neveřejný záznam musí mít jednoznačné vlastnictví organizací nebo zdokumentovaný důvod, proč je globální. Vazby mezi záznamy musí bránit spojení zákazníka firmy A se zakázkou firmy B. Identifikátor organizace zaslaný klientem je požadavek, jehož oprávněnost ověřuje server. Totéž platí pro identifikátory zaměstnance, provozovny, dokladu a souboru. Náhodné UUID nenahrazuje autorizaci.
+
+Výsledek autorizace vychází společně z členství, role, oprávnění k dané operaci, zakoupené funkce, stavu předplatného a vlastnictví cílových dat. Server musí rozhodnout při každé důležité operaci. Po odebrání role nebo modulu se staré tokeny, cache ani otevřená stránka nesmějí stát trvalou výjimkou. Účet superadministrátora má explicitní rozsah, audit a oddělený režim podpory.
+
+K ověření v repozitáři: všechny tenantové sloupce a vazby, unikátní klíče, zaměstnanecké výjimky, autorizační middleware, databázové politiky a funkce s privilegovaným přístupem.
+
+8.1 Všechny přístupové cesty
+
+Skrytá navigace je pouze uživatelské rozhraní. Oprávnění a zakoupené funkce musí vynucovat API, databázová pravidla nebo ekvivalentně důsledná datová vrstva, asynchronní úlohy, importy, exporty, úložiště i nástroje AI. Zvláštní kontrolu vyžadují přímá RPC volání, hromadné operace a cesty používající servisní účet, který obchází běžné databázové politiky.
+
+Úloha na pozadí musí nést ověřenou organizaci, iniciátora nebo definovanou systémovou roli, idempotentní identifikátor a potřebné oprávnění. Při zpracování se znovu ověří rozhodné podmínky. Pro vypnutí modulu během zpracování se předem určí, které rozpracované operace lze dokončit a které skončí bez zápisu. Kontext organizace se nesmí přenést mezi požadavky, spojeními nebo úlohami.
+
+Klíče cache musí zohlednit organizaci a další dimenze, které mění obsah: roli, verzi oprávnění, jazyk či konfiguraci. Přepnutí firmy musí zrušit zobrazení i pozdější doručení výsledků původní firmy. Objekty v úložišti i odvozené náhledy mají ověřované vlastnictví; dočasné odkazy mají omezený rozsah a životnost. Pro jejich odvolání po změně oprávnění musí být popsané dosažitelné chování.
+
+AI získává kontext a nástroje pouze prostřednictvím stejných kontrolovaných služeb. Text dokumentu ani pokyn modelu nesmí změnit organizaci či oprávnění. Paměť, vyhledávací index, výstupy, historie i kredity musí mít správné vlastnictví. Případný veřejný Diriqent potřebuje explicitní oddělení veřejné nápovědy od přístupu k firemním datům.
+
+K ověření v repozitáři: kompletní seznam vstupních bodů, servisních klientů, úloh, cache, souborových cest, exportů, vyhledávacích indexů a AI nástrojů; vyznačit všechny cesty bez společné kontroly.
+
+8.2 Požadavky pro současnou architekturu Diriqa
+
+Server musí ověřit identitu způsobem odpovídajícím současné architektuře cíle; její dokumentace požaduje getUser() pro důvěryhodné serverové rozhodnutí. Aktivní firma z cookie nebo formuláře je volba kontextu, nikoli oprávnění. Formulář načtený ve firmě A nesmí při odeslání po přepnutí do B přepsat záznam B; musí zachovat ověřenou vazbu k původnímu objektu nebo vrátit konflikt.
+
+U přístupných tenantových tabulek zachovej RLS a přiměřené databázové granty. Prověř také pohledy, Storage, přímé RPC a funkce s SECURITY DEFINER; privilegovaná funkce musí sama ověřovat potřebnou firmu a akci. Servisní klíč obcházející RLS zůstává pouze na serveru a nesmí nahrazovat chybějící autorizační logiku. Oprávnění nevytvářej z klientem měnitelného profilu nebo nedůvěryhodných metadat.
+
+Zamez implicitním výjimkám podle konkrétního e-mailu, jména zaměstnance nebo interního ID JSPD. Podpora a superadministrace mají explicitní schopnosti, dohledatelný kontext a audit přístupu. To, že člověk spravuje SaaS účet, samo nemusí znamenat právo zobrazit soukromé dokumenty každé firmy.
+
+Při odebrání práva se zablokuje vydávání nových podepsaných URL. Dříve vydané přímé URL mohou dožít jen do krátké nastavené expirace; tuto technickou vlastnost neprezentuj jako okamžité odvolání. U obzvlášť citlivých objektů, kde je okamžité odvolání požadavkem, použij doručení přes aktuálně autorizovanou serverovou cestu. Úložiště, náhledy, fulltext i AI index musejí zachovat stejný rozsah viditelnosti jako původní objekt.
+
+9 Předplatné a spotřební služby
+
+Stav předplatného má serverovou autoritu a oddělenou historii událostí. Návrat z platební stránky není důkaz zaplacení. Opakované a opožděné události nesmějí přidat modul nebo kredit podruhé. Zrušení obnovování nezkrátí již zaplacené období.
+
+Stav
+
+Požadované chování
+
+draft
+
+Rozpracovaný nákup bez placených oprávnění; případná zkušební oprávnění mají vlastní explicitní původ.
+
+active
+
+Operace podle zaplacených funkcí, jejich časové platnosti a rolí uživatele.
+
+grace
+
+Časově omezená tolerance po problému s úhradou; rozsah a délku stanoví obchodní pravidla. Nevytváří neomezené AI čerpání.
+
+readonly
+
+Oprávněné čtení a definované exporty stávajících dat, správa účtu a obnovení služby; obchodní zápisy jsou blokované.
+
+canceled
+
+Předplatné skončilo. Obnova, retenční období a dostupnost exportu jsou explicitní; samotný stav nikdy automaticky neznamená smazání dat.
+
+
+Jde o stav předplatného, nikoli náhradu kontroly jednotlivých modulů. Zakoupený nárok potřebuje produkt, organizaci, platnost, původ a verzi. Bezplatné odemčení administrátorem musí být explicitní a auditované. Pravidla archivace se vztahují i na odvozené soubory a indexy.
+
+AI kredit používat jako účetní knihu změn, ne pouze přepisované číslo. Před prací se atomicky rezervuje maximální schválený rozpočet (reserve). Poté se podle skutečné evidované spotřeby zaúčtuje využitá část (settle) a uvolní nevyužitá rezerva (release/refund). Všechny kroky mají idempotentní identifikátor; souběžná volání nesmějí utratit stejný zůstatek.
+
+Pokud se úloha přeruší, nejprve dolož vzniklý náklad a stav výsledku. Zákaznické uvolnění rezervace nebo kompenzace se řídí pravidlem v kapitole 9.2; nesmí přitom zmizet skutečný náklad poskytovatele. Neznámý výsledek vyžaduje dohledání stavu a smíření účetní knihy. Rozpočet se kontroluje před každým dalším nástrojem; pro delší práci se vyžádá další rezervace. Ukládat verzi cenového přepočtu a celočíselné kreditní jednotky, odděleně od skutečného nákladu. Odlišuj identitu jedné zákaznické operace od identit jednotlivých pokusů u poskytovatele; deduplikace zákaznického odečtu sama nezaručuje, že poskytovatel nenaúčtuje skutečně opakované volání. Retry po pádu nesmí bez ověření znovu provést již zaplacenou externí operaci.
+
+K ověření v repozitáři: zdroj oprávnění, stavové přechody, zpracování platebních událostí, souběžnost kreditů, účtování nástrojů, timeouty a způsob zjištění výsledku přerušeného volání.
+
+9.1 Konkrétní životní cyklus funkcí
+
+Uchovávej odděleně stav účtu, stav předplatného, stav konkrétního nároku, firemní přepínač modulu a oprávnění člověka. Vypnutí v navigaci není ukončení předplatného. Uživatel musí vidět rozdíl mezi skrytím, pozastavením nové práce a zrušením obnovování platby. Již uhrazené období zůstává platné i po požadavku na zrušení obnovy. Ukončení základního produktu musí zobrazit dopady na závislé doplňky a umožnit jejich odpovídající ukončení nebo podporovaný převod. Po odsouhlaseném ukončení se nesmí automaticky obnovovat nepoužitelný doplněk vyžadující skončený produkt.
+
+Navržená testovací tolerance běžného nezaplacení je 7 dní. Její financované funkce se řídí konfigurací; nepřiděluj další zahrnutý AI kredit bez rozhodné úhrady. Následuje režim historie a obnovení služby. Pro úvodní testovací konfiguraci ponech přístup k historii a exportům 90 dní od konce uhrazeného období. Žádný automatický destruktivní purge neaktivuj, dokud neexistuje samostatně schválená retenční a zálohovací politika. Tato doba není tvrzení o zákonné archivační povinnosti zákazníka.
+
+Rozliš tři schopnosti: nové obchodní operace, čtení a export dosavadních dat, vypořádání dříve oprávněně vzniklé události. Poslední možnost přijímá pouze dohledatelný původ, autorizované zařízení nebo ověřeného poskytovatele a povolený typ opravy; nelze jí založit novou neomezenou fakturu nebo prodej. Uživatel bez členství nemá přístup k historii ani při stále zaplacené licenci firmy.
+
+Pro POS navrhujeme počáteční maximální offline oprávnění 24 hodin od posledního ověření, případně kratší podle podporované země a integračního režimu. Je to testovatelná produktová volba, nikoli záruka zákonné přípustnosti. Po expiraci už zařízení nesmí přijímat nové prodeje, může ale odeslat dříve oprávněně přijaté události. Zařízení ověřuje podepsané oprávnění, chrání časový průběh proti jednoduchému vrácení systémových hodin a po obnovení spojení přijme aktuální revokaci. Sporná událost zůstane uložena s důvodem a cestou k vypořádání; její ztráta není způsob řešení konfliktu.
+
+Systém zpracuje pozdní potvrzení platby, dříve platné přijetí nabídky nebo povolený opravný doklad podle původní události. Nové vydávání, automatizace a placené generování po vypnutí blokuje. Vrácení zboží nebo peněz navázané na starý prodej vyžaduje konkrétní oprávnění k vypořádání; otevřená obecná výjimka pro všechny zápisy není přípustná.
+
+9.2 Návrh pravidel AI kreditu a bezplatné nápovědy
+
+Prodejní kredit je částka v zákaznickém ceníku spotřeby. Skutečná cena poskytovatele, doprovodné výpočty a úložiště se vedou zvlášť jako náklad. Návrh výchozího modelu: zahrnutých 100 Kč se přidělí na uhrazený měsíc a nevyužitá část se do dalšího období nepřenáší; dokoupený kredit se převádí a ve verzi 0.1 nemá automatickou expiraci. Čerpá se nejprve kredit s dřívější platností. Roční platba Diriqenta přiděluje 100 Kč po jednotlivých měsících.
+
+Poskytni samostatné účtování OCR a generování uvnitř skladu, fakturace či chytrých nabídek bez nutnosti licence konverzačního asistenta. Uživatel musí mít příslušnou doménovou schopnost, přístup k dokumentu a rozpočet. Kredit sám neodemkne nezakoupený modul. Neúčtuj současně samostatnou cenu AI operace a druhý odečet stejného zpracování z kreditu.
+
+Technická chyba bez použitelného uloženého výsledku v návrhu nemá vytvářet zákaznickou cenu za úspěšnou operaci. Skutečný náklad poskytovatele se přesto zachová jako náklad Diriqa. Při nejasném výsledku nejprve drž a vypořádej rezervaci, dohledávej výsledek a teprve pak proveď odpovídající odečet či uvolnění; automatické vrácení celé částky po timeoutu bez ověření je chybné. Pokud zákazník dostal částečný výsledek a sám práci zastaví, lze odečíst jen doložené využití podle předem zobrazeného pravidla a schváleného limitu.
+
+Celková prodejní cena operace, tedy odečet zákaznického kreditu, nesmí překročit schválenou rezervaci bez dalšího oprávnění. Skutečný interní náklad se eviduje a limituje odděleně. Úlohy mají limity počtu nástrojů, času, velikosti kontextu a výstupu. Pro každý typ služby ulož verzi prodejního přepočtu, měnu, zaokrouhlení a příslušný nákladový záznam. Nedeklaruj pevný počet zpráv za korunu, pokud se jejich cena mění podle délky a nástrojů.
+
+Veřejná nápověda k Diriqu, DiriPOSu a veřejným informacím JSPD používá oddělenou veřejnou znalostní bázi bez firemních dat. Úvodních 30 obecných zpráv je návrh zkušebního rozsahu na účet; zároveň platí malý nákladový rozpočet a omezení zneužití. Nejde o 30 neomezených analýz příloh. Veřejná produktová nápověda zůstává zdarma v přiměřeném rozsahu. Firemní analýzy používají placenou schopnost a firemní kredit.
+
+9.3 Měření cíle pětinásobku až desetinásobku nákladů
+
+Implementuj přehled nákladů za firmu, modul a období: přiřazená infrastruktura, databáze, soubory a přenosy, AI a OCR, notifikace, platební poplatky, využití externích služeb a odhad podpory. Pevné společné náklady rozděluj doloženou metodou; neignoruj je, protože při vytvoření dalšího účtu bezprostředně nevznikly. Vývoj nyní do cílového výpočtu nezahrnuj, ale skutečnou provozní podporu ani běžnou správu nevydávej za nulový náklad.
+
+Poměr = skutečně dosažené výnosy bez DPH a po slevách / definované provozní náklady stejného období. Cíl 5× odpovídá nákladům nejvýše 20 procent výnosů, cíl 10× nejvýše 10 procent. Při nulových nebo neúplných nákladech zobraz nedostatečná data, ne nekonečnou rentabilitu. Vrácené platby, roční slevy a časové rozlišení předplatného musí být ve stejném modelu.
+
+Příklad cíle pro Team při ceně 699 Kč bez slev: nákladový strop pro 5× je 139,80 Kč měsíčně, pro 10× 69,90 Kč. Jde o matematický rozpočet, nikoli doložený aktuální náklad. U AI sleduj také náklady bezplatných a neúspěšných volání. Ceník sám cílový násobek nezaručuje; aplikace musí včas ukázat firmy nebo moduly, které limit překračují.
+
+10 Přenos kódu a datové návaznosti
+
+Začít porovnáním zdroje i cíle na konkrétních commitech a oddělenou pracovní větví. U každé funkce rozhodnout: zachovat implementaci Diriqa, doplnit ji, převzít vybranou část HUBu, nebo řešení vědomě přepracovat. Určit, co je přenositelný produktový kód, co interní konfigurace a co zákaznická data. První převod vytváří nebo doplňuje schéma, oprávnění a syntetické vzory. Nepřenáší databázi HUBu, skutečné zaměstnance, zakázky, přílohy, historii AI, tokeny, logy ani zálohy. Vzory prověřit i na skutečné názvy, identifikátory a metadata.
+
+Migrace schématu zahrnuje také indexy, omezení, politiky, funkce, úlohy a konfiguraci úložiště. Musí být verzované a opakovatelné podle migračního systému. Změny potřebné ve společném kódu doloží kompatibilitu s dosavadním HUBem. Neprovádět plošné nahrazování interních názvů bez rozlišení jejich účelu.
+
+Budoucí importy zákaznických dat jsou samostatná schopnost. Každý import má organizaci, verzi formátu, otisk vstupu, stav, checkpointy a výsledek validace. Dávka dat a její checkpoint se potvrzují společně. Opakování po pádu nepřidá duplicity; chyby mají opravitelné řádky a jasnou politiku pokračování. Importy používají klíče platné uvnitř organizace a nesmějí aktualizovat cizí záznam pouze podle e-mailu nebo externího čísla.
+
+K ověření v repozitáři: skutečný migrační systém, obsah seedů a exportů, hardcoded ID firem, importní transakce, checkpointy a aktualizace podle globálních přirozených klíčů.
+
+10.1 Schéma a původ dat
+
+Veškeré změny v cíli navrhuj nejprve jako doplňující a kompatibilní. Pokud existují zákaznická data Diriqa, nejprve dolož použití dosavadních polí, zpětné doplnění nových údajů a kontrolu výsledku. Destruktivní odstranění staré struktury patří až za ověřený přechod. Samotný rollback aplikace nevrací automaticky změněná data.
+
+Neměň interní názvy gastro_* jen kvůli neutrální značce v UI. Při přenosu očisti texty a konfiguraci od interních údajů JSPD, ale zachovej názvy, které drží integraci, historii nebo synchronizační protokol. Veřejné produktové texty patří do lokalizace; interní kompatibilita má vlastní vrstvu a dokumentované datum případného ukončení.
+
+Skladový výdej, dodavatelský doklad, provozní náklad a platba jsou různé záznamy jednoho souvisejícího děje. Potřebují dohledatelnou vazbu na původní řádek a pravidlo, který z nich je zdrojem které částky. Nezaváděj globální finanční událost nebo účetní ledger jen kvůli názvu v zadání, pokud existující datový model tuto vazbu korektně poskytuje. Ledger AI kreditu je samostatná oblast.
+
+10.2 Spolehlivost propojení
+
+U opakovaných událostí kontroluj identitu i obsah. Stejný identifikátor a stejný obsah vrací původní výsledek; stejný identifikátor s jiným obsahem je konflikt vyžadující řešení. Opakovaný webhook, retry synchronizace, dvojí kliknutí nebo opakovaný běh importu nesmí vytvořit další finanční účinek.
+
+V POS zvlášť ověř částečné opravy: součet vráceného množství a peněz nesmí překročit příslušný původní prodej po zohlednění předchozích vratek. Opakované vytištění nic neprodává a nic neodepisuje ze skladu. Volba bez tisku stále zaznamená platný prodej a platbu. Automatické otevření zásuvky navazuj na odpovídající hotovostní operaci, manuální otevření na zvláštní právo a audit.
+
+OCR nesmí přepsat již ručně zkontrolované řádky při pozdějším opakování rozpoznání. Potvrzení dokladu, příjem a rozdělení na zakázky jsou oddělené úkony. Pro obnovení nedokončeného procesu musí být zřejmé, co už vzniklo a co teprve čeká.
+
+Výrobní zakázka, zákaznická objednávka, požadavek provozovny a denní plán jsou různé objekty. Při budoucím přenosu výroby zachovej alokace mezi jejich původy. Změna preferovaného skladu nezpůsobuje fyzický přesun zásoby. Denní uzávěrka POS není druhý zdroj prodeje vedle jednotlivých účtenek.
+
+Transakční e-mail o potvrzeném obchodu musí mít samostatnou frontu nebo dohledatelný stav a deduplikaci. Výpadek doručení nesmí vrátit prodej do konceptu nebo při retry vytvořit další fakturu. Adresáta a obsah zákaznické komunikace autorizuje příslušný obchodní úkon. Produktové testy posílají pouze na testovací cíle.
+
+10.3 Výkon a kvalita dat
+
+Seznamy stránkuj a filtrované součty počítej přes celý oprávněný výběr. Součet nesmí vycházet pouze z právě načtené stránky nebo prvních tisíce řádků. Základní test katalogu navrhujeme na 20 000 syntetických položkách, práci s více sklady a souběhem POS. Výsledky měření a prostředí uveď konkrétně; žádnou rychlost neoznač za splněnou bez měření.
+
+Peníze ukládej přesnou číselnou reprezentací a měnou, nikoli nekontrolovanými desetinnými operacemi v JavaScriptu. Rozliš množství, měrnou jednotku, prodejní cenu, daň, náklad a zaokrouhlení. Přehled musí odlišit skutečnou nulu od nedostupného zdroje nebo chybějící sazby. Časové testy pokryjí půlnoc, přechod letního času a firemní provozní den.
+
+11 Další moduly a navazující rozvoj
+
+Níže uvedené oblasti mají vyhrazené hranice pro budoucí zapojení. Nejsou skrytým požadavkem dokončit celý ERP systém v první etapě. Pokud už potřebná funkce v HUBu existuje, Codex ji zmapuje, ale neoznačí za převedenou bez dokončené integrace a ověření.
+
+Budoucí modul
+
+Rozsah a hlavní vazby
+
+Návrh priority
+
+Výroba a receptury
+
+Verze receptur, spotřeba a výstup, výrobní příkazy, alokace objednávek, denní plán; potřebuje sklad
+
+Vysoká pro výrobní a gastro zákazníky
+
+Objednávky a DiriShop
+
+B2B/B2C katalog, zákaznické účty, objednávky a vychystání; sdílený katalog, sklad a platby
+
+Po stabilizaci skladu a POS
+
+Majetek a nářadí
+
+Kusová evidence, svěření, předání, revize, opravy a návrat; nekopírovat skladovou zásobu
+
+Po jádru
+
+Servis a údržba
+
+Zařízení zákazníka, pravidelný plán, servisní historie, automatický vznik zakázky
+
+Po jádru a nabídce
+
+Kontroly a HACCP
+
+Plány kontrol, formuláře, měření, neshody, nápravné kroky, mobilní fronta a audit
+
+Podle oboru a doložené místní potřeby
+
+Automatizace a integrace
+
+Pravidlo, trigger, podmínka, povolená akce, limit, log a opakování; vždy stejná oprávnění jako ruční akce
+
+Po stabilizaci doménových služeb
+
+Rozšířené personální a zemské agendy
+
+Smlouvy, zákonné výpočty a místní reporty pouze podle doloženého rozsahu a pravidel
+
+Pozdější samostatný projekt
+
+
+Pro pracovní cenový seznam lze vést výrobu od 499 Kč, majetek od 199 Kč, servis od 299 Kč, kontroly přibližně 299 až 499 Kč a obchodní portál či automatizace od 299 Kč. Tyto hodnoty nejsou finální produkty připravené k prodeji. Nejprve definuj měřitelný rozsah a náklady. Plné účetnictví a mzdy nyní nenahrazuj; prioritou jsou konzistentní podklady a ověřené exporty.
+
+Základní klientský portál pro zpřístupněné nabídky, zakázky nebo protokoly může být součástí odpovídající zakoupené funkce. Plný objednávkový portál, e-shop, zákaznické cenové hladiny a rezervace patří do samostatného rozšíření. Přihlášení zákazníka mu nikdy nezpřístupní celé firemní jádro.
+
+12 Pořadí implementace a povinné výstupy
+
+Používej následující pořadí, protože zpřístupnění funkcí potřebuje předem vyřešený kontext firmy a oprávnění. V každé fázi zachovej aplikaci spustitelnou; nepřenes velký blok kódu s nevyřešenými závislostmi a pouze skrytým menu.
+
+Fáze
+
+Konkrétní práce
+
+Důkaz dokončení
+
+0 Inventura
+
+Porovnání zdroje a cíle, aktuální instrukce, mapování kódu a dat, otevřené mezery
+
+Matice skutečně existujících a chybějících funkcí s odkazy
+
+1 Platforma
+
+Firma, členství, role, registr schopností, explicitní nároky, historie a audit
+
+Přímé testy dvou firem a odmítnutí vypnuté funkce
+
+2 Jádro
+
+Kompletní zákaznický a zakázkový průchod, lidé, čas, plán, nepřítomnosti, zálohy, dokumenty
+
+Funkční jádro se všemi doplňky vypnutými
+
+3 Sklad a obchod
+
+Sklad s dodavateli, fakturace a chytré nabídky, finanční původy a zemský rozsah
+
+Příjem, výdej, doklad a platba bez dvojího započtení
+
+4 DiriPOS
+
+Samostatný onboarding, katalog, prodej, zařízení, opravy a podporovaná offline synchronizace
+
+Samostatný POS a opakování synchronizace bez duplicit
+
+5 Vozidla a AI
+
+Vozidla, jízdy, náklady, oprávněný Diriqent, doménové OCR a kredit
+
+Kontrola rozdělení nákladů a souběžné spotřeby kreditu
+
+6 SaaS a předání
+
+Testovací billing, změny tarifů, importy, lokalizace, provozní přehled a finální regrese
+
+Akceptační report, migrační plán, diff a postup zavedení
+
+
+Minimální billing infrastrukturu a známé nároky připrav již ve fázi 1; fáze 6 dokončuje reálné testovací události a celý životní cyklus. Pokud některá část cíle již spolehlivě funguje, pouze ji dolož a doplň chybějící návaznost. Funkce Gastro nad rámec základního prodeje implementuj jako další schopnosti fáze 4, jejich nehotovost nesmí být skryta marketingovým názvem tarifu.
+
+Po každé fázi dodej stručný souhrn: co změna umožňuje, kde je implementace, které migrace přidává, co bylo spuštěno a jaký byl výsledek. Ověřuj reálné hranice rizika; nevytvářej řadu testů, které pouze opakují stejnou implementační podmínku. Pro RLS, finanční transakce a souběh použij skutečnou testovací databázi nebo odpovídající lokální prostředí, ne pouze mocky.
+
+12.1 Souborové výstupy v cílovém repozitáři
+
+• docs/​diriqo/​module-​inventory.​md: mapa zdroje a cíle, commity, aktuální symboly, poslední účinné migrace a stav každé schopnosti.
+
+• docs/​diriqo/​product-​contract.​md: schválené nebo navržené hranice modulů, role, závislosti, ceník a zemská dostupnost s jasným označením stavu.
+
+• docs/​diriqo/​migration-​plan.​md: pořadí schématu a případných autorizovaných datových převodů, kontrolní počty, kompatibilita a obnova.
+
+• docs/​diriqo/​acceptance-​report.​md: identifikátory scénářů, prostředí, přesné příkazy a výsledky, důkazy, nesplněné části a důvody.
+
+• docs/​diriqo/​implementation-​status.​md: změněné soubory, dokončené kroky, otevřené obchodní otázky a konkrétní navazující krok po přerušení relace.
+
+Zvol ekvivalentní místo, pokud repozitář již podobnou strukturu má. Nedubluj dokumentaci bez důvodu. Konečné předání zahrne finální diff, významné testovací výsledky, skutečně známé limity a postup zavedení. Produkční nasazení a ostré migrace jsou následný krok podle výslovně uděleného oprávnění; bez něj je připrav jako konkrétní přezkoumatelný plán.
+
+13 Akceptace celého produktu
+
+Požadavky označené C01 až C10 pokrývají jádro, M01 až M06 jednotlivé doplňky. Níže uvedené společné scénáře P01 až P25 doplňují mezimodulové chování. Každý má mít přípravu, akci, očekávání, prostředí a výsledek; nepokládej přiloženou specifikaci za důkaz jejich provedení.
+
+Každý scénář musí mít reprodukovatelnou přípravu, konkrétní akci, očekávaný výsledek a uložený důkaz. Používat syntetické firmy A a B se záměrně podobnými názvy a klíči.
+
+1. P01 Cizí záznam přes přímý požadavek. Uživatel A dosadí ID zakázky, zákazníka či zaměstnance B do čtení, změny a hromadného endpointu. Nedostane data ani nezpůsobí změnu. Důkaz: požadavky, odpovědi a porovnání relevantních dat B.
+
+2. P02 Osoba ve dvou firmách. Stejná identita má různá členství a pracovní vztahy v A a B. Docházka, zálohy a role zůstávají oddělené; odebrání členství A neodstraní B. Důkaz: relační záznamy a ověřené akce obou kontextů.
+
+3. P03 Vypnutý modul všemi cestami. Firma, která nikdy nezískala oprávnění ke skladu, zkouší URL, API, RPC, export, import a AI nástroj skladu. Nepovolená data se nevydají a nové placené operace jsou odmítnuté před změnou. Samostatně se ověří firma s ukončeným skladem, která má po dobu retence právo číst a exportovat svou historii. Důkaz: matice cest a výsledků; základní katalog POS dál funguje.
+
+4. P04 Samostatný DiriPOS a následné rozšíření. Firma bez jádra Diriqa dokončí základní prodejní tok. Po dokoupení jádra používá totožnou organizaci a odpovídající sdílená data. Důkaz: provedený prodej, identity záznamů před a po změně, absence duplicit.
+
+5. P05 Odebrání oprávnění za běhu. Uživatel otevře editaci a připraví úlohu; správce mu odebere roli nebo modul. Starý token, odeslání formuláře a nově spuštěná část úlohy respektují nová pravidla. Důkaz: časová posloupnost a žádné nepovolené zápisy.
+
+6. P06 Soubory a exporty. A zná cestu nebo ID exportu B. Nemůže získat soubor, náhled ani novou přístupovou URL. Vlastní dočasný odkaz odpovídá dokumentované expiraci. Důkaz: odpovědi úložiště, metadata vlastnictví a kontrola doby platnosti.
+
+7. P07 Cache a přepnutí organizace. Jedna identita rychle přepíná A/B při rozpracovaném načítání a použije shodné vyhledávání. Pozdní odpověď A se nezobrazí v B; agregace ani serverová cache nepřenesou data. Důkaz: sled síťových odpovědí a výsledná zobrazení.
+
+8. P08 AI a škodlivý obsah dokumentu. Dokument A žádá čtení firmy B či zapnutí modulu. AI takovou operaci přes nástroj neprovede a nezíská cizí kontext ani historii. Důkaz: autorizované retrieval výsledky a redigovaná stopa volání nástrojů.
+
+9. P09 Souběžná spotřeba kreditu a pád. Více úloh soupeří o poslední kredit; jedna spadne po externím volání. Nevznikne záporný dostupný zůstatek ani dvojí zákaznické zaúčtování. Případná kompenzace podle pravidla 9.2 nesmaže skutečný náklad poskytovatele. Důkaz: ledger, rezervace, reconciliace a propojené identifikátory operací.
+
+10. P10 Opakované a opožděné platební události. Dvakrát přijde úhrada, poté starší událost a nový výsledek. Oprávnění i kredit odpovídají rozhodnému stavu, kredit se nepřičte dvakrát. Důkaz: události, jejich deduplikace a konečný stav předplatného.
+
+11. P11 Neuhrazení a konec předplatného. Simulovaný čas projde aktivním obdobím, tolerancí a omezením přístupu. Čtení, export a zápisy odpovídají tabulce stavů, data zůstávají zachovaná. Obnovení nevyžaduje novou firmu. Důkaz: stavové přechody a povolené/odmítnuté akce.
+
+12. P12 Země, jazyk a obor se nepletou. Změna jazyka a oborového profilu nezmění rozhodná pravidla existujícího dokladu. Různé firmy mohou mít různou zemi a časové pásmo bez globálního přepisu. Důkaz: konfigurace, historický dokument a výsledky odpovídajících operací.
+
+13. P13 Čistá extrakce bez interních dat. Nové prostředí vznikne z čisté instalace, migrací a syntetických vzorů. Neobsahuje interní záznamy, přístupové údaje ani přílohy. Důkaz: manifest přenesených souborů, seznam vytvořených dat a kontrola zakázaných kategorií obsahu.
+
+14. P14 Import po pádu a opakovaném spuštění. Import A je násilně ukončen mezi dávkami i při potvrzení dávky. Pokračování skončí přesně jednou sadou záznamů; nahlásí vadné řádky. Důkaz: checkpointy, počty, klíče a porovnání s jedním nepřerušeným během.
+
+15. P15 Zachování HUBu a druhé firmy. Provoz B se ověří během změn A. Pokud změna zasahuje sdílený kód používaný HUBem, proveď cílenou regresi jeho dotčených toků v testovací kopii; pokud se HUB nemění, dolož tuto skutečnost přehledem změn. Žádný krok importu, vypnutí modulu nebo obnovy A nepřepíše B. Důkaz: cílené regrese, invarianty, snímky relevantních dat a ověřený postup návratu.
+
+16. P16 Celé jádro bez doplňků. Založ zákazníka, kalkulaci s ručním materiálem, nabídku, zakázku, pracovníka, plán, čas, nepřítomnost, zálohu a předání. Žádný krok nevyžaduje sklad, fakturaci, POS ani AI. Ověř uložení a následné načtení po novém přihlášení.
+
+17. P17 Historie a finanční souhrny. Změna aktuální sazby nepřepíše schválený čas. Rodič a podzakázky nezapočtou zdroje dvakrát. Dodavatelská faktura k výdeji upraví případný rozdíl ocenění, nevytvoří druhý plný náklad. Ověř konkrétní částky a zdrojové vazby.
+
+18. P18 Pokladní události a částečné opravy. Stejná událost přijatá třikrát má jeden finanční účinek. Stejné ID s jiným obsahem vyvolá konflikt. Dvě částečné vratky nesmějí překročit původní množství a částku. Ztracené potvrzení ani opakovaný tisk nevytvoří nový prodej.
+
+19. P19 Offline oprávnění a pozdní vypořádání. Po expiraci offline oprávnění nevznikne nový prodej. Již oprávněně uložený prodej přežije restart a po vypnutí licence se bezpečně dosynchronizuje. Ověř také nejasnou platební odpověď a revokaci po opětovném připojení.
+
+20. P20 OCR bez přepsání člověka. Rozpoznání připraví návrh, člověk opraví řádek a nastane retry. Opravený údaj zůstane zachovaný a zásoba se změní až explicitním příjmem. Dvakrát potvrzený příjem nevytvoří dva pohyby.
+
+21. P21 Ceník a kapacity. Stejný manažer s docházkou nečerpá dvě místa. Diriqo a POS sdílejí jeden skladový nárok za firmu. Dvě pokladny mají dvě odpovídající licence. Archivované vozidlo nečerpá aktivní kapacitu a starý EUR odběratel nezíská bez pravidla jinou cenu.
+
+22. P22 Stránkování a velký katalog. Vyhledání, export a agregace nad 20 000 syntetickými položkami či více stránkami vrátí správný celý výběr. Zaznamenej čas a prostředí měření; ověř, že limit načtení nezmění finanční součet.
+
+23. P23 Selhání navazující služby. Po potvrzení prodeje nebo vydání dokladu selže e-mail, tisk nebo asynchronní projekce. Uživateli zůstane správně označený stav a cesta k nápravě. Retry nezopakuje již dokončený obchodní účinek.
+
+24. P24 Návrat skladu do provozu. Firma vědomě vypne skladovou evidenci a prodává v povoleném režimu POS. Zůstatek se neprezentuje jako aktuální. Opětovná aktivace požaduje odsouhlasení skutečného stavu a nevytvoří nezdokumentované zpětné pohyby.
+
+25. P25 Úplnost a pravdivost předání. Všechny navržené tarify mají skutečný seznam dostupných schopností. Report neoznačuje neověřenou zemi, terminál, migraci ani neprovedený test za hotový. Čisté testovací prostředí lze reprodukovat z doložených podkladů bez interních dat JSPD.
+
+Splnění přiměřených scénářů ověř vždy pro konkrétní změněnou oblast. Celkovou připravenost k vydání lze potvrdit až podle úplné matice povinných scénářů pro prodávaný rozsah. Úspěšný build sám neprokazuje oddělení firem, správné finance, odolnou synchronizaci ani lokální podporu dokladů.
+
+14 Zdrojové podklady a hranice jistoty
+
+Následující zdroje byly při přípravě použity jako výchozí technické podklady. Dokumentace popisuje zamýšlené nebo deklarované smlouvy; implementaci a její skutečné chování musí potvrdit inventura a testy. Seznam není úplný audit. U repozitářů jsou odkazy připnuté k přečteným commitům.
+
+1. JSPD HUB architektura: modulární monolit, datové hranice, skladové a POS invarianty, OCR a finanční zdroje.
+
+2. JSPD HUB mapa modulů: výchozí mapování domén na obrazovky, služby a datové struktury.
+
+3. JSPD HUB konfigurace menu: konkrétní původní rozdělení cleaning, gastro, vehicles.
+
+4. Diriqo README: existující cílový SaaS a jeho onboarding.
+
+5. Diriqo architektura: kontext firmy, guardy, DAL a práce se soubory.
+
+6. Diriqo kontrola modulu: přečtená kontrola hodnoty odlišné od false; návaznosti jsou předmětem ověření.
+
+7. Diriqo dosavadní tarify: existující názvy a EUR konfigurace tarifů.
+
+8. Diriqo sdílená firemní konfigurace: současné modulové klíče a navazující nastavení.
+
+9. Diriqo zemská konfigurace: výchozí měny, jazyky a identifikační popisky.
+
+10. Supabase Row Level Security: aktuální primární podklad pro databázová pravidla, granty a privilegované přístupy.
+
+11. Supabase Storage access control: aktuální primární podklad pro přístup k souborům.
+
+Obchodní ceny, produktové balíčky, budoucí moduly a výchozí doby v této specifikaci jsou návrh pro Diriqo. Před veřejným použitím musí být v souladu s finálním ceníkem, podmínkami služby a skutečně ověřeným rozsahem aplikace. Hlavním technickým cílem zůstává funkční jádro, samostatný DiriPOS, oddělení firem a moduly, jejichž nárok se kontroluje na všech skutečných přístupových cestách.
+

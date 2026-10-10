@@ -1,0 +1,2 @@
+# Preserve the supplied specification byte-for-byte, including CRLF and its final blank line.
+docs/diriqo/source-specification-v0.1.txt -text whitespace=cr-at-eol,-blank-at-eof

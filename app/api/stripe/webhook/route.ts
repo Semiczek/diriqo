@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 
-import { getBillingIntervalByStripePriceId, getPlanKeyByStripePriceId, normalizePlanKey } from '@/lib/plans'
+import { getBillingIntervalByStripePriceId, getPlanKeyByStripePriceId } from '@/lib/plans'
+import { handleModulePaymentEvent } from '@/lib/platform/module-payment-handler'
 import { createSupabaseAdminClient } from '@/lib/supabase-admin'
 import { getStripe } from '@/lib/stripe'
 import type { SubscriptionStatus } from '@/lib/subscription'
@@ -115,6 +116,14 @@ async function syncSubscription(
   subscription: Stripe.Subscription,
   fallbackMetadata: Record<string, unknown> = {}
 ) {
+  // Never infer a legacy plan from metadata or an unknown add-on price.
+  const stripePriceId = getSubscriptionPriceId(subscription)
+  const planKey = getPlanKeyByStripePriceId(stripePriceId)
+  const billingInterval = getBillingIntervalByStripePriceId(stripePriceId)
+  if (!planKey || !billingInterval || subscription.items.has_more || subscription.items.data.length !== 1) {
+    throw new Error('Unrecognized legacy subscription price.')
+  }
+
   const metadata = {
     ...fallbackMetadata,
     ...getMetadata(subscription.metadata),
@@ -129,11 +138,6 @@ async function syncSubscription(
 
   if (!companyId) return
 
-  const stripePriceId = getSubscriptionPriceId(subscription)
-  const planKey = getPlanKeyByStripePriceId(stripePriceId) ?? normalizePlanKey(metadata.plan_key)
-  const billingInterval =
-    getBillingIntervalByStripePriceId(stripePriceId) ??
-    (getString(metadata.billing_interval) === 'yearly' ? 'yearly' : 'monthly')
   const status = mapStripeSubscriptionStatus(subscription.status)
   const subscriptionRecord = subscription as unknown as Record<string, unknown>
   const payload: Record<string, unknown> = {
@@ -167,23 +171,7 @@ async function syncSubscription(
 
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   const metadata = getMetadata(session.metadata)
-  const companyId = getString(metadata.company_id)
-  const stripeCustomerId = getObjectId(session.customer)
   const stripeSubscriptionId = getObjectId(session.subscription)
-
-  if (companyId && stripeCustomerId) {
-    const admin = createSupabaseAdminClient()
-    const { error } = await admin
-      .from('company_subscriptions')
-      .update({
-        stripe_customer_id: stripeCustomerId,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('company_id', companyId)
-
-    if (error) throw new Error(error.message)
-  }
-
   const subscription = await retrieveSubscription(stripeSubscriptionId)
   if (subscription) {
     await syncSubscription(subscription, metadata)
@@ -216,24 +204,9 @@ async function syncInvoiceSubscription(invoice: Stripe.Invoice) {
 }
 
 async function markInvoicePaymentFailed(invoice: Stripe.Invoice) {
-  const synced = await syncInvoiceSubscription(invoice)
-  if (synced) return
-
-  const admin = createSupabaseAdminClient()
-  const stripeCustomerId = getObjectId(invoice.customer)
-  if (!stripeCustomerId) return
-
-  const { error } = await admin
-    .from('company_subscriptions')
-    .update({
-      status: 'past_due',
-      updated_at: new Date().toISOString(),
-    })
-    .eq('stripe_customer_id', stripeCustomerId)
-
-  if (error) {
-    throw new Error(error.message)
-  }
+  // A customer can buy several independent modules. A customer-only match is
+  // insufficient evidence that an unrelated invoice belongs to the legacy plan.
+  await syncInvoiceSubscription(invoice)
 }
 
 export async function POST(request: NextRequest) {
@@ -253,23 +226,34 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid Stripe signature.' }, { status: 400 })
   }
 
-  switch (event.type) {
-    case 'checkout.session.completed':
-      await handleCheckoutCompleted(event.data.object as Stripe.Checkout.Session)
-      break
-    case 'customer.subscription.created':
-    case 'customer.subscription.updated':
-    case 'customer.subscription.deleted':
-      await syncSubscription(event.data.object as Stripe.Subscription)
-      break
-    case 'invoice.payment_succeeded':
-      await syncInvoiceSubscription(event.data.object as Stripe.Invoice)
-      break
-    case 'invoice.payment_failed':
-      await markInvoicePaymentFailed(event.data.object as Stripe.Invoice)
-      break
-    default:
-      break
+  try {
+    const moduleResult = await handleModulePaymentEvent(event, {
+      stripe: getStripe(),
+      admin: createSupabaseAdminClient(),
+    })
+    if (moduleResult.handled) return NextResponse.json({ received: true })
+
+    switch (event.type) {
+      case 'checkout.session.completed':
+        await handleCheckoutCompleted(event.data.object as Stripe.Checkout.Session)
+        break
+      case 'customer.subscription.created':
+      case 'customer.subscription.updated':
+      case 'customer.subscription.deleted':
+        await syncSubscription(event.data.object as Stripe.Subscription)
+        break
+      case 'invoice.payment_succeeded':
+        await syncInvoiceSubscription(event.data.object as Stripe.Invoice)
+        break
+      case 'invoice.payment_failed':
+        await markInvoicePaymentFailed(event.data.object as Stripe.Invoice)
+        break
+      default:
+        break
+    }
+  } catch {
+    // Non-2xx delivery lets Stripe retry missing orders and transient failures.
+    return NextResponse.json({ error: 'Stripe webhook processing failed.' }, { status: 500 })
   }
 
   return NextResponse.json({ received: true })

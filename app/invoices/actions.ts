@@ -8,7 +8,6 @@ import {
   DEFAULT_INVOICE_VAT_RATE,
   NON_VAT_PAYER_NOTE,
   addDaysToDate,
-  buildCustomerSnapshot,
   buildSupplierSnapshot,
   buildVariableSymbol,
   calculateInvoiceItem,
@@ -18,24 +17,9 @@ import {
 import { sendTransactionalEmail } from '@/lib/email/sendTransactionalEmail'
 import { buildInvoicePdf, type InvoicePdfItemRow, type InvoicePdfRow } from '@/lib/invoice-pdf-safe'
 import { requireHubAccess } from '@/lib/require-hub-access'
+import { issueInvoiceAtomic, deleteInvoiceDraftAtomic } from '@/lib/dal/invoices'
+import { createInvoiceFromJobsAtomic, InvoiceDraftError, invoiceDraftWriteError } from '@/lib/dal/invoice-drafts'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
-
-type JobRow = {
-  id: string
-  company_id: string
-  customer_id: string | null
-  title: string | null
-  description: string | null
-  price: number | null
-  status: string | null
-  start_at: string | null
-  end_at: string | null
-}
-
-type JobStateRow = {
-  id: string
-  work_state: string | null
-}
 
 type InvoiceRow = {
   id: string
@@ -231,205 +215,40 @@ function generatePohodaXmlContent(
 
 export async function createInvoiceFromJobs(formData: FormData) {
   const activeCompany = await requireHubAccess()
+  // A form left open before a company switch must never write into the new company.
+  if (getFormString(formData, 'companyId').toLowerCase() !== activeCompany.companyId.toLowerCase()) {
+    throw new InvoiceDraftError('Aktivní firma se změnila. Znovu otevřete tvorbu faktury v požadované firmě.')
+  }
   const supabase = await createSupabaseServerClient()
-  const customerId = getFormString(formData, 'customerId')
-  const jobIds = getFormIds(formData, 'jobIds')
-  const note = getFormString(formData, 'note') || null
-
-  if (!customerId) {
-    throw new Error('Vyberte zákazníka.')
-  }
-
-  if (jobIds.length === 0) {
-    throw new Error('Vyberte alespoň jednu zakázku.')
-  }
-
-  const now = new Date()
-  const issueDate = parseDateInput(getFormString(formData, 'issueDate'), now)
-  const taxableSupplyDate = parseDateInput(getFormString(formData, 'taxableSupplyDate'), issueDate)
-  const dueDate = parseDateInput(
-    getFormString(formData, 'dueDate'),
-    addDaysToDate(issueDate, DEFAULT_INVOICE_DUE_DAYS)
-  )
-  const invoiceYear = issueDate.getFullYear()
-
-  const [companyResponse, customerResponse, jobsResponse, statesResponse, activeLinksResponse] =
-    await Promise.all([
-      supabase
-        .from('companies')
-        .select(
-          'id, name, billing_name, company_number, vat_number, billing_street, billing_city, billing_postal_code, billing_country, bank_account_number, bank_code, iban, swift_bic, logo_url'
-        )
-        .eq('id', activeCompany.companyId)
-        .maybeSingle(),
-      supabase
-        .from('customers')
-        .select(
-          'id, name, email, phone, billing_name, billing_street, billing_city, billing_postal_code, billing_country, company_number, vat_number'
-        )
-        .eq('id', customerId)
-        .eq('company_id', activeCompany.companyId)
-        .maybeSingle(),
-      supabase
-        .from('jobs')
-        .select('id, company_id, customer_id, title, description, price, status, start_at, end_at')
-        .eq('company_id', activeCompany.companyId)
-        .eq('customer_id', customerId)
-        .in('id', jobIds),
-      supabase.from('jobs_with_state').select('id, work_state').in('id', jobIds),
-      supabase
-        .from('invoice_jobs')
-        .select('job_id')
-        .eq('company_id', activeCompany.companyId)
-        .eq('is_active', true)
-        .in('job_id', jobIds),
-    ])
-
-  if (companyResponse.error || !companyResponse.data) {
-    throw new Error(companyResponse.error?.message ?? 'Nepodařilo se načíst fakturační údaje firmy.')
-  }
-
-  if (customerResponse.error || !customerResponse.data) {
-    throw new Error(customerResponse.error?.message ?? 'Zákazník nebyl nalezen v aktivní firmě.')
-  }
-
-  if (jobsResponse.error) {
-    throw new Error(jobsResponse.error.message)
-  }
-
-  if (statesResponse.error) {
-    throw new Error(statesResponse.error.message)
-  }
-
-  if (activeLinksResponse.error) {
-    throw new Error(activeLinksResponse.error.message)
-  }
-
-  const jobs = (jobsResponse.data ?? []) as JobRow[]
-  if (jobs.length !== jobIds.length) {
-    throw new Error('Některé vybrané zakázky nepatří vybranému zákazníkovi nebo aktivní firmě.')
-  }
-
-  const alreadyInvoiced = new Set(
-    ((activeLinksResponse.data ?? []) as Array<{ job_id: string }>).map((item) => item.job_id)
-  )
-
-  if (alreadyInvoiced.size > 0) {
-    throw new Error('Některé vybrané zakázky už jsou na aktivní faktuře.')
-  }
-
-  const stateByJobId = new Map(
-    ((statesResponse.data ?? []) as JobStateRow[]).map((state) => [state.id, state.work_state])
-  )
-  const invalidJob = jobs.find((job) => {
-    const workState = stateByJobId.get(job.id)
-    return workState !== 'done' && job.status !== 'done'
+  const vatText = getFormString(formData, 'vatRate')
+  const vatRate = vatText === '' ? 0
+    : /^\d{1,3}(?:[.,]\d{1,2})?$/.test(vatText) ? Number(vatText.replace(',', '.')) : NaN
+  const result = await createInvoiceFromJobsAtomic({ supabase, companyId: activeCompany.companyId }, {
+    customerId: getFormString(formData, 'customerId'),
+    jobIds: formData.getAll('jobIds').map((value) => String(value).trim()),
+    issueDate: getFormString(formData, 'issueDate'),
+    taxableSupplyDate: getFormString(formData, 'taxableSupplyDate'),
+    dueDate: getFormString(formData, 'dueDate'),
+    vatRate,
+    note: getFormString(formData, 'note') || null,
+    requestId: getFormString(formData, 'requestId'),
   })
-
-  if (invalidJob) {
-    throw new Error(`Zakázka "${invalidJob.title ?? invalidJob.id}" ještě není hotová.`)
-  }
-
-  const jobsWithoutPrice = jobs.filter((job) => Number(job.price ?? 0) <= 0)
-  if (jobsWithoutPrice.length > 0) {
-    throw new Error('Všechny fakturované zakázky musí mít vyplněnou cenu.')
-  }
-
-  const supplierSnapshot = buildSupplierSnapshot(companyResponse.data)
-  const isVatPayer = supplierSnapshot.isVatPayer
-  const vatRate = isVatPayer ? parseVatRate(getFormString(formData, 'vatRate')) : 0
-  const invoiceNote = [note, isVatPayer ? null : NON_VAT_PAYER_NOTE]
-    .filter((value): value is string => Boolean(value?.trim()))
-    .join('\n')
-    .trim() || null
-
-  const itemCalculations = jobs.map((job) => ({
-    job,
-    calculation: calculateInvoiceItem(job.price, vatRate),
-  }))
-  const totals = sumInvoiceTotals(itemCalculations.map((item) => item.calculation))
-
-  const invoiceResponse = await supabase
-    .from('invoices')
-    .insert({
-      company_id: activeCompany.companyId,
-      customer_id: customerId,
-      invoice_year: invoiceYear,
-      status: 'draft',
-      currency: 'CZK',
-      issue_date: toDateInputValue(issueDate),
-      taxable_supply_date: toDateInputValue(taxableSupplyDate),
-      due_date: toDateInputValue(dueDate),
-      payment_method: 'bank_transfer',
-      is_vat_payer: isVatPayer,
-      vat_note: isVatPayer ? null : NON_VAT_PAYER_NOTE,
-      subtotal_without_vat: totals.subtotalWithoutVat,
-      vat_total: totals.vatTotal,
-      total_with_vat: totals.totalWithVat,
-      customer_snapshot: buildCustomerSnapshot(customerResponse.data),
-      supplier_snapshot: supplierSnapshot,
-      note: invoiceNote,
-      created_by: activeCompany.profileId,
-    })
-    .select('id')
-    .single()
-
-  if (invoiceResponse.error || !invoiceResponse.data?.id) {
-    throw new Error(invoiceResponse.error?.message ?? 'Fakturu se nepodařilo vytvořit.')
-  }
-
-  const invoiceId = invoiceResponse.data.id as string
-  const sortedItems = itemCalculations.sort((left, right) => {
-    const leftDate = left.job.end_at ?? left.job.start_at ?? ''
-    const rightDate = right.job.end_at ?? right.job.start_at ?? ''
-    return leftDate.localeCompare(rightDate)
-  })
-
-  const itemsPayload = sortedItems.map(({ job, calculation }, index) => ({
-    invoice_id: invoiceId,
-    sort_order: index + 1,
-    source_job_id: job.id,
-    item_name: job.title?.trim() || `Zakázka ${index + 1}`,
-    description: job.description ?? null,
-    quantity: 1,
-    unit: 'ks',
-    unit_price_without_vat: calculation.unitPriceWithoutVat,
-    vat_rate: calculation.vatRate,
-    vat_amount: calculation.vatTotal,
-    total_without_vat: calculation.subtotalWithoutVat,
-    total_with_vat: calculation.totalWithVat,
-    source_snapshot: {
-      jobId: job.id,
-      title: job.title,
-      description: job.description,
-      price: job.price,
-      startAt: job.start_at,
-      endAt: job.end_at,
-    },
-  }))
-
-  const invoiceJobsPayload = jobs.map((job) => ({
-    invoice_id: invoiceId,
-    job_id: job.id,
-    company_id: activeCompany.companyId,
-    customer_id: customerId,
-  }))
-
-  const [itemsInsertResponse, invoiceJobsInsertResponse] = await Promise.all([
-    supabase.from('invoice_items').insert(itemsPayload),
-    supabase.from('invoice_jobs').insert(invoiceJobsPayload),
-  ])
-
-  if (itemsInsertResponse.error) {
-    throw new Error(itemsInsertResponse.error.message)
-  }
-
-  if (invoiceJobsInsertResponse.error) {
-    throw new Error(invoiceJobsInsertResponse.error.message)
-  }
-
   revalidatePath('/invoices')
-  redirect(`/invoices/${invoiceId}`)
+  revalidatePath('/invoices/new')
+  redirect(`/invoices/${result.invoiceId}`)
+}
+
+export async function createInvoiceDraftAction(
+  _previousState: { error: string | null },
+  formData: FormData
+): Promise<{ error: string | null }> {
+  try {
+    await createInvoiceFromJobs(formData)
+    return { error: null }
+  } catch (error) {
+    unstable_rethrow(error)
+    return { error: error instanceof InvoiceDraftError ? error.message : invoiceDraftWriteError(null).message }
+  }
 }
 
 async function getInvoiceForAction(invoiceId: string) {
@@ -459,69 +278,14 @@ async function getInvoiceForAction(invoiceId: string) {
 
 export async function issueInvoice(formData: FormData) {
   const invoiceId = getFormString(formData, 'invoiceId')
-  const { activeCompany, supabase, invoice } = await getInvoiceForAction(invoiceId)
-
-  if (invoice.status !== 'draft') {
-    throw new Error('Vystavit lze jen fakturu ve stavu koncept.')
-  }
-
-  let invoiceNumber = invoice.invoice_number?.trim() || null
-  if (!invoiceNumber) {
-    const numberResponse = await supabase.rpc('next_invoice_number', {
-    target_company_id: activeCompany.companyId,
-    target_year: invoice.invoice_year,
-  })
-
-  if (numberResponse.error || !numberResponse.data) {
-    throw new Error(numberResponse.error?.message ?? 'Nepodařilo se přidělit číslo faktury.')
-  }
-
-    invoiceNumber = String(numberResponse.data)
-  }
-  const issuedAt = new Date().toISOString()
-  const linkedJobsResponse = await supabase
-    .from('invoice_jobs')
-    .select('job_id')
-    .eq('invoice_id', invoice.id)
-    .eq('company_id', activeCompany.companyId)
-    .eq('is_active', true)
-  if (linkedJobsResponse.error) throw new Error(linkedJobsResponse.error.message)
-
-  const linkedJobIds = (linkedJobsResponse.data ?? []).map((item) => item.job_id)
-  const [updateResponse, jobsResponse] = await Promise.all([
-    supabase
-      .from('invoices')
-      .update({
-        status: 'issued',
-        invoice_number: invoiceNumber,
-        variable_symbol: invoice.variable_symbol || buildVariableSymbol(invoiceNumber),
-        issued_at: issuedAt,
-      })
-      .eq('id', invoice.id)
-      .eq('company_id', activeCompany.companyId),
-    linkedJobIds.length > 0
-      ? supabase
-          .from('jobs')
-          .update({
-            billing_status: 'due',
-            invoiced_at: issuedAt,
-            due_date: invoice.due_date,
-            is_paid: false,
-          })
-          .eq('company_id', activeCompany.companyId)
-          .in('id', linkedJobIds)
-      : Promise.resolve({ error: null }),
-  ])
-
-  if (updateResponse.error) {
-    throw new Error(updateResponse.error.message)
-  }
-  if (jobsResponse.error) throw new Error(jobsResponse.error.message)
+  const activeCompany = await requireHubAccess()
+  const supabase = await createSupabaseServerClient()
+  const result = await issueInvoiceAtomic({ supabase, companyId: activeCompany.companyId }, invoiceId)
 
   revalidatePath('/invoices')
-  revalidatePath(`/invoices/${invoice.id}`)
+  revalidatePath(`/invoices/${result.invoiceId}`)
+  revalidatePath('/jobs')
 }
-
 export async function refreshDraftInvoiceSupplierSnapshot(formData: FormData) {
   const invoiceId = getFormString(formData, 'invoiceId')
   const { activeCompany, supabase, invoice } = await getInvoiceForAction(invoiceId)
@@ -1004,67 +768,13 @@ export async function cancelInvoice(formData: FormData) {
 
 export async function deleteInvoicePermanently(formData: FormData) {
   const invoiceId = getFormString(formData, 'invoiceId')
-  const { activeCompany, supabase, invoice } = await getInvoiceForAction(invoiceId)
-
-  if (invoice.pohoda_export_status === 'exported') {
-    throw new Error('Exportovanou fakturu nejde smazat natrvalo. Nejdřív je potřeba účetní storno postup.')
-  }
-
-  const linkedJobsResponse = await supabase
-    .from('invoice_jobs')
-    .select('job_id')
-    .eq('invoice_id', invoice.id)
-    .eq('company_id', activeCompany.companyId)
-    .eq('is_active', true)
-  if (linkedJobsResponse.error) throw new Error(linkedJobsResponse.error.message)
-
-  const linkedJobIds = (linkedJobsResponse.data ?? []).map((item) => item.job_id)
-  if (invoice.status !== 'draft' && linkedJobIds.length > 0) {
-    const jobsResponse = await supabase
-      .from('jobs')
-      .update({
-        billing_status: 'waiting_for_invoice',
-        invoiced_at: null,
-        due_date: null,
-        paid_at: null,
-        is_paid: false,
-      })
-      .eq('company_id', activeCompany.companyId)
-      .in('id', linkedJobIds)
-
-    if (jobsResponse.error) throw new Error(jobsResponse.error.message)
-  }
-
-  const [exportLinksResponse, invoiceJobsResponse, itemsResponse] = await Promise.all([
-    supabase
-      .from('pohoda_export_invoices')
-      .delete()
-      .eq('invoice_id', invoice.id)
-      .eq('company_id', activeCompany.companyId),
-    supabase
-      .from('invoice_jobs')
-      .delete()
-      .eq('invoice_id', invoice.id)
-      .eq('company_id', activeCompany.companyId),
-    supabase.from('invoice_items').delete().eq('invoice_id', invoice.id),
-  ])
-
-  if (exportLinksResponse.error) throw new Error(exportLinksResponse.error.message)
-  if (invoiceJobsResponse.error) throw new Error(invoiceJobsResponse.error.message)
-  if (itemsResponse.error) throw new Error(itemsResponse.error.message)
-
-  const invoiceResponse = await supabase
-    .from('invoices')
-    .delete()
-    .eq('id', invoice.id)
-    .eq('company_id', activeCompany.companyId)
-
-  if (invoiceResponse.error) throw new Error(invoiceResponse.error.message)
+  const activeCompany = await requireHubAccess()
+  const supabase = await createSupabaseServerClient()
+  await deleteInvoiceDraftAtomic({ supabase, companyId: activeCompany.companyId }, invoiceId)
 
   revalidatePath('/invoices')
   redirect('/invoices')
 }
-
 export async function exportInvoicesToPohoda(formData: FormData) {
   const activeCompany = await requireHubAccess()
   const supabase = await createSupabaseServerClient()

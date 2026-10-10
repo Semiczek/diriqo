@@ -14,6 +14,7 @@ export async function attemptSupportEntryAction(formData: FormData) {
   }
 
   await logSuperadminAction({
+    superadminAuthUserId: superadmin.authUserId,
     superadminProfileId: superadmin.profileId,
     companyId,
     action: 'company_entry_attempted',
@@ -34,6 +35,7 @@ export async function attemptSupportEntryAction(formData: FormData) {
   }
 
   await logSuperadminAction({
+    superadminAuthUserId: superadmin.authUserId,
     superadminProfileId: superadmin.profileId,
     companyId,
     action: 'company_entry_succeeded',
