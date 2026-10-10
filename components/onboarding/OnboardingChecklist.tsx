@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react'
+import styles from './onboarding.module.css'
 import Link from 'next/link'
 
 import {
@@ -90,404 +90,112 @@ export default function OnboardingChecklist({
   const nextStep = checklist.steps.find((step) => !step.done)
   const nextStepTitle = nextStep ? labels[stepContent[nextStep.key].titleKey] : null
 
-  if (checklist.isComplete && !forceOpen) {
-    return null
-  }
+  if (checklist.isComplete && !forceOpen) return null
 
   if (!shouldShowFull) {
     return (
-      <section style={bannerStyle}>
-        <div>
-          <strong>{labels.bannerTitle}: {progressText}</strong>
-          <p style={bannerTextStyle}>{labels.intro}</p>
+      <section className={styles.banner}>
+        <div className={styles.bannerHeading}>
+          <span className={styles.progressCount}>{progressText}</span>
+          <div>
+            <strong>{labels.bannerTitle}</strong>
+            {nextStepTitle ? <p>{nextStepTitle}</p> : null}
+          </div>
         </div>
-        <div style={bannerActionsStyle}>
-          <form action={reopenCompanyOnboardingAction}>
-            <button type="submit" style={secondaryButtonStyle}>
-              {labels.reopen}
-            </button>
-          </form>
-          <Link href="/?onboarding=open" style={primaryLinkStyle}>
-            {labels.continue}{nextStepTitle ? `: ${nextStepTitle}` : ''}
-          </Link>
-        </div>
+        <form action={reopenCompanyOnboardingAction}>
+          <button type="submit" className={styles.secondaryButton}>{labels.reopen}</button>
+        </form>
       </section>
     )
   }
 
   if (checklist.isComplete) {
     return (
-      <section style={panelStyle}>
-        <div style={panelHeaderStyle}>
-          <div>
-            <div style={eyebrowStyle}>{labels.progress} {progressText}</div>
-            <h2 style={titleStyle}>{labels.doneTitle}</h2>
-            <p style={introStyle}>{labels.doneText}</p>
-          </div>
-          <Link href="/" style={primaryLinkStyle}>
-            {labels.goDashboard}
-          </Link>
+      <section className={styles.completed}>
+        <span className={styles.completeMark} aria-hidden="true">✓</span>
+        <div className={styles.completeCopy}>
+          <h2>{labels.doneTitle}</h2>
+          <p>{labels.doneText}</p>
         </div>
+        <Link href="/" className={styles.secondaryButton}>{labels.goDashboard}</Link>
       </section>
     )
   }
 
   return (
-    <section style={panelStyle}>
-      <div style={panelHeaderStyle}>
+    <section className={styles.panel} aria-labelledby="company-setup-title">
+      <div className={styles.panelHeader}>
         <div>
-          <div style={eyebrowStyle}>{labels.progress} {progressText}</div>
-          <h2 style={titleStyle}>{labels.title}</h2>
-          <p style={introStyle}>{labels.intro}</p>
-          {nextStep ? (
-            <Link
-              href={nextStep.key === 'first_worker' ? '#onboarding-first_worker' : nextStep.href}
-              style={{ ...primaryLinkStyle, marginTop: 12 }}
-            >
-              {labels.continue}: {nextStepTitle}
-            </Link>
-          ) : null}
+          <p className={styles.eyebrow}>{labels.progress} {progressText}</p>
+          <h2 id="company-setup-title">{labels.title}</h2>
+          <p className={styles.intro}>{labels.intro}</p>
         </div>
         <form action={dismissCompanyOnboardingAction}>
-          <button type="submit" style={secondaryButtonStyle}>
-            {labels.minimize}
-          </button>
+          <button type="submit" className={styles.textButton}>{labels.minimize}</button>
         </form>
       </div>
 
-      <progress
-        value={checklist.completed}
-        max={checklist.total}
-        aria-label={`${labels.progress} ${progressText}`}
-        style={{ width: '100%', height: 8, accentColor: '#2563eb' }}
-      />
+      <progress value={checklist.completed} max={checklist.total}
+        aria-label={`${labels.progress} ${progressText}`} className={styles.progress} />
 
-      {errorMessage ? <div role="alert" style={errorStyle}>{errorMessage}</div> : null}
+      {errorMessage ? <div role="alert" className={styles.error}>{errorMessage}</div> : null}
 
-      <div style={stepsGridStyle}>
+      <div className={styles.steps}>
         {checklist.steps.map((step, index) => {
           const content = stepContent[step.key]
+          const isNext = step.key === nextStep?.key
           const isWorkerStep = step.key === 'first_worker'
 
           return (
-            <article
-              key={step.key}
-              id={`onboarding-${step.key}`}
-              style={step.done ? doneStepStyle : step.key === nextStep?.key ? nextStepStyle : stepStyle}
-            >
-              <div style={stepTopStyle}>
-                <span style={step.done ? doneBadgeStyle : badgeStyle}>
-                  {step.done ? 'OK' : String(index + 1)}
-                </span>
-                <div>
-                  <h3 style={stepTitleStyle}>{labels[content.titleKey]}</h3>
-                  <p style={stepTextStyle}>{labels[content.textKey]}</p>
-                </div>
-              </div>
+            <article key={step.key} id={`onboarding-${step.key}`}
+              className={`${styles.step} ${step.done ? styles.doneStep : isNext ? styles.nextStep : ''}`}>
+              <span className={`${styles.stepNumber} ${step.done ? styles.doneNumber : ''}`} aria-hidden="true">
+                {step.done ? '✓' : String(index + 1)}
+              </span>
+              <div className={styles.stepCopy}>
+                <h3>{labels[content.titleKey]}</h3>
+                {!step.done ? <p>{labels[content.textKey]}</p> : null}
 
-              {isWorkerStep && !step.done ? (
-                <div style={workerActionsStyle}>
-                  <form action={useMeAsWorkerAction} style={workerFormStyle}>
-                    <label style={fieldStyle}>
-                      <span style={labelStyle}>{labels.workerName}</span>
-                      <input
-                        name="full_name"
-                        defaultValue={checklist.profileName ?? checklist.profileEmail ?? ''}
-                        required
-                        style={inputStyle}
-                      />
-                    </label>
-                    <label style={fieldStyle}>
-                      <span style={labelStyle}>{labels.hourlyRate}</span>
-                      <input
-                        name="default_hourly_rate"
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        defaultValue={checklist.defaultHourlyRate ?? ''}
-                        required
-                        style={inputStyle}
-                      />
-                    </label>
-                    <label style={fieldStyle}>
-                      <span style={labelStyle}>{labels.workerType}</span>
-                      <select name="worker_type" defaultValue="employee" style={inputStyle}>
-                        <option value="employee">{labels.workerTypeInternal}</option>
-                        <option value="contractor">{labels.workerTypeExternal}</option>
-                      </select>
-                    </label>
-                    <button type="submit" style={primaryButtonStyle}>
-                      {labels.workerUseMe}
-                    </button>
-                  </form>
-                  <Link href={step.href} style={secondaryLinkStyle}>
-                    {labels.workerCreateNew}
-                  </Link>
-                </div>
-              ) : (
-                <div style={stepActionsStyle}>
-                  {step.done ? (
-                    <span style={doneTextStyle}>{labels.completeSetup}</span>
-                  ) : (
-                    <>
-                      <Link href={step.href} style={primaryLinkStyle} aria-label={`${labels.continue}: ${labels[content.titleKey]}`}>
-                        {labels[content.titleKey]}
-                      </Link>
-                      {step.key === 'company_profile' ? (
-                        <span style={skipTextStyle}>{labels.skip}</span>
-                      ) : null}
-                    </>
-                  )}
-                </div>
-              )}
+                {isWorkerStep && !step.done ? (
+                  <details className={styles.workerDetails} open={isNext || Boolean(errorMessage)}>
+                    <summary>{labels.workerUseMe}</summary>
+                    <form action={useMeAsWorkerAction} className={styles.workerForm}>
+                      <label className={styles.field}>
+                        <span>{labels.workerName}</span>
+                        <input name="full_name" defaultValue={checklist.profileName ?? checklist.profileEmail ?? ''}
+                          required className={styles.input} autoComplete="name" />
+                      </label>
+                      <div className={styles.fieldRow}>
+                        <label className={styles.field}>
+                          <span>{labels.hourlyRate}</span>
+                          <input name="default_hourly_rate" type="number" min="0" step="0.01"
+                            defaultValue={checklist.defaultHourlyRate ?? ''} required className={styles.input} inputMode="decimal" />
+                        </label>
+                        <label className={styles.field}>
+                          <span>{labels.workerType}</span>
+                          <select name="worker_type" defaultValue="employee" className={styles.input}>
+                            <option value="employee">{labels.workerTypeInternal}</option>
+                            <option value="contractor">{labels.workerTypeExternal}</option>
+                          </select>
+                        </label>
+                      </div>
+                      <div className={styles.workerActions}>
+                        <button type="submit" className={styles.primaryButton}>{labels.workerUseMe}</button>
+                        <Link href={step.href} className={styles.textButton}>{labels.workerCreateNew}</Link>
+                      </div>
+                    </form>
+                  </details>
+                ) : null}
+              </div>
+              {step.done ? <span className={styles.doneLabel}>{labels.completeSetup}</span>
+                : !isWorkerStep ? <Link href={step.href} className={isNext ? styles.primaryButton : styles.secondaryButton}
+                  aria-label={`${labels.continue}: ${labels[content.titleKey]}`}>
+                  {labels.continue}<span aria-hidden="true">→</span>
+                </Link> : null}
             </article>
           )
         })}
       </div>
     </section>
   )
-}
-
-const panelStyle: CSSProperties = {
-  display: 'grid',
-  gap: 18,
-  borderRadius: 8,
-  border: '1px solid rgba(37, 99, 235, 0.16)',
-  background: '#ffffff',
-  boxShadow: '0 14px 34px rgba(15, 23, 42, 0.07)',
-  padding: 20,
-}
-
-const panelHeaderStyle: CSSProperties = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'flex-start',
-  gap: 16,
-  flexWrap: 'wrap',
-}
-
-const eyebrowStyle: CSSProperties = {
-  fontSize: 12,
-  fontWeight: 900,
-  letterSpacing: '0.08em',
-  textTransform: 'uppercase',
-  color: '#2563eb',
-}
-
-const titleStyle: CSSProperties = {
-  margin: '7px 0',
-  color: '#0f172a',
-  fontSize: 24,
-  lineHeight: 1.15,
-}
-
-const introStyle: CSSProperties = {
-  margin: 0,
-  maxWidth: 680,
-  color: '#64748b',
-  fontSize: 14,
-  lineHeight: 1.6,
-  fontWeight: 650,
-}
-
-const stepsGridStyle: CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 240px), 1fr))',
-  gap: 12,
-}
-
-const stepStyle: CSSProperties = {
-  display: 'grid',
-  gap: 14,
-  alignContent: 'space-between',
-  borderRadius: 8,
-  border: '1px solid rgba(203, 213, 225, 0.9)',
-  background: '#f8fafc',
-  padding: 14,
-}
-
-const doneStepStyle: CSSProperties = {
-  ...stepStyle,
-  borderColor: '#bbf7d0',
-  background: '#f0fdf4',
-}
-
-const nextStepStyle: CSSProperties = {
-  ...stepStyle,
-  borderColor: '#93c5fd',
-  background: '#eff6ff',
-  scrollMarginTop: 20,
-}
-
-const stepTopStyle: CSSProperties = {
-  display: 'flex',
-  gap: 10,
-  alignItems: 'flex-start',
-}
-
-const badgeStyle: CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  width: 28,
-  height: 28,
-  borderRadius: 8,
-  background: '#dbeafe',
-  color: '#1d4ed8',
-  fontSize: 13,
-  fontWeight: 900,
-  flex: '0 0 auto',
-}
-
-const doneBadgeStyle: CSSProperties = {
-  ...badgeStyle,
-  background: '#bbf7d0',
-  color: '#166534',
-}
-
-const stepTitleStyle: CSSProperties = {
-  margin: '1px 0 5px',
-  color: '#0f172a',
-  fontSize: 16,
-  lineHeight: 1.25,
-}
-
-const stepTextStyle: CSSProperties = {
-  margin: 0,
-  color: '#64748b',
-  fontSize: 13,
-  lineHeight: 1.5,
-  fontWeight: 620,
-}
-
-const stepActionsStyle: CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 10,
-  flexWrap: 'wrap',
-}
-
-const workerActionsStyle: CSSProperties = {
-  display: 'grid',
-  gap: 10,
-}
-
-const workerFormStyle: CSSProperties = {
-  display: 'grid',
-  gap: 10,
-}
-
-const fieldStyle: CSSProperties = {
-  display: 'grid',
-  gap: 5,
-}
-
-const labelStyle: CSSProperties = {
-  color: '#334155',
-  fontSize: 12,
-  fontWeight: 850,
-}
-
-const inputStyle: CSSProperties = {
-  width: '100%',
-  boxSizing: 'border-box',
-  minHeight: 38,
-  borderRadius: 8,
-  border: '1px solid #cbd5e1',
-  padding: '8px 10px',
-  color: '#0f172a',
-  background: '#ffffff',
-  fontSize: 14,
-}
-
-const primaryButtonStyle: CSSProperties = {
-  border: 'none',
-  borderRadius: 8,
-  background: '#111827',
-  color: '#ffffff',
-  minHeight: 40,
-  padding: '9px 12px',
-  fontWeight: 900,
-  cursor: 'pointer',
-}
-
-const primaryLinkStyle: CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  minHeight: 38,
-  borderRadius: 8,
-  background: '#111827',
-  color: '#ffffff',
-  padding: '8px 12px',
-  textDecoration: 'none',
-  fontSize: 14,
-  fontWeight: 900,
-}
-
-const secondaryButtonStyle: CSSProperties = {
-  borderRadius: 8,
-  border: '1px solid #cbd5e1',
-  background: '#ffffff',
-  color: '#0f172a',
-  minHeight: 38,
-  padding: '8px 12px',
-  fontSize: 14,
-  fontWeight: 850,
-  cursor: 'pointer',
-}
-
-const secondaryLinkStyle: CSSProperties = {
-  ...primaryLinkStyle,
-  background: '#ffffff',
-  color: '#0f172a',
-  border: '1px solid #cbd5e1',
-}
-
-const doneTextStyle: CSSProperties = {
-  color: '#166534',
-  fontSize: 13,
-  fontWeight: 900,
-}
-
-const skipTextStyle: CSSProperties = {
-  color: '#64748b',
-  fontSize: 13,
-  fontWeight: 800,
-}
-
-const bannerStyle: CSSProperties = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  gap: 14,
-  flexWrap: 'wrap',
-  borderRadius: 8,
-  border: '1px solid rgba(37, 99, 235, 0.16)',
-  background: '#ffffff',
-  boxShadow: '0 12px 28px rgba(15, 23, 42, 0.06)',
-  padding: '14px 16px',
-}
-
-const bannerTextStyle: CSSProperties = {
-  margin: '4px 0 0',
-  color: '#64748b',
-  fontSize: 13,
-  fontWeight: 650,
-}
-
-const bannerActionsStyle: CSSProperties = {
-  display: 'flex',
-  gap: 10,
-  flexWrap: 'wrap',
-}
-
-const errorStyle: CSSProperties = {
-  borderRadius: 8,
-  border: '1px solid #fecaca',
-  background: '#fef2f2',
-  color: '#991b1b',
-  padding: '10px 12px',
-  fontSize: 14,
-  fontWeight: 750,
 }

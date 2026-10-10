@@ -2,6 +2,8 @@
 
 import { createContext, startTransition, useActionState, useContext, useState, type FormEvent, type ReactNode } from 'react'
 
+import styles from '@/components/OperationalUI.module.css'
+import { primaryButtonStyle } from '@/components/SaasPageLayout'
 import { alertSurface, panelSurface } from '@/components/ui/styles'
 import { createInvoiceDraftAction } from '../actions'
 
@@ -71,7 +73,7 @@ export default function InvoiceCreateForm({ children, companyId, requestId, avai
       onSubmit={submitDraft}
       onChange={updatePreview}
       aria-busy={pending}
-      className="invoice-create-form"
+      className={styles.form}
       style={{ display: 'grid', gap: '16px' }}
     >
       <input type="hidden" name="companyId" value={companyId} />
@@ -86,21 +88,22 @@ export default function InvoiceCreateForm({ children, companyId, requestId, avai
           {children}
         </VatRateContext.Provider>
         <section style={{ ...panelSurface, padding: '16px', display: 'flex', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
-          <div style={{ display: 'grid', gap: '4px' }} aria-live="polite" aria-atomic="true">
-            <strong>Součet vybraných zakázek v náhledu ({selectedJobs.length})</strong>
-            <span style={{ color: '#6b7280' }}>
+          <div className={styles.total} aria-live="polite" aria-atomic="true">
+            <span className={styles.formHint}>Celkem za vybrané zakázky ({selectedJobs.length})</span>
+            <strong>{selection.vatRate === null ? '—' : currencyFormatter.format(totals.total / 100)}</strong>
+            <span className={styles.formHint}>
               {selection.vatRate === null ? 'Vyplňte platnou sazbu DPH od 0 do 100 %.' : (
-                <>Bez DPH {currencyFormatter.format(totals.subtotal / 100)} | DPH {selection.vatRate}% {currencyFormatter.format(totals.vat / 100)} | Celkem {currencyFormatter.format(totals.total / 100)}</>
+                <>Bez DPH {currencyFormatter.format(totals.subtotal / 100)} · DPH {selection.vatRate}% {currencyFormatter.format(totals.vat / 100)}</>
               )}
             </span>
-            <span style={{ color: '#6b7280', fontSize: '13px' }}>Ceny se při vytvoření znovu ověří.</span>
+            <span className={styles.formHint}>Uloží se koncept. Před vystavením jej ještě zkontrolujete.</span>
           </div>
           <button
             type="submit"
             disabled={cannotSubmit}
-            style={{ borderRadius: '14px', border: 'none', backgroundColor: cannotSubmit ? '#9ca3af' : '#111827', color: '#ffffff', minHeight: '50px', padding: '12px 18px', fontWeight: 900, cursor: cannotSubmit ? 'default' : 'pointer' }}
+            style={{ ...primaryButtonStyle, opacity: cannotSubmit ? 0.6 : 1, cursor: cannotSubmit ? 'default' : 'pointer' }}
           >
-            {pending ? 'Vytvářím fakturu…' : 'Vytvořit fakturu'}
+            {pending ? 'Ukládám koncept…' : 'Uložit koncept faktury'}
           </button>
         </section>
       </fieldset>

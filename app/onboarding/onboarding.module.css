@@ -1,0 +1,30 @@
+.page { display: grid; align-items: center; justify-items: center; min-height: 100svh; padding: 48px 24px; background: #f5f6fa; color: #202534; }
+.shell { display: grid; gap: 16px; width: min(100%, 660px); }
+.header { padding-bottom: 16px; text-align: center; }
+.brand { display: inline-flex; align-items: center; gap: 9px; margin-bottom: 36px; font-size: 20px; font-weight: 700; letter-spacing: -.04em; }
+.brand span { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; color: #fff; background: #6d4aff; border-radius: 9px; font-size: 22px; }
+.company { margin: 0 0 10px; color: #6d4aff; font-size: 12px; font-weight: 600; }
+.header h1 { margin: 0; color: #202534; font-size: clamp(30px, 5vw, 38px); font-weight: 650; line-height: 1.2; letter-spacing: -.04em; }
+.header > p:last-child { margin: 14px auto 0; max-width: 460px; color: #717684; font-size: 15px; line-height: 1.7; }
+.recommendedCard { display: grid; gap: 22px; padding: 28px; background: #fff; border: 1px solid #ded5fb; border-radius: 16px; }
+.cardTop { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.icon { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; background: #f1ecff; color: #6d4aff; border-radius: 12px; font-size: 26px; }
+.badge { padding: 6px 10px; color: #69508f; background: #f5f1ff; border-radius: 6px; font-size: 12px; }
+.recommendedCard h2 { margin: 0; font-size: 23px; font-weight: 650; letter-spacing: -.025em; line-height: 1.3; }
+.recommendedCard p, .secondaryCard p { margin: 8px 0 0; color: #717684; font-size: 14px; line-height: 1.65; }
+.primaryButton, .secondaryButton, .textButton { display: inline-flex; align-items: center; justify-content: center; gap: 16px; min-height: 44px; padding: 10px 16px; border: 1px solid transparent; border-radius: 9px; cursor: pointer; font-size: 14px; line-height: 1.5; font-weight: 600; transition: background .15s ease; }
+.primaryButton { background: #6d4aff; color: #fff; min-height: 48px; }
+.primaryButton:hover { background: #5935e7; }
+.primaryButton span { margin-left: auto; }
+.secondaryCard { display: flex; gap: 24px; align-items: center; justify-content: space-between; padding: 24px 28px; background: #fff; border: 1px solid #e5e7ed; border-radius: 14px; }
+.secondaryCard h2 { margin: 0; font-size: 16px; line-height: 1.5; font-weight: 650; letter-spacing: -.015em; }
+.secondaryCard p { font-size: 13px; margin-top: 5px; }
+.secondaryButton { flex-shrink: 0; color: #545b69; background: #fff; border-color: #e1e4eb; font-size: 13px; }
+.secondaryButton:hover { background: #f5f6fa; }
+.skipForm { justify-self: center; margin-top: 4px; }
+.textButton { color: #697080; background: transparent; font-size: 13px; }
+.textButton:hover { color: #6d4aff; background: #f0ebff; }
+.footnote { margin: 0; color: #717684; font-size: 12px; line-height: 1.65; text-align: center; }
+.primaryButton:focus-visible, .secondaryButton:focus-visible, .textButton:focus-visible { outline: 3px solid #b9a8ff; outline-offset: 3px; }
+@media (max-width: 580px) { .page { padding: 28px 18px; } .brand { margin-bottom: 26px; } .recommendedCard, .secondaryCard { padding: 22px; } .secondaryCard { flex-direction: column; align-items: stretch; gap: 18px; } .badge { font-size: 11px; } }
+@media (prefers-reduced-motion: reduce) { .primaryButton, .secondaryButton, .textButton { transition: none; } }

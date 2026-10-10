@@ -3,6 +3,9 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import type { CSSProperties } from 'react'
 
+import styles from '@/components/OperationalUI.module.css'
+import { heroCardStyle as headerStyle, heroTitleStyle as titleStyle, heroTextStyle as subtitleStyle, eyebrowStyle, secondaryButtonStyle as backLinkStyle, primaryButtonStyle } from '@/components/SaasPageLayout'
+
 import DashboardShell from '@/components/DashboardShell'
 import InvoiceCreateForm, { InvoiceCreateItemTotal } from './InvoiceCreateForm'
 import InvoiceOverviewFilterForm from './InvoiceOverviewFilterForm'
@@ -156,60 +159,6 @@ const pageStyle: CSSProperties = {
   color: '#111827',
 }
 
-const headerStyle: CSSProperties = {
-  display: 'flex',
-  alignItems: 'flex-end',
-  justifyContent: 'space-between',
-  gap: '16px',
-  flexWrap: 'wrap',
-  padding: '24px',
-  borderRadius: '22px',
-  border: '1px solid rgba(148, 163, 184, 0.24)',
-  background: 'rgba(255,255,255,0.9)',
-  boxShadow: '0 18px 44px rgba(15, 23, 42, 0.08)',
-}
-
-const eyebrowStyle: CSSProperties = {
-  margin: '0 0 7px',
-  color: '#2563eb',
-  fontSize: '12px',
-  fontWeight: 900,
-  letterSpacing: '0.06em',
-  textTransform: 'uppercase',
-}
-
-const titleStyle: CSSProperties = {
-  margin: 0,
-  color: '#0f172a',
-  fontSize: '38px',
-  lineHeight: 1.08,
-  fontWeight: 900,
-}
-
-const subtitleStyle: CSSProperties = {
-  margin: '9px 0 0',
-  color: '#64748b',
-  fontSize: '16px',
-  lineHeight: 1.55,
-  fontWeight: 650,
-  maxWidth: '760px',
-}
-
-const backLinkStyle: CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  minHeight: '40px',
-  padding: '9px 14px',
-  borderRadius: '999px',
-  border: '1px solid rgba(148, 163, 184, 0.36)',
-  backgroundColor: '#ffffff',
-  color: '#0f172a',
-  textDecoration: 'none',
-  fontSize: '14px',
-  fontWeight: 850,
-}
-
 export default async function NewInvoicePage({ searchParams }: PageProps) {
   const activeCompany = await requireHubAccess()
   const params = await searchParams
@@ -323,7 +272,7 @@ export default async function NewInvoicePage({ searchParams }: PageProps) {
             <p style={eyebrowStyle}>Fakturace</p>
             <h1 style={titleStyle}>Nová faktura</h1>
             <p style={subtitleStyle}>
-              Vyberte zákazníka a měsíc. Do návrhu faktury nabídneme hotové nevyfakturované zakázky vedené v Kč. Ceny se při vytvoření znovu ověří.
+              Vyberte zákazníka, zkontrolujte zakázky a uložte koncept faktury.
             </p>
           </div>
           <Link href="/invoices" style={backLinkStyle}>
@@ -331,17 +280,26 @@ export default async function NewInvoicePage({ searchParams }: PageProps) {
           </Link>
         </header>
 
+        <ol className={styles.steps} aria-label="Postup vytvoření faktury">
+          <li aria-current={!customerId ? 'step' : undefined}><span>1</span> Zákazník</li>
+          <li aria-current={customerId ? 'step' : undefined}><span>2</span> Kontrola údajů</li>
+          <li><span>3</span> Uložení konceptu</li>
+        </ol>
+
         {previousMonthReadyJobs.length > 0 ? (
-          <section
+          <details
             style={{
               ...panelStyle,
               padding: '18px',
               display: 'grid',
               gap: '14px',
               borderColor: 'rgba(245, 158, 11, 0.34)',
-              background: 'linear-gradient(135deg, #fffbeb 0%, #ffffff 72%)',
+              background: '#fffdf8',
             }}
           >
+            <summary style={{ minHeight: 44, cursor: 'pointer', fontSize: 14, fontWeight: 600 }}>
+              Nefakturované zakázky z minulého měsíce · {previousMonthReadyJobs.length}
+            </summary>
             <div
               style={{
                 display: 'flex',
@@ -380,7 +338,7 @@ export default async function NewInvoicePage({ searchParams }: PageProps) {
 
             <div className="invoice-ready-overview">
               {previousMonthJobGroups.slice(0, 3).map((group) => (
-                <article key={group.customerId} className="invoice-ready-customer invoice-ready-customer-warning">
+                <article key={group.customerId} className={styles.invoiceReadyCustomer}>
                   <div style={{ display: 'grid', gap: '8px' }}>
                     <div
                       style={{
@@ -419,18 +377,18 @@ export default async function NewInvoicePage({ searchParams }: PageProps) {
                   </div>
                   <Link
                     href={`/invoices/new?customerId=${encodeURIComponent(group.customerId)}&month=${encodeURIComponent(previousMonth)}`}
-                    className="invoice-ready-action invoice-ready-action-warning"
+                    style={primaryButtonStyle}
                   >
                     Fakturovat minulý měsíc
                   </Link>
                 </article>
               ))}
             </div>
-          </section>
+          </details>
         ) : null}
 
         <InvoiceOverviewFilterForm
-          className="invoice-create-filter"
+          className={styles.form}
           style={{
             ...panelStyle,
             padding: '18px',
@@ -452,7 +410,7 @@ export default async function NewInvoicePage({ searchParams }: PageProps) {
             <div>
               <h2 style={sectionTitleStyle}>1. Vyberte zákazníka</h2>
               <p style={{ margin: '7px 0 0', color: '#64748b', lineHeight: 1.5, fontWeight: 650 }}>
-                Faktura se vždy vystavuje pro jednoho zákazníka. Když zatím nevyberete žádného, níže uvidíte přehled všech hotových zakázek připravených k fakturaci.
+                Vyberte jednoho zákazníka a měsíc dokončení zakázek.
               </p>
             </div>
             <div
@@ -471,14 +429,7 @@ export default async function NewInvoicePage({ searchParams }: PageProps) {
             </div>
           </div>
 
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'minmax(220px, 1fr) minmax(180px, 240px) auto',
-              gap: '14px',
-              alignItems: 'end',
-            }}
-          >
+<div className={styles.filterRow}>
             <label>
               <span>Zákazník</span>
               <select
@@ -559,7 +510,7 @@ export default async function NewInvoicePage({ searchParams }: PageProps) {
               <div>
                 <h2 style={sectionTitleStyle}>Hotové zakázky k fakturaci</h2>
                 <p style={{ margin: '7px 0 0', color: '#64748b', lineHeight: 1.5, fontWeight: 650 }}>
-                  Přehled ukazuje zakázky za vybraný měsíc, které jsou hotové, mají cenu a ještě nejsou na aktivní faktuře.
+                  Hotové zakázky s vyplněnou cenou, které ještě nejsou na faktuře.
                 </p>
               </div>
               <div
@@ -599,7 +550,7 @@ export default async function NewInvoicePage({ searchParams }: PageProps) {
             ) : (
               <div className="invoice-ready-overview">
                 {customerJobGroups.map((group) => (
-                  <article key={group.customerId} className="invoice-ready-customer">
+                  <article key={group.customerId} className={styles.invoiceReadyCustomer}>
                     <div style={{ display: 'grid', gap: '8px' }}>
                       <div
                         style={{
@@ -638,7 +589,7 @@ export default async function NewInvoicePage({ searchParams }: PageProps) {
                     </div>
                     <Link
                       href={`/invoices/new?customerId=${encodeURIComponent(group.customerId)}&month=${encodeURIComponent(selectedMonth)}`}
-                      className="invoice-ready-action"
+                      style={primaryButtonStyle}
                     >
                       Fakturovat zákazníka
                     </Link>
@@ -669,7 +620,7 @@ export default async function NewInvoicePage({ searchParams }: PageProps) {
                 gap: '16px',
               }}
             >
-              <h2 style={sectionTitleStyle}>Doklad</h2>
+              <h2 style={sectionTitleStyle}>2. Zkontrolujte údaje faktury</h2>
               {!isVatPayer ? (
                 <div
                   style={{
@@ -751,55 +702,32 @@ export default async function NewInvoicePage({ searchParams }: PageProps) {
               </label>
             </section>
 
-            <section
-              style={{
-                ...panelStyle,
-                overflowX: 'auto',
-              }}
-            >
-              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '760px' }}>
-                <thead>
-                  <tr style={{ textAlign: 'left', backgroundColor: '#f9fafb' }}>
-                    <th style={{ padding: '12px', width: '44px' }} />
-                    <th style={{ padding: '12px' }}>Zakázka</th>
-                    <th style={{ padding: '12px' }}>Termín</th>
-                    <th style={{ padding: '12px', textAlign: 'right' }}>Cena bez DPH</th>
-                    <th style={{ padding: '12px', textAlign: 'right' }}>Celkem s DPH</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {availableJobs.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} style={{ padding: '18px', color: '#6b7280' }}>
-                        Pro zákazníka nejsou hotové nevyfakturované zakázky s vyplněnou cenou.
-                      </td>
-                    </tr>
-                  ) : (
-                    availableJobs.map((job) => (
-                      <tr key={job.id} style={{ borderTop: '1px solid #e5e7eb' }}>
-                        <td style={{ padding: '12px' }}>
-                          <input type="checkbox" name="jobIds" value={job.id} aria-label={`Fakturovat zakázku ${job.title ?? job.id}`} defaultChecked />
-                        </td>
-                        <td style={{ padding: '12px' }}>
-                          <strong>{job.title ?? 'Zakázka bez názvu'}</strong>
-                          <div style={{ color: '#6b7280', fontSize: '12px', marginTop: '4px' }}>
-                            {job.description ?? '-'}
-                          </div>
-                        </td>
-                        <td style={{ padding: '12px' }}>
-                          {formatDate(job.start_at)} - {formatDate(job.end_at)}
-                        </td>
-                        <td style={{ padding: '12px', textAlign: 'right', fontWeight: 800 }}>
-                          {formatCurrency(job.price)}
-                        </td>
-                        <td style={{ padding: '12px', textAlign: 'right', fontWeight: 800 }}>
-                          <InvoiceCreateItemTotal price={Number(job.price ?? 0)} />
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+            <section style={{ ...panelStyle, padding: 18, display: 'grid', gap: 16 }}>
+              <div>
+                <h2 style={sectionTitleStyle}>Zakázky na faktuře</h2>
+                <p className={styles.formHint}>Ponechte zaškrtnuté zakázky, které chcete fakturovat.</p>
+              </div>
+              {availableJobs.length === 0 ? (
+                <div className={styles.empty}>Pro zákazníka nejsou hotové nevyfakturované zakázky s vyplněnou cenou.</div>
+              ) : (
+                <div className={styles.list}>
+                  {availableJobs.map((job) => (
+                    <label key={job.id} className={styles.invoiceJob}>
+                      <input type="checkbox" name="jobIds" value={job.id} aria-label={`Fakturovat zakázku ${job.title ?? job.id}`} defaultChecked />
+                      <span className={styles.resourceBody}>
+                        <strong className={styles.resourceTitle}>{job.title ?? 'Zakázka bez názvu'}</strong>
+                        <span className={styles.meta}>{formatDate(job.start_at)} – {formatDate(job.end_at)}</span>
+                        {job.description ? <span className={styles.meta}>{job.description}</span> : null}
+                        <span className={styles.meta}>Bez DPH {formatCurrency(job.price)}</span>
+                      </span>
+                      <span className={styles.invoiceJobTotal}>
+                        <strong><InvoiceCreateItemTotal price={Number(job.price ?? 0)} /></strong>
+                        <span>včetně DPH</span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              )}
             </section>
 
           </InvoiceCreateForm>

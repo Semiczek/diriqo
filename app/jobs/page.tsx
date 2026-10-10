@@ -6,6 +6,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { CSSProperties, DragEvent } from 'react'
 
 import DashboardShell from '../../components/DashboardShell'
+import { primaryButtonStyle, secondaryButtonStyle } from '@/components/SaasPageLayout'
+import styles from '@/components/OperationalUI.module.css'
 import { resolveCompanyTimeZone } from '@/lib/company-timezone'
 import { useI18n } from '../../components/I18nProvider'
 import type { JobsMessages } from '@/lib/i18n/dictionaries/types'
@@ -408,57 +410,15 @@ const jobMetricValue: CSSProperties = {
 type PremiumStatusTone = 'blue' | 'orange' | 'green' | 'amber' | 'red' | 'gray'
 
 function getPremiumStatusTone(tone: PremiumStatusTone): CSSProperties {
-  if (tone === 'green') {
-    return {
-      background: 'linear-gradient(135deg, rgba(220,252,231,0.98), rgba(187,247,208,0.92))',
-      border: '1px solid rgba(34,197,94,0.50)',
-      color: '#047857',
-      boxShadow: '0 10px 24px rgba(34,197,94,0.20), 0 0 0 3px rgba(34,197,94,0.08)',
-    }
+  const tones = {
+    green: { backgroundColor: '#edf7f2', color: '#287454' },
+    orange: { backgroundColor: '#fff5e9', color: '#99611f' },
+    blue: { backgroundColor: '#f0edff', color: '#6748c2' },
+    red: { backgroundColor: '#fff0f1', color: '#b04452' },
+    amber: { backgroundColor: '#fff7e9', color: '#99611f' },
+    gray: { backgroundColor: '#f3f3f6', color: '#717684' },
   }
-
-  if (tone === 'orange') {
-    return {
-      background: 'linear-gradient(135deg, rgba(255,237,213,0.98), rgba(254,215,170,0.92))',
-      border: '1px solid rgba(249,115,22,0.52)',
-      color: '#c2410c',
-      boxShadow: '0 10px 24px rgba(249,115,22,0.20), 0 0 0 3px rgba(249,115,22,0.08)',
-    }
-  }
-
-  if (tone === 'blue') {
-    return {
-      background: 'linear-gradient(135deg, rgba(219,234,254,0.98), rgba(207,250,254,0.90))',
-      border: '1px solid rgba(37,99,235,0.46)',
-      color: '#1d4ed8',
-      boxShadow: '0 10px 24px rgba(37,99,235,0.18), 0 0 0 3px rgba(37,99,235,0.07)',
-    }
-  }
-
-  if (tone === 'red') {
-    return {
-      background: 'linear-gradient(135deg, rgba(254,226,226,0.98), rgba(254,202,202,0.90))',
-      border: '1px solid rgba(239,68,68,0.52)',
-      color: '#b91c1c',
-      boxShadow: '0 10px 24px rgba(239,68,68,0.20), 0 0 0 3px rgba(239,68,68,0.08)',
-    }
-  }
-
-  if (tone === 'amber') {
-    return {
-      background: 'linear-gradient(135deg, rgba(254,243,199,0.98), rgba(253,230,138,0.90))',
-      border: '1px solid rgba(245,158,11,0.52)',
-      color: '#b45309',
-      boxShadow: '0 10px 24px rgba(245,158,11,0.20), 0 0 0 3px rgba(245,158,11,0.08)',
-    }
-  }
-
-  return {
-    background: 'linear-gradient(135deg, rgba(248,250,252,0.98), rgba(226,232,240,0.90))',
-    border: '1px solid rgba(100,116,139,0.34)',
-    color: '#475569',
-    boxShadow: '0 10px 24px rgba(100,116,139,0.14), 0 0 0 3px rgba(100,116,139,0.06)',
-  }
+  return tones[tone]
 }
 
 function getLocalizedWorkStatusPanel(
@@ -529,7 +489,7 @@ const statusPanelStack: CSSProperties = {
   justifyContent: 'flex-end',
   alignItems: 'flex-start',
   gap: '12px',
-  minWidth: '300px',
+  minWidth: 0,
 }
 
 const statusPanelItem: CSSProperties = {
@@ -541,31 +501,28 @@ const statusPanelItem: CSSProperties = {
 const statusPanelLabel: CSSProperties = {
   color: '#64748b',
   fontSize: '11px',
-  fontWeight: 900,
-  letterSpacing: '0.08em',
-  textTransform: 'uppercase',
+  fontWeight: 500,
 }
 
 const statusPanelBadge: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   gap: '9px',
-  minHeight: '42px',
-  padding: '12px 16px',
-  borderRadius: '18px',
+  minHeight: '28px',
+  padding: '6px 9px',
+  borderRadius: '7px',
   fontSize: '14px',
   lineHeight: 1,
-  fontWeight: 850,
+  fontWeight: 600,
   whiteSpace: 'nowrap',
-  backdropFilter: 'blur(14px)',
 }
 
 const statusPanelIcon: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
-  width: '22px',
-  height: '22px',
+  width: '16px',
+  height: '16px',
   borderRadius: '999px',
   backgroundColor: 'rgba(255,255,255,0.74)',
   color: 'inherit',
@@ -1419,16 +1376,9 @@ export default function JobsPage() {
 
   function getFilterButtonStyle(active: boolean) {
     return {
-      padding: '9px 13px',
-      borderRadius: '999px',
-      border: active ? '1px solid #2563eb' : '1px solid #cbd5e1',
-      background: active
-        ? 'linear-gradient(135deg, #7c3aed 0%, #2563eb 100%)'
-        : '#ffffff',
-      color: active ? '#ffffff' : '#334155',
-      fontWeight: 800,
-      cursor: 'pointer',
-      boxShadow: active ? '0 10px 22px rgba(37, 99, 235, 0.18)' : 'none',
+      minHeight: '44px', padding: '9px 14px', borderRadius: '9px',
+      border: '1px solid transparent', background: active ? '#f0ebff' : 'transparent',
+      color: active ? '#6342d0' : '#717684', fontWeight: active ? 650 : 500, cursor: 'pointer',
     } as const
   }
 
@@ -1512,667 +1462,169 @@ export default function JobsPage() {
 
   return (
     <DashboardShell activeItem="jobs">
-      <div
-        style={{
-          position: 'relative',
-          overflow: 'hidden',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          gap: '14px',
-          marginBottom: '12px',
-          flexWrap: 'wrap',
-          padding: '18px 20px',
-          borderRadius: '20px',
-          background:
-            'linear-gradient(135deg, rgba(250,245,255,0.96) 0%, rgba(239,246,255,0.94) 52%, rgba(236,254,255,0.9) 100%)',
-          border: '1px solid rgba(203, 213, 225, 0.78)',
-          boxShadow: '0 12px 32px rgba(15, 23, 42, 0.065)',
-        }}
-      >
-        <div>
-          <div style={{ display: 'inline-flex', marginBottom: '8px', padding: '4px 9px', borderRadius: '999px', backgroundColor: 'rgba(255,255,255,0.72)', border: '1px solid rgba(124,58,237,0.2)', color: '#5b21b6', fontSize: '11px', fontWeight: 900 }}>
-            {dictionary.jobs.eyebrow}
+      <main className={styles.page}>
+        <header className={styles.header}>
+          <div>
+            <h1 className={styles.title}>{dictionary.jobs.title}</h1>
+            <p className={styles.subtitle}>{dictionary.jobs.subtitle}</p>
           </div>
-          <h1 style={{ fontSize: '32px', margin: 0, color: '#0f172a', lineHeight: 1.08 }}>
-            {dictionary.jobs.title}
-          </h1>
-          <p style={{ margin: '7px 0 0', color: '#64748b', lineHeight: 1.45, fontSize: '14px' }}>
-            {dictionary.jobs.subtitle}
-          </p>
-        </div>
-
-        <div
-          style={{
-            display: 'grid',
-            gap: '8px',
-            minWidth: 'min(100%, 360px)',
-          }}
-        >
-          <div data-tour="jobs-overview-summary" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(82px, 1fr))', gap: '8px' }}>
-            {[
-              [dictionary.jobs.total, groupedJobBlocks.length],
-              [dictionary.jobs.today, jobsTodayCount],
-              [dictionary.jobs.done, jobsDoneCount],
-              [dictionary.jobs.readyForInvoice, jobsWaitingInvoiceCount],
-            ].map(([label, value]) => (
-              <div key={label} style={{ padding: '9px 11px', borderRadius: '14px', backgroundColor: 'rgba(255,255,255,0.72)', border: '1px solid rgba(226,232,240,0.9)' }}>
-                <div style={{ color: '#64748b', fontSize: '12px', fontWeight: 800 }}>{label}</div>
-                <div style={{ color: '#0f172a', fontSize: '22px', fontWeight: 900 }}>{value}</div>
-              </div>
-            ))}
-          </div>
-          <Link
-            href="/jobs/new"
-            data-tour="new-job-button"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px',
-              minHeight: '36px',
-              padding: '8px 12px',
-              borderRadius: '999px',
-              background: 'linear-gradient(135deg, #7c3aed 0%, #2563eb 52%, #06b6d4 100%)',
-              color: 'white',
-              textDecoration: 'none',
-              fontSize: '14px',
-              fontWeight: 900,
-              boxShadow: '0 10px 22px rgba(37, 99, 235, 0.16)',
-              justifySelf: 'end',
-            }}
-          >
-            {dictionary.jobs.newJob.replace(/^\+\s*/, '')}
+          <Link href="/jobs/new" data-tour="new-job-button" style={primaryButtonStyle}>
+            + {dictionary.jobs.newJob.replace(/^\+\s*/, '')}
           </Link>
-        </div>
-      </div>
+        </header>
 
-      <div
-        data-tour="jobs-filters"
-        style={{
-          display: 'grid',
-          gap: '14px',
-          marginBottom: '22px',
-          padding: '18px',
-          borderRadius: '22px',
-          backgroundColor: '#ffffff',
-          border: '1px solid rgba(226, 232, 240, 0.9)',
-          boxShadow: '0 14px 34px rgba(15, 23, 42, 0.06)',
-        }}
-      >
-        <div
-          style={{
-            display: 'grid',
-            gap: '10px',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
-            alignItems: 'center',
-          }}
-        >
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(event) => {
-              const nextValue = event.target.value
-              setSearchTerm(nextValue)
-              updateSearchParams({ q: nextValue })
-            }}
-            placeholder={dictionary.jobs.searchPlaceholder}
-            style={{
-              padding: '12px 14px',
-              borderRadius: '10px',
-              border: '1px solid #d1d5db',
-              backgroundColor: '#ffffff',
-              color: '#111827',
-              fontSize: '14px',
-            }}
-          />
-
-          <select
-            value={selectedCustomerId}
-            onChange={(event) => {
-              const nextValue = event.target.value
-              setSelectedCustomerId(nextValue)
-              updateSearchParams({ customer: nextValue })
-            }}
-            style={{
-              padding: '12px 14px',
-              borderRadius: '10px',
-              border: '1px solid #d1d5db',
-              backgroundColor: '#ffffff',
-              color: '#111827',
-              fontSize: '14px',
-            }}
-          >
-            <option value="">{dictionary.jobs.allCustomers}</option>
-            {customerOptions.map((customer) => (
-              <option key={customer.id} value={customer.id}>
-                {customer.name ?? dictionary.jobs.customerMissing}
-              </option>
-            ))}
-          </select>
-
-          <label
-            style={{
-              position: 'relative',
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '10px',
-              padding: '12px 14px',
-              borderRadius: '10px',
-              border: '1px solid #d1d5db',
-              backgroundColor: '#ffffff',
-              color: '#111827',
-              fontSize: '14px',
-              fontWeight: 700,
-              minHeight: '44px',
-              cursor: 'pointer',
-            }}
-          >
-            <span>{formatMonthInputLabel(selectedMonth, dateLocale)}</span>
-            <span
-              aria-hidden="true"
-              style={{
-                width: '14px',
-                height: '14px',
-                border: '2px solid currentColor',
-                borderRadius: '3px',
-                boxSizing: 'border-box',
-                opacity: 0.75,
-              }}
-            />
-            <input
-              type="month"
-              value={selectedMonth}
-              onChange={(event) => {
-                const nextValue = event.target.value
-                setSelectedMonth(nextValue)
-                updateSearchParams({ month: nextValue })
-              }}
-              aria-label={dictionary.jobs.month}
-              style={{
-                position: 'absolute',
-                inset: 0,
-                width: '100%',
-                height: '100%',
-                opacity: 0,
-                cursor: 'pointer',
-              }}
-            />
-          </label>
-
-          <select
-            value={sort}
-            onChange={(event) => {
-              const nextValue = parseSortParam(event.target.value)
-              setSort(nextValue)
-              updateSearchParams({ sort: nextValue })
-            }}
-            style={{
-              padding: '12px 14px',
-              borderRadius: '10px',
-              border: '1px solid #d1d5db',
-              backgroundColor: '#ffffff',
-              color: '#111827',
-              fontSize: '14px',
-            }}
-          >
-            <option value="date_asc">{dictionary.jobs.sortDateAsc}</option>
-            <option value="date_desc">{dictionary.jobs.sortDateDesc}</option>
-            <option value="customer_asc">{dictionary.jobs.sortCustomerAsc}</option>
-            <option value="title_asc">{dictionary.jobs.sortTitleAsc}</option>
-          </select>
-
-          <button
-            type="button"
-            onClick={() => setAdvancedFiltersOpen((current) => !current)}
-            aria-expanded={advancedFiltersOpen}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              minHeight: '44px',
-              padding: '12px 16px',
-              borderRadius: '12px',
-              border: advancedFiltersOpen ? '1px solid #2563eb' : '1px solid #cbd5e1',
-              background: advancedFiltersOpen
-                ? 'linear-gradient(135deg, #eef2ff 0%, #ecfeff 100%)'
-                : '#ffffff',
-              color: '#0f172a',
-              fontSize: '14px',
-              fontWeight: 900,
-              cursor: 'pointer',
-            }}
-          >
-            {dictionary.jobs.filters}
-          </button>
-
-        </div>
-
-        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
-          {quickFilters.map((quickFilter) => (
-            <button
-              key={quickFilter.value}
-              type="button"
-              onClick={() => applyFilter(quickFilter.value)}
-              style={getFilterButtonStyle(filter === quickFilter.value)}
-            >
-              {quickFilter.label}
-            </button>
+        <div data-tour="jobs-overview-summary" className={styles.stats}>
+          {[
+            [dictionary.jobs.total, groupedJobBlocks.length],
+            [dictionary.jobs.today, jobsTodayCount],
+            [dictionary.jobs.done, jobsDoneCount],
+            [dictionary.jobs.readyForInvoice, jobsWaitingInvoiceCount],
+          ].map(([label, value]) => (
+            <div key={label} className={styles.stat}><span>{label}</span><strong>{loading ? '—' : value}</strong></div>
           ))}
         </div>
 
-        {advancedFiltersOpen ? (
-          <div
-            style={{
-              display: 'grid',
-              gap: '14px',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-              padding: '14px',
-              borderRadius: '18px',
-              border: '1px solid #dbeafe',
-              background: 'linear-gradient(135deg, #f8fafc 0%, #eef6ff 100%)',
-            }}
-          >
-            {advancedFilterGroups.map((group) => (
-              <div key={group.title} style={{ display: 'grid', gap: '8px' }}>
-                <div style={{ color: '#64748b', fontSize: '12px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  {group.title}
-                </div>
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                  {group.options.map((option) => (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() => applyFilter(option.value)}
-                      style={getFilterButtonStyle(filter === option.value)}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
+        <div data-tour="jobs-filters" className={styles.filterPanel}>
+          <div className={styles.filterRow}>
+            <label className={styles.field}>
+              <span>{locale === 'cs' ? 'Hledat zakázku' : locale === 'de' ? 'Aufträge suchen' : 'Find a job'}</span>
+              <input type="search" value={searchTerm} placeholder={dictionary.jobs.searchPlaceholder} className={styles.input}
+                onChange={(event) => { setSearchTerm(event.target.value); updateSearchParams({ q: event.target.value }) }} />
+            </label>
+            <label className={styles.field}>
+              <span>{dictionary.jobs.month}</span>
+              <input type="month" value={selectedMonth} className={styles.input}
+                onChange={(event) => { setSelectedMonth(event.target.value); updateSearchParams({ month: event.target.value }) }} />
+            </label>
+            <button type="button" style={secondaryButtonStyle} aria-expanded={advancedFiltersOpen} aria-controls="job-extra-filters"
+              onClick={() => setAdvancedFiltersOpen((current) => !current)}>
+              {dictionary.jobs.filters}{selectedCustomerId || sort !== 'date_asc' ? ' •' : ''}
+            </button>
+          </div>
+          <div className={styles.tabs}>
+            {quickFilters.map((quickFilter) => (
+              <button key={quickFilter.value} type="button" onClick={() => applyFilter(quickFilter.value)}
+                aria-pressed={filter === quickFilter.value} style={getFilterButtonStyle(filter === quickFilter.value)}>
+                {quickFilter.label}
+              </button>
             ))}
           </div>
-        ) : null}
-      </div>
-
-      {error && (
-        <div
-          data-tour="jobs-list"
-          style={{
-            marginBottom: '16px',
-            padding: '12px 14px',
-            borderRadius: '10px',
-            backgroundColor: '#fef2f2',
-            border: '1px solid #fecaca',
-            color: '#991b1b',
-          }}
-        >
-          <strong>{dictionary.jobs.loadError}</strong>
-          {process.env.NODE_ENV === 'development' ? (
-            <div style={{ marginTop: '6px', fontSize: '12px', opacity: 0.75 }}>{error}</div>
+          {advancedFiltersOpen ? (
+            <div id="job-extra-filters" className={styles.filterDetails}>
+              <label className={styles.field}>
+                <span>{dictionary.jobs.customerLabel}</span>
+                <select value={selectedCustomerId} className={styles.input}
+                  onChange={(event) => { setSelectedCustomerId(event.target.value); updateSearchParams({ customer: event.target.value }) }}>
+                  <option value="">{dictionary.jobs.allCustomers}</option>
+                  {customerOptions.map((customer) => <option key={customer.id} value={customer.id}>{customer.name ?? dictionary.jobs.customerMissing}</option>)}
+                </select>
+              </label>
+              <label className={styles.field}>
+                <span>{locale === 'cs' ? 'Řazení' : locale === 'de' ? 'Sortierung' : 'Sort by'}</span>
+                <select value={sort} className={styles.input}
+                  onChange={(event) => { const nextValue = parseSortParam(event.target.value); setSort(nextValue); updateSearchParams({ sort: nextValue }) }}>
+                  <option value="date_asc">{dictionary.jobs.sortDateAsc}</option>
+                  <option value="date_desc">{dictionary.jobs.sortDateDesc}</option>
+                  <option value="customer_asc">{dictionary.jobs.sortCustomerAsc}</option>
+                  <option value="title_asc">{dictionary.jobs.sortTitleAsc}</option>
+                </select>
+              </label>
+              {advancedFilterGroups.map((group) => (
+                <div key={group.title} className={styles.field}>
+                  <span>{group.title}</span>
+                  <div className={styles.tabs}>
+                    {group.options.map((option) => (
+                      <button key={option.value} type="button" onClick={() => applyFilter(option.value)}
+                        aria-pressed={filter === option.value} style={getFilterButtonStyle(filter === option.value)}>{option.label}</button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
           ) : null}
         </div>
-      )}
 
-      {dropMessage ? (
-        <div
-          style={{
-            marginBottom: '16px',
-            padding: '12px 14px',
-            borderRadius: '10px',
-    backgroundColor: dropMessage.includes('vytvořena') ? '#f0fdf4' : '#fef2f2',
-    border: dropMessage.includes('vytvořena') ? '1px solid #bbf7d0' : '1px solid #fecaca',
-    color: dropMessage.includes('vytvořena') ? '#166534' : '#991b1b',
-            fontWeight: 800,
-          }}
-        >
-          {dropMessage}
-        </div>
-      ) : null}
+        {error ? <div role="alert" className={styles.empty}>{dictionary.jobs.loadError}</div> : null}
+        {dropMessage ? <div role="status" className={styles.empty}>{dropMessage}</div> : null}
 
-      {loading ? (
-        <p>{dictionary.jobs.loading}</p>
-      ) : filteredJobs.length === 0 ? (
-        <div
-          style={{
-            border: '1px solid #e5e7eb',
-            borderRadius: '16px',
-            padding: '20px',
-            backgroundColor: '#ffffff',
-          }}
-        >
-          <div style={{ display: 'grid', gap: '12px', justifyItems: 'start' }}>
-            <div style={{ fontSize: '18px', fontWeight: 900, color: '#0f172a' }}>
-              {dictionary.jobs.emptyTitle}
-            </div>
-            <Link
-              href="/jobs/new"
-              style={{
-                display: 'inline-flex',
-                padding: '11px 15px',
-                borderRadius: '999px',
-                background: 'linear-gradient(135deg, #7c3aed 0%, #2563eb 52%, #14b8a6 100%)',
-                color: '#ffffff',
-                textDecoration: 'none',
-                fontWeight: 900,
-              }}
-            >
-              {dictionary.jobs.createJob}
-            </Link>
+        {loading ? (
+          <div role="status" className={styles.empty}>{dictionary.jobs.loading}</div>
+        ) : error ? null : filteredJobs.length === 0 ? (
+          <div className={styles.empty}>
+            <h2>{dictionary.jobs.emptyTitle}</h2>
+            <p>{locale === 'cs' ? 'Zkuste jiný měsíc nebo upravte filtry. Novou zakázku založíte jedním tlačítkem.' : locale === 'de' ? 'Wählen Sie einen anderen Monat oder ändern Sie die Filter.' : 'Try another month or adjust the filters.'}</p>
+            <Link href="/jobs/new" style={primaryButtonStyle}>{dictionary.jobs.createJob}</Link>
           </div>
-        </div>
-      ) : (
-        <div data-tour="jobs-list" style={{ display: 'grid', gap: '16px' }}>
-          {filteredJobs.map((job) => {
-            const childJobs = job.memberJobs.filter((memberJob) => memberJob.id !== job.id)
-            const hasChildJobs = childJobs.length > 0
-            const parentQuery = searchParams.toString()
-            return (
-            <div
-              key={job.id}
-              draggable
-              onDragStart={(event) => startDraggingJob(event, job.id)}
-              onDragEnd={stopDraggingJob}
-              onDragOver={(event) => {
-                if (!draggingJobId || draggingJobId === job.id) return
-                event.preventDefault()
-                event.dataTransfer.dropEffect = 'move'
-                setDropTargetJobId(job.id)
-              }}
-              onDragLeave={() => setDropTargetJobId((current) => (current === job.id ? null : current))}
-              onDrop={(event) => {
-                event.preventDefault()
-                event.stopPropagation()
-                const childJobId = getDraggedJobId(event)
-                setDropTargetJobId(null)
-                setDraggingJobId(null)
-                if (childJobId) void createGroupFromDroppedJobs(childJobId, job.id)
-              }}
-              style={{
-                display: 'grid',
-                gap: hasChildJobs ? '10px' : '0',
-                outline: dropTargetJobId === job.id ? '2px solid #2563eb' : 'none',
-                outlineOffset: '4px',
-                borderRadius: '24px',
-                cursor: draggingJobId === job.id ? 'grabbing' : 'grab',
-              }}
-            >
-            <Link
-              href={`/jobs/${job.id}${parentQuery ? `?${parentQuery}` : ''}`}
-              className="jobs-premium-link"
-              style={{ display: 'block', textDecoration: 'none', color: 'inherit', cursor: 'pointer' }}
-            >
-              <div
-                className="jobs-premium-card"
-                style={{
-                  border: '1px solid rgba(226, 232, 240, 0.92)',
-                  borderTop: '2px solid rgba(124,58,237,0.25)',
-                  borderRadius: '22px',
-                  padding: '22px 24px',
-                  backgroundColor: '#ffffff',
-                  boxShadow: '0 12px 40px rgba(0,0,0,0.08)',
-                  transition: 'transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease',
-                }}
-              >
-                <div
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    gap: '16px',
-                    alignItems: 'flex-start',
-                    flexWrap: 'wrap',
-                    marginBottom: '12px',
-                  }}
-                >
-                  <div style={{ minWidth: 0 }}>
-                      <h2 style={{ margin: '0 0 8px 0', fontSize: '26px', lineHeight: 1.18, fontWeight: 900, color: '#0f172a' }}>
-                        {job.title ?? dictionary.jobs.untitledJob}
-                      </h2>
-                      {job.is_internal ? (
-                        <div style={{ marginBottom: '8px' }}>
-                          <span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 10px', borderRadius: '999px', backgroundColor: '#fff7ed', color: '#9a3412', border: '1px solid #fdba74', fontSize: '12px', fontWeight: 700 }}>
-                            {dictionary.jobs.internalJob}
-                          </span>
-                        </div>
-                      ) : null}
-
-                      <div style={{ color: '#6b7280', fontSize: '14px', display: 'grid', gap: '4px' }}>
-                      <div>
-                        <strong>{dictionary.jobs.customerLabel}:</strong>{' '}
-                        {job.customerName ?? dictionary.jobs.customerMissing}
-                      </div>
-                      <div>
-                        <strong>{dictionary.jobs.startLabel}:</strong>{' '}
-                        {formatDateTimePrague(job.start_at, dateLocale, companyTimeZone)}
-                      </div>
-                      <div>
-                        <strong>{dictionary.jobs.endLabel}:</strong>{' '}
-                        {formatDateTimePrague(job.end_at, dateLocale, companyTimeZone)}
-                      </div>
-                      <div>
-                        <strong>{dictionary.jobs.nextShift}:</strong>{' '}
-                        {job.nextShiftAt
-                          ? formatDateTimePrague(
-                              job.nextShiftAt,
-                              dateLocale,
-                              companyTimeZone
-                            )
-                          : '—'}
-                      </div>
-                      <div>
-                        <strong>{dictionary.jobs.lastActivity}:</strong>{' '}
-                        {job.lastShiftAt
-                          ? formatDateTimePrague(
-                              job.lastShiftAt,
-                              dateLocale,
-                              companyTimeZone
-                            )
-                          : '—'}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div style={statusPanelStack}>
-                    {(() => {
-                      const workStatus = getLocalizedWorkStatusPanel(job.timeStateResolved, job.workStateResolved, dictionary.jobs)
-                      const billingState = job.canShowBillingState
-                        ? getVisibleBillingState(job.workStateResolved, job.billingStateResolvedFinal)
-                        : null
-                      const billingStatus = billingState ? getLocalizedBillingStatusPanel(billingState, dictionary.jobs) : null
-
-                      return (
-                        <>
-                          <StatusPanel
-                            title={dictionary.jobs.work}
-                            icon={workStatus.icon}
-                            label={workStatus.label}
-                            tone={workStatus.tone}
-                          />
-                          {billingStatus ? (
-                            <StatusPanel
-                              title={dictionary.jobs.billing}
-                              icon={billingStatus.icon}
-                              label={billingStatus.label}
-                              tone={billingStatus.tone}
-                            />
-                          ) : null}
-                        </>
-                      )
-                    })()}
-                    <div style={{ width: '100%', color: hasChildJobs ? '#1d4ed8' : '#64748b', fontSize: '13px', fontWeight: 900, textAlign: 'right' }}>
-                      {hasChildJobs ? dictionary.jobs.summaryJob : dictionary.jobs.standaloneJob}
-                    </div>
-                  </div>
-                </div>
-
-                <div style={jobMetricGrid}>
-                  <div style={jobMetricTile}><div style={jobMetricLabel}>{dictionary.jobs.price}</div><div style={{ ...jobMetricValue, fontSize: '20px' }}>{formatCurrency(toNumber(job.price))}</div></div>
-                  <div style={jobMetricTile}><div style={jobMetricLabel}>{dictionary.jobs.laborCosts}</div><div style={{ ...jobMetricValue, color: '#334155' }}>{formatCurrency(job.laborCost)}</div></div>
-                  <div style={jobMetricTile}><div style={jobMetricLabel}>{dictionary.jobs.otherCosts}</div><div style={{ ...jobMetricValue, color: '#334155' }}>{formatCurrency(job.otherCost)}</div></div>
-                  <div style={jobMetricTile}><div style={jobMetricLabel}>{dictionary.jobs.profit}</div><div style={{ ...jobMetricValue, fontSize: '21px', color: job.profit >= 0 ? '#047857' : '#b91c1c' }}>{formatCurrency(job.profit)}</div></div>
-                </div>
-
-                <div style={{ display: 'grid', gap: '12px', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', marginBottom: '12px' }}>
-                  <div><div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>{dictionary.jobs.childJobs}</div><div style={{ fontWeight: 700 }}>{job.memberJobsCount}</div></div>
-                  <div><div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>{dictionary.jobs.shiftsInGroup}</div><div style={{ fontWeight: 700 }}>{job.shiftCount}</div></div>
-                  <div><div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>{dictionary.jobs.assignedWorkers}</div><div style={{ fontWeight: 700 }}>{job.assignedCount}</div></div>
-                  <div><div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>{dictionary.jobs.activelyWorking}</div><div style={{ fontWeight: 700 }}>{job.activeCount}</div></div>
-                  <div><div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>{dictionary.jobs.completed}</div><div style={{ fontWeight: 700 }}>{job.completedCount}</div></div>
-                  <div><div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>{dictionary.jobs.notStartedWorkers}</div><div style={{ fontWeight: 700 }}>{job.notStartedCount}</div></div>
-                </div>
-
-                <div style={{ color: '#6b7280', fontSize: '14px', marginBottom: '10px' }}>
-                  <strong>{dictionary.jobs.groupRange}:</strong>{' '}
-                  {formatDateTimePrague(job.groupStartAt, dateLocale, companyTimeZone)}
-                  {' '}–{' '}
-                  {formatDateTimePrague(job.groupEndAt, dateLocale, companyTimeZone)}
-                </div>
-
-                <div style={{ color: '#6b7280', fontSize: '14px' }}>
-                  <strong>{dictionary.jobs.workers}:</strong>{' '}
-                  {job.workers.length > 0 ? job.workers.join(', ') : dictionary.jobs.noWorkersAssigned}
-                </div>
-
-                {job.memberJobsCount > 1 ? (
-                  <div style={{ color: '#6b7280', fontSize: '14px', marginTop: '10px' }}>
-                    <strong>{dictionary.jobs.grouped}:</strong>{' '}
-                    {job.memberJobs
-                      .map((memberJob) => memberJob.title ?? dictionary.jobs.untitledJob)
-                      .join(', ')}
-                  </div>
-                ) : null}
-              </div>
-            </Link>
-
-            {childJobs.map((childJob) => {
-              const childQuery = searchParams.toString()
+        ) : (
+          <div data-tour="jobs-list" className={styles.list}>
+            {filteredJobs.map((job) => {
+              const childJobs = job.memberJobs.filter((memberJob) => memberJob.id !== job.id)
+              const parentQuery = searchParams.toString()
+              const workStatus = getLocalizedWorkStatusPanel(job.timeStateResolved, job.workStateResolved, dictionary.jobs)
+              const billingState = job.canShowBillingState ? getVisibleBillingState(job.workStateResolved, job.billingStateResolvedFinal) : null
+              const billingStatus = billingState ? getLocalizedBillingStatusPanel(billingState, dictionary.jobs) : null
               return (
-                <div
-                  key={childJob.id}
-                  draggable
-                  onDragStart={(event) => {
-                    event.stopPropagation()
-                    startDraggingJob(event, childJob.id)
+                <div key={job.id} draggable className={styles.jobGroup}
+                  onDragStart={(event) => startDraggingJob(event, job.id)} onDragEnd={stopDraggingJob}
+                  onDragOver={(event) => {
+                    if (!draggingJobId || draggingJobId === job.id) return
+                    event.preventDefault(); event.dataTransfer.dropEffect = 'move'; setDropTargetJobId(job.id)
                   }}
-                  onDragEnd={stopDraggingJob}
-                  style={{
-                    display: 'block',
-                    marginLeft: '28px',
-                    paddingLeft: '16px',
-                    borderLeft: '4px solid #bfdbfe',
-                    cursor: draggingJobId === childJob.id ? 'grabbing' : 'grab',
+                  onDragLeave={() => setDropTargetJobId((current) => current === job.id ? null : current)}
+                  onDrop={(event) => {
+                    event.preventDefault(); event.stopPropagation()
+                    const childJobId = getDraggedJobId(event)
+                    setDropTargetJobId(null); setDraggingJobId(null)
+                    if (childJobId) void createGroupFromDroppedJobs(childJobId, job.id)
                   }}
-                >
-                  <Link
-                    href={`/jobs/${childJob.id}${childQuery ? `?${childQuery}` : ''}`}
-                    className="jobs-premium-link"
-                    style={{
-                      display: 'block',
-                      textDecoration: 'none',
-                      color: 'inherit',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    <div
-                      className="jobs-premium-card"
-                      style={{
-                        border: '1px solid rgba(226, 232, 240, 0.92)',
-                        borderTop: '2px solid rgba(124,58,237,0.25)',
-                        borderRadius: '18px',
-                        padding: '18px 20px',
-                        backgroundColor: '#ffffff',
-                        boxShadow: '0 12px 40px rgba(0,0,0,0.08)',
-                        transition: 'transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease',
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          gap: '16px',
-                          alignItems: 'flex-start',
-                          flexWrap: 'wrap',
-                          marginBottom: '12px',
-                        }}
-                      >
-                        <div style={{ minWidth: 0 }}>
-                          <h3 style={{ margin: '0 0 8px 0', fontSize: '23px', lineHeight: 1.2, fontWeight: 900, color: '#0f172a' }}>
-                            {childJob.title ?? dictionary.jobs.untitledJob}
-                          </h3>
-                          {childJob.is_internal ? (
-                            <div style={{ marginBottom: '8px' }}>
-                              <span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 10px', borderRadius: '999px', backgroundColor: '#fff7ed', color: '#9a3412', border: '1px solid #fdba74', fontSize: '12px', fontWeight: 700 }}>
-                                {dictionary.jobs.internalJob}
-                              </span>
-                            </div>
-                          ) : null}
-                          <div style={{ color: '#6b7280', fontSize: '14px', display: 'grid', gap: '4px' }}>
-                          <div>
-                            <strong>{dictionary.jobs.customerLabel}:</strong>{' '}
-                            {childJob.customerName ?? dictionary.jobs.customerMissing}
-                          </div>
-                          <div>
-                            <strong>{dictionary.jobs.startLabel}:</strong>{' '}
-                            {formatDateTimePrague(childJob.start_at, dateLocale, companyTimeZone)}
-                          </div>
-                          <div>
-                            <strong>{dictionary.jobs.endLabel}:</strong>{' '}
-                            {formatDateTimePrague(childJob.end_at, dateLocale, companyTimeZone)}
-                          </div>
+                  style={{ outline: dropTargetJobId === job.id ? '2px solid #6d4aff' : undefined, outlineOffset: 3 }}>
+                  <Link href={`/jobs/${job.id}${parentQuery ? `?${parentQuery}` : ''}`} className={styles.jobCard}>
+                    <div className={styles.jobHeader}>
+                      <div className={styles.resourceBody}>
+                        <h2 className={styles.jobTitle}>{job.title ?? dictionary.jobs.untitledJob}</h2>
+                        <div className={styles.meta}>
+                          <span>{job.customerName ?? dictionary.jobs.customerMissing}</span>
+                          {job.is_internal ? <span>{dictionary.jobs.internalJob}</span> : null}
                         </div>
                       </div>
-
                       <div style={statusPanelStack}>
-                        {(() => {
-                          const workStatus = getLocalizedWorkStatusPanel(childJob.timeStateResolved, childJob.workStateResolved, dictionary.jobs)
-                          const billingState = getVisibleBillingState(childJob.workStateResolved, childJob.billingStateResolvedFinal)
-                          const billingStatus = billingState ? getLocalizedBillingStatusPanel(billingState, dictionary.jobs) : null
-
-                          return (
-                            <>
-                              <StatusPanel
-                                title={dictionary.jobs.work}
-                                icon={workStatus.icon}
-                                label={workStatus.label}
-                                tone={workStatus.tone}
-                              />
-                              {billingStatus ? (
-                                <StatusPanel
-                                  title={dictionary.jobs.billing}
-                                  icon={billingStatus.icon}
-                                  label={billingStatus.label}
-                                  tone={billingStatus.tone}
-                                />
-                              ) : null}
-                            </>
-                          )
-                        })()}
-                        <div style={{ width: '100%', color: '#64748b', fontSize: '13px', fontWeight: 900, textAlign: 'right' }}>
-                          {dictionary.jobs.relatedJob}
-                        </div>
+                        <StatusPanel title={dictionary.jobs.work} icon={workStatus.icon} label={workStatus.label} tone={workStatus.tone} />
+                        {billingStatus ? <StatusPanel title={dictionary.jobs.billing} icon={billingStatus.icon} label={billingStatus.label} tone={billingStatus.tone} /> : null}
                       </div>
                     </div>
-
-                    <div style={{ ...jobMetricGrid, gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
-                      <div style={jobMetricTile}><div style={jobMetricLabel}>{dictionary.jobs.price}</div><div style={jobMetricValue}>{formatCurrency(toNumber(childJob.price))}</div></div>
-                      <div style={jobMetricTile}><div style={jobMetricLabel}>{dictionary.jobs.laborCosts}</div><div style={{ ...jobMetricValue, color: '#334155' }}>{formatCurrency(childJob.laborCost)}</div></div>
-                      <div style={jobMetricTile}><div style={jobMetricLabel}>{dictionary.jobs.otherCosts}</div><div style={{ ...jobMetricValue, color: '#334155' }}>{formatCurrency(childJob.otherCost)}</div></div>
-                      <div style={jobMetricTile}><div style={jobMetricLabel}>{dictionary.jobs.profit}</div><div style={{ ...jobMetricValue, color: childJob.profit >= 0 ? '#047857' : '#b91c1c' }}>{formatCurrency(childJob.profit)}</div></div>
-                      <div><div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>{dictionary.jobs.assignedWorkers}</div><div style={{ fontWeight: 700 }}>{childJob.assignedCount}</div></div>
-                      <div><div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>{dictionary.jobs.completed}</div><div style={{ fontWeight: 700 }}>{childJob.completedCount}</div></div>
+                    <div className={styles.meta}>
+                      <span>{dictionary.jobs.startLabel}: {formatDateTimePrague(job.start_at, dateLocale, companyTimeZone)}</span>
+                      <span>{dictionary.jobs.endLabel}: {formatDateTimePrague(job.end_at, dateLocale, companyTimeZone)}</span>
                     </div>
-                  </div>
+                    <div className={styles.jobFooter}>
+                      <span>{job.workers.length > 0 ? job.workers.join(', ') : dictionary.jobs.noWorkersAssigned}</span>
+                      {childJobs.length ? <span>{dictionary.jobs.childJobs}: {childJobs.length}</span> : null}
+                      <strong>{dictionary.jobs.price}: {job.price === null ? '—' : formatCurrency(toNumber(job.price))}</strong>
+                    </div>
                   </Link>
+                  {childJobs.map((childJob) => {
+                    const childStatus = getLocalizedWorkStatusPanel(childJob.timeStateResolved, childJob.workStateResolved, dictionary.jobs)
+                    return (
+                      <div key={childJob.id} draggable className={styles.childJob}
+                        onDragStart={(event) => { event.stopPropagation(); startDraggingJob(event, childJob.id) }} onDragEnd={stopDraggingJob}>
+                        <Link href={`/jobs/${childJob.id}${parentQuery ? `?${parentQuery}` : ''}`} className={styles.jobCard}>
+                          <div className={styles.jobHeader}>
+                            <div className={styles.resourceBody}>
+                              <h3 className={styles.resourceTitle}>{childJob.title ?? dictionary.jobs.untitledJob}</h3>
+                              <div className={styles.meta}>{formatDateTimePrague(childJob.start_at, dateLocale, companyTimeZone)} · {dictionary.jobs.relatedJob}</div>
+                            </div>
+                            <StatusPanel title={dictionary.jobs.work} icon={childStatus.icon} label={childStatus.label} tone={childStatus.tone} />
+                          </div>
+                        </Link>
+                      </div>
+                    )
+                  })}
                 </div>
               )
             })}
-            </div>
-            )
-          })}
-        </div>
-      )}
+          </div>
+        )}
+      </main>
     </DashboardShell>
   )
 }

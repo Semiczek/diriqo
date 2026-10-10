@@ -1,5 +1,3 @@
-import Link from 'next/link'
-
 import DashboardShell from '@/components/DashboardShell'
 import { getActiveCompanyContext } from '@/lib/active-company'
 import ModuleCatalogClient from './ModuleCatalogClient'
@@ -18,12 +16,11 @@ export default async function ModuleCatalogPage({ searchParams }: { searchParams
     <DashboardShell activeItem="modules">
       <main className={styles.page}>
         <header className={styles.header}>
-          <Link href="/billing" className={styles.backLink}>← Předplatné</Link>
-          <p className={styles.eyebrow}>Diriqo pro vaši firmu</p>
+          <p className={styles.eyebrow}>{company?.companyName || 'Diriqo pro vaši firmu'}</p>
           <h1>Základ a moduly</h1>
           <p className={styles.subtitle}>
             {company
-              ? `Licence a dostupné funkce · ${company.companyName || 'Vaše firma'}`
+              ? 'Vaše firma. Jen funkce, které potřebujete.'
               : 'Nabídku a nákupy spravuje administrátor aktivní firmy.'}
           </p>
         </header>

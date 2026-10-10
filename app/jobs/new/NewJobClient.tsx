@@ -5,6 +5,9 @@ import { useEffect, useMemo, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 
+import styles from '@/components/OperationalUI.module.css'
+import { heroCardStyle as headerStyle, heroTitleStyle as titleStyle, eyebrowStyle, secondaryButtonStyle as backLinkStyle, sectionCardStyle, primaryButtonStyle } from '@/components/SaasPageLayout'
+
 import DashboardShell from '@/components/DashboardShell'
 import { useI18n } from '@/components/I18nProvider'
 import { createJobsAction } from '@/app/jobs/actions'
@@ -124,65 +127,12 @@ const pageStyle: CSSProperties = {
   display: 'grid',
   gap: '18px',
   width: '100%',
-  maxWidth: '980px',
+  maxWidth: '840px',
   margin: '0 auto',
   padding: '2px 0 48px',
 }
 
-const headerStyle: CSSProperties = {
-  display: 'flex',
-  alignItems: 'flex-end',
-  justifyContent: 'space-between',
-  gap: '16px',
-  flexWrap: 'wrap',
-  padding: '22px',
-  borderRadius: '22px',
-  border: '1px solid rgba(148, 163, 184, 0.24)',
-  background: 'rgba(255,255,255,0.88)',
-  boxShadow: '0 18px 44px rgba(15, 23, 42, 0.08)',
-}
-
-const eyebrowStyle: CSSProperties = {
-  margin: '0 0 7px',
-  color: '#2563eb',
-  fontSize: '12px',
-  fontWeight: 900,
-  letterSpacing: '0.06em',
-  textTransform: 'uppercase',
-}
-
-const titleStyle: CSSProperties = {
-  margin: 0,
-  color: '#0f172a',
-  fontSize: '34px',
-  lineHeight: 1.1,
-  fontWeight: 900,
-}
-
-const backLinkStyle: CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  minHeight: '40px',
-  padding: '9px 14px',
-  borderRadius: '999px',
-  border: '1px solid rgba(148, 163, 184, 0.36)',
-  backgroundColor: '#ffffff',
-  color: '#0f172a',
-  textDecoration: 'none',
-  fontSize: '14px',
-  fontWeight: 850,
-}
-
-const sectionStyle: CSSProperties = {
-  display: 'grid',
-  gap: '14px',
-  padding: '20px',
-  borderRadius: '22px',
-  border: '1px solid rgba(148, 163, 184, 0.24)',
-  background: 'rgba(255,255,255,0.92)',
-  boxShadow: '0 14px 34px rgba(15, 23, 42, 0.06)',
-}
+const sectionStyle: CSSProperties = { ...sectionCardStyle, display: 'grid', gap: '20px' }
 
 export default function NewJobClient() {
   const router = useRouter()
@@ -557,7 +507,7 @@ export default function NewJobClient() {
           </Link>
         </header>
 
-        <form className="job-create-form" onSubmit={handleSubmit} style={{ ...sectionStyle, gap: '14px' }}>
+        <form className={styles.form} onSubmit={handleSubmit} style={{ ...sectionStyle, gap: '20px' }}>
           {formError ? (
             <div
               role="alert"
@@ -623,6 +573,9 @@ export default function NewJobClient() {
             </div>
           ) : null}
 
+          <section className={styles.formSection}>
+            <h2>{locale === 'cs' ? 'Co, pro koho a kdy' : locale === 'de' ? 'Was, für wen und wann' : 'What, who and when'}</h2>
+          <label><div style={{ marginBottom: '6px', fontWeight: 600 }}>{dictionary.jobs.titleLabel}</div><input name="title" data-tour="job-title" type="text" value={title} onChange={(e) => setTitle(e.target.value)} required style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db' }} /></label>
           <label>
             <div style={{ marginBottom: '6px', fontWeight: 600 }}>{dictionary.jobs.customer}</div>
             <select name="customerId" data-tour="job-customer" value={customerId} onChange={(e) => setCustomerId(e.target.value)} disabled={Boolean(parentJob)} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db', backgroundColor: parentJob ? '#f9fafb' : 'white' }}>
@@ -633,23 +586,11 @@ export default function NewJobClient() {
             </select>
           </label>
 
-          <label>
-            <div style={{ marginBottom: '6px', fontWeight: 600 }}>{dictionary.jobs.contactPerson}</div>
-            <select name="contactId" value={contactId} onChange={(e) => setContactId(e.target.value)} disabled={!customerId || Boolean(parentJob)} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db', backgroundColor: customerId && !parentJob ? 'white' : '#f9fafb' }}>
-              <option value="">{customerId ? dictionary.jobs.noContactPerson : dictionary.jobs.chooseCustomerFirst}</option>
-              {customerContacts.map((contact) => (
-                <option key={contact.id} value={contact.id}>{contact.full_name ?? dictionary.jobs.untitledWorker}{contact.role ? ` - ${contact.role}` : ''}</option>
-              ))}
-            </select>
-          </label>
-
-          <label><div style={{ marginBottom: '6px', fontWeight: 600 }}>{dictionary.jobs.titleLabel}</div><input name="title" data-tour="job-title" type="text" value={title} onChange={(e) => setTitle(e.target.value)} required style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db' }} /></label>
-          <label><div style={{ marginBottom: '6px', fontWeight: 600 }}>{dictionary.jobs.descriptionLabel}</div><textarea name="description" value={description} onChange={(e) => setDescription(e.target.value)} rows={4} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db' }} /></label>
           <label><div style={{ marginBottom: '6px', fontWeight: 600 }}>{dictionary.jobs.addressLabel}</div><input name="address" type="text" value={address} onChange={(e) => setAddress(e.target.value)} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db' }} /></label>
-          <label><div style={{ marginBottom: '6px', fontWeight: 600 }}>{dictionary.jobs.price}</div><input name="price" type="number" value={parentJob ? '' : price} onChange={(e) => setPrice(e.target.value)} disabled={Boolean(parentJob)} placeholder={parentJob ? 'Cena je na hlavní zakázce' : undefined} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db', backgroundColor: parentJob ? '#f9fafb' : '#fff' }} /></label>
+            <div className={styles.formGrid}>
           <label><div style={{ marginBottom: '6px', fontWeight: 600 }}>{dictionary.jobs.startJob}</div><input name="startAt" data-tour="job-date" type="datetime-local" value={startAt} onInput={(e) => handleStartAtInput(e.currentTarget.value)} onChange={(e) => handleStartAtInput(e.currentTarget.value)} required style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db' }} /></label>
           <label><div style={{ marginBottom: '6px', fontWeight: 600 }}>{dictionary.jobs.expectedEnd}</div><input name="endAt" type="datetime-local" value={endAt} onInput={(e) => handleEndAtInput(e.currentTarget.value)} onChange={(e) => handleEndAtInput(e.currentTarget.value)} required style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db' }} /></label>
-
+            </div>
           {!isRecurringWeekly && generatedWorkDays.length > 1 ? (
             <div style={{ border: '1px solid #d1d5db', borderRadius: '12px', padding: '12px', backgroundColor: '#fff', display: 'grid', gap: '10px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -698,6 +639,62 @@ export default function NewJobClient() {
             </div>
           ) : null}
 
+          <label><div style={{ marginBottom: '6px', fontWeight: 600 }}>{dictionary.jobs.price}</div><input name="price" type="number" value={parentJob ? '' : price} onChange={(e) => setPrice(e.target.value)} disabled={Boolean(parentJob)} placeholder={parentJob ? 'Cena je na hlavní zakázce' : undefined} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db', backgroundColor: parentJob ? '#f9fafb' : '#fff' }} /></label>
+          </section>
+
+          <section className={styles.formSection}>
+            <h2>{locale === 'cs' ? 'Kdo zakázku vyřídí' : locale === 'de' ? 'Wer übernimmt den Auftrag' : 'Who will do the job'}</h2>
+            <p className={styles.formHint}>{locale === 'cs' ? 'Vyberte alespoň jednoho člověka.' : locale === 'de' ? 'Wählen Sie mindestens eine Person.' : 'Select at least one person.'}</p>
+          <div data-tour="job-workers">
+            <div style={{ marginBottom: '10px', fontWeight: 600 }}>{dictionary.jobs.workers}</div>
+            <div style={{ display: 'grid', gap: '10px' }}>
+              {assignedProfiles.map((selectedId, index) => (
+                <div key={index} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <select aria-label={`${dictionary.jobs.workers} ${index + 1}`} name="assignedProfileIds" value={selectedId} onChange={(e) => updateAssignedProfile(index, e.target.value)} style={{ flex: 1, padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db', backgroundColor: 'white' }}>
+                    <option value="">{dictionary.jobs.selectWorker}</option>
+                    {profiles.map((profile) => (
+                      <option key={profile.id} value={profile.id}>{profile.full_name ?? dictionary.jobs.untitledWorker}</option>
+                    ))}
+                  </select>
+                  <button type="button" onClick={() => removeAssignedProfileRow(index)} style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db', backgroundColor: '#fff', cursor: 'pointer' }}>
+                    {dictionary.jobs.remove}
+                  </button>
+                </div>
+              ))}
+            </div>
+            <button type="button" onClick={addAssignedProfileRow} style={{ marginTop: '10px', padding: '10px 14px', borderRadius: '8px', border: '1px solid #d1d5db', backgroundColor: '#fff', cursor: 'pointer', fontWeight: 600 }}>
+              {dictionary.jobs.addAnotherPerson}
+            </button>
+          </div>
+          </section>
+
+          <details className={styles.disclosure}>
+            <summary>{dictionary.jobs.descriptionLabel}</summary>
+            <div className={styles.disclosureContent}>
+          <label><div style={{ marginBottom: '6px', fontWeight: 600 }}>{dictionary.jobs.descriptionLabel}</div><textarea name="description" value={description} onChange={(e) => setDescription(e.target.value)} rows={4} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db' }} /></label>
+            </div>
+          </details>
+
+          <details className={styles.disclosure} open={Boolean(contactId)}>
+            <summary>{dictionary.jobs.contactPerson}</summary>
+            <div className={styles.disclosureContent}>
+          <label>
+            <div style={{ marginBottom: '6px', fontWeight: 600 }}>{dictionary.jobs.contactPerson}</div>
+            <select name="contactId" value={contactId} onChange={(e) => setContactId(e.target.value)} disabled={!customerId || Boolean(parentJob)} style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db', backgroundColor: customerId && !parentJob ? 'white' : '#f9fafb' }}>
+              <option value="">{customerId ? dictionary.jobs.noContactPerson : dictionary.jobs.chooseCustomerFirst}</option>
+              {customerContacts.map((contact) => (
+                <option key={contact.id} value={contact.id}>{contact.full_name ?? dictionary.jobs.untitledWorker}{contact.role ? ` - ${contact.role}` : ''}</option>
+              ))}
+            </select>
+          </label>
+
+
+            </div>
+          </details>
+
+          <details className={styles.disclosure}>
+            <summary>{locale === 'cs' ? 'Další nastavení' : locale === 'de' ? 'Weitere Einstellungen' : 'More options'}</summary>
+            <div className={styles.disclosureContent}>
           <label>
             <div style={{ marginBottom: '6px', fontWeight: 600 }}>{dictionary.jobs.recurrence}</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db', backgroundColor: '#fff' }}>
@@ -736,31 +733,15 @@ export default function NewJobClient() {
               </div>
             </label>
 
-          <div data-tour="job-workers">
-            <div style={{ marginBottom: '10px', fontWeight: 600 }}>{dictionary.jobs.workers}</div>
-            <div style={{ display: 'grid', gap: '10px' }}>
-              {assignedProfiles.map((selectedId, index) => (
-                <div key={index} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                  <select name="assignedProfileIds" value={selectedId} onChange={(e) => updateAssignedProfile(index, e.target.value)} style={{ flex: 1, padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db', backgroundColor: 'white' }}>
-                    <option value="">{dictionary.jobs.selectWorker}</option>
-                    {profiles.map((profile) => (
-                      <option key={profile.id} value={profile.id}>{profile.full_name ?? dictionary.jobs.untitledWorker}</option>
-                    ))}
-                  </select>
-                  <button type="button" onClick={() => removeAssignedProfileRow(index)} style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db', backgroundColor: '#fff', cursor: 'pointer' }}>
-                    {dictionary.jobs.remove}
-                  </button>
-                </div>
-              ))}
             </div>
-            <button type="button" onClick={addAssignedProfileRow} style={{ marginTop: '10px', padding: '10px 14px', borderRadius: '8px', border: '1px solid #d1d5db', backgroundColor: '#fff', cursor: 'pointer', fontWeight: 600 }}>
-              {dictionary.jobs.addAnotherPerson}
-            </button>
-          </div>
+          </details>
 
-          <button type="submit" data-tour="job-save" disabled={loading || !companyId} style={{ padding: '12px 16px', borderRadius: '8px', border: 'none', backgroundColor: loading || !companyId ? '#6b7280' : 'black', color: 'white', fontWeight: 600, cursor: loading || !companyId ? 'default' : 'pointer' }}>
+          <div className={styles.formActions}>
+          <button type="submit" data-tour="job-save" disabled={loading || !companyId} style={{ ...primaryButtonStyle, opacity: loading || !companyId ? 0.6 : 1, cursor: loading || !companyId ? 'default' : 'pointer' }}>
             {loading ? dictionary.jobs.saving : dictionary.jobs.createJob}
           </button>
+            <Link href="/jobs" style={backLinkStyle}>{dictionary.jobs.backToJobs}</Link>
+          </div>
         </form>
       </main>
     </DashboardShell>

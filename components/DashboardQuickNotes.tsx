@@ -1,13 +1,10 @@
-﻿'use client'
+'use client'
 
-import { useEffect, useMemo, useState } from 'react'
-import type { CSSProperties, FormEvent } from 'react'
+import { useEffect, useState } from 'react'
+import type { FormEvent } from 'react'
+import styles from './dashboard-controls.module.css'
 
-type QuickNote = {
-  id: string
-  text: string
-  done: boolean
-}
+type QuickNote = { id: string; text: string; done: boolean }
 
 type DashboardQuickNotesProps = {
   storageKey: string
@@ -19,243 +16,111 @@ type DashboardQuickNotesProps = {
     deleteNote: string
     starterCallCustomer: string
     starterCheckJobs: string
+    storageHint: string
+    storageError: string
   }
 }
 
-function getStarterNotes(labels: DashboardQuickNotesProps['labels']): QuickNote[] {
-  return [
-    { id: 'starter-call-customer', text: labels.starterCallCustomer, done: false },
-    { id: 'starter-check-jobs', text: labels.starterCheckJobs, done: false },
-  ]
+function isQuickNote(value: unknown): value is QuickNote {
+  if (!value || typeof value !== 'object') return false
+  const note = value as Record<string, unknown>
+  return typeof note.id === 'string' && typeof note.text === 'string' && typeof note.done === 'boolean'
 }
 
-function localizeStarterNote(note: QuickNote, labels: DashboardQuickNotesProps['labels']): QuickNote {
-  if (note.id === 'starter-call-customer') return { ...note, text: labels.starterCallCustomer }
-  if (note.id === 'starter-check-jobs') return { ...note, text: labels.starterCheckJobs }
-  return note
+export default function DashboardQuickNotes(props: DashboardQuickNotesProps) {
+  // A company switch must never carry the previous company's notes into its storage key.
+  return <QuickNotesContent key={props.storageKey} {...props} />
 }
 
-export default function DashboardQuickNotes({ storageKey, labels }: DashboardQuickNotesProps) {
+function QuickNotesContent({ storageKey, labels }: DashboardQuickNotesProps) {
   const [notes, setNotes] = useState<QuickNote[]>([])
   const [draft, setDraft] = useState('')
   const [loaded, setLoaded] = useState(false)
-
-  const visibleNotes = useMemo(() => notes.slice(0, 6), [notes])
+  const [storageFailed, setStorageFailed] = useState(false)
 
   useEffect(() => {
     try {
       const stored = window.localStorage.getItem(storageKey)
-      if (!stored) {
-        setNotes(getStarterNotes(labels))
-        return
+      if (stored) {
+        const parsed: unknown = JSON.parse(stored)
+        if (!Array.isArray(parsed) || !parsed.every(isQuickNote)) throw new Error('Invalid notes')
+        setNotes(parsed)
       }
-
-      const parsed = JSON.parse(stored) as QuickNote[]
-      setNotes(Array.isArray(parsed) ? parsed.map((note) => localizeStarterNote(note, labels)) : getStarterNotes(labels))
     } catch {
-      setNotes(getStarterNotes(labels))
+      setStorageFailed(true)
     } finally {
       setLoaded(true)
     }
-  }, [labels, storageKey])
+  }, [storageKey])
 
-  useEffect(() => {
-    if (!loaded) return
-
-    window.localStorage.setItem(storageKey, JSON.stringify(notes))
-  }, [loaded, notes, storageKey])
+  function updateNotes(next: QuickNote[]) {
+    setNotes(next)
+    try {
+      window.localStorage.setItem(storageKey, JSON.stringify(next))
+      setStorageFailed(false)
+    } catch {
+      setStorageFailed(true)
+    }
+  }
 
   function addNote(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-
     const text = draft.trim()
-    if (!text) return
-
-    setNotes((current) => [
-      {
-        id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-        text,
-        done: false,
-      },
-      ...current,
-    ])
+    if (!text || !loaded) return
+    updateNotes([{ id: crypto.randomUUID(), text, done: false }, ...notes])
     setDraft('')
   }
 
-  function toggleNote(id: string) {
-    setNotes((current) =>
-      current.map((note) => (note.id === id ? { ...note, done: !note.done } : note))
-    )
-  }
-
-  function deleteNote(id: string) {
-    setNotes((current) => current.filter((note) => note.id !== id))
+  function noteText(note: QuickNote) {
+    if (note.id === 'starter-call-customer') return labels.starterCallCustomer
+    if (note.id === 'starter-check-jobs') return labels.starterCheckJobs
+    return note.text
   }
 
   return (
-    <aside style={quickNotesWrap} aria-label={labels.title}>
-      <div style={quickNotesTitle}>{labels.title}</div>
-      <form onSubmit={addNote} style={quickNotesForm}>
+    <section className={styles.notes} aria-label={labels.title}>
+      <h2 className={styles.title}>{labels.title}</h2>
+      <p className={styles.hint}>{labels.storageHint}</p>
+      <form onSubmit={addNote} className={styles.form}>
         <input
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
           placeholder={labels.placeholder}
-          style={quickNotesInput}
+          aria-label={labels.placeholder}
+          maxLength={500}
+          disabled={!loaded}
+          className={styles.input}
         />
-        <button type="submit" style={quickNotesAddButton}>
+        <button type="submit" disabled={!loaded || !draft.trim()} className={styles.add}>
           {labels.add}
         </button>
       </form>
-
-      <div style={quickNotesList}>
-        {visibleNotes.length === 0 ? (
-          <div style={quickNotesEmpty}>{labels.empty}</div>
-        ) : (
-          visibleNotes.map((note) => (
-            <div key={note.id} style={quickNoteRow}>
-              <label style={quickNoteLabel}>
-                <input
-                  type="checkbox"
-                  checked={note.done}
-                  onChange={() => toggleNote(note.id)}
-                  style={quickNoteCheckbox}
-                />
-                <span style={note.done ? quickNoteTextDone : quickNoteText}>{note.text}</span>
-              </label>
-              <button
-                type="button"
-                onClick={() => deleteNote(note.id)}
-                aria-label={`${labels.deleteNote}: ${note.text}`}
-                style={quickNoteDelete}
-              >
-                ×
-              </button>
-            </div>
-          ))
-        )}
+      {storageFailed ? <p role="status" className={styles.error}>{labels.storageError}</p> : null}
+      <div className={styles.list} aria-busy={!loaded}>
+        {loaded && notes.length === 0 ? <p className={styles.empty}>{labels.empty}</p> : null}
+        {notes.map((note) => (
+          <div key={note.id} className={styles.noteRow}>
+            <label className={styles.noteLabel}>
+              <input
+                type="checkbox"
+                checked={note.done}
+                onChange={() => updateNotes(notes.map((item) => item.id === note.id ? { ...item, done: !item.done } : item))}
+              />
+              <span className={note.done ? styles.done : styles.text}>{noteText(note)}</span>
+            </label>
+            <button
+              type="button"
+              onClick={() => updateNotes(notes.filter((item) => item.id !== note.id))}
+              aria-label={`${labels.deleteNote}: ${noteText(note)}`}
+              className={styles.delete}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+                <path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v5M14 11v5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+          </div>
+        ))}
       </div>
-    </aside>
+    </section>
   )
-}
-
-const quickNotesWrap: CSSProperties = {
-  justifySelf: 'end',
-  alignSelf: 'stretch',
-  width: '100%',
-  minHeight: '100%',
-  padding: '14px',
-  borderRadius: '20px',
-  backgroundColor: 'rgba(255, 255, 255, 0.58)',
-  border: '1px solid rgba(255, 255, 255, 0.7)',
-  boxShadow: '0 12px 28px rgba(15, 23, 42, 0.06)',
-  backdropFilter: 'blur(14px)',
-  boxSizing: 'border-box',
-  display: 'flex',
-  flexDirection: 'column',
-}
-
-const quickNotesTitle: CSSProperties = {
-  color: '#334155',
-  fontSize: '13px',
-  fontWeight: 900,
-  marginBottom: '9px',
-}
-
-const quickNotesForm: CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: 'minmax(0, 1fr) auto',
-  gap: '8px',
-  marginBottom: '10px',
-}
-
-const quickNotesInput: CSSProperties = {
-  minWidth: 0,
-  height: '34px',
-  padding: '7px 10px',
-  borderRadius: '12px',
-  border: '1px solid rgba(148, 163, 184, 0.32)',
-  backgroundColor: 'rgba(255,255,255,0.82)',
-  color: '#0f172a',
-  fontSize: '13px',
-  fontWeight: 650,
-  outline: 'none',
-}
-
-const quickNotesAddButton: CSSProperties = {
-  height: '34px',
-  padding: '7px 11px',
-  borderRadius: '12px',
-  border: 0,
-  background: 'linear-gradient(135deg, #7c3aed 0%, #2563eb 54%, #06b6d4 100%)',
-  color: '#ffffff',
-  fontSize: '13px',
-  fontWeight: 900,
-  cursor: 'pointer',
-  boxShadow: '0 10px 20px rgba(37, 99, 235, 0.16)',
-}
-
-const quickNotesList: CSSProperties = {
-  display: 'grid',
-  gap: '6px',
-  flex: 1,
-  alignContent: 'start',
-  maxHeight: '154px',
-  overflowY: 'auto',
-  paddingRight: '2px',
-}
-
-const quickNotesEmpty: CSSProperties = {
-  padding: '8px 0',
-  color: '#64748b',
-  fontSize: '13px',
-}
-
-const quickNoteRow: CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: 'minmax(0, 1fr) auto',
-  alignItems: 'center',
-  gap: '8px',
-  minHeight: '30px',
-}
-
-const quickNoteLabel: CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: '8px',
-  minWidth: 0,
-  color: '#0f172a',
-  fontSize: '13px',
-  fontWeight: 750,
-}
-
-const quickNoteCheckbox: CSSProperties = {
-  width: '15px',
-  height: '15px',
-  flexShrink: 0,
-  accentColor: '#2563eb',
-}
-
-const quickNoteText: CSSProperties = {
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
-  whiteSpace: 'nowrap',
-}
-
-const quickNoteTextDone: CSSProperties = {
-  ...quickNoteText,
-  color: '#94a3b8',
-  textDecoration: 'line-through',
-}
-
-const quickNoteDelete: CSSProperties = {
-  width: '24px',
-  height: '24px',
-  borderRadius: '999px',
-  border: '1px solid rgba(148, 163, 184, 0.28)',
-  backgroundColor: 'rgba(255,255,255,0.62)',
-  color: '#64748b',
-  fontSize: '16px',
-  lineHeight: 1,
-  fontWeight: 800,
-  cursor: 'pointer',
 }

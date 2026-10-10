@@ -7,6 +7,7 @@ import { I18nProvider } from '@/components/I18nProvider'
 import { getRequestDictionary, getRequestLocale } from '@/lib/i18n/server'
 
 import './globals.css'
+import './interface.css'
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
