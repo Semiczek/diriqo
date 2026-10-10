@@ -35,6 +35,8 @@
 .monthJobRow { grid-template-columns: 120px minmax(0, 1fr) auto !important; }
 .jobRow:hover, .monthJobRow:hover { border-color: #d7cdef !important; background: #faf9ff !important; }
 .profitRow { flex-wrap: wrap; }
+.attentionLink:hover { border-color: #b6a5ef !important; box-shadow: 0 2px 8px #6d4aff0d !important; }
+.attentionArrow { flex: 0 0 auto; font-size: 18px; color: #717684; }
 .dashboard :is(a, button, input, summary):focus-visible { outline: 3px solid #6d4aff; outline-offset: 3px; }
 
 @media (max-width: 1100px) {

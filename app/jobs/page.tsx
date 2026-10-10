@@ -692,11 +692,8 @@ export default function JobsPage() {
       params.delete('filter')
     }
 
-    if (monthValue) {
-      params.set('month', monthValue)
-    } else {
-      params.delete('month')
-    }
+    // An explicit empty month means all periods; an absent month defaults to now.
+    params.set('month', monthValue)
 
     if (customerValue) {
       params.set('customer', customerValue)
@@ -1491,11 +1488,31 @@ export default function JobsPage() {
               <input type="search" value={searchTerm} placeholder={dictionary.jobs.searchPlaceholder} className={styles.input}
                 onChange={(event) => { setSearchTerm(event.target.value); updateSearchParams({ q: event.target.value }) }} />
             </label>
-            <label className={styles.field}>
-              <span>{dictionary.jobs.month}</span>
-              <input type="month" value={selectedMonth} className={styles.input}
-                onChange={(event) => { setSelectedMonth(event.target.value); updateSearchParams({ month: event.target.value }) }} />
-            </label>
+            <div className={styles.field}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                <label htmlFor="jobs-month">{dictionary.jobs.month}</label>
+                <button type="button"
+                  style={{ ...secondaryButtonStyle, padding: '0 8px', borderColor: 'transparent', backgroundColor: 'transparent', color: '#6d4aff', fontSize: 12 }}
+                  onClick={() => {
+                    const nextMonth = selectedMonth ? '' : getCurrentMonthValue(companyTimeZone)
+                    setSelectedMonth(nextMonth)
+                    updateSearchParams({ month: nextMonth })
+                  }}>
+                  {selectedMonth
+                    ? locale === 'cs' ? 'Všechna období' : locale === 'de' ? 'Alle Zeiträume' : 'All periods'
+                    : locale === 'cs' ? 'Aktuální měsíc' : locale === 'de' ? 'Aktueller Monat' : 'Current month'}
+                </button>
+              </div>
+              <input id="jobs-month" type="month" value={selectedMonth} className={styles.input}
+                onChange={(event) => { setSelectedMonth(event.target.value); updateSearchParams({ month: event.target.value }) }}
+                onBlur={(event) => {
+                  const nextMonth = event.currentTarget.value
+                  if (nextMonth !== selectedMonth && (nextMonth === '' || /^\d{4}-(0[1-9]|1[0-2])$/.test(nextMonth))) {
+                    setSelectedMonth(nextMonth)
+                    updateSearchParams({ month: nextMonth })
+                  }
+                }} />
+            </div>
             <button type="button" style={secondaryButtonStyle} aria-expanded={advancedFiltersOpen} aria-controls="job-extra-filters"
               onClick={() => setAdvancedFiltersOpen((current) => !current)}>
               {dictionary.jobs.filters}{selectedCustomerId || sort !== 'date_asc' ? ' •' : ''}
@@ -1551,7 +1568,13 @@ export default function JobsPage() {
           <div role="status" className={styles.empty}>{dictionary.jobs.loading}</div>
         ) : error ? null : filteredJobs.length === 0 ? (
           <div className={styles.empty}>
-            <h2>{dictionary.jobs.emptyTitle}</h2>
+            <h2>{jobs.length === 0
+              ? dictionary.jobs.emptyTitle
+              : locale === 'cs'
+                ? 'Tomuto výběru neodpovídá žádná zakázka'
+                : locale === 'de'
+                  ? 'Keine Aufträge entsprechen dieser Auswahl'
+                  : 'No jobs match this selection'}</h2>
             <p>{locale === 'cs' ? 'Zkuste jiný měsíc nebo upravte filtry. Novou zakázku založíte jedním tlačítkem.' : locale === 'de' ? 'Wählen Sie einen anderen Monat oder ändern Sie die Filter.' : 'Try another month or adjust the filters.'}</p>
             <Link href="/jobs/new" style={primaryButtonStyle}>{dictionary.jobs.createJob}</Link>
           </div>

@@ -31,6 +31,7 @@ import { ModuleAccessError, requirePaidCompanyCapability } from '@/lib/platform/
 type PageProps = {
   searchParams: Promise<{
     customerId?: string
+    jobId?: string
     month?: string
   }>
 }
@@ -164,7 +165,7 @@ export default async function NewInvoicePage({ searchParams }: PageProps) {
   const params = await searchParams
   const customerId = params.customerId?.trim() ?? ''
   const { month } = params
-  const selectedMonth = normalizeMonthValue(month)
+  let selectedMonth = normalizeMonthValue(month)
   if (params.customerId != null && !customerId) {
     const cleanParams = new URLSearchParams()
 
@@ -175,7 +176,6 @@ export default async function NewInvoicePage({ searchParams }: PageProps) {
     const query = cleanParams.toString()
     redirect(query ? `/invoices/new?${query}` : '/invoices/new')
   }
-  const previousMonth = getPreviousMonthValue(selectedMonth)
   const supabase = await createSupabaseServerClient()
   try {
     await requirePaidCompanyCapability({ companyId: activeCompany.companyId, supabase }, 'invoicing.invoice.issue')
@@ -251,11 +251,26 @@ export default async function NewInvoicePage({ searchParams }: PageProps) {
       }))
   }
 
+  // A job-detail link starts in that job's completion month unless the user
+  // explicitly chose a month. Only trust rows already loaded for this company.
+  const requestedJobId = typeof params.jobId === 'string' ? params.jobId.trim() : ''
+  if (month == null && requestedJobId && customerId && !jobsResponse.error) {
+    const linkedJob = ((jobsResponse.data ?? []) as JobRow[]).find(
+      (job) => job.id === requestedJobId && job.customer_id === customerId
+    )
+    const relevantDate = linkedJob?.end_at ?? linkedJob?.start_at
+    const parsedDate = relevantDate ? new Date(relevantDate) : null
+    if (parsedDate && !Number.isNaN(parsedDate.getTime())) {
+      selectedMonth = `${parsedDate.getFullYear()}-${String(parsedDate.getMonth() + 1).padStart(2, '0')}`
+    }
+  }
+  const previousMonth = getPreviousMonthValue(selectedMonth)
   const invoiceReadyJobs = allInvoiceReadyJobs.filter((job) => isJobInMonth(job, selectedMonth))
   const previousMonthReadyJobs = allInvoiceReadyJobs.filter((job) => isJobInMonth(job, previousMonth))
   const availableJobs = customerId
     ? invoiceReadyJobs.filter((job) => job.customer_id === customerId)
     : []
+  const preselectedJobId = availableJobs.some((job) => job.id === requestedJobId) ? requestedJobId : null
   const customerJobGroups = buildCustomerJobGroups(invoiceReadyJobs, customerById, defaultVatRate)
   const previousMonthJobGroups = buildCustomerJobGroups(previousMonthReadyJobs, customerById, defaultVatRate)
   const selectedMonthTotals = sumInvoiceTotals(invoiceReadyJobs.map((job) => calculateInvoiceItem(job.price, defaultVatRate)))
@@ -489,6 +504,12 @@ export default async function NewInvoicePage({ searchParams }: PageProps) {
           </div>
         ) : null}
 
+        {requestedJobId && !preselectedJobId && !unavailableMessage ? (
+          <div role="status" style={{ ...alertStyle, border: '1px solid #fde68a', backgroundColor: '#fefce8', color: '#854d0e' }}>
+            Zvolená zakázka není v tomto výběru dostupná k fakturaci. Můžete upravit období nebo vybrat jiné zakázky.
+          </div>
+        ) : null}
+
         {!customerId ? (
           <section
             style={{
@@ -602,10 +623,11 @@ export default async function NewInvoicePage({ searchParams }: PageProps) {
 
         {customerId && selectedCustomer && !unavailableMessage ? (
           <InvoiceCreateForm
-            key={`${activeCompany.companyId}:${customerId}:${selectedMonth}`}
+            key={`${activeCompany.companyId}:${customerId}:${selectedMonth}:${requestedJobId || 'all'}:${preselectedJobId ? 'selected' : 'unselected'}`}
             companyId={activeCompany.companyId}
             requestId={requestId}
             availableJobs={availableJobs.map((job) => ({ id: job.id, price: Number(job.price ?? 0) }))}
+            initialSelectedJobIds={requestedJobId ? (preselectedJobId ? [preselectedJobId] : []) : undefined}
             isVatPayer={isVatPayer}
             defaultVatRate={defaultVatRate}
           >
@@ -713,7 +735,7 @@ export default async function NewInvoicePage({ searchParams }: PageProps) {
                 <div className={styles.list}>
                   {availableJobs.map((job) => (
                     <label key={job.id} className={styles.invoiceJob}>
-                      <input type="checkbox" name="jobIds" value={job.id} aria-label={`Fakturovat zakázku ${job.title ?? job.id}`} defaultChecked />
+                      <input type="checkbox" name="jobIds" value={job.id} aria-label={`Fakturovat zakázku ${job.title ?? job.id}`} defaultChecked={!requestedJobId || job.id === preselectedJobId} />
                       <span className={styles.resourceBody}>
                         <strong className={styles.resourceTitle}>{job.title ?? 'Zakázka bez názvu'}</strong>
                         <span className={styles.meta}>{formatDate(job.start_at)} – {formatDate(job.end_at)}</span>

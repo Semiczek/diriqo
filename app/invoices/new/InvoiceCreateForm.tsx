@@ -13,6 +13,7 @@ type Props = {
   companyId: string
   requestId: string
   availableJobs: PreviewJob[]
+  initialSelectedJobIds?: string[]
   isVatPayer: boolean
   defaultVatRate: number
 }
@@ -32,12 +33,14 @@ export function InvoiceCreateItemTotal({ price }: { price: number }) {
   return vatRate === null ? '—' : currencyFormatter.format(previewItem(price, vatRate).total / 100)
 }
 
-export default function InvoiceCreateForm({ children, companyId, requestId, availableJobs, isVatPayer, defaultVatRate }: Props) {
+export default function InvoiceCreateForm({ children, companyId, requestId, availableJobs, initialSelectedJobIds, isVatPayer, defaultVatRate }: Props) {
   const [state, formAction, pending] = useActionState(createInvoiceDraftAction, { error: null })
   // Preserve the attempt identifier through action errors and retries.
   const [stableRequestId] = useState(requestId)
   const [selection, setSelection] = useState(() => ({
-    jobIds: availableJobs.map((job) => job.id),
+    jobIds: availableJobs
+      .filter((job) => !initialSelectedJobIds || initialSelectedJobIds.includes(job.id))
+      .map((job) => job.id),
     vatRate: (isVatPayer ? defaultVatRate : 0) as number | null,
   }))
   const selectedIds = new Set(selection.jobIds)

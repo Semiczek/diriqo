@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
@@ -16,9 +16,6 @@ import {
   cardTitleStyle,
   emptyStateStyle,
   errorStateStyle,
-  eyebrowStyle,
-  heroCardStyle,
-  heroTitleStyle,
   metaItemStyle,
   metaLabelStyle,
   metaValueStyle,
@@ -53,6 +50,7 @@ import {
   getWorkerType,
 } from '@/lib/payroll-settings'
 import { calculateQuotedJobEconomics } from '@/lib/economics'
+import detailStyles from './job-detail.module.css'
 
 type AssignmentWorkState = 'not_started' | 'working' | 'completed'
 
@@ -592,54 +590,14 @@ function getBillingStateStyles(
 
 type StatusTone = 'blue' | 'green' | 'orange' | 'amber' | 'red' | 'gray'
 
-const premiumStatusTones: Record<
-  StatusTone,
-  { background: string; border: string; color: string; shadow: string; iconBg: string }
-> = {
-  blue: {
-    background: 'linear-gradient(135deg, rgba(37,99,235,0.16), rgba(6,182,212,0.09))',
-    border: '1px solid rgba(37,99,235,0.38)',
-    color: '#1d4ed8',
-    shadow: '0 12px 28px rgba(37,99,235,0.12)',
-    iconBg: 'rgba(37,99,235,0.16)',
-  },
-  green: {
-    background: 'linear-gradient(135deg, rgba(34,197,94,0.18), rgba(22,163,74,0.10))',
-    border: '1px solid rgba(34,197,94,0.42)',
-    color: '#047857',
-    shadow: '0 12px 28px rgba(34,197,94,0.13)',
-    iconBg: 'rgba(34,197,94,0.18)',
-  },
-  orange: {
-    background: 'linear-gradient(135deg, rgba(249,115,22,0.19), rgba(245,158,11,0.10))',
-    border: '1px solid rgba(249,115,22,0.42)',
-    color: '#c2410c',
-    shadow: '0 12px 28px rgba(249,115,22,0.13)',
-    iconBg: 'rgba(249,115,22,0.18)',
-  },
-  amber: {
-    background: 'linear-gradient(135deg, rgba(245,158,11,0.22), rgba(251,191,36,0.12))',
-    border: '1px solid rgba(245,158,11,0.42)',
-    color: '#b45309',
-    shadow: '0 12px 28px rgba(245,158,11,0.13)',
-    iconBg: 'rgba(245,158,11,0.18)',
-  },
-  red: {
-    background: 'linear-gradient(135deg, rgba(239,68,68,0.18), rgba(220,38,38,0.10))',
-    border: '1px solid rgba(239,68,68,0.42)',
-    color: '#b91c1c',
-    shadow: '0 12px 28px rgba(239,68,68,0.13)',
-    iconBg: 'rgba(239,68,68,0.18)',
-  },
-  gray: {
-    background: 'linear-gradient(135deg, rgba(100,116,139,0.13), rgba(148,163,184,0.08))',
-    border: '1px solid rgba(100,116,139,0.28)',
-    color: '#475569',
-    shadow: '0 12px 28px rgba(15,23,42,0.07)',
-    iconBg: 'rgba(100,116,139,0.14)',
-  },
+const premiumStatusTones: Record<StatusTone, { background: string; color: string }> = {
+  blue: { background: '#f1edff', color: '#6748c2' },
+  green: { background: '#edf7f2', color: '#287454' },
+  orange: { background: '#fff5e9', color: '#99611f' },
+  amber: { background: '#fff5e9', color: '#99611f' },
+  red: { background: '#fff0f1', color: '#b04452' },
+  gray: { background: '#f3f3f6', color: '#697080' },
 }
-
 function formatJobTermForLocale(
   startAt: string | null,
   endAt: string | null,
@@ -673,111 +631,35 @@ function formatJobTermForLocale(
   return `${formatDateTimeForLocale(startAt, locale)} - ${formatDateTimeForLocale(endAt, locale)}`
 }
 
-function StatusPanel({
-  label,
-  value,
-  tone,
-  icon,
-}: {
+function StatusPanel({ label, value, tone, icon }: {
   label: string
   value: string
   tone: StatusTone
   icon: string
 }) {
   const colors = premiumStatusTones[tone]
-
   return (
-    <div
-      style={{
-        minHeight: '86px',
-        borderRadius: '20px',
-        padding: '14px 16px',
-        background: colors.background,
-        border: colors.border,
-        boxShadow: colors.shadow,
-        display: 'grid',
-        alignContent: 'center',
-        gap: '8px',
-      }}
-    >
-      <div
-        style={{
-          color: '#64748b',
-          fontSize: '12px',
-          fontWeight: 900,
-          letterSpacing: '0.08em',
-          textTransform: 'uppercase',
-        }}
-      >
-        {label}
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-        <span
-          style={{
-            width: '30px',
-            height: '30px',
-            borderRadius: '999px',
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: colors.iconBg,
-            color: colors.color,
-            fontWeight: 900,
-          }}
-        >
-          {icon}
-        </span>
-        <span style={{ color: colors.color, fontSize: '18px', fontWeight: 900 }}>
-          {value}
-        </span>
-      </div>
+    <div className={detailStyles.status}>
+      <span className={detailStyles.statusLabel}>{label}</span>
+      <span className={detailStyles.statusBadge} style={{ background: colors.background, color: colors.color }}>
+        <span aria-hidden="true">{icon}</span>{value}
+      </span>
     </div>
   )
 }
 
-function FinanceSummaryCard({
-  label,
-  value,
-  tone = 'blue',
-}: {
+function FinanceSummaryCard({ label, value, tone = 'gray' }: {
   label: string
   value: string
   tone?: StatusTone
 }) {
-  const colors = premiumStatusTones[tone]
-
   return (
-    <div
-      style={{
-        borderRadius: '22px',
-        padding: '18px',
-        background: 'rgba(255,255,255,0.88)',
-        border: '1px solid rgba(148,163,184,0.22)',
-        boxShadow: '0 18px 42px rgba(15,23,42,0.08)',
-        position: 'relative',
-        overflow: 'hidden',
-      }}
-    >
-      <div
-        style={{
-          position: 'absolute',
-          inset: 'auto 14px 0 14px',
-          height: '4px',
-          borderRadius: '999px',
-          background: colors.color,
-          opacity: 0.85,
-        }}
-      />
-      <div style={{ color: '#64748b', fontSize: '14px', fontWeight: 800, marginBottom: '8px' }}>
-        {label}
-      </div>
-      <div style={{ color: colors.color, fontSize: '28px', fontWeight: 900 }}>
-        {value}
-      </div>
+    <div className={detailStyles.financeItem}>
+      <span>{label}</span>
+      <strong className={tone === 'red' ? detailStyles.negative : tone === 'green' ? detailStyles.positive : undefined}>{value}</strong>
     </div>
   )
 }
-
 function DetailInfoRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div
@@ -1998,131 +1880,38 @@ export default function JobDetailPageClient({
   return (
     <DashboardShell activeItem="jobs">
       <main style={pageShellStyle}>
-      <section
-        data-tour="job-detail-header"
-        style={{
-          ...heroCardStyle,
-          display: 'grid',
-          gridTemplateColumns: 'minmax(0, 1fr) auto',
-          gap: '24px',
-          alignItems: 'center',
-          marginBottom: '18px',
-          background:
-            'linear-gradient(135deg, rgba(255,255,255,0.92), rgba(239,246,255,0.86) 48%, rgba(207,250,254,0.72))',
-        }}
-      >
-        <div style={{ minWidth: 0 }}>
-          <Link
-            href="/jobs"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              marginBottom: '14px',
-              color: '#475569',
-              textDecoration: 'none',
-              fontWeight: 900,
-            }}
-          >
-            ← {detailMessages.backToJobs}
-          </Link>
-
-          <div style={eyebrowStyle}>{detailMessages.detailEyebrow}</div>
-          <h1 style={{ ...heroTitleStyle, marginBottom: '12px' }}>
-            {job.title ?? dictionary.jobs.untitledJob}
-          </h1>
-
-          <div
-            style={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              gap: '10px',
-              color: '#475569',
-              fontSize: '16px',
-              fontWeight: 750,
-              marginBottom: '14px',
-            }}
-          >
+      <section data-tour="job-detail-header" className={detailStyles.hero}>
+        <div className={detailStyles.heroCopy}>
+          <Link href="/jobs" className={detailStyles.backLink}>← {detailMessages.backToJobs}</Link>
+          <p className={detailStyles.eyebrow}>{detailMessages.detailEyebrow}</p>
+          <h1>{job.title ?? dictionary.jobs.untitledJob}</h1>
+          <div className={detailStyles.heroMeta}>
             <span>{customer?.name ?? dictionary.jobs.customerMissing}</span>
-            <span style={{ color: '#94a3b8' }}>•</span>
             <span>{jobTermLabel}</span>
           </div>
-
-          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
-            <StatusPanel
-              label={detailMessages.mainStatus}
-              value={mainJobStatusLabel}
-              tone={workStatusPanel.tone}
-              icon={workStatusPanel.icon}
-            />
-            {job.is_internal ? (
-              <span
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  alignSelf: 'stretch',
-                  padding: '0 14px',
-                  borderRadius: '18px',
-                  backgroundColor: '#fff7ed',
-                  color: '#9a3412',
-                  border: '1px solid #fdba74',
-                  fontSize: '13px',
-                  fontWeight: 900,
-                }}
-              >
-                {detailMessages.internalJobBadge}
-              </span>
-            ) : null}
+          <div className={detailStyles.heroStatus}>
+            <StatusPanel label={detailMessages.mainStatus} value={mainJobStatusLabel}
+              tone={workStatusPanel.tone} icon={workStatusPanel.icon} />
+            {job.is_internal ? <span className={detailStyles.internalBadge}>{detailMessages.internalJobBadge}</span> : null}
           </div>
         </div>
-
-        <div
-          style={{
-            display: 'flex',
-            gap: '10px',
-            flexWrap: 'wrap',
-            justifyContent: 'flex-end',
-            alignItems: 'center',
-          }}
-        >
+        <div className={detailStyles.heroActions}>
+          <Link href={`/jobs/${job.id}/edit`} data-tour="job-detail-edit" style={primaryButtonStyle}>
+            {detailMessages.editJob}
+          </Link>
           {resolvedWorkState !== 'done' ? (
-            <button
-              type="button"
-              data-tour="job-detail-status"
-              onClick={markJobAsDone}
-              disabled={markingJobDone}
-              style={{
-                ...secondaryButtonStyle,
-                opacity: markingJobDone ? 0.7 : 1,
-              }}
-            >
+            <button type="button" data-tour="job-detail-status" onClick={markJobAsDone} disabled={markingJobDone}
+              style={{ ...secondaryButtonStyle, opacity: markingJobDone ? 0.7 : 1 }}>
               {markingJobDone ? detailMessages.markingDone : detailMessages.markDone}
             </button>
           ) : null}
-          <Link
-            href={`/jobs/${job.id}/edit`}
-            data-tour="job-detail-edit"
-            style={{
-              ...primaryButtonStyle,
-              textDecoration: 'none',
-            }}
-          >
-            {detailMessages.editJob}
-          </Link>
           {!job.parent_job_id ? (
-            <Link
-              href={`/jobs/new?parent=${job.id}`}
-              style={{
-                ...secondaryButtonStyle,
-                textDecoration: 'none',
-              }}
-            >
-              Přidat dceru
+            <Link href={`/jobs/new?parent=${job.id}`} className={detailStyles.quietAction}>
+              {locale === 'cs' ? 'Přidat dílčí zakázku' : locale === 'de' ? 'Teilauftrag hinzufügen' : 'Add a sub-job'}
             </Link>
           ) : null}
         </div>
       </section>
-
       {error && (
         <div
           style={errorStateStyle}
@@ -2147,14 +1936,12 @@ export default function JobDetailPageClient({
         </div>
       ) : null}
 
-      <div
-        style={{
-          display: 'grid',
-          gap: '14px',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))',
-          marginBottom: '18px',
-        }}
-      >
+      <details className={detailStyles.finance}>
+        <summary>
+          <span>{locale === 'cs' ? 'Finanční přehled' : locale === 'de' ? 'Finanzübersicht' : 'Financial overview'}</span>
+          <span className={detailStyles.financePrice}>{detailMessages.jobPrice}: {formatCurrency(job.price)}</span>
+        </summary>
+        <div className={detailStyles.financeGrid}>
         <FinanceSummaryCard label={detailMessages.accountingRevenue} value={formatCurrency(accountingRevenue)} tone="blue" />
         <FinanceSummaryCard label={detailMessages.jobPrice} value={formatCurrency(job.price)} tone="gray" />
         <FinanceSummaryCard label={detailMessages.internalLabor} value={formatCurrency(laborCost)} tone="orange" />
@@ -2165,14 +1952,15 @@ export default function JobDetailPageClient({
           value={formatCurrency(assignmentProfit)}
           tone={assignmentProfit >= 0 ? 'green' : 'red'}
         />
-      </div>
+        </div>
+      </details>
 
       <div
         className="job-detail-grid"
         style={{
           display: 'grid',
           gap: '14px',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(min(320px, 100%), 1fr))',
           marginBottom: '18px',
         }}
       >
