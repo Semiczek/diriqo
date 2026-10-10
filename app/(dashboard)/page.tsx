@@ -1851,7 +1851,16 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           ) : (
             <div data-tour="dashboard-attention-list" style={actionStripGrid}>
               {actionPanels.filter((item) => item.value > 0).map((item) =>
-                <ActionDisclosure
+                item.key === 'overdue-quotes' || item.key === 'absences' ? (
+                  <ActionRow
+                    key={item.key}
+                    href={item.key === 'overdue-quotes' ? '/cenove-nabidky' : '/absences'}
+                    label={item.label}
+                    value={item.value}
+                    severity={item.severity}
+                    statusLabel={t.open}
+                  />
+                ) : <ActionDisclosure
                   key={item.label}
                   label={item.label}
                   value={item.value}
@@ -2397,23 +2406,25 @@ function ActionRow({
   label,
   value,
   severity,
+  statusLabel,
 }: {
   href: string
   label: string
   value: number
   severity: AttentionSeverity
+  statusLabel: string
 }) {
   const tone = actionSeverityStyle(severity)
-  const statusLabel = value === 0 ? 'OK' : severity === 'critical' ? 'kritické' : 'řešit'
 
   return (
-    <Link href={href} style={{ ...actionRow, borderColor: tone.border, backgroundColor: tone.background }}>
-      <div style={{ ...actionDot, backgroundColor: tone.dot }} />
+    <Link href={href} className={styles.attentionLink} style={{ ...actionRow, borderColor: tone.border, backgroundColor: tone.background }}>
+      <div aria-hidden="true" style={{ ...actionDot, backgroundColor: tone.dot }}>!</div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={actionLabel}>{label}</div>
         <div style={actionStatus}>{statusLabel}</div>
       </div>
       <div style={{ ...actionValue, color: tone.text }}>{value}</div>
+      <span aria-hidden="true" className={styles.attentionArrow}>→</span>
     </Link>
   )
 }

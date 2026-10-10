@@ -1551,7 +1551,13 @@ export default function JobsPage() {
           <div role="status" className={styles.empty}>{dictionary.jobs.loading}</div>
         ) : error ? null : filteredJobs.length === 0 ? (
           <div className={styles.empty}>
-            <h2>{dictionary.jobs.emptyTitle}</h2>
+            <h2>{jobs.length === 0
+              ? dictionary.jobs.emptyTitle
+              : locale === 'cs'
+                ? 'Tomuto výběru neodpovídá žádná zakázka'
+                : locale === 'de'
+                  ? 'Keine Aufträge entsprechen dieser Auswahl'
+                  : 'No jobs match this selection'}</h2>
             <p>{locale === 'cs' ? 'Zkuste jiný měsíc nebo upravte filtry. Novou zakázku založíte jedním tlačítkem.' : locale === 'de' ? 'Wählen Sie einen anderen Monat oder ändern Sie die Filter.' : 'Try another month or adjust the filters.'}</p>
             <Link href="/jobs/new" style={primaryButtonStyle}>{dictionary.jobs.createJob}</Link>
           </div>

@@ -122,7 +122,7 @@ button, a[href] { transition: background-color .15s, border-color .15s, color .1
   .dq-app .dashboard-layout { display: block; }
   .dq-app .dashboard-main { width: 100%; padding: 0 16px 76px !important; }
   .dq-app .dashboard-main-inner { max-width: 100%; }
-  .dq-app .dashboard-sidebar { position: fixed; z-index: 220; inset: 0 auto 0 0; width: min(85vw, 300px); height: 100dvh; padding: 24px 16px 16px; transform: translateX(-105%); visibility: hidden; transition: transform .2s ease, visibility .2s; box-shadow: 16px 0 40px rgb(25 25 44 / 10%); }
+  .dq-app .dashboard-sidebar { position: fixed; z-index: 220; inset: 0 auto 0 0; width: min(85vw, 300px); height: 100dvh; padding: 24px 16px 16px; transform: translateX(-105%); visibility: hidden; transition: transform .2s ease; box-shadow: 16px 0 40px rgb(25 25 44 / 10%); }
   .dq-app .dashboard-sidebar.is-mobile-open { transform: translateX(0); visibility: visible; }
   .dq-app .dashboard-sidebar-backdrop { display: block; position: fixed; inset: 0; z-index: 210; background: rgb(24 24 38 / 35%); backdrop-filter: blur(2px); border: 0; }
   .dq-app .dashboard-sidebar-close, .dq-app .dashboard-mobile-menu-button { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border: 1px solid #e6e7ef; background: white; border-radius: 9px; flex-shrink: 0; color: #666c7d; }

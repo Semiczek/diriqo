@@ -2172,7 +2172,7 @@ export default function JobDetailPageClient({
         style={{
           display: 'grid',
           gap: '14px',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(min(320px, 100%), 1fr))',
           marginBottom: '18px',
         }}
       >
