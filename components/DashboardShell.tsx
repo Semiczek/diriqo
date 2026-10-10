@@ -1,7 +1,7 @@
 ﻿'use client'
 
 import Link from 'next/link'
-import { ReactNode, useEffect, useState } from 'react'
+import { ReactNode, useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 import { supabase } from '@/lib/supabase'
@@ -33,6 +33,7 @@ type DashboardShellProps = {
     | 'account'
     | 'companySettings'
     | 'billing'
+    | 'modules'
     | 'setupGuide'
     | 'legalTerms'
     | 'legalPrivacy'
@@ -122,6 +123,7 @@ export default function DashboardShell({
   const [activeCompanyLoading, setActiveCompanyLoading] = useState(true)
   const [companySwitchError, setCompanySwitchError] = useState<string | null>(null)
   const { dictionary } = useI18n()
+  const closeMobileMenu = useCallback(() => setMobileMenuOpen(false), [])
 
   useEffect(() => {
     let cancelled = false
@@ -217,6 +219,7 @@ export default function DashboardShell({
     activeCompany?.profileName || activeCompany?.profileEmail || dictionary.common.userFallback
   const userSubtitle = activeCompany?.profileEmail || (activeCompany ? getCompanyRoleLabel(activeCompany.role) : '')
   const userInitials = getUserInitials(activeCompany?.profileName, activeCompany?.profileEmail)
+  const canManageModules = ['company_admin', 'super_admin'].includes((activeCompany?.role ?? '').trim().toLowerCase())
 
   return (
     <AdminAuthGuard>
@@ -239,19 +242,21 @@ export default function DashboardShell({
               type="button"
               className="dashboard-sidebar-backdrop"
               aria-label={dictionary.common.closeMenu}
-              onClick={() => setMobileMenuOpen(false)}
+              onClick={closeMobileMenu}
             />
           ) : null}
 
           <DashboardSidebar
             activeItem={activeItem}
             enabledModules={companyModules}
+            showModuleCatalog={canManageModules}
             mobileOpen={mobileMenuOpen}
-            onNavigate={() => setMobileMenuOpen(false)}
+            onNavigate={closeMobileMenu}
           />
 
           <section
             className="dashboard-main"
+            inert={mobileMenuOpen}
             style={{
               flex: 1,
               padding: '18px 28px 32px',
@@ -291,7 +296,12 @@ export default function DashboardShell({
                     className="dashboard-mobile-menu-button"
                     aria-label={dictionary.common.openMenu}
                     aria-expanded={mobileMenuOpen}
-                    onClick={() => setMobileMenuOpen(true)}
+                    aria-controls="dashboard-navigation"
+                    onClick={() => {
+                      setCompanyMenuOpen(false)
+                      setUserMenuOpen(false)
+                      setMobileMenuOpen(true)
+                    }}
                   >
                     <span />
                     <span />

@@ -19,6 +19,11 @@
 .moduleNumber { display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; border-radius: 8px; background: #eff6ff; color: #1d4ed8; font-size: 13px; font-weight: 850; }
 .badge, .activeBadge { display: inline-flex; padding: 5px 9px; border-radius: 999px; background: #f1f5f9; color: #475569; font-size: 12px; font-weight: 750; }
 .activeBadge { color: #166534; background: #dcfce7; }
+.testBadge { display: inline-flex; padding: 5px 9px; border-radius: 999px; color: #5b21b6; background: #ede9fe; font-size: 12px; font-weight: 750; }
+.testStatus { margin: 0; color: #5b21b6; font-size: 13px; line-height: 1.6; }
+.quickLinks { display: flex; gap: 10px; flex-wrap: wrap; }
+.development { padding: 14px; border: 1px solid #e2e8f0; border-radius: 8px; background: #f8fafc; color: #475569; font-size: 13px; line-height: 1.6; }
+.development p { margin: 6px 0 0; }
 .card h2 { margin: 7px 0 0; color: #0f172a; font-size: 23px; line-height: 1.2; letter-spacing: -.02em; }
 .coreCard h2 { font-size: 28px; }
 .description { margin: 10px 0 0; color: #334155; line-height: 1.6; }
@@ -30,7 +35,7 @@
 .price { margin: 0; color: #0f172a; font-size: 22px; font-weight: 800; }
 .price span { color: #64748b; font-size: 13px; font-weight: 550; }
 .preparing { margin: 0; padding-top: 16px; border-top: 1px solid #e2e8f0; color: #64748b; font-size: 13px; line-height: 1.6; }
-.primaryButton, .secondaryButton { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 10px 15px; border: 1px solid transparent; border-radius: 7px; font-size: 13px; font-weight: 750; line-height: 1.4; cursor: pointer; }
+.primaryButton, .secondaryButton { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 10px 15px; border: 1px solid transparent; border-radius: 7px; font-size: 13px; font-weight: 750; line-height: 1.4; cursor: pointer; text-decoration: none; }
 .primaryButton { background: #2563eb; color: #fff; }
 .secondaryButton { flex-shrink: 0; background: #fff; color: #334155; border-color: #cbd5e1; }
 .primaryButton:disabled, .secondaryButton:disabled { opacity: .55; cursor: not-allowed; }

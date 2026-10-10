@@ -30,15 +30,18 @@ export default function BillingClient({ mainPlans }: BillingClientProps) {
   return (
     <section style={sectionStyle}>
       <div style={toolbarStyle}>
-        <h2 style={sectionTitleStyle}>Předplatné</h2>
+        <h2 style={sectionTitleStyle}>Dosavadní firemní tarify</h2>
       </div>
+      <p style={descriptionStyle}>
+        Přehled dosavadních tarifů v EUR. Jejich ceny a limity se vztahují k původnímu předplatnému.
+        Stav a nabídku samostatných modulů najdete v přehledu Základ a moduly.
+      </p>
 
       <div style={plansGridStyle}>
         {mainPlans.map((plan) => (
-          <article key={plan.key} style={plan.recommended ? recommendedPlanCardStyle : planCardStyle}>
+          <article key={plan.key} style={planCardStyle}>
             <div style={planHeaderStyle}>
               <h3 style={planTitleStyle}>{plan.name}</h3>
-              {plan.recommended ? <span style={badgeStyle}>Doporučeno</span> : null}
             </div>
             <div>
               <div style={priceStyle}>{formatMonthlyPrice(plan)}</div>
@@ -70,6 +73,12 @@ const sectionTitleStyle = {
   fontSize: 22,
 } as const
 
+const descriptionStyle = {
+  margin: 0,
+  color: '#64748b',
+  lineHeight: 1.6,
+} as const
+
 const plansGridStyle = {
   display: 'grid',
   gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
@@ -87,12 +96,6 @@ const planCardStyle = {
   minHeight: 150,
 } as const
 
-const recommendedPlanCardStyle = {
-  ...planCardStyle,
-  border: '1px solid #93c5fd',
-  boxShadow: '0 12px 28px rgba(37, 99, 235, 0.12)',
-} as const
-
 const planHeaderStyle = {
   display: 'flex',
   alignItems: 'center',
@@ -103,19 +106,6 @@ const planHeaderStyle = {
 const planTitleStyle = {
   margin: 0,
   fontSize: 20,
-} as const
-
-const badgeStyle = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  minHeight: 26,
-  borderRadius: 8,
-  background: '#eff6ff',
-  color: '#1d4ed8',
-  border: '1px solid #bfdbfe',
-  padding: '4px 8px',
-  fontSize: 12,
-  fontWeight: 850,
 } as const
 
 const priceStyle = {

@@ -25,12 +25,12 @@ export default async function BillingPage() {
       <main style={pageStyle}>
         <header style={headerStyle}>
           <div>
-            <p style={eyebrowStyle}>Pricing</p>
-            <h1 style={titleStyle}>Plans</h1>
+            <p style={eyebrowStyle}>Předplatné Diriqa</p>
+            <h1 style={titleStyle}>Základ, moduly a dosavadní tarif</h1>
             <p style={subtitleStyle}>
               {activeCompany
-                ? `Pricing options for ${activeCompany.companyName || 'your company'}.`
-                : 'Pricing options for Diriqo app accounts.'}
+                ? `Přehled předplatného pro ${activeCompany.companyName || 'vaši firmu'}. Stav základu a samostatných modulů najdete v jejich přehledu.`
+                : 'Vyberte firmu pro přehled jejího základu, modulů a předplatného.'}
             </p>
             {activeCompany ? (
               <Link href="/billing/modules" style={modulesLinkStyle}>Základ a moduly →</Link>
@@ -40,7 +40,7 @@ export default async function BillingPage() {
 
         {!activeCompany ? (
           <section style={noticeStyle}>
-            Company pricing can be managed after company setup by a company administrator.
+            Předplatné může spravovat administrátor po založení a výběru firmy.
           </section>
         ) : null}
 
@@ -102,10 +102,11 @@ const modulesLinkStyle = {
   minHeight: 44,
   marginTop: 16,
   padding: '10px 14px',
-  border: '1px solid #bfdbfe',
+  border: '1px solid #1d4ed8',
   borderRadius: 7,
-  background: '#eff6ff',
-  color: '#1d4ed8',
+  background: '#1d4ed8',
+  color: '#ffffff',
+  textDecoration: 'none',
   fontWeight: 750,
   fontSize: 14,
 } as const

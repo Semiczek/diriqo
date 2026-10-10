@@ -48,6 +48,27 @@ describe('paid operation boundary', () => {
   it('canonicalizes the trusted company UUID', async () => {
     await expect(getPaidCompanyCapabilityAccess({ ...ctx(), companyId: companyId.toUpperCase() }, capability)).resolves.toMatchObject({ companyId })
   })
+  it('accepts explicit nonfinancial test access only in test mode', async () => {
+    mocks.rpc.mockResolvedValue({ data: paid({ reason: 'test' }), error: null })
+    expect(await getPaidCompanyCapabilityAccess(ctx(), capability)).toEqual({
+      companyId, capability, enforced: true, allowed: true, reason: 'test',
+    })
+    await expect(requirePaidCompanyCapability(ctx(), capability)).resolves.toBeUndefined()
+  })
+  it.each(['', 'live', 'invalid'])('rejects test access when server mode is %s', async (mode) => {
+    vi.stubEnv('DIRIQO_MODULE_BILLING_MODE', mode)
+    mocks.rpc.mockResolvedValue({ data: paid({ reason: 'test' }), error: null })
+    await expect(requirePaidCompanyCapability(ctx(), capability)).rejects.toMatchObject({ status: 503 })
+  })
+  it('rejects a forged live test reason even when the deployment mode matches live', async () => {
+    vi.stubEnv('DIRIQO_MODULE_BILLING_MODE', 'live')
+    mocks.rpc.mockResolvedValue({ data: paid({ reason: 'test', livemode: true }), error: null })
+    await expect(requirePaidCompanyCapability(ctx(), capability)).rejects.toMatchObject({ status: 503 })
+  })
+  it.each([paid({ reason: 'test', allowed: false }), legacy({ reason: 'test' })])('rejects inconsistent test authority %j', async (data) => {
+    mocks.rpc.mockResolvedValue({ data, error: null })
+    await expect(requirePaidCompanyCapability(ctx(), capability)).rejects.toMatchObject({ status: 503 })
+  })
   it('does not authorize unsupported history, settlement, AI budget or register-scoped operations through this guard', () => {
     const supported = Object.entries(CAPABILITIES).filter(([, cap]) => cap.purpose === 'new_operation' && cap.scope === 'company' && !cap.requiresBudget).map(([key]) => key)
     expect([...COMPANY_OPERATION_CAPABILITIES].sort()).toEqual(supported.sort())

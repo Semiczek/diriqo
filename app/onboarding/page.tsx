@@ -17,8 +17,8 @@ const options = [
     mode: 'skipped',
     title: 'Začít hned pracovat',
     duration: 'Bez průvodce',
-    description: 'Přejdeš rovnou do dashboardu. Nápovědu najdeš kdykoliv vpravo dole.',
-    points: ['Dashboard je dostupný hned', 'Nápověda zůstane po ruce', 'Tutorial můžeš spustit později'],
+    description: 'Přejdeš rovnou na přehled. První nastavení můžeš dokončit z nabídky Průvodce nastavením.',
+    points: ['Přehled je dostupný hned', 'První nastavení najdeš v menu', 'Průvodce můžeš spustit později'],
     button: 'Pokračovat do aplikace',
     recommended: false,
   },
@@ -33,11 +33,11 @@ const options = [
   },
   {
     mode: 'detailed',
-    title: 'Podrobný tutorial',
+    title: 'Podrobný průvodce',
     duration: 'Krok za krokem',
     description: 'Delší průvodce pro nastavení firmy, pracovníky, zákazníky, zakázky, náklady a finance.',
     points: ['Vždy jde zavřít', 'Kroky lze přeskočit', 'Pokračovat můžeš později'],
-    button: 'Spustit podrobný tutorial',
+    button: 'Spustit podrobného průvodce',
     recommended: false,
   },
 ] as const
@@ -79,6 +79,9 @@ export default async function OnboardingPage({ searchParams }: OnboardingPagePro
             Vyber si způsob, který ti nejvíc sedí. Diriqo můžeš začít používat hned,
             nebo si ho nechat ukázat krok za krokem.
           </p>
+          <p style={footnoteStyle}>
+            Aktivní firma: <strong>{activeCompany.companyName || 'Vaše firma'}</strong>
+          </p>
         </div>
 
         <div style={gridStyle}>
@@ -111,7 +114,8 @@ export default async function OnboardingPage({ searchParams }: OnboardingPagePro
         </div>
 
         <p style={footnoteStyle}>
-          Tutorial není povinný. Vždy ho můžeš zavřít, přeskočit krok nebo znovu spustit přes nápovědu.
+          Průvodce není povinný. Můžeš ho zavřít, přeskočit krok nebo znovu spustit přes nápovědu.
+          Správu Základu a modulů najde administrátor firmy v hlavním menu.
         </p>
       </section>
     </main>
@@ -171,7 +175,7 @@ const subtitleStyle: CSSProperties = {
 
 const gridStyle: CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))',
   gap: 16,
 }
 

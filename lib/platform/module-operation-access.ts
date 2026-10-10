@@ -25,7 +25,7 @@ export type CompanyCapabilityAccess = {
   capability: CompanyOperationCapability
   enforced: boolean
   allowed: boolean
-  reason: 'legacy' | 'paid' | 'module_required'
+  reason: 'legacy' | 'paid' | 'test' | 'module_required'
 }
 
 export class ModuleAccessError extends Error {
@@ -79,7 +79,8 @@ export async function getPaidCompanyCapabilityAccess(
   } else {
     const mode = readModuleBillingMode()
     if (mode === null || typeof data.livemode !== 'boolean' || data.livemode !== mode
-      || (data.allowed ? data.reason !== 'paid' : data.reason !== 'module_required')) throw unavailable()
+      || (data.allowed ? !(data.reason === 'paid' || (data.reason === 'test' && mode === false))
+        : data.reason !== 'module_required')) throw unavailable()
   }
   return { companyId, capability, enforced: data.enforced, allowed: data.allowed, reason: data.reason }
 }
