@@ -436,7 +436,7 @@ export async function createJobsAction(input: CreateJobsInput): Promise<CreateJo
   try {
     const context = await requireHubDalContext()
     const { supabase, companyId } = context
-    const moduleAccess = await requireCompanyModule(companyId, 'jobs')
+    const moduleAccess = await requireCompanyModule(companyId, 'jobs', 'core.jobs.create')
 
     if (!moduleAccess.ok) {
       return { ok: false, error: moduleAccess.error }
@@ -740,7 +740,7 @@ export async function createParentSummaryJobAction(input: {
   try {
     const context = await requireCompanyRoleDalContext('company_admin', 'super_admin')
     const { supabase, companyId } = context
-    const moduleAccess = await requireCompanyModule(companyId, 'jobs')
+    const moduleAccess = await requireCompanyModule(companyId, 'jobs', 'core.jobs.create')
     const jobId = cleanString(input.jobId)
 
     if (!moduleAccess.ok) return { ok: false, error: moduleAccess.error }
@@ -851,6 +851,8 @@ export async function detachJobFromParentAction(input: {
   try {
     const context = await requireCompanyRoleDalContext('company_admin', 'super_admin')
     const { supabase, companyId } = context
+    const moduleAccess = await requireCompanyModule(companyId, 'jobs', 'core.jobs.update')
+    if (!moduleAccess.ok) return { ok: false, error: moduleAccess.error }
     const jobId = cleanString(input.jobId)
 
     if (!jobId) return { ok: false, error: messages.missingJob }
@@ -884,7 +886,7 @@ export async function attachJobToParentAction(input: {
   try {
     const context = await requireCompanyRoleDalContext('company_admin', 'super_admin')
     const { supabase, companyId } = context
-    const moduleAccess = await requireCompanyModule(companyId, 'jobs')
+    const moduleAccess = await requireCompanyModule(companyId, 'jobs', 'core.jobs.update')
     const childJobId = cleanString(input.childJobId)
     const parentJobId = cleanString(input.parentJobId)
 
@@ -970,7 +972,7 @@ export async function createJobGroupFromDropAction(input: {
   try {
     const context = await requireCompanyRoleDalContext('company_admin', 'super_admin')
     const { supabase, companyId } = context
-    const moduleAccess = await requireCompanyModule(companyId, 'jobs')
+    const moduleAccess = await requireCompanyModule(companyId, 'jobs', 'core.jobs.create')
     const draggedJobId = cleanString(input.draggedJobId)
     const targetJobId = cleanString(input.targetJobId)
 
@@ -1097,6 +1099,8 @@ export async function detachCustomerFromJobAction(jobIdInput: string): Promise<J
   try {
     const context = await requireCompanyRoleDalContext('company_admin', 'super_admin')
     const { supabase, companyId } = context
+    const moduleAccess = await requireCompanyModule(companyId, 'jobs', 'core.jobs.update')
+    if (!moduleAccess.ok) return { ok: false, error: moduleAccess.error }
     const jobId = cleanString(jobIdInput)
 
     if (!jobId) return { ok: false, error: messages.missingJob }
@@ -1153,6 +1157,8 @@ export async function deleteJobSafelyAction(jobIdInput: string): Promise<JobMuta
   try {
     const context = await requireCompanyRoleDalContext('company_admin', 'super_admin')
     const { supabase, companyId } = context
+    const moduleAccess = await requireCompanyModule(companyId, 'jobs', 'core.jobs.update')
+    if (!moduleAccess.ok) return { ok: false, error: moduleAccess.error }
     const jobId = cleanString(jobIdInput)
 
     if (!jobId) return { ok: false, error: messages.missingJob }

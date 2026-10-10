@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
+    "test:platform": "node --test --test-isolation=none tests/platform-foundation.test.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

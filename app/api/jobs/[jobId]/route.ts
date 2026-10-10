@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { markJobCompleted, markReadyForInvoice } from '@/lib/dal/flow'
 import { requireCompanyRole } from '@/lib/server-guards'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
+import { requireCompanyModule } from '@/lib/module-access'
 
 type RouteContext = {
   params: Promise<{
@@ -77,6 +78,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   }
 
   const activeCompany = activeCompanyResult.value
+  const moduleAccess = await requireCompanyModule(activeCompany.companyId, 'jobs', 'core.jobs.update')
+  if (!moduleAccess.ok) {
+    return NextResponse.json({ error: moduleAccess.error }, { status: moduleAccess.status ?? 403 })
+  }
 
   const { jobId } = await context.params
   const cleanJobId = jobId?.trim()
@@ -86,6 +91,12 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   }
 
   const payload = (await request.json().catch(() => ({}))) as JobUpdatePayload
+  if (payload.status === 'done') {
+    const closeAccess = await requireCompanyModule(activeCompany.companyId, 'jobs', 'core.jobs.close')
+    if (!closeAccess.ok) {
+      return NextResponse.json({ error: closeAccess.error }, { status: closeAccess.status ?? 403 })
+    }
+  }
   const supabase = await createSupabaseServerClient()
 
   const existingJobResponse = await supabase

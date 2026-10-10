@@ -1,0 +1,467 @@
+[
+  {
+    "id": "C01-01",
+    "scenario": "Firma bez skladu, fakturace a AI založí zakázku, zadá ruční rozpočet, eviduje práci a zakázku uzavře.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "C01-02",
+    "scenario": "Opakovaný požadavek na převod stejné přijaté nabídky vrátí již vytvořenou zakázku, nevytvoří další.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "C01-03",
+    "scenario": "Rodič s vlastním nákladem 100 Kč a dvěma podzakázkami s náklady 200 a 300 Kč ukáže souhrn 600 Kč. Rozbalení podzakázek ani přepnutí pohledu součet nezmění.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "C02-01",
+    "scenario": "Zahraniční zákazník bez českého identifikátoru má dvě místa realizace a zakázku v každém z nich.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "C02-02",
+    "scenario": "Změna aktuální adresy zákazníka nezmění adresu v již vydané nabídce.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "C02-03",
+    "scenario": "Archivace zákazníka zachová minulou zakázku a její dokumenty, ale zákazníka nenabízí jako výchozí volbu pro novou práci.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "C03-01",
+    "scenario": "Vedoucí zaeviduje docházku pracovníka bez přihlášení; pozdější propojení jeho účtu nezaloží druhou osobu.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "C03-02",
+    "scenario": "Jedna přihlášená osoba je vedoucím ve firmě A a pracovníkem ve firmě B; práva se mezi firmami nepřenášejí.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "C03-03",
+    "scenario": "Zvýšení nákladové sazby od listopadu samo nepřepočítá již schválené říjnové náklady.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "C04-01",
+    "scenario": "Dvojí kliknutí nebo dvě otevřené karty nevytvoří dva současně běžící časovače stejného pracovníka ve firmě.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "C04-02",
+    "scenario": "Přesnoční směna s přestávkou a změnou času má správnou skutečnou délku.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "C04-03",
+    "scenario": "Oprava schválených hodin zachová původní verzi; náklady zakázky se po schválení revize opraví právě jednou.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "C05-01",
+    "scenario": "Uživatel bez skladu vytvoří položku materiálu ručně a stáhne jednoduchou nabídku do PDF.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "C05-02",
+    "scenario": "Zákaznický dokument ani jeho exportní odpověď neobsahují skryté interní sazby a marže.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "C05-03",
+    "scenario": "Nová verze nabídky nemění přijatou verzi; zakázka používá jednoznačně vybraný snímek.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "C06-01",
+    "scenario": "Schválení nepřítomnosti okamžitě změní dostupnost a označí dotčená plánovaná přidělení.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "C06-02",
+    "scenario": "Pracovník bez práva plánovat nemůže přidělení přesunout ani přímým požadavkem na server.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "C06-03",
+    "scenario": "Souběžné přesunutí stejné události dvěma vedoucími vyvolá řešitelný konflikt, ne tiché přepsání.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "C07-01",
+    "scenario": "Žádost přes několik dnů v různých časových zónách zůstane žádostí o správná místní data.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "C07-02",
+    "scenario": "Vedoucí při schvalování uvidí kolidující směnu; kolega vidí pouze nedostupnost.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "C07-03",
+    "scenario": "Schválené zrušení absence opraví dostupnost a historii, nevytvoří automaticky docházku ani novou směnu.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "C08-01",
+    "scenario": "Žádost na 5 000 Kč je schválena na 3 000 Kč a vyplacena ve dvou částkách; přehled správně ukazuje obě salda.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "C08-02",
+    "scenario": "Opakované potvrzení téže výplaty nevytvoří další pohyb.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "C08-03",
+    "scenario": "Záloha se nepřičte k nákladům zakázky podruhé vedle nákladů odpracovaného času; vypořádání má doložený záznam.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "C09-01",
+    "scenario": "Pracovník nahraje fotku k přidělené zakázce a vedoucí ji zahrne do předání.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "C09-02",
+    "scenario": "Znalost identifikátoru nevydá nový přístupový odkaz pracovníkovi bez aktuálního oprávnění. Již vydané podepsané URL mají ověřenou omezenou platnost; pokud je požadováno okamžité odvolání, soubor se doručuje přes cestu znovu ověřující oprávnění.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "C09-03",
+    "scenario": "Oprava předání vytvoří novou verzi; původní potvrzený dokument zůstane dohledatelný.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "C10-01",
+    "scenario": "Zakázka bez skladu obsahuje schválené hodiny, ruční materiál a dopravu; plán a skutečnost se srovnají ve stejné měně.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "C10-02",
+    "scenario": "Chybějící sazba pracovníka nevytvoří falešný nulový náklad a zdánlivě vysokou marži; přehled ukáže neúplnost.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "C10-03",
+    "scenario": "Opakované zpracování stejného zdroje nebo pozdější propojení již zaevidované faktury nenavýší náklady či výnosy podruhé.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "M01-01",
+    "scenario": "Objednávka na deset kusů přijme šest kusů. Sklad vzroste o šest, objednávka zůstane částečně přijatá se čtyřmi nedodanými kusy. Opakované potvrzení stejné příjemky nepřidá dalších šest.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "M01-02",
+    "scenario": "Přijde deset kusů za předběžných 100 Kč, tři se vydají na zakázku. Pozdější doklad upřesní cenu na 110 Kč. V řízeném scénáři bez jiných pohybů činí náklad zakázky 330 Kč a ocenění sedmi zbývajících kusů 770 Kč; faktura nezaloží další plný náklad.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "M01-03",
+    "scenario": "Uživatel smí číst dostupnost, ale nesmí nákupní ceny. Nedostane je ani přes export či přímé API. Vypnutý sklad odmítne nový pohyb, zatímco oprávněný export historie funguje.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "M02-01",
+    "scenario": "Dvakrát dorazí požadavek na vydání stejného konceptu. Vznikne jedna faktura s jedním číslem a jedním záznamem o vydání; obě odpovědi odkazují na tentýž dokument.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "M02-02",
+    "scenario": "Zakázka má konečnou cenu 10 000 Kč a přijatou zálohu 3 000 Kč. Konečné vyúčtování ukáže již uhrazených 3 000 Kč a zbývajících 7 000 Kč. Přehled nezobrazí 13 000 Kč prodeje ani další příjem původní zálohy.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "M02-03",
+    "scenario": "Faktura navazuje na zaplacený prodej z DiriPOS. Stav úhrady odpovídá původní platbě a počet prodejů i skladových výdejů zůstane stejný. Uživatel bez práva vydávat doklady neobejde omezení přímým API.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "M03-01",
+    "scenario": "Zákazník přijme verzi 2; verze 1 již byla nahrazena. Přijetí verze 1 je odmítnuto s vysvětlením. Dvojí callback přijetí verze 2 založí jen jednu následnou objednávku či zakázku.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "M03-02",
+    "scenario": "Chytré nabídky jsou zapnuté, konverzační AI vypnuté. Ruční nabídka funguje a oprávněný OCR požadavek proběhne podle dostupného rozpočtu. Bez kreditu zůstává ruční práce dostupná.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "M03-03",
+    "scenario": "Nabídka plánuje materiál za 5 000 Kč a rezervuje jej. Skutečný náklad zakázky je zatím nulový. Vznikne až potvrzeným výdejem; zákaznický export nikdy neobsahuje interní marži.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "M04-01",
+    "scenario": "Firma má pět aktivních vozidel a dvě archivovaná. Cena modulu je 199 Kč. Přidání šestého aktivního vozidla aktivuje jednu položku za 29 Kč podle schváleného pravidla účtovacího období.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "M04-02",
+    "scenario": "Zakázce se připíše sto kilometrů po 10 Kč včetně paliva. Následné tankování nezvýší stejný zakázkový náklad o celé palivo; přehled jasně ukáže použitou metodiku.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "M04-03",
+    "scenario": "Jeden servisní náklad 2 000 Kč se rozdělí mezi dvě zakázky po 1 000 Kč. Import související faktury ani jeho opakování nevytvoří dalších 2 000 Kč nákladů. Řidič bez schvalovacího oprávnění rozdělení nezmění.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "M05-01",
+    "scenario": "Firma koupí pouze DiriPOS, vytvoří katalog a provede prodej. Rozhraní ani API po ní nevyžaduje placené jádro. Pozdější přikoupení jádra zpřístupní vazby nad stejnými zákazníky a prodeji.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "M05-02",
+    "scenario": "Offline hotovostní prodej přežije restart a synchronizuje se třikrát. Na serveru vznikne jeden prodej, jedna platba a při zapnutém skladu jeden výdej. Ztracené potvrzení synchronizace nezpůsobí další operaci.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "M05-03",
+    "scenario": "Terminál potvrdí platbu, ale pokladně vyprší spojení. Obnova dohledá původní transakci bez dalšího stržení. Následná faktura ani opakovaná vratka nevytvoří duplicitní inkaso, výdej či vrácení peněz.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "M06-01",
+    "scenario": "Pracovník požádá o mzdy kolegů a podklad obsahuje instrukci obejít omezení. Server odmítne nepovolené načtení; informace neunikne ani citací, náhledem přílohy nebo výsledkem hledání.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "M06-02",
+    "scenario": "Jedna operace stojí podle uloženého ceníku 15 Kč prodejního kreditu. Tři retry vytvoří jednu rezervaci a jeden konečný odečet 15 Kč. Pokud asistent připravuje zakázku, stejné schválení nezaloží několik zakázek.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "M06-03",
+    "scenario": "Firma vypne Diriqenta, ale ponechá Chytré nabídky. Nový firemní chat není dostupný, autorizované OCR nabídky se svým rozpočtem funguje a historické rozhovory zůstávají dostupné pouze aktuálně oprávněným osobám.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "P01",
+    "scenario": "Cizí záznam přes přímý požadavek. Uživatel A dosadí ID zakázky, zákazníka či zaměstnance B do čtení, změny a hromadného endpointu. Nedostane data ani nezpůsobí změnu. Důkaz: požadavky, odpovědi a porovnání relevantních dat B.",
+    "status": "DÍLČÍ DŮKAZ",
+    "evidence": [
+      "supabase/tests/platform-authority.sql: 31 asercí PASS pod skutečnými rolemi; dílčí platformní hranice a ochrana identit.",
+      "supabase/tests/module-payment-authority.sql: 59 asercí PASS včetně čtení placených grantů firem A/B, omezení zápisů a odvolání členství.",
+      "Lokální guard/proxy a placený loader ověřují aktuální identitu a firmu; celý průchod aplikací neproběhl.",
+      "supabase/tests/module-checkout-sessions.sql: 73 asercí PASS; rezervace znovu kontroluje aktuálního správce firmy. Checkout route přijímá pouze ID nabídky a kontroluje změnu firemního kontextu."
+    ],
+    "remaining": [
+      "Úplná matice přímého čtení, změn a hromadných endpointů pro cizí zakázky, zákazníky a pracovníky firmy B; přihlášený proklik."
+    ]
+  },
+  {
+    "id": "P02",
+    "scenario": "Osoba ve dvou firmách. Stejná identita má různá členství a pracovní vztahy v A a B. Docházka, zálohy a role zůstávají oddělené; odebrání členství A neodstraní B. Důkaz: relační záznamy a ověřené akce obou kontextů.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "P03",
+    "scenario": "Vypnutý modul všemi cestami. Firma, která nikdy nezískala oprávnění ke skladu, zkouší URL, API, RPC, export, import a AI nástroj skladu. Nepovolená data se nevydají a nové placené operace jsou odmítnuté před změnou. Samostatně se ověří firma s ukončeným skladem, která má po dobu retence právo číst a exportovat svou historii. Důkaz: matice cest a výsledků; základní katalog POS dál funguje.",
+    "status": "DÍLČÍ DŮKAZ",
+    "evidence": [
+      "Foundation registry a 19 testů diagnostického EUR adaptéru/loaderu; nový placený loader má 24 testů a stavové API 8 testů.",
+      "Nová placená období jsou uložená v DB; stavový endpoint není doménovým enforcementem. UI používá explicitní isPaidActive, nikoliv počet historických schopností."
+    ],
+    "remaining": [
+      "Doplnění historických EUR grantů a skutečný enforcement přes URL, API, RPC, export, import a AI včetně samostatného katalogu POS."
+    ]
+  },
+  {
+    "id": "P04",
+    "scenario": "Samostatný DiriPOS a následné rozšíření. Firma bez jádra Diriqa dokončí základní prodejní tok. Po dokoupení jádra používá totožnou organizaci a odpovídající sdílená data. Důkaz: provedený prodej, identity záznamů před a po změně, absence duplicit.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "P05",
+    "scenario": "Odebrání oprávnění za běhu. Uživatel otevře editaci a připraví úlohu; správce mu odebere roli nebo modul. Starý token, odeslání formuláře a nově spuštěná část úlohy respektují nová pravidla. Důkaz: časová posloupnost a žádné nepovolené zápisy.",
+    "status": "DÍLČÍ DŮKAZ",
+    "evidence": [
+      "Skutečné SQL odvolání platformního grantu a odebrání čtení placených grantů po deaktivaci členství prošlo; fixtures rollback.",
+      "Lokální guard a loadery znovu ověřují současnou autoritu a členství; service-only checkout rezervace samostatně znovu autorizuje aktuálního správce firmy."
+    ],
+    "remaining": [
+      "Odebrání role nebo modulu při rozpracovaném formuláři, se starým tokenem a během asynchronní úlohy; úplný přihlášený průchod a odvolání placené licence."
+    ]
+  },
+  {
+    "id": "P06",
+    "scenario": "Soubory a exporty. A zná cestu nebo ID exportu B. Nemůže získat soubor, náhled ani novou přístupovou URL. Vlastní dočasný odkaz odpovídá dokumentované expiraci. Důkaz: odpovědi úložiště, metadata vlastnictví a kontrola doby platnosti.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "P07",
+    "scenario": "Cache a přepnutí organizace. Jedna identita rychle přepíná A/B při rozpracovaném načítání a použije shodné vyhledávání. Pozdní odpověď A se nezobrazí v B; agregace ani serverová cache nepřenesou data. Důkaz: sled síťových odpovědí a výsledná zobrazení.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "P08",
+    "scenario": "AI a škodlivý obsah dokumentu. Dokument A žádá čtení firmy B či zapnutí modulu. AI takovou operaci přes nástroj neprovede a nezíská cizí kontext ani historii. Důkaz: autorizované retrieval výsledky a redigovaná stopa volání nástrojů.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "P09",
+    "scenario": "Souběžná spotřeba kreditu a pád. Více úloh soupeří o poslední kredit; jedna spadne po externím volání. Nevznikne záporný dostupný zůstatek ani dvojí zákaznické zaúčtování. Případná kompenzace podle pravidla 9.2 nesmaže skutečný náklad poskytovatele. Důkaz: ledger, rezervace, reconciliace a propojené identifikátory operací.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "P10",
+    "scenario": "Opakované a opožděné platební události. Dvakrát přijde úhrada, poté starší událost a nový výsledek. Oprávnění i kredit odpovídají rozhodnému stavu, kredit se nepřičte dvakrát. Důkaz: události, jejich deduplikace a konečný stav předplatného.",
+    "status": "DÍLČÍ DŮKAZ",
+    "evidence": [
+      "supabase/tests/module-payment-authority.sql: 59 asercí PASS včetně opakování události, sémantické duplicity, konfliktu obsahu a opožděných placených období bez přepsání historie.",
+      "107 testů platebního validátoru a 57 handleru/webhooku PASS; poskytovatel je v lokálních testech řízeným rozhraním.",
+      "První nákup má 73 checkout SQL asercí a 141 service testů PASS pro rezervaci, opakování a provider vazby. Návratová UI obrazovka nikdy sama nepotvrzuje úhradu."
+    ],
+    "remaining": [
+      "Skutečný celý Stripe sandbox tok, současné transakce, úplný lifecycle předplatného a kreditový ledger s deduplikovaným připsáním kreditu."
+    ]
+  },
+  {
+    "id": "P11",
+    "scenario": "Neuhrazení a konec předplatného. Simulovaný čas projde aktivním obdobím, tolerancí a omezením přístupu. Čtení, export a zápisy odpovídají tabulce stavů, data zůstávají zachovaná. Obnovení nevyžaduje novou firmu. Důkaz: stavové přechody a povolené/odmítnuté akce.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "P12",
+    "scenario": "Země, jazyk a obor se nepletou. Změna jazyka a oborového profilu nezmění rozhodná pravidla existujícího dokladu. Různé firmy mohou mít různou zemi a časové pásmo bez globálního přepisu. Důkaz: konfigurace, historický dokument a výsledky odpovídajících operací.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "P13",
+    "scenario": "Čistá extrakce bez interních dat. Nové prostředí vznikne z čisté instalace, migrací a syntetických vzorů. Neobsahuje interní záznamy, přístupové údaje ani přílohy. Důkaz: manifest přenesených souborů, seznam vytvořených dat a kontrola zakázaných kategorií obsahu.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "P14",
+    "scenario": "Import po pádu a opakovaném spuštění. Import A je násilně ukončen mezi dávkami i při potvrzení dávky. Pokračování skončí přesně jednou sadou záznamů; nahlásí vadné řádky. Důkaz: checkpointy, počty, klíče a porovnání s jedním nepřerušeným během.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "P15",
+    "scenario": "Zachování HUBu a druhé firmy. Provoz B se ověří během změn A. Pokud změna zasahuje sdílený kód používaný HUBem, proveď cílenou regresi jeho dotčených toků v testovací kopii; pokud se HUB nemění, dolož tuto skutečnost přehledem změn. Žádný krok importu, vypnutí modulu nebo obnovy A nepřepíše B. Důkaz: cílené regrese, invarianty, snímky relevantních dat a ověřený postup návratu.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "P16",
+    "scenario": "Celé jádro bez doplňků. Založ zákazníka, kalkulaci s ručním materiálem, nabídku, zakázku, pracovníka, plán, čas, nepřítomnost, zálohu a předání. Žádný krok nevyžaduje sklad, fakturaci, POS ani AI. Ověř uložení a následné načtení po novém přihlášení.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "P17",
+    "scenario": "Historie a finanční souhrny. Změna aktuální sazby nepřepíše schválený čas. Rodič a podzakázky nezapočtou zdroje dvakrát. Dodavatelská faktura k výdeji upraví případný rozdíl ocenění, nevytvoří druhý plný náklad. Ověř konkrétní částky a zdrojové vazby.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "P18",
+    "scenario": "Pokladní události a částečné opravy. Stejná událost přijatá třikrát má jeden finanční účinek. Stejné ID s jiným obsahem vyvolá konflikt. Dvě částečné vratky nesmějí překročit původní množství a částku. Ztracené potvrzení ani opakovaný tisk nevytvoří nový prodej.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "P19",
+    "scenario": "Offline oprávnění a pozdní vypořádání. Po expiraci offline oprávnění nevznikne nový prodej. Již oprávněně uložený prodej přežije restart a po vypnutí licence se bezpečně dosynchronizuje. Ověř také nejasnou platební odpověď a revokaci po opětovném připojení.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "P20",
+    "scenario": "OCR bez přepsání člověka. Rozpoznání připraví návrh, člověk opraví řádek a nastane retry. Opravený údaj zůstane zachovaný a zásoba se změní až explicitním příjmem. Dvakrát potvrzený příjem nevytvoří dva pohyby.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "P21",
+    "scenario": "Ceník a kapacity. Stejný manažer s docházkou nečerpá dvě místa. Diriqo a POS sdílejí jeden skladový nárok za firmu. Dvě pokladny mají dvě odpovídající licence. Archivované vozidlo nečerpá aktivní kapacitu a starý EUR odběratel nezíská bez pravidla jinou cenu.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "P22",
+    "scenario": "Stránkování a velký katalog. Vyhledání, export a agregace nad 20 000 syntetickými položkami či více stránkami vrátí správný celý výběr. Zaznamenej čas a prostředí měření; ověř, že limit načtení nezmění finanční součet.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "P23",
+    "scenario": "Selhání navazující služby. Po potvrzení prodeje nebo vydání dokladu selže e-mail, tisk nebo asynchronní projekce. Uživateli zůstane správně označený stav a cesta k nápravě. Retry nezopakuje již dokončený obchodní účinek.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "P24",
+    "scenario": "Návrat skladu do provozu. Firma vědomě vypne skladovou evidenci a prodává v povoleném režimu POS. Zůstatek se neprezentuje jako aktuální. Opětovná aktivace požaduje odsouhlasení skutečného stavu a nevytvoří nezdokumentované zpětné pohyby.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  },
+  {
+    "id": "P25",
+    "scenario": "Úplnost a pravdivost předání. Všechny navržené tarify mají skutečný seznam dostupných schopností. Report neoznačuje neověřenou zemi, terminál, migraci ani neprovedený test za hotový. Čisté testovací prostředí lze reprodukovat z doložených podkladů bez interních dat JSPD.",
+    "status": "NEPROVEDENO",
+    "evidence": []
+  }
+]

@@ -68,6 +68,7 @@ export default async function AdminCompanyDetailPage({ params, searchParams }: D
   const admin = createSupabaseAdminClient()
 
   await logSuperadminAction({
+    superadminAuthUserId: superadmin.authUserId,
     superadminProfileId: superadmin.profileId,
     companyId,
     action: 'company_detail_opened',
@@ -122,6 +123,7 @@ export default async function AdminCompanyDetailPage({ params, searchParams }: D
 
   if (supportGrant?.id) {
     await logSuperadminAction({
+      superadminAuthUserId: superadmin.authUserId,
       superadminProfileId: superadmin.profileId,
       companyId,
       action: 'support_access_operational_metadata_viewed',

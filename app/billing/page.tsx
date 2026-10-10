@@ -1,3 +1,5 @@
+import Link from 'next/link'
+
 import DashboardShell from '@/components/DashboardShell'
 import BillingClient from '@/app/billing/BillingClient'
 import { getActiveCompanyContext } from '@/lib/active-company'
@@ -30,6 +32,9 @@ export default async function BillingPage() {
                 ? `Pricing options for ${activeCompany.companyName || 'your company'}.`
                 : 'Pricing options for Diriqo app accounts.'}
             </p>
+            {activeCompany ? (
+              <Link href="/billing/modules" style={modulesLinkStyle}>Základ a moduly →</Link>
+            ) : null}
           </div>
         </header>
 
@@ -89,4 +94,18 @@ const noticeStyle = {
   borderRadius: 8,
   padding: 14,
   fontWeight: 750,
+} as const
+
+const modulesLinkStyle = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  minHeight: 44,
+  marginTop: 16,
+  padding: '10px 14px',
+  border: '1px solid #bfdbfe',
+  borderRadius: 7,
+  background: '#eff6ff',
+  color: '#1d4ed8',
+  fontWeight: 750,
+  fontSize: 14,
 } as const

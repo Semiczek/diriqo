@@ -1,0 +1,49 @@
+.page, .content { display: grid; gap: 18px; min-width: 0; }
+.page { padding-bottom: 48px; }
+.header { padding: 24px; border: 1px solid #dbe3ef; border-radius: 8px; background: #fff; box-shadow: 0 14px 34px rgba(15,23,42,.06); }
+.backLink { display: inline-block; margin-bottom: 20px; color: #334155; font-size: 14px; font-weight: 700; }
+.eyebrow, .cardEyebrow { margin: 0; color: #2563eb; font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.header h1 { margin: 8px 0 0; font-size: clamp(27px, 4vw, 36px); line-height: 1.15; letter-spacing: -.03em; }
+.subtitle { margin: 10px 0 0; color: #475569; line-height: 1.6; }
+.summary { display: flex; justify-content: space-between; align-items: center; gap: 20px; padding: 20px 22px; border: 1px solid #dbe3ef; border-radius: 8px; background: #fff; }
+.summary strong { color: #0f172a; font-size: 16px; }
+.summary p, .notice p { margin: 6px 0 0; font-size: 14px; line-height: 1.6; }
+.summary p { color: #475569; }
+.notice { padding: 18px 22px; border: 1px solid #bfdbfe; border-radius: 8px; background: #eff6ff; color: #1e3a8a; line-height: 1.6; }
+.error { display: grid; justify-items: start; gap: 12px; padding: 18px 22px; border: 1px solid #fecaca; border-radius: 8px; background: #fff1f2; color: #991b1b; }
+.error p { margin: 0; line-height: 1.6; }
+.grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 16px; }
+.card { display: flex; flex-direction: column; min-width: 0; gap: 22px; padding: 22px; border: 1px solid #dbe3ef; border-radius: 8px; background: #fff; box-shadow: 0 6px 20px rgba(15,23,42,.025); }
+.coreCard { grid-column: 1 / -1; border-color: #bfdbfe; background: linear-gradient(110deg,#fff 60%,#eff6ff); }
+.cardTop { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.moduleNumber { display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; border-radius: 8px; background: #eff6ff; color: #1d4ed8; font-size: 13px; font-weight: 850; }
+.badge, .activeBadge { display: inline-flex; padding: 5px 9px; border-radius: 999px; background: #f1f5f9; color: #475569; font-size: 12px; font-weight: 750; }
+.activeBadge { color: #166534; background: #dcfce7; }
+.card h2 { margin: 7px 0 0; color: #0f172a; font-size: 23px; line-height: 1.2; letter-spacing: -.02em; }
+.coreCard h2 { font-size: 28px; }
+.description { margin: 10px 0 0; color: #334155; line-height: 1.6; }
+.note { margin: 10px 0 0; color: #64748b; font-size: 13px; line-height: 1.6; }
+.paidStatus { margin: 0; color: #166534; font-size: 13px; line-height: 1.6; }
+.offerList { display: grid; gap: 12px; margin-top: auto; }
+.offer { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 16px; padding-top: 16px; border-top: 1px solid #e2e8f0; }
+.variant { margin: 0 0 4px; color: #475569; font-size: 12px; overflow-wrap: anywhere; }
+.price { margin: 0; color: #0f172a; font-size: 22px; font-weight: 800; }
+.price span { color: #64748b; font-size: 13px; font-weight: 550; }
+.preparing { margin: 0; padding-top: 16px; border-top: 1px solid #e2e8f0; color: #64748b; font-size: 13px; line-height: 1.6; }
+.primaryButton, .secondaryButton { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 10px 15px; border: 1px solid transparent; border-radius: 7px; font-size: 13px; font-weight: 750; line-height: 1.4; cursor: pointer; }
+.primaryButton { background: #2563eb; color: #fff; }
+.secondaryButton { flex-shrink: 0; background: #fff; color: #334155; border-color: #cbd5e1; }
+.primaryButton:disabled, .secondaryButton:disabled { opacity: .55; cursor: not-allowed; }
+.primaryButton:focus-visible, .secondaryButton:focus-visible, .backLink:focus-visible { outline: 3px solid #60a5fa; outline-offset: 3px; }
+@media (max-width: 1150px) { .grid { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+@media (max-width: 680px) {
+  .grid { grid-template-columns: minmax(0,1fr); }
+  .header, .card, .summary, .notice, .error { padding: 18px; }
+  .summary { align-items: stretch; flex-direction: column; gap: 14px; }
+  .summary .secondaryButton { align-self: flex-start; }
+  .offer { align-items: stretch; }
+  .offer .primaryButton { width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .primaryButton, .secondaryButton, .backLink { transition: none; transform: none !important; }
+}

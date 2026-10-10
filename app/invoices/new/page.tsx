@@ -1,9 +1,10 @@
+import { randomUUID } from 'node:crypto'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import type { CSSProperties } from 'react'
 
-import { createInvoiceFromJobs } from '@/app/invoices/actions'
 import DashboardShell from '@/components/DashboardShell'
+import InvoiceCreateForm, { InvoiceCreateItemTotal } from './InvoiceCreateForm'
 import InvoiceOverviewFilterForm from './InvoiceOverviewFilterForm'
 import {
   alertSurface as alertStyle,
@@ -22,6 +23,7 @@ import {
 } from '@/lib/invoices'
 import { requireHubAccess } from '@/lib/require-hub-access'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
+import { ModuleAccessError, requirePaidCompanyCapability } from '@/lib/platform/module-operation-access'
 
 type PageProps = {
   searchParams: Promise<{
@@ -41,6 +43,7 @@ type JobRow = {
   title: string | null
   description: string | null
   price: number | null
+  currency: string | null
   start_at: string | null
   end_at: string | null
   status: string | null
@@ -225,6 +228,21 @@ export default async function NewInvoicePage({ searchParams }: PageProps) {
   }
   const previousMonth = getPreviousMonthValue(selectedMonth)
   const supabase = await createSupabaseServerClient()
+  try {
+    await requirePaidCompanyCapability({ companyId: activeCompany.companyId, supabase }, 'invoicing.invoice.issue')
+  } catch (error) {
+    if (!(error instanceof ModuleAccessError)) throw error
+    return (
+      <DashboardShell activeItem="invoices">
+        <main style={pageStyle}>
+          <h1 style={titleStyle}>Nová faktura</h1>
+          <p role="alert" style={alertStyle}>{error.message}</p>
+          <p><Link href="/billing/modules">Přehled placených modulů</Link></p>
+          <Link href="/invoices">Zpět na faktury</Link>
+        </main>
+      </DashboardShell>
+    )
+  }
 
   const customersResponse = await supabase
     .from('customers')
@@ -244,12 +262,14 @@ export default async function NewInvoicePage({ searchParams }: PageProps) {
   const customerById = new Map(customerRows.map((customer) => [customer.id, customer]))
   const selectedCustomer = customerId ? customerById.get(customerId) ?? null : null
   let allInvoiceReadyJobs: InvoiceReadyJob[] = []
-  let unavailableMessage: string | null = null
+  let unavailableMessage: string | null = companyResponse.error || !companyResponse.data
+    ? 'Údaje dodavatele se nepodařilo načíst. Obnovte stránku před vytvořením faktury.'
+    : null
 
   const [jobsResponse, statesResponse, activeLinksResponse] = await Promise.all([
     supabase
       .from('jobs')
-      .select('id, customer_id, title, description, price, start_at, end_at, status')
+      .select('id, customer_id, title, description, price, currency, start_at, end_at, status')
       .eq('company_id', activeCompany.companyId)
       .order('end_at', { ascending: false, nullsFirst: false })
       .order('start_at', { ascending: false, nullsFirst: false }),
@@ -261,13 +281,10 @@ export default async function NewInvoicePage({ searchParams }: PageProps) {
       .eq('is_active', true),
   ])
 
-  if (jobsResponse.error) {
-    unavailableMessage = jobsResponse.error.message
-  } else if (statesResponse.error) {
-    unavailableMessage = statesResponse.error.message
-  } else if (activeLinksResponse.error) {
-    unavailableMessage = activeLinksResponse.error.message
-  } else {
+  if (jobsResponse.error || statesResponse.error || activeLinksResponse.error) {
+    unavailableMessage ??= 'Zakázky připravené k fakturaci se nepodařilo načíst. Obnovte stránku.'
+  }
+  if (!unavailableMessage) {
     const stateByJobId = new Map(
       ((statesResponse.data ?? []) as JobStateRow[]).map((state) => [state.id, state.work_state])
     )
@@ -278,7 +295,7 @@ export default async function NewInvoicePage({ searchParams }: PageProps) {
     allInvoiceReadyJobs = ((jobsResponse.data ?? []) as JobRow[])
       .filter((job) => Boolean(job.customer_id))
       .filter((job) => (stateByJobId.get(job.id) === 'done' || job.status === 'done') && !invoicedJobIds.has(job.id))
-      .filter((job) => Number(job.price ?? 0) > 0)
+      .filter((job) => job.currency === 'CZK' && Number.isFinite(Number(job.price)) && Number(job.price ?? 0) > 0)
       .map((job) => ({
         ...job,
         calculatedTotal: calculateInvoiceItem(job.price, defaultVatRate).totalWithVat,
@@ -294,11 +311,9 @@ export default async function NewInvoicePage({ searchParams }: PageProps) {
   const previousMonthJobGroups = buildCustomerJobGroups(previousMonthReadyJobs, customerById, defaultVatRate)
   const selectedMonthTotals = sumInvoiceTotals(invoiceReadyJobs.map((job) => calculateInvoiceItem(job.price, defaultVatRate)))
   const previousMonthTotals = sumInvoiceTotals(previousMonthReadyJobs.map((job) => calculateInvoiceItem(job.price, defaultVatRate)))
-  const totals = sumInvoiceTotals(
-    availableJobs.map((job) => calculateInvoiceItem(job.price, defaultVatRate))
-  )
   const today = new Date()
   const dueDate = addDaysToDate(today, DEFAULT_INVOICE_DUE_DAYS)
+  const requestId = randomUUID()
 
   return (
     <DashboardShell activeItem="invoices">
@@ -308,7 +323,7 @@ export default async function NewInvoicePage({ searchParams }: PageProps) {
             <p style={eyebrowStyle}>Fakturace</p>
             <h1 style={titleStyle}>Nová faktura</h1>
             <p style={subtitleStyle}>
-              Vyberte zákazníka a měsíc. Do návrhu faktury nabídneme hotové nevyfakturované zakázky a ceny se při vytvoření znovu ověří na serveru.
+              Vyberte zákazníka a měsíc. Do návrhu faktury nabídneme hotové nevyfakturované zakázky vedené v Kč. Ceny se při vytvoření znovu ověří.
             </p>
           </div>
           <Link href="/invoices" style={backLinkStyle}>
@@ -507,7 +522,7 @@ export default async function NewInvoicePage({ searchParams }: PageProps) {
 
         {customersResponse.error ? (
           <div style={{ ...alertStyle, border: '1px solid #fecaca', backgroundColor: '#fef2f2', color: '#991b1b' }}>
-            {customersResponse.error.message}
+            Zákazníky se nepodařilo načíst. Obnovte stránku.
           </div>
         ) : null}
 
@@ -634,8 +649,15 @@ export default async function NewInvoicePage({ searchParams }: PageProps) {
           </section>
         ) : null}
 
-        {customerId && selectedCustomer ? (
-          <form action={createInvoiceFromJobs} className="invoice-create-form" style={{ display: 'grid', gap: '16px' }}>
+        {customerId && selectedCustomer && !unavailableMessage ? (
+          <InvoiceCreateForm
+            key={`${activeCompany.companyId}:${customerId}:${selectedMonth}`}
+            companyId={activeCompany.companyId}
+            requestId={requestId}
+            availableJobs={availableJobs.map((job) => ({ id: job.id, price: Number(job.price ?? 0) }))}
+            isVatPayer={isVatPayer}
+            defaultVatRate={defaultVatRate}
+          >
             <input type="hidden" name="customerId" value={customerId} />
             <input type="hidden" name="month" value={selectedMonth} />
 
@@ -674,6 +696,9 @@ export default async function NewInvoicePage({ searchParams }: PageProps) {
                   <input
                     type="date"
                     name="issueDate"
+                    required
+                    min="1900-01-01"
+                    max="9999-12-31"
                     defaultValue={toDateInputValue(today)}
                   />
                 </label>
@@ -682,6 +707,9 @@ export default async function NewInvoicePage({ searchParams }: PageProps) {
                   <input
                     type="date"
                     name="taxableSupplyDate"
+                    required
+                    min="1900-01-01"
+                    max="9999-12-31"
                     defaultValue={toDateInputValue(today)}
                   />
                 </label>
@@ -690,6 +718,9 @@ export default async function NewInvoicePage({ searchParams }: PageProps) {
                   <input
                     type="date"
                     name="dueDate"
+                    required
+                    min="1900-01-01"
+                    max="9999-12-31"
                     defaultValue={toDateInputValue(dueDate)}
                   />
                 </label>
@@ -698,6 +729,7 @@ export default async function NewInvoicePage({ searchParams }: PageProps) {
                   <input
                     type="number"
                     name="vatRate"
+                    required={isVatPayer}
                     min="0"
                     max="100"
                     step="0.01"
@@ -713,6 +745,7 @@ export default async function NewInvoicePage({ searchParams }: PageProps) {
                 <span>Poznámka</span>
                 <textarea
                   name="note"
+                  maxLength={10000}
                   rows={3}
                 />
               </label>
@@ -745,7 +778,7 @@ export default async function NewInvoicePage({ searchParams }: PageProps) {
                     availableJobs.map((job) => (
                       <tr key={job.id} style={{ borderTop: '1px solid #e5e7eb' }}>
                         <td style={{ padding: '12px' }}>
-                          <input type="checkbox" name="jobIds" value={job.id} defaultChecked />
+                          <input type="checkbox" name="jobIds" value={job.id} aria-label={`Fakturovat zakázku ${job.title ?? job.id}`} defaultChecked />
                         </td>
                         <td style={{ padding: '12px' }}>
                           <strong>{job.title ?? 'Zakázka bez názvu'}</strong>
@@ -760,7 +793,7 @@ export default async function NewInvoicePage({ searchParams }: PageProps) {
                           {formatCurrency(job.price)}
                         </td>
                         <td style={{ padding: '12px', textAlign: 'right', fontWeight: 800 }}>
-                          {formatCurrency(job.calculatedTotal)}
+                          <InvoiceCreateItemTotal price={Number(job.price ?? 0)} />
                         </td>
                       </tr>
                     ))
@@ -769,42 +802,7 @@ export default async function NewInvoicePage({ searchParams }: PageProps) {
               </table>
             </section>
 
-            <section
-              style={{
-                ...panelStyle,
-                padding: '16px',
-                display: 'flex',
-                justifyContent: 'space-between',
-                gap: '16px',
-                flexWrap: 'wrap',
-                alignItems: 'center',
-              }}
-            >
-              <div style={{ display: 'grid', gap: '4px' }}>
-                <strong>Součet vybraných zakázek v náhledu</strong>
-                <span style={{ color: '#6b7280' }}>
-                  Bez DPH {formatCurrency(totals.subtotalWithoutVat)} | DPH {defaultVatRate}% {formatCurrency(totals.vatTotal)} | Celkem{' '}
-                  {formatCurrency(totals.totalWithVat)}
-                </span>
-              </div>
-              <button
-                type="submit"
-                disabled={availableJobs.length === 0}
-                style={{
-                  borderRadius: '14px',
-                  border: 'none',
-                  backgroundColor: availableJobs.length === 0 ? '#9ca3af' : '#111827',
-                  color: '#ffffff',
-                  minHeight: '50px',
-                  padding: '12px 18px',
-                  fontWeight: 900,
-                  cursor: availableJobs.length === 0 ? 'default' : 'pointer',
-                }}
-              >
-                Vytvořit fakturu
-              </button>
-            </section>
-          </form>
+          </InvoiceCreateForm>
         ) : null}
       </main>
     </DashboardShell>
