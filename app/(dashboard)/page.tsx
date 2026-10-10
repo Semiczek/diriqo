@@ -1,9 +1,10 @@
-﻿import Link from 'next/link'
+import Link from 'next/link'
 import { unstable_noStore as noStore } from 'next/cache'
 import Image from 'next/image'
 import { redirect } from 'next/navigation'
 import type { CSSProperties, ReactNode } from 'react'
 import DashboardShell from '../../components/DashboardShell'
+import styles from './dashboard.module.css'
 import DashboardMonthPicker from '../../components/DashboardMonthPicker'
 import DashboardQuickNotes from '../../components/DashboardQuickNotes'
 import OnboardingChecklist from '@/components/onboarding/OnboardingChecklist'
@@ -1617,95 +1618,43 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     ).length,
   }
 
+  const ui = locale === 'en' ? {
+    title: 'Your day, at a glance', attention: 'Needs your attention', jobsTitle: 'Schedule',
+    teamToday: 'Team today', noJobs: selectedJobsDay === 'tomorrow' ? 'Nothing scheduled for tomorrow' : 'Nothing scheduled for today',
+    noJobsHint: 'Create a job when you are ready. It will appear here on its scheduled day.',
+    noWeekJobs: 'No jobs scheduled for this week.', finances: 'How your business is doing',
+    financesHint: 'Revenue, costs and job results', activity: 'More overviews',
+    activityHint: 'Quotes, recent photos and absences', privateNotes: 'Notes saved only in this browser',
+    noteStorageError: 'Your browser could not save these notes. They will be lost after reloading.',
+  } : locale === 'de' ? {
+    title: 'Ihr Tag auf einen Blick', attention: 'Das braucht Aufmerksamkeit', jobsTitle: 'Geplante Aufträge',
+    teamToday: 'Team heute', noJobs: selectedJobsDay === 'tomorrow' ? 'Für morgen ist nichts geplant' : 'Für heute ist nichts geplant',
+    noJobsHint: 'Erstellen Sie einen Auftrag. Er erscheint hier am geplanten Tag.',
+    noWeekJobs: 'Für diese Woche sind keine Aufträge geplant.', finances: 'So läuft Ihr Unternehmen',
+    financesHint: 'Umsatz, Kosten und Auftragsergebnisse', activity: 'Weitere Übersichten',
+    activityHint: 'Angebote, aktuelle Fotos und Abwesenheiten', privateNotes: 'Notizen nur in diesem Browser gespeichert',
+    noteStorageError: 'Ihr Browser konnte die Notizen nicht speichern. Beim Neuladen gehen sie verloren.',
+  } : {
+    title: 'Přehled dne', attention: 'Potřebuje vaši pozornost', jobsTitle: 'Plán zakázek',
+    teamToday: 'Tým dnes', noJobs: selectedJobsDay === 'tomorrow' ? 'Na zítřek nemáte naplánované zakázky' : 'Na dnešek nemáte naplánované zakázky',
+    noJobsHint: 'Novou zakázku vytvoříte tlačítkem nahoře. V den konání ji najdete tady.',
+    noWeekJobs: 'V tomto týdnu nejsou naplánované zakázky.', finances: 'Jak se firmě daří',
+    financesHint: 'Příjmy, náklady a výsledky zakázek', activity: 'Další přehledy',
+    activityHint: 'Nabídky, poslední fotografie a absence', privateNotes: 'Poznámky uložené pouze v tomto prohlížeči',
+    noteStorageError: 'Prohlížeč poznámky neuložil. Po obnovení stránky se ztratí.',
+  }
+  const analyticsOpen = Boolean(resolvedSearchParams?.summary_month || resolvedSearchParams?.summary_week)
+
   return (
     <DashboardShell activeItem="dashboard">
-      <div style={pageWrap}>
-        <style>{`
-          .dashboard-kpi-card:hover {
-            box-shadow: 0 14px 32px rgba(15, 23, 42, 0.09) !important;
-            border-color: rgba(37, 99, 235, 0.16) !important;
-          }
-        `}</style>
-        <section data-tour="dashboard-hero" style={companyStateStyle}>
-          <div style={heroGlowOne} />
-          <div style={heroGlowTwo} />
-          <div style={companyStateMain}>
-            <div style={heroLeftStack}>
-              <div>
-                <h1 style={stateTitle}>{t.title}</h1>
-                <div style={heroStatusRow}>
-                  <span style={heroDatePill}>{formatDateLabel(todayStart, companyTimeZone, intlLocale)}</span>
-                </div>
-                <p style={stateText}>
-                  {t.ordered} {summaryMonthLabel}: {formatCurrency(monthOrdered, intlLocale)}.
-                </p>
-              </div>
-
-              <div style={stateFooter}>
-                <div style={monthControls}>
-                  <Link
-                    href={buildDashboardHref({
-                      jobsDay: selectedJobsDay,
-                      summaryMonth: formatMonthInputValue(summaryPreviousMonthRange.start, companyTimeZone),
-                    })}
-                    style={monthNavLink}
-                  >
-                    {t.previousMonth}
-                  </Link>
-
-                  <DashboardMonthPicker
-                    selectedMonth={selectedSummaryMonth}
-                    selectedJobsDay={selectedJobsDay}
-                    inputStyle={monthInput}
-                    ariaLabel={t.selectMonth}
-                    displayLabel={summaryMonthLabel}
-                  />
-
-                  <Link
-                    href={buildDashboardHref({
-                      jobsDay: selectedJobsDay,
-                      summaryMonth: getCurrentMonthValuePrague(companyTimeZone),
-                    })}
-                    style={monthNavLink}
-                  >
-                    {t.currentMonthLink}
-                  </Link>
-
-                  <Link
-                    href={buildDashboardHref({
-                      jobsDay: selectedJobsDay,
-                      summaryMonth: formatMonthInputValue(summaryNextMonthRange.start, companyTimeZone),
-                    })}
-                    style={monthNavLink}
-                  >
-                    {t.nextMonth}
-                  </Link>
-                </div>
-
-                <div style={quickActions}>
-                  <QuickLink href="/jobs/new" label={t.newJob} primary />
-                  <QuickLink href="/jobs" label={t.jobs} />
-                  <QuickLink href="/customers" label={t.customers} />
-                </div>
-              </div>
-            </div>
-
-            <div data-tour="dashboard-quick-notes">
-              <DashboardQuickNotes
-                storageKey={`diriqo:dashboard:quick-notes:${companyId}`}
-                labels={{
-                  title: t.quickNoteTitle,
-                  placeholder: t.quickNotePlaceholder,
-                  add: t.quickNoteAdd,
-                  empty: t.quickNoteEmpty,
-                  deleteNote: t.quickNoteDelete,
-                  starterCallCustomer: t.quickNoteStarterCallCustomer,
-                  starterCheckJobs: t.quickNoteStarterCheckJobs,
-                }}
-              />
-            </div>
+      <div className={styles.dashboard}>
+        <header data-tour="dashboard-hero" className={styles.hero}>
+          <div>
+            <p className={styles.date}>{formatDateLabel(todayStart, companyTimeZone, intlLocale)}</p>
+            <h1 className={styles.title}>{ui.title}</h1>
           </div>
-        </section>
+          <Link href="/jobs/new" className={styles.primaryAction}><span aria-hidden="true">+</span>{t.newJob}</Link>
+        </header>
 
         <OnboardingChecklist
           checklist={onboardingChecklist}
@@ -1744,157 +1693,34 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           }}
         />
 
-        <section data-tour="dashboard-kpi-section" style={kpiSection}>
-          <div style={kpiHeader}>
-            <div>
-              <div style={summaryEyebrow}>KPI</div>
-              <div style={kpiTitle}>{t.summaryTitle} - {summaryMonthLabel}</div>
-            </div>
-          </div>
-
-          <div style={statsGrid}>
-            <StatCard
-              dataTour="dashboard-kpi-today-jobs"
-              title={t.todayJobsTitle}
-              value={String(todayJobs.length)}
-              subvalue={t.today}
-              detail={t.operationsSubtitle}
-              accent="#2563eb"
-            />
-            <StatCard
-              dataTour="dashboard-kpi-active-workers"
-              title={t.workers}
-              value={String(todaysWorkers.length)}
-              subvalue={t.activeShifts}
-              detail={t.workedTodaySubtitle}
-              accent="#16a34a"
-            />
-            <StatCard
-              dataTour="dashboard-kpi-completed-jobs"
-              title={t.done}
-              value={String(monthCompletedJobs.length)}
-              subvalue={`${t.completedJobs} - ${summaryMonthLabel}`}
-              detail={t.currentMonth}
-              accent="#8b5cf6"
-            />
-            <StatCard
-              dataTour="dashboard-kpi-waiting-invoice"
-              title={t.waitingForInvoice}
-              value={formatCurrency(waitingInvoiceTotal, intlLocale)}
-              subvalue={`${waitingInvoiceJobs.length} ${t.jobsWaitingForInvoice}`}
-              detail={t.readyToInvoice}
-              accent="#f97316"
-              urgent={waitingInvoiceTotal > 0 || waitingInvoiceJobs.length > 0}
-            />
-            <StatCard
-              dataTour="dashboard-kpi-profit"
-              title={t.profit}
-              value={formatCurrency(monthProfit, intlLocale)}
-              subvalue={t.monthEconomySubtitle}
-              detail={t.monthEconomyTitle}
-              accent="#06b6d4"
-              highlight
-            />
-          </div>
+        <section data-tour="dashboard-kpi-section" aria-label={t.today} className={styles.dayMetrics}>
+          <Link href={`${buildDashboardHref({ jobsDay: 'today', summaryMonth: resolvedSearchParams?.summary_month, summaryWeek: resolvedSearchParams?.summary_week })}#dnesni-zakazky`} data-tour="dashboard-kpi-today-jobs" className={styles.dayMetric}>
+            <span>{t.todayJobsTitle}</span><strong>{todayJobs.length}</strong>
+          </Link>
+          <Link href="/workers" data-tour="dashboard-kpi-active-workers" className={styles.dayMetric}>
+            <span>{t.activeShifts}</span><strong>{todaysWorkers.length}</strong>
+          </Link>
+          <Link href="/workers" className={styles.dayMetric}>
+            <span>{t.workedTodayTitle}</span><strong>{roundHours(workedTodayHours)} <small>h</small></strong>
+          </Link>
         </section>
 
-        <section id="command-center" data-tour="dashboard-attention" style={actionStrip}>
-          <div style={actionStripHeader}>
-            <div>
-              <div style={stripEyebrow}>{t.commandCenterEyebrow}</div>
-              <div style={stripTitle}>{t.commandCenterTitle}</div>
-              <div style={stripHint}>{t.commandCenterSubtitle}</div>
-            </div>
-            {issueCount === 0 ? <div style={attentionOkBadge}>{t.commandCenterAllGood}</div> : null}
-          </div>
-          {issueCount === 0 ? (
-            <EmptyState
-              icon="✓"
-              title={t.commandCenterAllGood}
-              text={t.commandCenterEmptyText}
-            />
-          ) : (
-            <div data-tour="dashboard-attention-list" style={actionStripGrid}>
-              {actionPanels.filter((item) => item.value > 0).map((item) =>
-                <ActionDisclosure
-                  key={item.label}
-                  label={item.label}
-                  value={item.value}
-                  severity={item.severity}
-                  items={item.items}
-                  emptyText={item.emptyText}
-                  statusLabels={{
-                    openList: t.actionOpenList,
-                    review: t.actionReview,
-                  }}
-                />
-              )}
-            </div>
-          )}
-        </section>
-
-        <section id="dnesni-zakazky" data-tour="dashboard-today" style={operationsPanel}>
-          <div style={operationsHeader}>
-            <div>
-              <div style={panelTitle}>{t.today}</div>
-              <div style={panelSubtitle}>{t.workedTodaySubtitle}</div>
-            </div>
-            <div style={monthBadge}>{formatDateLabel(todayStart, companyTimeZone, intlLocale)}</div>
-          </div>
-
-          <div data-tour="dashboard-today-metrics" style={operationsSummaryGrid}>
-            <OperationMetric label={t.activeShifts} value={todaysWorkers.length} />
-            <OperationMetric label={t.todayJobsTitle} value={todayJobs.length} />
-            <OperationMetric label={t.workedTodayTitle} value={`${roundHours(workedTodayHours)} h`} />
-          </div>
-
-          {todaysWorkers.length === 0 ? (
-            <EmptyState
-              icon="P"
-              title={t.noRunningShift}
-              text={t.shiftRunningSubtitle}
-              actionHref="/jobs/new"
-              actionLabel={t.newJob}
-            />
-          ) : (
-            <div data-tour="dashboard-today-workers" style={todayWorkerList}>
-              {todaysWorkers.slice(0, 6).map((worker) => (
-                <Link
-                  key={worker.profileId ?? worker.name}
-                  href={worker.profileId ? `/workers/${worker.profileId}` : '/workers'}
-                  style={todayWorkerRow}
-                >
-                  <div style={{ minWidth: 0 }}>
-                    <div style={workerName}>{worker.name}</div>
-                    <div style={todayWorkerMeta}>
-                      {dictionary.jobs.detail.started}: {formatTime(worker.shiftStart, companyTimeZone, intlLocale)}
-                      {worker.activeJobTitle ? ` • ${worker.activeJobTitle}` : ''}
-                    </div>
-                  </div>
-
-                  <div style={{ ...pillBase, ...getTodayWorkerStatusTone(worker.statusSort) }}>
-                    {worker.statusLabel}
-                  </div>
-                </Link>
-              ))}
-            </div>
-          )}
-        </section>
-
-        <section style={dashboardJobsGrid}>
-          <div data-tour="dashboard-day-jobs" style={operationsPanel}>
+        <div className={styles.workGrid}>
+          <div className={styles.workColumn}>
+          <section id="dnesni-zakazky" data-tour="dashboard-day-jobs" className={styles.dailyPanel} style={operationsPanel}>
             <div style={operationsHeader}>
               <div>
-                <div style={panelTitle}>{t.todayJobsTitle}</div>
-                <div style={panelSubtitle}>{t.operationsSubtitle}</div>
+                <h2 style={panelTitle}>{ui.jobsTitle}</h2>
+                <div style={panelSubtitle}>{formatDateLabel(selectedDayStart, companyTimeZone, intlLocale)}</div>
               </div>
               <div data-tour="dashboard-day-toggle" style={dayToggleWrap}>
                 <Link
                   href={buildDashboardHref({
                     jobsDay: 'today',
-                    summaryMonth: selectedSummaryMonth,
-                    summaryWeek: selectedSummaryWeek,
+                    summaryMonth: resolvedSearchParams?.summary_month,
+                    summaryWeek: resolvedSearchParams?.summary_week,
                   })}
+                  aria-current={selectedJobsDay === 'today' ? 'date' : undefined}
                   style={{
                     ...dayToggleLink,
                     ...(selectedJobsDay === 'today' ? dayToggleLinkActive : {}),
@@ -1905,9 +1731,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                 <Link
                   href={buildDashboardHref({
                     jobsDay: 'tomorrow',
-                    summaryMonth: selectedSummaryMonth,
-                    summaryWeek: selectedSummaryWeek,
+                    summaryMonth: resolvedSearchParams?.summary_month,
+                    summaryWeek: resolvedSearchParams?.summary_week,
                   })}
+                  aria-current={selectedJobsDay === 'tomorrow' ? 'date' : undefined}
                   style={{
                     ...dayToggleLink,
                     ...(selectedJobsDay === 'tomorrow' ? dayToggleLinkActive : {}),
@@ -1918,18 +1745,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               </div>
             </div>
 
-            <div data-tour="dashboard-day-jobs-metrics" style={operationsSummaryGrid}>
-              <OperationMetric label={t.jobs} value={selectedJobs.length} />
-              <OperationMetric label={t.activeShifts} value={selectedDayShifts.length} />
-            </div>
-
             {selectedJobs.length === 0 ? (
               <EmptyState
-                icon="Z"
-                title={t.noTodayJobs}
-                text={t.operationsSubtitle}
-                actionHref="/jobs/new"
-                actionLabel={t.newJob}
+                title={ui.noJobs}
+                text={ui.noJobsHint}
               />
             ) : (
               <div style={compactScrollWindow}>
@@ -1955,7 +1774,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                       selectedDayShiftCount > 0 ? ` | ${t.activeShifts}: ${selectedDayShiftCount}` : ''
 
                     return (
-                      <Link key={job.id} href={`/jobs/${job.id}`} style={compactJobRow}>
+                      <Link key={job.id} href={`/jobs/${job.id}`} className={styles.jobRow} style={compactJobRow}>
                         <div style={jobTimeCol}>
                           <div style={jobTime}>{relevantTimeRange.startLabel}</div>
                           <div style={jobTimeMuted}>{relevantTimeRange.endLabel}</div>
@@ -1979,12 +1798,183 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                 </div>
               </div>
             )}
+            <Link href="/jobs" className={styles.textLink}>{t.openJobs}<span aria-hidden="true"> →</span></Link>
+          </section>
+        <details data-tour="dashboard-today" className={styles.teamDisclosure}>
+          <summary className={styles.teamSummary}><span>{ui.teamToday}</span><span className={styles.countBadge}>{todaysWorkers.length}</span><span aria-hidden="true" className={styles.chevron}>⌄</span></summary>
+          <div className={styles.teamBody}>
+          {todaysWorkers.length === 0 ? (
+            <EmptyState
+              title={t.noRunningShift}
+              text={t.shiftRunningSubtitle}
+            />
+          ) : (
+            <div data-tour="dashboard-today-workers" style={todayWorkerList}>
+              {todaysWorkers.slice(0, 6).map((worker) => (
+                <Link
+                  key={worker.profileId ?? worker.name}
+                  href={worker.profileId ? `/workers/${worker.profileId}` : '/workers'}
+                  style={todayWorkerRow}
+                >
+                  <div style={{ minWidth: 0 }}>
+                    <div style={workerName}>{worker.name}</div>
+                    <div style={todayWorkerMeta}>
+                      {dictionary.jobs.detail.started}: {formatTime(worker.shiftStart, companyTimeZone, intlLocale)}
+                      {worker.activeJobTitle ? ` • ${worker.activeJobTitle}` : ''}
+                    </div>
+                  </div>
+
+                  <div style={{ ...pillBase, ...getTodayWorkerStatusTone(worker.statusSort) }}>
+                    {worker.statusLabel}
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+          <Link href="/workers" className={styles.textLink}>{t.workers}<span aria-hidden="true"> →</span></Link>
+          </div>
+        </details>
+          </div>
+          <aside className={styles.workColumn}>
+        <section id="command-center" data-tour="dashboard-attention" className={styles.attention} style={actionStrip}>
+          <div style={actionStripHeader}>
+            <div>
+              <h2 style={stripTitle}>{ui.attention}</h2>
+            </div>
+            {issueCount > 0 ? <span className={styles.countBadge}>{issueCount}</span> : null}
+          </div>
+          {issueCount === 0 ? (
+            <EmptyState
+              icon="✓"
+              text={t.commandCenterEmptyText}
+            />
+          ) : (
+            <div data-tour="dashboard-attention-list" style={actionStripGrid}>
+              {actionPanels.filter((item) => item.value > 0).map((item) =>
+                <ActionDisclosure
+                  key={item.label}
+                  label={item.label}
+                  value={item.value}
+                  severity={item.severity}
+                  items={item.items}
+                  emptyText={item.emptyText}
+                  statusLabels={{
+                    openList: t.actionOpenList,
+                    review: t.actionReview,
+                  }}
+                />
+              )}
+            </div>
+          )}
+        </section>
+            <div data-tour="dashboard-quick-notes">
+              <DashboardQuickNotes
+                storageKey={`diriqo:dashboard:quick-notes:${companyId}`}
+                labels={{
+                  title: t.quickNoteTitle, placeholder: t.quickNotePlaceholder,
+                  add: t.quickNoteAdd, empty: t.quickNoteEmpty, deleteNote: t.quickNoteDelete,
+                  starterCallCustomer: t.quickNoteStarterCallCustomer,
+                  starterCheckJobs: t.quickNoteStarterCheckJobs,
+                  storageHint: ui.privateNotes, storageError: ui.noteStorageError,
+                }}
+              />
+            </div>
+          </aside>
+        </div>
+
+        <details className={styles.disclosure} open={analyticsOpen}>
+          <summary className={styles.disclosureSummary}>
+            <span><span className={styles.disclosureTitle}>{ui.finances}</span><span className={styles.disclosureHint}>{ui.financesHint} · {summaryMonthLabel}</span></span>
+            <span aria-hidden="true" className={styles.chevron}>⌄</span>
+          </summary>
+          <div className={styles.disclosureBody}>
+                <div style={monthControls}>
+                  <Link
+                    href={buildDashboardHref({
+                      jobsDay: selectedJobsDay,
+                      summaryMonth: formatMonthInputValue(summaryPreviousMonthRange.start, companyTimeZone),
+                    })}
+                    className={styles.monthLink} style={monthNavLink}
+                  >
+                    {t.previousMonth}
+                  </Link>
+
+                  <DashboardMonthPicker
+                    selectedMonth={selectedSummaryMonth}
+                    selectedJobsDay={selectedJobsDay}
+                    inputStyle={monthInput}
+                    ariaLabel={t.selectMonth}
+                    displayLabel={summaryMonthLabel}
+                  />
+
+                  <Link
+                    href={buildDashboardHref({
+                      jobsDay: selectedJobsDay,
+                      summaryMonth: getCurrentMonthValuePrague(companyTimeZone),
+                    })}
+                    className={styles.monthLink} style={monthNavLink}
+                  >
+                    {t.currentMonthLink}
+                  </Link>
+
+                  <Link
+                    href={buildDashboardHref({
+                      jobsDay: selectedJobsDay,
+                      summaryMonth: formatMonthInputValue(summaryNextMonthRange.start, companyTimeZone),
+                    })}
+                    className={styles.monthLink} style={monthNavLink}
+                  >
+                    {t.nextMonth}
+                  </Link>
+                </div>
+            <div className={styles.financeMetrics}>
+              <StatCard dataTour="dashboard-kpi-completed-jobs" title={t.completedJobs} value={String(monthCompletedJobs.length)} subvalue={summaryMonthLabel} />
+              <StatCard dataTour="dashboard-kpi-waiting-invoice" title={t.waitingForInvoice} value={formatCurrency(waitingInvoiceTotal, intlLocale)} subvalue={`${waitingInvoiceJobs.length} ${t.jobsWaitingForInvoice}`} />
+              <StatCard dataTour="dashboard-kpi-profit" title={t.profit} value={formatCurrency(monthProfit, intlLocale)} subvalue={summaryMonthLabel} highlight />
+            </div>
+        <section data-tour="dashboard-month-economy" style={operationsPanel}>
+          <div style={operationsHeader}>
+            <div>
+              <div style={panelTitle}>{t.monthEconomyTitle}</div>
+              <div style={panelSubtitle}>{t.monthEconomySubtitle}</div>
+            </div>
+            <div style={monthBadge}>{summaryMonthLabel}</div>
           </div>
 
+          <div className={styles.economyGrid}>
+            <div data-tour="dashboard-economy-chart" style={compactChartPanel}>
+              <div style={chartCommentBox}>{chartComment}</div>
+              {hasProfitChartData ? (
+                <MonthlyProfitChart
+                  points={profitChartPoints}
+                  labels={{
+                    aria: t.monthEconomyTitle,
+                    profit: t.profit,
+                    revenue: t.revenue,
+                    costs: t.costs,
+                  }}
+                  formatCurrencyLabel={(value) => formatCurrency(value, intlLocale)}
+                />
+              ) : (
+                <EmptyState text={t.noChartData} />
+              )}
+            </div>
+
+            <div data-tour="dashboard-economy-table" style={financeTable}>
+              <EconomyLine label={t.ordered} value={formatCurrency(monthOrdered, intlLocale)} />
+              <EconomyLine label={t.invoiced} value={formatCurrency(monthInvoiced, intlLocale)} />
+              <EconomyLine label={t.readyToInvoice} value={formatCurrency(monthReadyToInvoice, intlLocale)} />
+              <EconomyLine label={t.laborCosts} value={formatCurrency(monthLabor, intlLocale)} />
+              <EconomyLine label={t.otherCosts} value={formatCurrency(monthOther, intlLocale)} />
+              <EconomyLine label={t.currentPayrollAdvances} value={formatCurrency(payrollAdvanceTotal, intlLocale)} />
+              <EconomyLine label={t.profit} value={formatCurrency(monthProfit, intlLocale)} strong />
+            </div>
+          </div>
+        </section>
           <div data-tour="dashboard-month-summary" style={operationsPanel}>
             <div style={operationsHeader}>
               <div>
-                <div style={panelTitle}>{t.summaryTitle}</div>
+                <h3 style={panelTitle}>{t.summaryTitle}</h3>
                 <div style={panelSubtitle}>{t.monthlyOverviewSubtitle}</div>
               </div>
               <div data-tour="dashboard-week-toggle" style={weekToggleWrap}>
@@ -2014,7 +2004,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             </div>
 
             {selectedWeekJobs.length === 0 ? (
-              <EmptyState text={t.noTodayJobs} />
+              <EmptyState text={ui.noWeekJobs} />
             ) : (
               <div style={compactScrollWindow}>
                 <div style={stack10}>
@@ -2032,7 +2022,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                       const badgeTone = jobToneByWorkState(job.work_state)
 
                       return (
-                        <Link key={job.id} href={`/jobs/${job.id}`} style={compactJobRow}>
+                        <Link key={job.id} href={`/jobs/${job.id}`} className={styles.monthJobRow} style={compactJobRow}>
                           <div style={jobTimeCol}>
                             <div style={jobTime}>{formatDateLabel(parseDateSafe(job.start_at, companyTimeZone) ?? getNowPrague(), companyTimeZone, intlLocale)}</div>
                             <div style={jobTimeMuted}>{formatShortDateTime(job.end_at, companyTimeZone, intlLocale)}</div>
@@ -2057,49 +2047,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               </div>
             )}
           </div>
-        </section>
-
-        <section data-tour="dashboard-month-economy" style={operationsPanel}>
-          <div style={operationsHeader}>
-            <div>
-              <div style={panelTitle}>{t.currentMonth}</div>
-              <div style={panelSubtitle}>{t.monthEconomySubtitle}</div>
-            </div>
-            <div style={monthBadge}>{summaryMonthLabel}</div>
-          </div>
-
-          <div style={monthOverviewGrid}>
-            <div data-tour="dashboard-economy-chart" style={compactChartPanel}>
-              <div style={chartCommentBox}>{chartComment}</div>
-              {hasProfitChartData ? (
-                <MonthlyProfitChart
-                  points={profitChartPoints}
-                  labels={{
-                    aria: t.monthEconomyTitle,
-                    profit: t.profit,
-                    revenue: t.revenue,
-                    costs: t.costs,
-                  }}
-                  formatCurrencyLabel={(value) => formatCurrency(value, intlLocale)}
-                />
-              ) : (
-                <EmptyState text={t.noTopJobs} />
-              )}
-            </div>
-
-            <div data-tour="dashboard-economy-table" style={financeTable}>
-              <EconomyLine label={t.ordered} value={formatCurrency(monthOrdered, intlLocale)} />
-              <EconomyLine label={t.invoiced} value={formatCurrency(monthInvoiced, intlLocale)} />
-              <EconomyLine label={t.readyToInvoice} value={formatCurrency(monthReadyToInvoice, intlLocale)} />
-              <EconomyLine label={t.laborCosts} value={formatCurrency(monthLabor, intlLocale)} />
-              <EconomyLine label={t.otherCosts} value={formatCurrency(monthOther, intlLocale)} />
-              <EconomyLine label={t.currentPayrollAdvances} value={formatCurrency(payrollAdvanceTotal, intlLocale)} />
-              <EconomyLine label={t.profit} value={formatCurrency(monthProfit, intlLocale)} strong />
-            </div>
-          </div>
-        </section>
-
-        <section data-tour="dashboard-job-decisions" style={jobDecisionGrid}>
+        <section data-tour="dashboard-job-decisions" className={styles.twoColumns}>
           <Panel title={t.topJobsTitle} subtitle={t.topJobsSubtitle}>
             {topJobs.length === 0 ? (
               <EmptyState text={t.noTopJobs} />
@@ -2141,8 +2089,16 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             </Panel>
           </div>
         </section>
+          </div>
+        </details>
 
-        <section style={summaryTripleGrid}>
+        <details className={styles.disclosure}>
+          <summary className={styles.disclosureSummary}>
+            <span><span className={styles.disclosureTitle}>{ui.activity}</span><span className={styles.disclosureHint}>{ui.activityHint}</span></span>
+            <span aria-hidden="true" className={styles.chevron}>⌄</span>
+          </summary>
+          <div className={styles.disclosureBody}>
+        <section className={styles.activityGrid}>
           <Panel title={t.quotesTitle} subtitle={t.quotesSubtitle}>
             {quotes.length === 0 ? (
               <EmptyState text={t.noQuotes} />
@@ -2268,6 +2224,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             )}
           </Panel>
         </section>
+          </div>
+        </details>
       </div>
     </DashboardShell>
   )
@@ -2352,66 +2310,18 @@ function TodaySummaryItem({
   )
 }
 
-function StatCard({
-  dataTour,
-  title,
-  value,
-  subvalue,
-  detail,
-  icon,
-  accent = '#2563eb',
-  highlight = false,
-  urgent = false,
-}: {
+function StatCard({ dataTour, title, value, subvalue, highlight = false }: {
   dataTour?: string
   title: string
   value: string
   subvalue: string
-  detail?: string
-  icon?: string
-  accent?: string
   highlight?: boolean
-  urgent?: boolean
 }) {
-  const cardStyle = highlight ? highlightedStatCard : urgent ? urgentStatCard : statCard
-
   return (
-    <div className="dashboard-kpi-card" data-tour={dataTour} style={cardStyle}>
-      <div style={statCardTopRow}>
-        <div style={highlight ? highlightedStatTitle : urgent ? urgentStatTitle : statTitle}>{title}</div>
-        {icon ? (
-          <div
-            style={{
-              ...statIcon,
-              background: highlight
-                ? 'rgba(255,255,255,0.12)'
-                : `linear-gradient(135deg, ${accent}22, ${accent}10)`,
-              borderColor: highlight ? 'rgba(255,255,255,0.18)' : `${accent}33`,
-            }}
-          >
-            <span
-              aria-hidden="true"
-              style={{
-                width: highlight ? '13px' : '11px',
-                height: highlight ? '13px' : '11px',
-                borderRadius: '999px',
-                background: highlight
-                  ? 'linear-gradient(135deg, #ffffff, #67e8f9)'
-                  : `linear-gradient(135deg, ${accent}, ${accent}88)`,
-                boxShadow: highlight
-                  ? '0 0 16px rgba(103, 232, 249, 0.75)'
-                  : `0 0 14px ${accent}55`,
-              }}
-            />
-          </div>
-        ) : null}
-      </div>
-      <div style={highlight ? highlightedStatValue : urgent ? urgentStatValue : statValue}>{value}</div>
-      <div style={highlight ? highlightedStatSubvalue : urgent ? urgentStatSubvalue : statSubvalue}>{subvalue}</div>
-      {detail ? (
-        <div style={highlight ? highlightedStatDetail : statDetail}>{detail}</div>
-      ) : null}
-      <div style={{ ...statAccent, backgroundColor: highlight ? '#22d3ee' : accent }} />
+    <div data-tour={dataTour} style={highlight ? highlightedStatCard : statCard}>
+      <div style={highlight ? highlightedStatTitle : statTitle}>{title}</div>
+      <div style={highlight ? highlightedStatValue : statValue}>{value}</div>
+      <div style={highlight ? highlightedStatSubvalue : statSubvalue}>{subvalue}</div>
     </div>
   )
 }
@@ -2428,7 +2338,7 @@ function Panel({
   return (
     <div style={panel}>
       <div style={panelHeader}>
-        <div style={panelTitle}>{title}</div>
+        <h3 style={panelTitle}>{title}</h3>
         <div style={panelSubtitle}>{subtitle}</div>
       </div>
       {children}
@@ -2451,7 +2361,7 @@ function EmptyState({
 }) {
   return (
     <div style={emptyState}>
-      <div style={emptyIcon}>{icon}</div>
+      <div aria-hidden="true" style={emptyIcon}>{icon}</div>
       <div style={{ minWidth: 0 }}>
         {title ? <div style={emptyTitle}>{title}</div> : null}
         <div>{text}</div>
@@ -2559,7 +2469,7 @@ function ActionDisclosure({
           <EmptyState text={emptyText} />
         ) : (
           <div style={actionDisclosureList}>
-            {items.slice(0, 6).map((item) => (
+            {items.map((item) => (
               <div key={item.id} style={actionJobLink}>
                 <div style={{ minWidth: 0 }}>
                   <Link href={item.href} style={actionJobTitle}>{item.title}</Link>
@@ -2624,19 +2534,19 @@ function MonthlyProfitChart({
     <div style={chartWrap}>
       <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={labels.aria} style={chartSvg}>
         <line x1={padding} y1={zeroY} x2={width - padding} y2={zeroY} stroke="#d1d5db" strokeWidth="1" />
-        <path d={revenuePath} fill="none" stroke="#2563eb" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.55" />
-        <path d={costsPath} fill="none" stroke="#f97316" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.65" />
-        <path d={profitPath} fill="none" stroke="#166534" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+        <path d={revenuePath} fill="none" stroke="#8f81c2" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+        <path d={costsPath} fill="none" stroke="#89909f" strokeWidth="2.5" strokeDasharray="5 5" strokeLinecap="round" strokeLinejoin="round" />
+        <path d={profitPath} fill="none" stroke="#6d4aff" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
         {points.map((point, index) =>
           point.value === 0 && point.revenue === 0 && point.costs === 0 ? null : (
-            <circle key={`${point.label}-${index}`} cx={getX(index)} cy={getY(point.value)} r="3.5" fill="#166534" />
+            <circle key={`${point.label}-${index}`} cx={getX(index)} cy={getY(point.value)} r="3.5" fill="#6d4aff" />
           )
         )}
       </svg>
       <div style={chartLegend}>
-        <span style={legendItem}><span style={{ ...legendDot, backgroundColor: '#166534' }} />{labels.profit}</span>
-        <span style={legendItem}><span style={{ ...legendDot, backgroundColor: '#2563eb' }} />{labels.revenue}</span>
-        <span style={legendItem}><span style={{ ...legendDot, backgroundColor: '#f97316' }} />{labels.costs}</span>
+        <span style={legendItem}><span style={{ ...legendDot, backgroundColor: '#6d4aff' }} />{labels.profit}</span>
+        <span style={legendItem}><span style={{ ...legendDot, backgroundColor: '#8f81c2' }} />{labels.revenue}</span>
+        <span style={legendItem}><span style={{ ...legendDot, backgroundColor: '#89909f' }} />{labels.costs}</span>
         <span>{formatCurrencyLabel(min)} - {formatCurrencyLabel(max)}</span>
       </div>
     </div>
@@ -2675,7 +2585,7 @@ function JobProfitRow({
   const tags = getJobProfitTags(job, labels, warning)
 
   return (
-    <Link href={`/jobs/${job.id}`} style={profitJobLink}>
+    <Link href={`/jobs/${job.id}`} className={styles.profitRow} style={profitJobLink}>
       <div style={{ minWidth: 0 }}>
         <div style={profitJobTitle}>{job.title}</div>
         <div style={profitJobMeta}>{job.customer}</div>
@@ -2848,7 +2758,7 @@ const eyebrow: CSSProperties = {
   fontSize: '11px',
   letterSpacing: '0.08em',
   textTransform: 'uppercase',
-  color: '#6b7280',
+  color: '#717684',
   fontWeight: 700,
 }
 
@@ -2856,7 +2766,7 @@ const heroTitle: CSSProperties = {
   margin: 0,
   fontSize: '32px',
   lineHeight: 1.08,
-  color: '#111827',
+  color: '#202534',
 }
 
 const heroText: CSSProperties = {
@@ -2869,7 +2779,7 @@ const heroText: CSSProperties = {
 
 const heroMiniStats: CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 160px), 1fr))',
   gap: '12px',
 }
 
@@ -2882,14 +2792,14 @@ const miniHeroStat: CSSProperties = {
 
 const miniHeroLabel: CSSProperties = {
   fontSize: '12px',
-  color: '#6b7280',
+  color: '#717684',
   marginBottom: '6px',
 }
 
 const miniHeroValue: CSSProperties = {
   fontSize: '18px',
-  fontWeight: 800,
-  color: '#111827',
+  fontWeight: 650,
+  color: '#202534',
 }
 
 const heroActions: CSSProperties = {
@@ -2905,10 +2815,10 @@ const quickLink: CSSProperties = {
   padding: '9px 13px',
   borderRadius: '999px',
   backgroundColor: 'rgba(255,255,255,0.72)',
-  color: '#0f172a',
+  color: '#202534',
   border: '1px solid rgba(203, 213, 225, 0.9)',
   textDecoration: 'none',
-  fontWeight: 850,
+  fontWeight: 650,
   textAlign: 'center',
   whiteSpace: 'nowrap',
   boxShadow: '0 8px 18px rgba(15, 23, 42, 0.05)',
@@ -2924,7 +2834,7 @@ const quickLinkPrimary: CSSProperties = {
 
 const statsGrid: CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 210px), 1fr))',
   gap: '10px',
 }
 
@@ -2943,9 +2853,9 @@ const kpiHeader: CSSProperties = {
 
 const kpiTitle: CSSProperties = {
   marginTop: '2px',
-  color: '#111827',
+  color: '#202534',
   fontSize: '18px',
-  fontWeight: 850,
+  fontWeight: 650,
 }
 
 const todaySummaryCard: CSSProperties = {
@@ -2969,16 +2879,16 @@ const todaySummaryHeader: CSSProperties = {
 const summaryEyebrow: CSSProperties = {
   color: '#475569',
   fontSize: '12px',
-  fontWeight: 900,
+  fontWeight: 650,
   letterSpacing: '0.08em',
   textTransform: 'uppercase',
 }
 
 const todaySummaryTitle: CSSProperties = {
   marginTop: '3px',
-  color: '#0f172a',
+  color: '#202534',
   fontSize: '20px',
-  fontWeight: 850,
+  fontWeight: 650,
   lineHeight: 1.2,
 }
 
@@ -2993,13 +2903,13 @@ const todaySummaryCta: CSSProperties = {
   color: '#ffffff',
   textDecoration: 'none',
   fontSize: '14px',
-  fontWeight: 850,
+  fontWeight: 650,
   boxShadow: '0 12px 26px rgba(37, 99, 235, 0.18)',
 }
 
 const todaySummaryGrid: CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 190px), 1fr))',
   gap: '10px',
 }
 
@@ -3038,9 +2948,9 @@ const todaySummaryIconGlyph: CSSProperties = {
 
 const todaySummaryLabel: CSSProperties = {
   display: 'block',
-  color: '#0f172a',
+  color: '#202534',
   fontSize: '14px',
-  fontWeight: 850,
+  fontWeight: 650,
   overflow: 'hidden',
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
@@ -3055,9 +2965,9 @@ const todaySummaryHint: CSSProperties = {
 }
 
 const todaySummaryValue: CSSProperties = {
-  color: '#0f172a',
+  color: '#202534',
   fontSize: '26px',
-  fontWeight: 900,
+  fontWeight: 650,
   lineHeight: 1,
 }
 
@@ -3139,7 +3049,7 @@ const heroTodayStatus: CSSProperties = {
 const heroTodayTitle: CSSProperties = {
   color: '#334155',
   fontSize: '13px',
-  fontWeight: 900,
+  fontWeight: 650,
   marginBottom: '8px',
 }
 
@@ -3168,7 +3078,7 @@ const heroTodayIcon: CSSProperties = {
   backgroundColor: 'rgba(255,255,255,0.72)',
   border: '1px solid rgba(148, 163, 184, 0.22)',
   fontSize: '12px',
-  fontWeight: 950,
+  fontWeight: 650,
 }
 
 const heroTodayIconUrgent: CSSProperties = {
@@ -3179,9 +3089,9 @@ const heroTodayIconUrgent: CSSProperties = {
 }
 
 const heroTodayValue: CSSProperties = {
-  color: '#0f172a',
+  color: '#202534',
   fontSize: '16px',
-  fontWeight: 950,
+  fontWeight: 650,
 }
 
 const heroTodayValueUrgent: CSSProperties = {
@@ -3191,7 +3101,7 @@ const heroTodayValueUrgent: CSSProperties = {
 
 const heroTodayLabel: CSSProperties = {
   color: '#475569',
-  fontWeight: 750,
+  fontWeight: 650,
   whiteSpace: 'nowrap',
 }
 
@@ -3205,10 +3115,10 @@ const heroTodayButton: CSSProperties = {
   borderRadius: '999px',
   backgroundColor: 'rgba(255,255,255,0.76)',
   border: '1px solid rgba(148, 163, 184, 0.28)',
-  color: '#0f172a',
+  color: '#202534',
   textDecoration: 'none',
   fontSize: '12px',
-  fontWeight: 900,
+  fontWeight: 650,
 }
 
 const heroPill: CSSProperties = {
@@ -3221,7 +3131,7 @@ const heroPill: CSSProperties = {
   border: '1px solid rgba(124, 58, 237, 0.22)',
   color: '#5b21b6',
   fontSize: '12px',
-  fontWeight: 900,
+  fontWeight: 650,
   boxShadow: '0 10px 22px rgba(124, 58, 237, 0.08)',
 }
 
@@ -3230,7 +3140,7 @@ const stateEyebrow: CSSProperties = {
   letterSpacing: '0.08em',
   textTransform: 'uppercase',
   color: '#475569',
-  fontWeight: 900,
+  fontWeight: 650,
   marginBottom: '10px',
 }
 
@@ -3238,9 +3148,9 @@ const stateTitle: CSSProperties = {
   margin: 0,
   fontSize: '34px',
   lineHeight: 1.05,
-  color: '#0f172a',
+  color: '#202534',
   maxWidth: '860px',
-  fontWeight: 850,
+  fontWeight: 650,
 }
 
 const stateText: CSSProperties = {
@@ -3269,7 +3179,7 @@ const heroDatePill: CSSProperties = {
   border: '1px solid rgba(148, 163, 184, 0.24)',
   color: '#334155',
   fontSize: '13px',
-  fontWeight: 850,
+  fontWeight: 650,
 }
 
 const heroOkPill: CSSProperties = {
@@ -3312,7 +3222,7 @@ const stateNumberTop: CSSProperties = {
 
 const stateNumberLabel: CSSProperties = {
   fontSize: '13px',
-  fontWeight: 850,
+  fontWeight: 650,
   color: '#64748b',
 }
 
@@ -3324,13 +3234,13 @@ const stateNumberBadge: CSSProperties = {
   border: '1px solid #a5f3fc',
   color: '#0e7490',
   fontSize: '12px',
-  fontWeight: 900,
+  fontWeight: 650,
 }
 
 const stateNumberProfit: CSSProperties = {
   fontSize: '36px',
   lineHeight: 1,
-  fontWeight: 900,
+  fontWeight: 650,
   color: '#15803d',
 }
 
@@ -3370,21 +3280,17 @@ const quickActions: CSSProperties = {
 }
 
 const statCard: CSSProperties = {
-  position: 'relative',
-  overflow: 'hidden',
-  padding: '14px 15px',
-  borderRadius: '18px',
-  background: 'linear-gradient(145deg, rgba(255,255,255,0.98), rgba(248,250,252,0.92))',
-  border: '1px solid rgba(226, 232, 240, 0.9)',
-  boxShadow: '0 12px 28px rgba(15, 23, 42, 0.065)',
-  transition: 'transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease',
+  minWidth: 0,
+  padding: '18px',
+  borderRadius: '12px',
+  background: '#ffffff',
+  border: '1px solid #e8e9ef',
 }
 
 const highlightedStatCard: CSSProperties = {
   ...statCard,
-  background: 'linear-gradient(135deg, #07111f 0%, #0f1f3f 48%, #083344 100%)',
-  border: '1px solid rgba(34, 211, 238, 0.22)',
-  boxShadow: '0 16px 36px rgba(15, 23, 42, 0.22)',
+  background: '#f5f2ff',
+  border: '1px solid #e5defa',
 }
 
 const urgentStatCard: CSSProperties = {
@@ -3396,14 +3302,14 @@ const urgentStatCard: CSSProperties = {
 
 const statTitle: CSSProperties = {
   fontSize: '13px',
-  color: '#6b7280',
+  color: '#717684',
   marginBottom: '8px',
-  fontWeight: 850,
+  fontWeight: 650,
 }
 
 const highlightedStatTitle: CSSProperties = {
   ...statTitle,
-  color: '#cbd5e1',
+  color: '#68598c',
 }
 
 const urgentStatTitle: CSSProperties = {
@@ -3413,15 +3319,14 @@ const urgentStatTitle: CSSProperties = {
 
 const statValue: CSSProperties = {
   fontSize: '25px',
-  fontWeight: 800,
-  color: '#111827',
+  fontWeight: 650,
+  color: '#202534',
   marginBottom: '4px',
 }
 
 const highlightedStatValue: CSSProperties = {
   ...statValue,
-  color: '#ffffff',
-  fontSize: '30px',
+  color: '#5936c6',
 }
 
 const urgentStatValue: CSSProperties = {
@@ -3431,13 +3336,13 @@ const urgentStatValue: CSSProperties = {
 
 const statSubvalue: CSSProperties = {
   fontSize: '12px',
-  color: '#6b7280',
+  color: '#717684',
   lineHeight: 1.45,
 }
 
 const highlightedStatSubvalue: CSSProperties = {
   ...statSubvalue,
-  color: '#cbd5e1',
+  color: '#68598c',
 }
 
 const urgentStatSubvalue: CSSProperties = {
@@ -3478,7 +3383,7 @@ const statDetail: CSSProperties = {
   borderTop: '1px solid rgba(226, 232, 240, 0.85)',
   color: '#94a3b8',
   fontSize: '12px',
-  fontWeight: 750,
+  fontWeight: 650,
 }
 
 const highlightedStatDetail: CSSProperties = {
@@ -3489,12 +3394,13 @@ const highlightedStatDetail: CSSProperties = {
 
 const actionStrip: CSSProperties = {
   display: 'grid',
-  gap: '12px',
-  padding: '16px',
-  borderRadius: '22px',
-  background: 'linear-gradient(135deg, rgba(255,255,255,0.98), rgba(248,250,252,0.94))',
-  border: '1px solid rgba(226, 232, 240, 0.9)',
-  boxShadow: '0 12px 30px rgba(15, 23, 42, 0.06)',
+  gap: '18px',
+  minWidth: 0,
+  padding: '22px',
+  borderRadius: '16px',
+  backgroundColor: '#ffffff',
+  border: '1px solid #e8e9ef',
+  boxShadow: '0 2px 6px rgba(32, 37, 52, 0.025)',
 }
 
 const actionStripHeader: CSSProperties = {
@@ -3507,17 +3413,18 @@ const actionStripHeader: CSSProperties = {
 
 const stripEyebrow: CSSProperties = {
   fontSize: '12px',
-  fontWeight: 900,
+  fontWeight: 650,
   letterSpacing: '0.08em',
   textTransform: 'uppercase',
   color: '#64748b',
 }
 
 const stripTitle: CSSProperties = {
-  marginTop: '2px',
-  fontSize: '21px',
-  fontWeight: 850,
-  color: '#111827',
+  margin: 0,
+  fontSize: '16px',
+  fontWeight: 650,
+  lineHeight: 1.4,
+  color: '#202534',
 }
 
 const stripHint: CSSProperties = {
@@ -3528,9 +3435,7 @@ const stripHint: CSSProperties = {
 
 const actionStripGrid: CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-  gap: '10px',
-  alignItems: 'stretch',
+  gap: '8px',
 }
 
 const attentionOkBadge: CSSProperties = {
@@ -3542,7 +3447,7 @@ const attentionOkBadge: CSSProperties = {
   border: '1px solid #bbf7d0',
   color: '#15803d',
   fontSize: '13px',
-  fontWeight: 900,
+  fontWeight: 650,
 }
 
 const firePanel: CSSProperties = {
@@ -3557,7 +3462,7 @@ const firePanel: CSSProperties = {
 
 const fireEyebrow: CSSProperties = {
   fontSize: '12px',
-  fontWeight: 800,
+  fontWeight: 650,
   letterSpacing: '0.08em',
   textTransform: 'uppercase',
   color: '#dc2626',
@@ -3568,24 +3473,24 @@ const fireTitle: CSSProperties = {
   margin: 0,
   fontSize: '24px',
   lineHeight: 1.2,
-  color: '#111827',
+  color: '#202534',
 }
 
 const fireSubtitle: CSSProperties = {
   margin: '6px 0 0',
-  color: '#6b7280',
+  color: '#717684',
   fontSize: '14px',
 }
 
 const fireGrid: CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 240px), 1fr))',
   gap: '12px',
 }
 
 const summaryTripleGrid: CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))',
   gap: '16px',
 }
 
@@ -3598,20 +3503,20 @@ const topGrid: CSSProperties = {
 
 const bottomGrid: CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))',
   gap: '16px',
 }
 
 const dashboardJobsGrid: CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 360px), 1fr))',
   gap: '12px',
   alignItems: 'start',
 }
 
 const monthOverviewGrid: CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))',
   gap: '14px',
   alignItems: 'start',
 }
@@ -3624,7 +3529,7 @@ const compactChartPanel: CSSProperties = {
 
 const jobDecisionGrid: CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))',
   gap: '12px',
   alignItems: 'start',
 }
@@ -3636,12 +3541,12 @@ const riskPanelWrap: CSSProperties = {
 }
 
 const panel: CSSProperties = {
-  padding: '16px',
-  borderRadius: '18px',
+  minWidth: 0,
+  padding: '22px',
+  borderRadius: '16px',
   backgroundColor: '#ffffff',
-  border: '1px solid #e5e7eb',
-  minHeight: '100%',
-  boxShadow: '0 12px 28px rgba(15, 23, 42, 0.05)',
+  border: '1px solid #e8e9ef',
+  boxShadow: '0 2px 6px rgba(32, 37, 52, 0.025)',
 }
 
 const panelHeader: CSSProperties = {
@@ -3649,58 +3554,57 @@ const panelHeader: CSSProperties = {
 }
 
 const panelTitle: CSSProperties = {
-  fontSize: '18px',
-  fontWeight: 800,
-  color: '#111827',
-  marginBottom: '4px',
+  margin: 0,
+  fontSize: '17px',
+  fontWeight: 650,
+  lineHeight: 1.4,
+  color: '#202534',
 }
 
 const panelSubtitle: CSSProperties = {
   fontSize: '13px',
-  color: '#6b7280',
+  color: '#717684',
 }
 
 const emptyState: CSSProperties = {
   display: 'flex',
   alignItems: 'flex-start',
-  gap: '10px',
-  padding: '18px',
-  borderRadius: '20px',
-  background: 'linear-gradient(135deg, #f8fafc 0%, #ffffff 100%)',
-  border: '1px solid rgba(226, 232, 240, 0.9)',
-  color: '#6b7280',
+  gap: '12px',
+  padding: '22px 16px',
+  borderRadius: '12px',
+  background: '#f8f9fb',
+  color: '#717684',
+  fontSize: '14px',
+  lineHeight: 1.65,
 }
 
 const emptyIcon: CSSProperties = {
-  width: '38px',
-  height: '38px',
-  borderRadius: '14px',
+  width: '28px',
+  height: '28px',
+  borderRadius: '50%',
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
   flexShrink: 0,
-  background: 'linear-gradient(135deg, rgba(124,58,237,0.14), rgba(6,182,212,0.14))',
-  color: '#2563eb',
-  fontSize: '16px',
-  fontWeight: 950,
+  background: '#eceef3',
+  color: '#717684',
+  fontSize: '14px',
 }
 
 const emptyTitle: CSSProperties = {
-  color: '#0f172a',
-  fontWeight: 850,
+  color: '#202534',
+  fontWeight: 650,
   marginBottom: '4px',
 }
 
 const emptyAction: CSSProperties = {
   display: 'inline-flex',
-  marginTop: '12px',
-  padding: '9px 12px',
-  borderRadius: '999px',
-  background: 'linear-gradient(135deg, #7c3aed 0%, #2563eb 52%, #06b6d4 100%)',
-  color: '#ffffff',
+  alignItems: 'center',
+  minHeight: '44px',
+  color: '#6d4aff',
   textDecoration: 'none',
-  fontSize: '13px',
-  fontWeight: 900,
+  fontSize: '14px',
+  fontWeight: 600,
 }
 
 const stack12: CSSProperties = {
@@ -3714,9 +3618,9 @@ const stack10: CSSProperties = {
 }
 
 const compactScrollWindow: CSSProperties = {
-  maxHeight: '260px',
+  maxHeight: '420px',
   overflowY: 'auto',
-  paddingRight: '5px',
+  minWidth: 0,
 }
 
 const pillBase: CSSProperties = {
@@ -3732,15 +3636,16 @@ const pillBase: CSSProperties = {
 
 const jobCardLink: CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: '74px 1fr auto',
+  gridTemplateColumns: '64px minmax(0, 1fr) auto',
   gap: '14px',
   alignItems: 'center',
   padding: '14px',
-  borderRadius: '16px',
-  backgroundColor: '#f9fafb',
-  border: '1px solid #e5e7eb',
+  borderRadius: '10px',
+  backgroundColor: '#f8f9fb',
+  border: '1px solid #eff0f4',
   textDecoration: 'none',
-  color: '#111827',
+  color: '#202534',
+  minWidth: 0,
 }
 
 const dashboardListLink: CSSProperties = {
@@ -3753,11 +3658,11 @@ const dashboardListLink: CSSProperties = {
   backgroundColor: '#f9fafb',
   border: '1px solid #e5e7eb',
   textDecoration: 'none',
-  color: '#111827',
+  color: '#202534',
 }
 
 const dashboardListTitle: CSSProperties = {
-  fontWeight: 800,
+  fontWeight: 650,
   marginBottom: '4px',
   whiteSpace: 'nowrap',
   overflow: 'hidden',
@@ -3774,7 +3679,7 @@ const dashboardListMeta: CSSProperties = {
 
 const dashboardListSubmeta: CSSProperties = {
   fontSize: '12px',
-  color: '#6b7280',
+  color: '#717684',
   marginTop: '4px',
   whiteSpace: 'nowrap',
   overflow: 'hidden',
@@ -3783,7 +3688,7 @@ const dashboardListSubmeta: CSSProperties = {
 
 const latestPhotosGrid: CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))',
   gap: '10px',
 }
 
@@ -3794,7 +3699,7 @@ const latestPhotoCard: CSSProperties = {
   borderRadius: '16px',
   backgroundColor: '#f9fafb',
   border: '1px solid #e5e7eb',
-  color: '#111827',
+  color: '#202534',
   textDecoration: 'none',
 }
 
@@ -3821,7 +3726,7 @@ const latestPhotoPlaceholder: CSSProperties = {
   justifyContent: 'center',
   color: '#64748b',
   fontSize: '13px',
-  fontWeight: 800,
+  fontWeight: 650,
 }
 
 const latestPhotoBadge: CSSProperties = {
@@ -3835,7 +3740,7 @@ const latestPhotoBadge: CSSProperties = {
   backgroundColor: 'rgba(15, 23, 42, 0.82)',
   color: '#ffffff',
   fontSize: '12px',
-  fontWeight: 900,
+  fontWeight: 650,
 }
 
 const latestPhotoBody: CSSProperties = {
@@ -3846,7 +3751,7 @@ const latestPhotoBody: CSSProperties = {
 }
 
 const latestPhotoTitle: CSSProperties = {
-  fontWeight: 850,
+  fontWeight: 650,
   whiteSpace: 'nowrap',
   overflow: 'hidden',
   textOverflow: 'ellipsis',
@@ -3876,13 +3781,14 @@ const jobTimeCol: CSSProperties = {
 }
 
 const jobTime: CSSProperties = {
-  fontSize: '18px',
-  fontWeight: 800,
+  fontSize: '16px',
+  fontWeight: 650,
+  overflowWrap: 'anywhere',
 }
 
 const jobTimeMuted: CSSProperties = {
   fontSize: '12px',
-  color: '#6b7280',
+  color: '#717684',
 }
 
 const jobMainCol: CSSProperties = {
@@ -3890,13 +3796,14 @@ const jobMainCol: CSSProperties = {
 }
 
 const jobTitle: CSSProperties = {
-  fontWeight: 800,
+  fontWeight: 650,
   marginBottom: '4px',
+  overflowWrap: 'anywhere',
 }
 
 const jobMeta: CSSProperties = {
   fontSize: '13px',
-  color: '#6b7280',
+  color: '#717684',
   whiteSpace: 'nowrap',
   overflow: 'hidden',
   textOverflow: 'ellipsis',
@@ -3904,7 +3811,7 @@ const jobMeta: CSSProperties = {
 
 const jobSubmeta: CSSProperties = {
   fontSize: '12px',
-  color: '#6b7280',
+  color: '#717684',
   marginTop: '4px',
 }
 
@@ -3918,7 +3825,7 @@ const attentionRow: CSSProperties = {
   backgroundColor: '#f9fafb',
   border: '1px solid #e5e7eb',
   textDecoration: 'none',
-  color: '#111827',
+  color: '#202534',
 }
 
 const attentionLabel: CSSProperties = {
@@ -3934,7 +3841,7 @@ const attentionValue: CSSProperties = {
   justifyContent: 'center',
   backgroundColor: '#111827',
   color: '#ffffff',
-  fontWeight: 800,
+  fontWeight: 650,
 }
 
 const actionRow: CSSProperties = {
@@ -3946,24 +3853,24 @@ const actionRow: CSSProperties = {
   borderRadius: '16px',
   border: '1px solid #e5e7eb',
   textDecoration: 'none',
-  color: '#111827',
+  color: '#202534',
   boxShadow: '0 8px 18px rgba(15, 23, 42, 0.04)',
   overflow: 'hidden',
 }
 
 const actionDisclosure: CSSProperties = {
-  borderRadius: '16px',
-  border: '1px solid #e5e7eb',
-  color: '#111827',
-  boxShadow: '0 8px 18px rgba(15, 23, 42, 0.04)',
+  borderRadius: '10px',
+  border: '1px solid #e8e9ef',
+  color: '#202534',
   overflow: 'hidden',
 }
 
 const actionSummary: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
-  gap: '10px',
-  padding: '12px 14px',
+  gap: '12px',
+  minHeight: '58px',
+  padding: '12px',
   cursor: 'pointer',
   listStyle: 'none',
 }
@@ -3974,7 +3881,7 @@ const actionDisclosureBody: CSSProperties = {
 
 const actionDisclosureList: CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 240px), 1fr))',
   gap: '8px',
   maxHeight: '320px',
   overflowY: 'auto',
@@ -3991,12 +3898,12 @@ const actionJobLink: CSSProperties = {
   borderRadius: '12px',
   backgroundColor: '#ffffff',
   border: '1px solid rgba(226, 232, 240, 0.9)',
-  color: '#111827',
+  color: '#202534',
   textDecoration: 'none',
 }
 
 const actionJobTitle: CSSProperties = {
-  fontWeight: 800,
+  fontWeight: 650,
   lineHeight: 1.25,
 }
 
@@ -4011,7 +3918,7 @@ const actionJobMeta: CSSProperties = {
 const smallArrow: CSSProperties = {
   flexShrink: 0,
   fontSize: '12px',
-  fontWeight: 800,
+  fontWeight: 650,
   color: '#334155',
 }
 
@@ -4019,16 +3926,15 @@ const actionSmallButton: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
-  minHeight: '34px',
-  padding: '7px 10px',
-  borderRadius: '999px',
-  background: 'linear-gradient(135deg, #7c3aed 0%, #2563eb 52%, #06b6d4 100%)',
-  color: '#ffffff',
+  minHeight: '44px',
+  padding: '8px 12px',
+  borderRadius: '8px',
+  background: '#f2edff',
+  color: '#5936c6',
   textDecoration: 'none',
   fontSize: '12px',
-  fontWeight: 900,
+  fontWeight: 600,
   whiteSpace: 'nowrap',
-  boxShadow: '0 10px 20px rgba(37, 99, 235, 0.16)',
 }
 
 const actionDot: CSSProperties = {
@@ -4042,24 +3948,24 @@ const actionDot: CSSProperties = {
   justifyContent: 'center',
   color: '#ffffff',
   fontSize: '12px',
-  fontWeight: 950,
+  fontWeight: 650,
 }
 
 const actionLabel: CSSProperties = {
-  fontWeight: 800,
+  fontWeight: 650,
   lineHeight: 1.25,
 }
 
 const actionStatus: CSSProperties = {
   marginTop: '3px',
   fontSize: '12px',
-  color: '#6b7280',
+  color: '#717684',
 }
 
 const actionValue: CSSProperties = {
-  fontSize: '26px',
-  fontWeight: 900,
-  minWidth: '42px',
+  fontSize: '20px',
+  fontWeight: 650,
+  minWidth: '28px',
   textAlign: 'right',
 }
 
@@ -4071,12 +3977,14 @@ const operationsGrid: CSSProperties = {
 
 const operationsPanel: CSSProperties = {
   display: 'grid',
-  gap: '12px',
-  padding: '16px',
-  borderRadius: '22px',
-  backgroundColor: 'rgba(255,255,255,0.96)',
-  border: '1px solid rgba(226, 232, 240, 0.9)',
-  boxShadow: '0 12px 30px rgba(15, 23, 42, 0.06)',
+  gap: '18px',
+  alignContent: 'start',
+  minWidth: 0,
+  padding: '22px',
+  borderRadius: '16px',
+  backgroundColor: '#ffffff',
+  border: '1px solid #e8e9ef',
+  boxShadow: '0 2px 6px rgba(32, 37, 52, 0.025)',
 }
 
 const operationsHeader: CSSProperties = {
@@ -4089,7 +3997,7 @@ const operationsHeader: CSSProperties = {
 
 const operationsSummaryGrid: CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 150px), 1fr))',
   gap: '8px',
 }
 
@@ -4103,12 +4011,12 @@ const monthBadge: CSSProperties = {
   border: '1px solid #e2e8f0',
   color: '#334155',
   fontSize: '13px',
-  fontWeight: 800,
+  fontWeight: 650,
 }
 
 const operationsContentGrid: CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))',
   gap: '14px',
   alignItems: 'start',
 }
@@ -4122,15 +4030,15 @@ const operationMetric: CSSProperties = {
 
 const operationMetricLabel: CSSProperties = {
   fontSize: '12px',
-  color: '#6b7280',
+  color: '#717684',
   marginBottom: '4px',
 }
 
 const operationMetricValue: CSSProperties = {
   fontSize: '21px',
   lineHeight: 1,
-  fontWeight: 900,
-  color: '#111827',
+  fontWeight: 650,
+  color: '#202534',
 }
 
 const workerScrollArea: CSSProperties = {
@@ -4148,7 +4056,7 @@ const scrollWindow: CSSProperties = {
 const todayWorkerList: CSSProperties = {
   display: 'grid',
   gap: '8px',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))',
 }
 
 const todayWorkerRow: CSSProperties = {
@@ -4161,7 +4069,7 @@ const todayWorkerRow: CSSProperties = {
   backgroundColor: '#f9fafb',
   border: '1px solid #e5e7eb',
   textDecoration: 'none',
-  color: '#111827',
+  color: '#202534',
   flexWrap: 'wrap',
 }
 
@@ -4175,7 +4083,7 @@ const workerRowLink: CSSProperties = {
   backgroundColor: '#f9fafb',
   border: '1px solid #e5e7eb',
   textDecoration: 'none',
-  color: '#111827',
+  color: '#202534',
 }
 
 const workerName: CSSProperties = {
@@ -4190,7 +4098,7 @@ const todayWorkerMeta: CSSProperties = {
 
 const todayWorkerSubmeta: CSSProperties = {
   fontSize: '12px',
-  color: '#6b7280',
+  color: '#717684',
   marginTop: '4px',
 }
 
@@ -4219,7 +4127,7 @@ const economyLabel: CSSProperties = {
 }
 
 const economyValue: CSSProperties = {
-  color: '#111827',
+  color: '#202534',
 }
 
 const profitJobLink: CSSProperties = {
@@ -4232,7 +4140,7 @@ const profitJobLink: CSSProperties = {
   backgroundColor: '#f9fafb',
   border: '1px solid #e5e7eb',
   textDecoration: 'none',
-  color: '#111827',
+  color: '#202534',
 }
 
 const monthJobRow: CSSProperties = {
@@ -4242,18 +4150,15 @@ const monthJobRow: CSSProperties = {
 
 const compactJobRow: CSSProperties = {
   ...jobCardLink,
-  gridTemplateColumns: '80px minmax(0, 1fr) auto',
-  padding: '10px 12px',
-  borderRadius: '14px',
 }
 
 const profitJobTitle: CSSProperties = {
-  fontWeight: 800,
+  fontWeight: 650,
 }
 
 const profitJobMeta: CSSProperties = {
   fontSize: '13px',
-  color: '#6b7280',
+  color: '#717684',
   marginTop: '4px',
 }
 
@@ -4288,7 +4193,7 @@ const jobTag: CSSProperties = {
   padding: '5px 8px',
   borderRadius: '999px',
   fontSize: '12px',
-  fontWeight: 800,
+  fontWeight: 650,
 }
 
 const tagSuccess: CSSProperties = {
@@ -4316,7 +4221,7 @@ const tagMuted: CSSProperties = {
 }
 
 const profitValue: CSSProperties = {
-  fontWeight: 800,
+  fontWeight: 650,
   color: '#166534',
   textAlign: 'right',
   whiteSpace: 'nowrap',
@@ -4346,7 +4251,7 @@ const chartLegend: CSSProperties = {
   justifyContent: 'space-between',
   gap: '12px',
   flexWrap: 'wrap',
-  color: '#6b7280',
+  color: '#717684',
   fontSize: '12px',
 }
 
@@ -4377,7 +4282,7 @@ const legendDot: CSSProperties = {
 
 const summaryGrid: CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 130px), 1fr))',
   gap: '10px',
 }
 
@@ -4394,53 +4299,59 @@ const summaryPillLabel: CSSProperties = {
 
 const summaryPillValue: CSSProperties = {
   fontSize: '24px',
-  fontWeight: 800,
+  fontWeight: 650,
 }
 
 const monthNavLink: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
+  minHeight: '44px',
   padding: '8px 12px',
-  borderRadius: '11px',
+  borderRadius: '8px',
   textDecoration: 'none',
   backgroundColor: '#ffffff',
-  color: '#111827',
-  border: '1px solid #d1d5db',
-  fontWeight: 700,
-  whiteSpace: 'nowrap',
+  color: '#717684',
+  border: '1px solid #e8e9ef',
+  fontWeight: 500,
 }
 
 const monthInput: CSSProperties = {
+  minHeight: '44px',
   padding: '8px 12px',
-  borderRadius: '11px',
-  border: '1px solid #d1d5db',
+  borderRadius: '8px',
+  border: '1px solid #dddfe7',
   backgroundColor: '#ffffff',
-  color: '#111827',
+  color: '#202534',
   fontWeight: 600,
 }
 
 const dayToggleWrap: CSSProperties = {
   display: 'inline-flex',
-  gap: '8px',
-  padding: '4px',
-  borderRadius: '999px',
-  backgroundColor: '#f3f4f6',
-  border: '1px solid #e5e7eb',
+  gap: '3px',
+  padding: '3px',
+  borderRadius: '10px',
+  backgroundColor: '#f4f5f8',
+  border: '1px solid #e8e9ef',
 }
 
 const dayToggleLink: CSSProperties = {
-  padding: '8px 12px',
-  borderRadius: '999px',
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  minHeight: '44px',
+  padding: '8px 16px',
+  borderRadius: '7px',
   textDecoration: 'none',
-  color: '#374151',
+  color: '#717684',
   fontSize: '13px',
-  fontWeight: 700,
+  fontWeight: 600,
 }
 
 const dayToggleLinkActive: CSSProperties = {
-  backgroundColor: '#111827',
-  color: '#ffffff',
+  backgroundColor: '#ffffff',
+  color: '#5936c6',
+  boxShadow: '0 1px 3px rgba(32, 37, 52, 0.07)',
 }
 
 const weekToggleWrap: CSSProperties = {
@@ -4455,6 +4366,9 @@ const weekToggleWrap: CSSProperties = {
 }
 
 const weekToggleLink: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  minHeight: '44px',
   padding: '8px 12px',
   borderRadius: '999px',
   textDecoration: 'none',
@@ -4465,8 +4379,8 @@ const weekToggleLink: CSSProperties = {
 }
 
 const weekToggleLinkActive: CSSProperties = {
-  backgroundColor: '#111827',
-  color: '#ffffff',
+  backgroundColor: '#f2edff',
+  color: '#5936c6',
 }
 
 const hoursTableWrap: CSSProperties = {
@@ -4481,7 +4395,7 @@ const hoursTableHeader: CSSProperties = {
   gap: '12px',
   padding: '12px 14px',
   backgroundColor: '#f9fafb',
-  color: '#6b7280',
+  color: '#717684',
   fontSize: '12px',
   fontWeight: 700,
 }
@@ -4497,12 +4411,12 @@ const hoursTableRow: CSSProperties = {
 
 const hoursTableNameLink: CSSProperties = {
   textDecoration: 'none',
-  color: '#111827',
+  color: '#202534',
   fontWeight: 700,
 }
 
 const hoursTableMuted: CSSProperties = {
   fontSize: '12px',
-  color: '#6b7280',
+  color: '#717684',
   marginTop: '4px',
 }

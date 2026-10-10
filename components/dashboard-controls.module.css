@@ -1,0 +1,24 @@
+.notes { min-width: 0; padding: 22px; border: 1px solid #e8e9ef; border-radius: 16px; background: #fff; color: #202534; }
+.title { margin: 0; font-size: 16px; font-weight: 650; line-height: 1.4; }
+.hint { margin: 6px 0 16px; font-size: 12px; color: #717684; line-height: 1.5; }
+.form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+.input { min-width: 0; width: 100%; min-height: 44px; padding: 10px 12px; border: 1px solid #dddfe7; border-radius: 9px; background: #fff; color: #202534; font: inherit; font-size: 13px; }
+.input::placeholder { color: #858996; }
+.add { min-height: 44px; padding: 10px 12px; border: 1px solid #e5defa; border-radius: 9px; background: #f5f2ff; color: #5936c6; font-size: 13px; font-weight: 600; cursor: pointer; }
+.add:hover:not(:disabled) { background: #eee8ff; }
+.add:disabled { cursor: default; color: #858996; background: #f7f8fa; border-color: #e8e9ef; }
+.list { display: grid; max-height: 280px; overflow-y: auto; margin-top: 10px; }
+.empty { margin: 8px 0 0; padding: 8px 0; font-size: 13px; color: #717684; }
+.noteRow { display: grid; grid-template-columns: minmax(0, 1fr) 44px; gap: 6px; border-bottom: 1px solid #f1f2f6; }
+.noteRow:last-child { border-bottom: 0; }
+.noteLabel { display: flex; align-items: center; gap: 10px; min-width: 0; min-height: 44px; font-size: 13px; line-height: 1.5; cursor: pointer; }
+.noteLabel input { width: 17px; height: 17px; flex-shrink: 0; accent-color: #6d4aff; }
+.text, .done { overflow-wrap: anywhere; padding: 9px 0; }
+.done { color: #858996; text-decoration: line-through; }
+.delete { display: inline-flex; align-items: center; justify-content: center; align-self: start; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: #858996; cursor: pointer; }
+.delete:hover { background: #fff3f2; color: #b53b35; }
+.error { padding: 10px 0 0; margin: 0; color: #9a5a24; font-size: 12px; line-height: 1.5; }
+.notes :is(input, button):focus-visible, .monthInput:focus-visible { outline: 3px solid #6d4aff; outline-offset: 3px; }
+.monthForm { display: flex; align-items: center; min-width: 0; max-width: 100%; }
+.monthInput { min-width: 0; max-width: 100%; font: inherit; font-size: 13px; }
+@media (max-width: 560px) { .notes { padding: 18px; } .monthForm { flex: 1 1 170px; } .monthInput { width: 100%; } }

@@ -1,14 +1,14 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 
 import styles from './modules.module.css'
 
 const products = [
-  { code: 'diriqo_core', title: 'Základ Diriqa', description: 'Zakázky, zákazníci, pracovníci a každodenní provoz firmy.', note: 'Kalendář, evidence práce a jednoduché nabídky patří do základu.', href: '/jobs', action: 'Otevřít zakázky' },
+  { code: 'diriqo_core', title: 'Základ Diriqa', description: 'Vše pro každodenní práci firmy na jednom místě.', note: 'Zakázky · zákazníci · tým · kalendář · jednoduché nabídky', href: '/jobs', action: 'Otevřít zakázky' },
+  { code: 'invoicing', title: 'Fakturace', description: 'Od dokončené zakázky k vystavené faktuře v Kč.', note: 'Pokročilé funkce včetně OCR připravujeme.', href: '/invoices', action: 'Otevřít fakturaci' },
   { code: 'inventory', title: 'Sklad', description: 'Příjmy, výdeje a přehled zásob.', development: 'Skladové obrazovky ještě nejsou dostupné.' },
-  { code: 'invoicing', title: 'Fakturace', description: 'Návrhy a vystavování faktur z dokončených zakázek v Kč.', note: 'Pokročilé funkce včetně OCR ještě připravujeme.', href: '/invoices', action: 'Otevřít fakturaci' },
   { code: 'smart_quotes', title: 'Chytré nabídky', description: 'Rozšířené nabídky a práce s podklady.', development: 'Rozšířené šablony a OCR ještě připravujeme. Jednoduché nabídky už jsou součástí základu.' },
   { code: 'fleet', title: 'Vozidla', description: 'Evidence vozidel a cest.', development: 'Evidence vozidel a jízd ještě není dostupná.' },
   { code: 'ai_assistant', title: 'Diriqent', description: 'Asistent pro práci s firemními podklady.', development: 'Asistenta ještě připravujeme. Testovací licence nespouští placené AI služby.' },
@@ -21,6 +21,20 @@ type Catalog = { enabled: boolean; offers: Offer[] }
 type Purchase = { product: ProductCode; registerId: string | null; isPaidActive: boolean; paidUntil: string | null; isTestActive: boolean; testUntil: string | null; legacyAccess: boolean }
 type Remote<T> = { status: 'loading' } | { status: 'ready'; data: T } | { status: 'error'; message: string }
 type Props = { companyId: string; checkoutReturn: 'returned' | 'cancelled' | null }
+
+const modulePaths: Record<ProductCode, string> = {
+  diriqo_core: 'M4 7h16v13H4z M8 7V4h8v3 M4 12h16 M10 12v3h4v-3',
+  invoicing: 'M6 3h12v18l-3-2-3 2-3-2-3 2V3z M9 8h6 M9 12h6',
+  inventory: 'm3 7 9-4 9 4v10l-9 4-9-4V7z m0 0 9 4 9-4 M12 11v10 M7.5 5l9 4',
+  smart_quotes: 'M5 3h10l4 4v14H5V3z M15 3v5h4 M8 12h8 M8 16h5',
+  fleet: 'm4 10 2-6h12l2 6 M3 10h18v8H3z M6 18v2 M18 18v2 M6 14h2 M16 14h2',
+  ai_assistant: 'm12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5L12 3z',
+  pos: 'M5 3h14v12H5z M8 7h8 M9 15v3 M15 15v3 M4 18h16v3H4z',
+}
+
+function ModuleIcon({ product }: { product: ProductCode }) {
+  return <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={modulePaths[product]} /></svg>
+}
 
 const record = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value)
 const knownProduct = (value: unknown): value is ProductCode => products.some((product) => product.code === value)
@@ -205,18 +219,14 @@ export default function ModuleCatalogClient({ companyId, checkoutReturn }: Props
             : catalog.status === 'ready' && !catalog.data.enabled ? 'Nákup modulů zatím není spuštěný'
               : catalog.status === 'error' ? 'Nabídka je dočasně nedostupná'
                 : 'Vyberte si, co vaše firma potřebuje'}</strong>
-          <p>{testCount > 0 ? 'Testovací licence jsou bezplatné a po skončení se automaticky neúčtují. Dostupné části otevřete přímo níže; rozpracované moduly jsou označené.'
-            : 'Začněte základem a doplňujte jen to, co vaše firma potřebuje. U každého modulu vidíte stav licence i dostupnost funkcí.'}</p>
-          {catalog.status === 'ready' && !catalog.data.enabled ? <p>Nákupy jsou zatím vypnuté. Aktivní přístup tím není ovlivněný.</p> : null}
+          <p>{testCount > 0 ? 'Zdarma, bez automatické platby. Připravované funkce budou dostupné později.'
+            : 'Začněte základem. Další funkce si přidáte podle potřeby.'}</p>
+          {testCount > 0 && catalog.status === 'ready' && !catalog.data.enabled ? <p className={styles.salesNote}>Nákupy zatím nejsou spuštěné.</p> : null}
         </div>
         <button type="button" className={styles.secondaryButton} onClick={() => void refresh()} disabled={loading || Boolean(pendingOffer)}>
           {loading ? 'Načítání…' : checkoutReturn ? 'Obnovit stav platby' : 'Obnovit stav'}
         </button>
       </section>
-      <nav className={styles.quickLinks} aria-label="První kroky a nastavení modulů">
-        <Link href="/?onboarding=open" className={styles.secondaryButton}>Průvodce nastavením firmy</Link>
-        <Link href="/settings/company" className={styles.secondaryButton}>Nastavení společnosti</Link>
-      </nav>
 
       {catalog.status === 'error' || purchases.status === 'error' || checkoutError ? (
         <div className={styles.error} role="alert">
@@ -244,37 +254,45 @@ export default function ModuleCatalogClient({ companyId, checkoutReturn }: Props
           const testUntil = test.length === 1 && test[0].testUntil
             ? new Date(test[0].testUntil).toLocaleDateString('cs-CZ') : null
           return (
-            <section key={product.code} className={`${styles.card} ${product.code === 'diriqo_core' ? styles.coreCard : ''}`} aria-labelledby={`module-${product.code}`}>
+            <Fragment key={product.code}>
+            {index === 0 || index === 2 ? (
+              <div className={styles.sectionHeading}>
+                <h2>{index === 0 ? 'Pro každodenní práci' : 'Další možnosti Diriqa'}</h2>
+                <p>{index === 0 ? 'Otevřete dostupnou část a začněte pracovat.' : 'Připravujeme. Aktivní licence sama o sobě tyto funkce nezpřístupňuje.'}</p>
+              </div>
+            ) : null}
+            <section className={`${styles.card} ${index < 2 ? styles.availableCard : ''} ${product.code === 'diriqo_core' ? styles.coreCard : ''}`} aria-labelledby={`module-${product.code}`}>
               <div className={styles.cardTop}>
-                <span className={styles.moduleNumber} aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
-                <span className={test.length ? styles.testBadge : hasActive || legacy ? styles.activeBadge : styles.badge}>
-                  {purchases.status === 'loading' ? 'Ověřujeme…' : purchases.status === 'error' ? 'Stav neověřen'
-                    : active.length ? 'Placená licence' : test.length ? 'Testovací licence' : legacy ? 'Stávající přístup' : 'Bez aktivní licence'}
-                </span>
+                <span className={styles.moduleIcon}><ModuleIcon product={product.code} /></span>
+                <span className={styles.category}>{product.code === 'diriqo_core' ? 'Základ' : 'development' in product ? 'Připravujeme' : 'Doplněk'}</span>
               </div>
               <div>
-                <p className={styles.cardEyebrow}>{product.code === 'diriqo_core' ? 'Základ' : 'Samostatný doplněk'}</p>
-                <h2 id={`module-${product.code}`}>{product.title}</h2>
+                <h3 id={`module-${product.code}`}>{product.title}</h3>
                 <p className={styles.description}>{product.description}</p>
                 {'note' in product ? <p className={styles.note}>{product.note}</p> : null}
               </div>
+              {'development' in product ? (
+                <details className={styles.development}>
+                  <summary>O připravovaném modulu</summary>
+                  <p>{product.development}</p>
+                </details>
+              ) : null}
+              <div className={styles.licence}>
+                <span className={active.length ? styles.activeBadge : test.length ? styles.testBadge : legacy ? styles.activeBadge : styles.badge}>
+                  {purchases.status === 'loading' ? 'Ověřujeme…' : purchases.status === 'error' ? 'Stav neověřen'
+                    : active.length ? 'Placená licence' : test.length ? 'Testovací licence' : legacy ? 'Stávající přístup' : 'Bez aktivní licence'}
+                </span>
               {active.length > 0 ? (
                 <p className={styles.paidStatus}>
-                  {product.code === 'pos' ? `Evidované aktivní licence pokladen: ${active.length}. ` : 'Evidujeme aktivní placené období. '}
+                  {product.code === 'pos' ? `Aktivní licence pokladen: ${active.length}. ` : ''}
                   {paidUntil ? `Uhrazeno do ${paidUntil}.` : ''}
                 </p>
               ) : null}
-              {test.length > 0 ? <p className={styles.testStatus}>Bezplatný testovací přístup{testUntil ? ` do ${testUntil}` : ''}. Bez automatické platby.</p> : null}
-              {legacy && !hasActive ? <p className={styles.note}>Používáte dosavadní firemní přístup. Samostatná licence tohoto modulu zatím není aktivovaná.</p> : null}
-              {'development' in product ? (
-                <div className={styles.development}>
-                  <strong>Funkce připravujeme</strong>
-                  <p>{product.development}</p>
-                  {hasActive ? <p>Licence je evidovaná; funkce bude možné používat po jejich zpřístupnění.</p> : null}
-                </div>
-              ) : null}
+              {test.length > 0 ? <p className={styles.testStatus}>Zdarma{testUntil ? ` do ${testUntil}` : ''}</p> : null}
+              {legacy && !hasActive ? <p className={styles.note}>V rámci dosavadního přístupu firmy.</p> : null}
+              </div>
               <div className={styles.offerList}>
-                {canOpen && 'href' in product ? <Link href={product.href} className={styles.primaryButton}>{product.action}</Link> : null}
+                {canOpen && 'href' in product ? <Link href={product.href} className={styles.primaryButton}>{product.action}<span aria-hidden="true">↗</span></Link> : null}
                 {offers.map((offer) => (
                   <div key={offer.id} className={styles.offer}>
                     <div>
@@ -288,12 +306,20 @@ export default function ModuleCatalogClient({ companyId, checkoutReturn }: Props
                   </div>
                 ))}
                 {offers.length === 0 && !hasActive && !legacy ? <p className={styles.preparing}>{catalog.status === 'error'
-                  ? 'Nabídku teď nelze ověřit.' : loading ? 'Načítáme nabídku…' : 'Zveřejněnou nabídku zatím nemáme k dispozici.'}</p> : null}
+                  ? 'Nabídku teď nelze ověřit.' : loading ? 'Načítáme nabídku…' : 'Nákup zatím není dostupný.'}</p> : null}
               </div>
             </section>
+            </Fragment>
           )
         })}
       </div>
+      <nav className={styles.quickLinks} aria-label="První kroky a nastavení modulů">
+        <Link href="/?onboarding=open">Průvodce nastavením</Link>
+        <span aria-hidden="true">·</span>
+        <Link href="/settings/company">Nastavení firmy</Link>
+        <span aria-hidden="true">·</span>
+        <Link href="/billing">Dosavadní tarif</Link>
+      </nav>
     </div>
   )
 }

@@ -3,8 +3,8 @@ import type { CSSProperties, ReactNode } from 'react'
 
 export const pageShellStyle: CSSProperties = {
   display: 'grid',
-  gap: '12px',
-  maxWidth: '1120px',
+  gap: '24px',
+  maxWidth: '1280px',
   color: '#111827',
 }
 
@@ -17,11 +17,11 @@ export const heroCardStyle: CSSProperties = {
   gap: '14px',
   flexWrap: 'wrap',
   padding: '18px 20px',
-  borderRadius: '20px',
-  border: '1px solid rgba(148, 163, 184, 0.22)',
+  borderRadius: '14px',
+  border: '1px solid var(--dq-border)',
   background:
-    'linear-gradient(135deg, rgba(250,245,255,0.96) 0%, rgba(239,246,255,0.94) 48%, rgba(236,254,255,0.9) 100%)',
-  boxShadow: '0 12px 32px rgba(15, 23, 42, 0.065)',
+    'var(--dq-surface)',
+  boxShadow: 'none',
 }
 
 export const heroContentStyle: CSSProperties = {
@@ -37,12 +37,12 @@ export const eyebrowStyle: CSSProperties = {
   gap: '6px',
   marginBottom: '8px',
   padding: '4px 9px',
-  borderRadius: '999px',
+  borderRadius: '9px',
   backgroundColor: 'rgba(255,255,255,0.72)',
   border: '1px solid rgba(124, 58, 237, 0.2)',
   color: '#5b21b6',
   fontSize: '11px',
-  fontWeight: 900,
+  fontWeight: 600,
 }
 
 export const heroTitleStyle: CSSProperties = {
@@ -50,7 +50,7 @@ export const heroTitleStyle: CSSProperties = {
   color: '#111827',
   fontSize: '32px',
   lineHeight: 1.08,
-  fontWeight: 900,
+  fontWeight: 700,
 }
 
 export const heroTextStyle: CSSProperties = {
@@ -74,38 +74,38 @@ export const primaryButtonStyle: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
-  minHeight: '36px',
-  padding: '8px 12px',
-  borderRadius: '999px',
+  minHeight: '44px',
+  padding: '11px 16px',
+  borderRadius: '9px',
   border: 0,
-  background: 'linear-gradient(135deg, #7c3aed 0%, #2563eb 52%, #06b6d4 100%)',
+  background: 'var(--dq-accent)',
   color: '#ffffff',
   textDecoration: 'none',
-  fontSize: '14px',
-  fontWeight: 850,
-  boxShadow: '0 10px 22px rgba(37, 99, 235, 0.16)',
+  fontSize: '13px',
+  fontWeight: 600,
+  boxShadow: '0 2px 3px rgba(109, 74, 255, 0.1)',
 }
 
 export const secondaryButtonStyle: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
-  minHeight: '36px',
-  padding: '8px 12px',
-  borderRadius: '999px',
+  minHeight: '44px',
+  padding: '11px 16px',
+  borderRadius: '9px',
   border: '1px solid rgba(148, 163, 184, 0.35)',
   backgroundColor: 'rgba(255,255,255,0.82)',
   color: '#0f172a',
   textDecoration: 'none',
   fontSize: '14px',
-  fontWeight: 820,
+  fontWeight: 600,
 }
 
 export const cardStyle: CSSProperties = {
-  borderRadius: '22px',
-  border: '1px solid rgba(148, 163, 184, 0.24)',
-  background: 'rgba(255,255,255,0.9)',
-  boxShadow: '0 12px 30px rgba(15, 23, 42, 0.06)',
+  borderRadius: '14px',
+  border: '1px solid var(--dq-border)',
+  background: '#ffffff',
+  boxShadow: 'var(--dq-shadow)',
 }
 
 export const filterCardStyle: CSSProperties = {
@@ -122,7 +122,7 @@ export const fieldLabelStyle: CSSProperties = {
   gap: '7px',
   color: '#334155',
   fontSize: '13px',
-  fontWeight: 820,
+  fontWeight: 600,
 }
 
 export const inputStyle: CSSProperties = {
@@ -131,7 +131,7 @@ export const inputStyle: CSSProperties = {
   padding: '11px 13px',
   borderRadius: '13px',
   border: '1px solid rgba(148, 163, 184, 0.42)',
-  backgroundColor: 'rgba(255,255,255,0.9)',
+  backgroundColor: '#ffffff',
   color: '#0f172a',
   fontSize: '14px',
   fontWeight: 650,
@@ -150,7 +150,7 @@ export const cardTitleStyle: CSSProperties = {
   color: '#0f172a',
   fontSize: '21px',
   lineHeight: 1.2,
-  fontWeight: 880,
+  fontWeight: 600,
 }
 
 export const mutedTextStyle: CSSProperties = {
@@ -178,13 +178,13 @@ export const metaLabelStyle: CSSProperties = {
   marginBottom: '3px',
   color: '#64748b',
   fontSize: '12px',
-  fontWeight: 800,
+  fontWeight: 600,
 }
 
 export const metaValueStyle: CSSProperties = {
   color: '#0f172a',
   fontSize: '15px',
-  fontWeight: 850,
+  fontWeight: 600,
 }
 
 export const emptyStateStyle: CSSProperties = {
@@ -196,11 +196,11 @@ export const emptyStateStyle: CSSProperties = {
 
 export const errorStateStyle: CSSProperties = {
   padding: '18px',
-  borderRadius: '18px',
+  borderRadius: '14px',
   border: '1px solid #fecaca',
   backgroundColor: '#fff7f7',
   color: '#991b1b',
-  fontWeight: 750,
+  fontWeight: 600,
 }
 
 export const sectionCardStyle: CSSProperties = {
@@ -210,7 +210,7 @@ export const sectionCardStyle: CSSProperties = {
 
 export function PrimaryAction({ href, children, dataTour }: { href: string; children: ReactNode; dataTour?: string }) {
   return (
-    <Link href={href} data-tour={dataTour} style={primaryButtonStyle}>
+    <Link href={href} data-tour={dataTour} className="dq-button" style={primaryButtonStyle}>
       {children}
     </Link>
   )
@@ -218,7 +218,7 @@ export function PrimaryAction({ href, children, dataTour }: { href: string; chil
 
 export function SecondaryAction({ href, children, dataTour }: { href: string; children: ReactNode; dataTour?: string }) {
   return (
-    <Link href={href} data-tour={dataTour} style={secondaryButtonStyle}>
+    <Link href={href} data-tour={dataTour} className="dq-button-secondary" style={secondaryButtonStyle}>
       {children}
     </Link>
   )
@@ -251,9 +251,9 @@ export function StatusPill({
         alignItems: 'center',
         width: 'fit-content',
         padding: '7px 10px',
-        borderRadius: '999px',
+        borderRadius: '9px',
         fontSize: '13px',
-        fontWeight: 850,
+        fontWeight: 600,
         whiteSpace: 'nowrap',
         ...tones[tone],
         ...style,

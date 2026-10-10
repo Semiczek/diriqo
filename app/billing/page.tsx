@@ -4,6 +4,7 @@ import DashboardShell from '@/components/DashboardShell'
 import BillingClient from '@/app/billing/BillingClient'
 import { getActiveCompanyContext } from '@/lib/active-company'
 import { mainPlans } from '@/lib/plans'
+import styles from './billing.module.css'
 
 function toPlanView(plan: (typeof mainPlans)[number]) {
   return {
@@ -22,91 +23,28 @@ export default async function BillingPage() {
 
   return (
     <DashboardShell activeItem="billing">
-      <main style={pageStyle}>
-        <header style={headerStyle}>
-          <div>
-            <p style={eyebrowStyle}>Předplatné Diriqa</p>
-            <h1 style={titleStyle}>Základ, moduly a dosavadní tarif</h1>
-            <p style={subtitleStyle}>
-              {activeCompany
-                ? `Přehled předplatného pro ${activeCompany.companyName || 'vaši firmu'}. Stav základu a samostatných modulů najdete v jejich přehledu.`
-                : 'Vyberte firmu pro přehled jejího základu, modulů a předplatného.'}
-            </p>
-            {activeCompany ? (
-              <Link href="/billing/modules" style={modulesLinkStyle}>Základ a moduly →</Link>
-            ) : null}
-          </div>
+      <main className={styles.page}>
+        <header className={styles.header}>
+          <p className={styles.eyebrow}>{activeCompany?.companyName || 'Diriqo pro vaši firmu'}</p>
+          <h1>Předplatné</h1>
+          <p>Licence, moduly a přehled dosavadních tarifů.</p>
         </header>
 
-        {!activeCompany ? (
-          <section style={noticeStyle}>
-            Předplatné může spravovat administrátor po založení a výběru firmy.
+        {activeCompany ? (
+          <section className={styles.moduleCard}>
+            <div>
+              <span className={styles.icon} aria-hidden="true">▦</span>
+              <h2>Základ a moduly</h2>
+              <p>Podívejte se, co máte aktivní a které další funkce připravujeme.</p>
+            </div>
+            <Link href="/billing/modules" className={styles.primaryButton}>Otevřít moje moduly<span aria-hidden="true">→</span></Link>
           </section>
-        ) : null}
+        ) : (
+          <section className={styles.notice}>Předplatné může spravovat administrátor po založení a výběru firmy.</section>
+        )}
 
-        <BillingClient
-          mainPlans={mainPlans.map(toPlanView)}
-        />
+        <BillingClient mainPlans={mainPlans.map(toPlanView)} />
       </main>
     </DashboardShell>
   )
 }
-
-const pageStyle = {
-  display: 'grid',
-  gap: 18,
-  paddingBottom: 48,
-} as const
-
-const headerStyle = {
-  padding: 22,
-  border: '1px solid rgba(148, 163, 184, 0.24)',
-  borderRadius: 8,
-  background: '#ffffff',
-  boxShadow: '0 14px 34px rgba(15, 23, 42, 0.06)',
-} as const
-
-const eyebrowStyle = {
-  margin: 0,
-  color: '#2563eb',
-  fontSize: 12,
-  fontWeight: 900,
-  textTransform: 'uppercase',
-  letterSpacing: '0.08em',
-} as const
-
-const titleStyle = {
-  margin: '8px 0 0',
-  fontSize: 34,
-  lineHeight: 1.1,
-} as const
-
-const subtitleStyle = {
-  margin: '8px 0 0',
-  color: '#64748b',
-  fontWeight: 650,
-} as const
-
-const noticeStyle = {
-  border: '1px solid #bfdbfe',
-  background: '#eff6ff',
-  color: '#1e3a8a',
-  borderRadius: 8,
-  padding: 14,
-  fontWeight: 750,
-} as const
-
-const modulesLinkStyle = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  minHeight: 44,
-  marginTop: 16,
-  padding: '10px 14px',
-  border: '1px solid #1d4ed8',
-  borderRadius: 7,
-  background: '#1d4ed8',
-  color: '#ffffff',
-  textDecoration: 'none',
-  fontWeight: 750,
-  fontSize: 14,
-} as const

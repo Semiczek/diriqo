@@ -1,9 +1,11 @@
 'use client'
 
-import { useMemo, useState, type CSSProperties } from 'react'
+import { useMemo, useState } from 'react'
 import Link from 'next/link'
 
 import { useI18n } from '@/components/I18nProvider'
+import { primaryButtonStyle, secondaryButtonStyle } from '@/components/SaasPageLayout'
+import styles from '@/components/OperationalUI.module.css'
 
 type CustomerContact = {
   id: string
@@ -31,7 +33,7 @@ export default function CustomersPageClient({
   error = null,
 }: CustomersPageClientProps) {
   const [search, setSearch] = useState('')
-  const { dictionary } = useI18n()
+  const { dictionary, locale } = useI18n()
 
   const filteredCustomers = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase()
@@ -66,234 +68,68 @@ export default function CustomersPageClient({
     })
   }, [customers, search])
 
-  const cardStyle: CSSProperties = {
-    border: '1px solid rgba(226, 232, 240, 0.9)',
-    borderRadius: '22px',
-    padding: '24px',
-    background: 'linear-gradient(145deg, #ffffff 0%, #f8fbff 100%)',
-    color: '#111827',
-    marginBottom: '16px',
-    textDecoration: 'none',
-    display: 'block',
-    boxShadow: '0 16px 36px rgba(15, 23, 42, 0.06)',
-  }
-
-  const mutedTextStyle: CSSProperties = {
-    color: '#6b7280',
-    fontSize: '14px',
-    lineHeight: '1.5',
-  }
-
-  const labelStyle: CSSProperties = {
-    fontWeight: 700,
-    color: '#111827',
-  }
-
   return (
-    <>
-      <div
-        data-tour="customers-header"
-        style={{
-          position: 'relative',
-          overflow: 'hidden',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          gap: '14px',
-          marginBottom: '12px',
-          flexWrap: 'wrap',
-          padding: '18px 20px',
-          borderRadius: '20px',
-          background:
-            'linear-gradient(135deg, rgba(250,245,255,0.96) 0%, rgba(239,246,255,0.94) 50%, rgba(236,254,255,0.9) 100%)',
-          border: '1px solid rgba(203, 213, 225, 0.78)',
-          boxShadow: '0 12px 32px rgba(15, 23, 42, 0.065)',
-        }}
-      >
+    <div className={styles.page}>
+      <header data-tour="customers-header" className={styles.header}>
         <div>
-          <div style={{ display: 'inline-flex', marginBottom: '8px', padding: '4px 9px', borderRadius: '999px', backgroundColor: 'rgba(255,255,255,0.72)', border: '1px solid rgba(124,58,237,0.2)', color: '#5b21b6', fontSize: '11px', fontWeight: 900 }}>
-            CRM
-          </div>
-          <h1
-            style={{
-              margin: 0,
-              fontSize: '32px',
-              lineHeight: '1.08',
-              fontWeight: 850,
-              color: '#0f172a',
-            }}
-          >
-            {dictionary.customers.title}
-          </h1>
-          <p style={{ margin: '7px 0 0', color: '#475569', fontSize: '14px', lineHeight: 1.45 }}>
-            {dictionary.customers.subtitle}
-          </p>
+          <h1 className={styles.title}>{dictionary.customers.title}</h1>
+          <p className={styles.subtitle}>{dictionary.customers.subtitle}</p>
         </div>
-
-        <Link
-          href="/customers/new"
-          data-tour="new-customer-button"
-          style={{
-            display: 'inline-flex',
-            background: 'linear-gradient(135deg, #7c3aed 0%, #2563eb 52%, #06b6d4 100%)',
-            color: '#ffffff',
-            textDecoration: 'none',
-            fontWeight: 900,
-            fontSize: '14px',
-            minHeight: '36px',
-            padding: '8px 12px',
-            borderRadius: '999px',
-            whiteSpace: 'nowrap',
-            boxShadow: '0 10px 22px rgba(37, 99, 235, 0.16)',
-          }}
-        >
-          {dictionary.customers.newCustomer}
+        <Link href="/customers/new" data-tour="new-customer-button" style={primaryButtonStyle}>
+          + {dictionary.customers.newCustomer.replace(/^\+\s*/, '')}
         </Link>
-      </div>
+      </header>
 
-      <div data-tour="customers-search" style={{ marginBottom: '22px', padding: '14px', borderRadius: '20px', backgroundColor: 'rgba(255,255,255,0.78)', border: '1px solid rgba(226,232,240,0.9)', boxShadow: '0 12px 28px rgba(15,23,42,0.05)' }}>
-        <input
-          type="text"
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder={dictionary.customers.searchPlaceholder}
-          style={{
-            width: '100%',
-            maxWidth: '420px',
-            padding: '14px 16px',
-            borderRadius: '999px',
-            border: '1px solid #d1d5db',
-            fontSize: '16px',
-            color: '#111827',
-            outline: 'none',
-            backgroundColor: '#ffffff',
-          }}
-        />
+      <div data-tour="customers-search" className={styles.toolbar}>
+        <label className={`${styles.field} ${styles.search}`}>
+          <span>{locale === 'cs' ? 'Hledat zákazníka' : locale === 'de' ? 'Kunden suchen' : 'Find a customer'}</span>
+          <input type="search" value={search} onChange={(event) => setSearch(event.target.value)}
+            placeholder={dictionary.customers.searchPlaceholder} className={styles.input} />
+        </label>
+        <span className={styles.count} aria-live="polite">{filteredCustomers.length} / {customers.length}</span>
       </div>
 
       {error ? (
-        <div style={cardStyle}>
-          <p style={{ margin: 0, color: '#b91c1c', fontSize: '14px' }}>
-            {dictionary.customers.errorPrefix}: {dictionary.common.dataLoadFailed}
-          </p>
+        <div className={styles.empty} role="alert">
+          <h2>{dictionary.common.dataLoadFailed}</h2>
         </div>
       ) : customers.length === 0 ? (
-        <div style={cardStyle}>
-          <div style={{ display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
-            <div style={{ width: '42px', height: '42px', borderRadius: '16px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, rgba(124,58,237,0.14), rgba(6,182,212,0.16))', color: '#2563eb', fontWeight: 950 }}>K</div>
-            <div>
-              <div style={{ color: '#0f172a', fontSize: '18px', fontWeight: 850, marginBottom: '4px' }}>{dictionary.customers.empty}</div>
-              <p style={{ margin: 0, ...mutedTextStyle }}>{dictionary.customers.emptyHint}</p>
-              <Link href="/customers/new" data-tour="new-customer-button" style={{ display: 'inline-flex', marginTop: '12px', padding: '9px 12px', borderRadius: '999px', background: 'linear-gradient(135deg, #7c3aed 0%, #2563eb 52%, #06b6d4 100%)', color: '#ffffff', textDecoration: 'none', fontSize: '13px', fontWeight: 900 }}>
-                {dictionary.customers.newCustomer}
-              </Link>
-            </div>
-          </div>
+        <div className={styles.empty}>
+          <span className={styles.avatar} aria-hidden="true">+</span>
+          <h2>{dictionary.customers.empty}</h2>
+          <p>{dictionary.customers.emptyHint}</p>
+          <Link href="/customers/new" style={primaryButtonStyle}>{dictionary.customers.newCustomer}</Link>
         </div>
       ) : filteredCustomers.length === 0 ? (
-        <div style={cardStyle}>
-          <p style={{ margin: 0, ...mutedTextStyle }}>{dictionary.customers.noResults}</p>
+        <div className={styles.empty}>
+          <p>{dictionary.customers.noResults}</p>
+          <button type="button" onClick={() => setSearch('')} style={secondaryButtonStyle}>
+            {locale === 'cs' ? 'Vymazat hledání' : locale === 'de' ? 'Suche löschen' : 'Clear search'}
+          </button>
         </div>
       ) : (
-        <div data-tour="customers-list" style={{ display: 'grid' }}>
+        <div data-tour="customers-list" className={styles.list}>
           {filteredCustomers.map((customer) => (
-          <Link key={customer.id} href={`/customers/${customer.id}`} style={cardStyle}>
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'flex-start',
-                gap: '16px',
-              }}
-            >
-              <div
-                style={{
-                  width: '48px',
-                  height: '48px',
-                  borderRadius: '18px',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0,
-                  background: 'linear-gradient(135deg, rgba(124,58,237,0.16), rgba(6,182,212,0.18))',
-                  color: '#2563eb',
-                  fontWeight: 950,
-                }}
-              >
+            <Link key={customer.id} href={`/customers/${customer.id}`} className={styles.resource}>
+              <span className={styles.avatar} aria-hidden="true">
                 {(customer.name || dictionary.customers.unnamedCustomer).trim().slice(0, 1).toUpperCase()}
-              </div>
-              <div style={{ flex: 1 }}>
-                <h2
-                  style={{
-                    margin: '0 0 12px 0',
-                    fontSize: '20px',
-                    lineHeight: '1.2',
-                    color: '#111827',
-                  }}
-                >
-                  {customer.name || dictionary.customers.unnamedCustomer}
-                </h2>
-
-                <div style={{ marginBottom: '6px', fontSize: '16px' }}>
-                  <span style={labelStyle}>{dictionary.customers.emailLabel}:</span>{' '}
-                  <span style={{ color: '#4b5563' }}>{customer.email || '-'}</span>
-                </div>
-
-                <div style={{ marginBottom: '10px', fontSize: '16px' }}>
-                  <span style={labelStyle}>{dictionary.customers.phoneLabel}:</span>{' '}
-                  <span style={{ color: '#4b5563' }}>{customer.phone || '-'}</span>
-                </div>
-
-                {customer.customer_contacts && customer.customer_contacts.length > 0 ? (
-                  <div style={{ marginTop: '10px' }}>
-                    <div
-                      style={{
-                        fontSize: '13px',
-                        fontWeight: 700,
-                        color: '#6b7280',
-                        marginBottom: '6px',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.02em',
-                      }}
-                    >
-                      {dictionary.customers.contacts}
-                    </div>
-
-                    <div style={{ display: 'grid', gap: '6px' }}>
-                      {customer.customer_contacts.slice(0, 3).map((contact) => (
-                        <div
-                          key={contact.id}
-                          style={{
-                            fontSize: '14px',
-                            color: '#4b5563',
-                          }}
-                        >
-                          <strong style={{ color: '#111827' }}>
-                            {contact.full_name || dictionary.customers.unnamedContact}
-                          </strong>
-                          {' - '}
-                          {contact.email || contact.phone || dictionary.customers.noContact}
-                        </div>
-                      ))}
-
-                      {customer.customer_contacts.length > 3 ? (
-                        <div style={{ fontSize: '13px', color: '#6b7280' }}>
-                          {dictionary.customers.moreContacts}:{' '}
-                          {customer.customer_contacts.length - 3}
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-              <span style={{ display: 'inline-flex', padding: '8px 11px', borderRadius: '999px', backgroundColor: '#eef2ff', color: '#3730a3', fontSize: '13px', fontWeight: 900 }}>
-                Detail
               </span>
-            </div>
-          </Link>
+              <div className={styles.resourceBody}>
+                <h2 className={styles.resourceTitle}>{customer.name || dictionary.customers.unnamedCustomer}</h2>
+                <div className={styles.meta}>
+                  {customer.email ? <span>{customer.email}</span> : null}
+                  {customer.phone ? <span>{customer.phone}</span> : null}
+                  {!customer.email && !customer.phone ? <span>{dictionary.customers.noContact}</span> : null}
+                  {customer.customer_contacts?.length ? (
+                    <span>{dictionary.customers.contacts}: {customer.customer_contacts.length}</span>
+                  ) : null}
+                </div>
+              </div>
+              <span className={styles.arrow} aria-hidden="true">→</span>
+            </Link>
           ))}
         </div>
       )}
-    </>
+    </div>
   )
 }

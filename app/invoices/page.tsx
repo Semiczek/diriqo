@@ -1,5 +1,8 @@
 import Link from 'next/link'
 
+import styles from '@/components/OperationalUI.module.css'
+import { primaryButtonStyle, secondaryButtonStyle } from '@/components/SaasPageLayout'
+
 import DashboardShell from '@/components/DashboardShell'
 import {
   formatCurrency,
@@ -164,236 +167,101 @@ export default async function InvoicesPage({ searchParams }: PageProps) {
 
   return (
     <DashboardShell activeItem="invoices">
-      <main style={{ display: 'grid', gap: '12px', color: '#111827' }}>
-        <header
-          data-tour="invoices-header"
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'minmax(0, 1.15fr) minmax(260px, 0.85fr)',
-            gap: '14px',
-            alignItems: 'stretch',
-            overflow: 'hidden',
-            borderRadius: '20px',
-            border: '1px solid rgba(148, 163, 184, 0.25)',
-            background:
-              'radial-gradient(circle at 8% 8%, rgba(124, 58, 237, 0.16), transparent 30%), radial-gradient(circle at 100% 0%, rgba(6, 182, 212, 0.16), transparent 28%), linear-gradient(135deg, rgba(255,255,255,0.96), rgba(239,246,255,0.9) 55%, rgba(240,253,250,0.88))',
-            padding: '18px 20px',
-            boxShadow: '0 12px 32px rgba(15, 23, 42, 0.065)',
-          }}
-        >
+      <main className={styles.page}>
+        <header data-tour="invoices-header" className={styles.header}>
           <div>
-            <div
-              style={{
-                display: 'inline-flex',
-                borderRadius: '999px',
-                padding: '4px 9px',
-                marginBottom: '8px',
-                background: 'rgba(37, 99, 235, 0.1)',
-                border: '1px solid rgba(37, 99, 235, 0.18)',
-                color: '#1d4ed8',
-                fontSize: '11px',
-                fontWeight: 850,
-              }}
-            >
-              Finance
-            </div>
-            <h1 style={{ margin: 0, fontSize: '32px', lineHeight: 1.08, color: '#020617' }}>
-              Fakturace
-            </h1>
-            <p style={{ margin: '7px 0 0', color: '#475569', lineHeight: 1.45, fontSize: '14px', maxWidth: '620px' }}>
-              Přehled interních faktur, stavů a exportu do Pohody.
-            </p>
+            <h1 className={styles.title}>Fakturace</h1>
+            <p className={styles.subtitle}>Faktury, jejich splatnost a úhrady na jednom místě.</p>
           </div>
-
-          <Link
-            href="/invoices/new"
-            data-tour="new-invoice-button"
-            style={{
-              alignSelf: 'start',
-              borderRadius: '999px',
-              background: 'linear-gradient(135deg, #7c3aed 0%, #2563eb 52%, #06b6d4 100%)',
-              color: '#ffffff',
-              minHeight: '36px',
-              padding: '8px 12px',
-              textDecoration: 'none',
-              fontSize: '14px',
-              fontWeight: 850,
-              boxShadow: '0 10px 22px rgba(37, 99, 235, 0.16)',
-            }}
-          >
-            Vytvořit fakturu
-          </Link>
+          <Link href="/invoices/new" data-tour="new-invoice-button" style={primaryButtonStyle}>+ Nová faktura</Link>
         </header>
 
-        <form
-          method="get"
-          data-tour="invoices-filters"
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr)) auto',
-            gap: '12px',
-            alignItems: 'end',
-            border: '1px solid rgba(148, 163, 184, 0.22)',
-            borderRadius: '24px',
-            background: 'rgba(255, 255, 255, 0.9)',
-            padding: '18px',
-            boxShadow: '0 18px 44px rgba(15, 23, 42, 0.06)',
-          }}
-        >
-          <label style={{ display: 'grid', gap: '6px', fontWeight: 700 }}>
-            <span>Měsíc</span>
-            <input
-              type="month"
-              name="month"
-              defaultValue={selectedMonth}
-              style={{
-                height: '42px',
-                borderRadius: '14px',
-                border: '1px solid #d1d5db',
-                padding: '0 12px',
-              }}
-            />
-          </label>
-
-          <label style={{ display: 'grid', gap: '6px', fontWeight: 700 }}>
-            <span>Stav</span>
-            <select
-              name="status"
-              defaultValue={status}
-              style={{ height: '42px', borderRadius: '14px', border: '1px solid #d1d5db', padding: '0 12px' }}
-            >
-              <option value="all">Vše</option>
-              <option value="draft">Koncept</option>
-              <option value="issued">Vystavená</option>
-              <option value="sent">Odeslaná</option>
-              <option value="paid">Zaplacená</option>
-              <option value="overdue">Po splatnosti</option>
-              <option value="cancelled">Zrušená</option>
-            </select>
-          </label>
-
-          <label style={{ display: 'grid', gap: '6px', fontWeight: 700 }}>
-            <span>Export Pohoda</span>
-            <select
-              name="export"
-              defaultValue={exportStatus}
-              style={{ height: '42px', borderRadius: '14px', border: '1px solid #d1d5db', padding: '0 12px' }}
-            >
-              <option value="all">Vše</option>
-              <option value="not_exported">Neexportováno</option>
-              <option value="exported">Exportováno</option>
-              <option value="failed">Chyba</option>
-            </select>
-          </label>
-
-          <button
-            type="submit"
-            style={{
-              height: '42px',
-              borderRadius: '999px',
-              border: '1px solid rgba(37, 99, 235, 0.22)',
-              background: 'rgba(37, 99, 235, 0.08)',
-              color: '#1d4ed8',
-              padding: '0 16px',
-              fontWeight: 800,
-              cursor: 'pointer',
-            }}
-          >
-            Filtrovat
-          </button>
+        <form method="get" data-tour="invoices-filters" className={styles.filterPanel}>
+          <div className={styles.filterRow}>
+            <label className={styles.field}>
+              <span>Měsíc vystavení</span>
+              <input type="month" name="month" defaultValue={selectedMonth} className={styles.input} />
+            </label>
+            <label className={styles.field}>
+              <span>Stav faktury</span>
+              <select name="status" defaultValue={status} className={styles.input}>
+                <option value="all">Všechny faktury</option>
+                <option value="draft">Koncept</option><option value="issued">Vystavená</option>
+                <option value="sent">Odeslaná</option><option value="paid">Zaplacená</option>
+                <option value="overdue">Po splatnosti</option><option value="cancelled">Zrušená</option>
+              </select>
+            </label>
+            <button type="submit" style={secondaryButtonStyle}>Zobrazit</button>
+          </div>
+          <details className={styles.disclosure} open={exportStatus !== 'all'}>
+            <summary>Export do Pohody{exportStatus !== 'all' ? ' · aktivní filtr' : ''}</summary>
+            <div className={styles.disclosureContent}>
+              <label className={styles.field}>
+                <span>Stav exportu</span>
+                <select name="export" defaultValue={exportStatus} className={styles.input}>
+                  <option value="all">Vše</option><option value="not_exported">Neexportováno</option>
+                  <option value="exported">Exportováno</option><option value="failed">Chyba</option>
+                </select>
+              </label>
+            </div>
+          </details>
         </form>
 
         {error ? (
-          <div
-            style={{
-              border: '1px solid rgba(248, 113, 113, 0.35)',
-              background: 'rgba(254, 242, 242, 0.9)',
-              color: '#991b1b',
-              borderRadius: '20px',
-              padding: '16px',
-              fontWeight: 700,
-            }}
-          >
-            Data se nepodařilo načíst.
-            <div style={{ marginTop: '5px', color: '#b91c1c', fontSize: '12px', fontWeight: 600 }}>
-              Technický detail je v konzoli.
-            </div>
+          <div className={styles.empty} role="alert"><h2>Faktury se nepodařilo načíst.</h2><p>Obnovte stránku a zkuste to znovu.</p></div>
+        ) : invoices.length === 0 ? (
+          <div data-tour="invoices-list" className={styles.empty}>
+            <span className={styles.avatar} aria-hidden="true">+</span>
+            <h2>Žádné faktury v tomto výběru</h2>
+            <p>Změňte měsíc nebo stav. Novou fakturu vytvoříte z hotových zakázek zákazníka.</p>
+            <Link href="/invoices/new" style={primaryButtonStyle}>Vytvořit fakturu</Link>
           </div>
-        ) : null}
-
-        <div style={{ display: 'grid', gap: '12px' }}>
-          <section
-            data-tour="invoices-list"
-            style={{
-              border: '1px solid rgba(148, 163, 184, 0.22)',
-              borderRadius: '24px',
-              background: 'rgba(255, 255, 255, 0.92)',
-              overflowX: 'auto',
-              boxShadow: '0 18px 44px rgba(15, 23, 42, 0.06)',
-            }}
-          >
-            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '980px' }}>
-              <thead>
-                <tr style={{ backgroundColor: '#f9fafb', textAlign: 'left' }}>
-                  <th style={{ padding: '12px' }}>Číslo</th>
-                  <th style={{ padding: '12px' }}>Zákazník</th>
-                  <th style={{ padding: '12px' }}>Vystavení</th>
-                  <th style={{ padding: '12px' }}>Splatnost</th>
-                  <th style={{ padding: '12px' }}>Stav</th>
-                  <th style={{ padding: '12px' }}>Pohoda</th>
-                  <th style={{ padding: '12px', textAlign: 'right' }}>Celkem</th>
-                </tr>
-              </thead>
-              <tbody>
-                {invoices.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} style={{ padding: '18px', color: '#6b7280' }}>
-                      Zatím nejsou vytvořené žádné faktury.
+        ) : (
+          <section data-tour="invoices-list" className={styles.list}>
+            <span className={styles.count}>Počet faktur: {invoices.length}</span>
+            <div className={`${styles.tableWrap} ${styles.desktopInvoices}`}>
+              <table className={styles.table}>
+                <thead><tr>
+                  <th scope="col">Faktura / zákazník</th><th scope="col">Vystavení</th><th scope="col">Splatnost</th>
+                  <th scope="col">Stav</th><th scope="col">Pohoda</th><th scope="col" className={styles.amount}>Celkem</th>
+                </tr></thead>
+                <tbody>{invoices.map((invoice) => (
+                  <tr key={invoice.id}>
+                    <td>
+                      <Link href={`/invoices/${invoice.id}`}>{invoice.invoice_number ?? 'Koncept'}</Link>
+                      <div className={styles.meta} style={{ marginTop: 0 }}>{invoice.customer?.name ?? 'Bez zákazníka'}</div>
+                      {invoice.variable_symbol ? <div className={styles.meta}>VS {invoice.variable_symbol}</div> : null}
                     </td>
+                    <td>{formatDate(invoice.issue_date)}</td><td>{formatDate(invoice.due_date)}</td>
+                    <td><span style={badgeStyle(invoiceStatusKind(invoice.status))}>{formatInvoiceStatus(invoice.status)}</span></td>
+                    <td>
+                      <span style={badgeStyle(exportStatusKind(invoice.pohoda_export_status))}>{formatPohodaExportStatus(invoice.pohoda_export_status)}</span>
+                      {invoice.pohoda_last_error ? <p style={{ fontSize: 12, color: '#b04452' }}>Export se nepodařil. Podrobnosti ve faktuře.</p> : null}
+                    </td>
+                    <td className={styles.amount}>{formatCurrency(invoice.total_with_vat)}</td>
                   </tr>
-                ) : (
-                  invoices.map((invoice) => {
-                    return (
-                      <tr key={invoice.id} style={{ borderTop: '1px solid #e5e7eb' }}>
-                        <td style={{ padding: '12px', fontWeight: 800 }}>
-                          <Link href={`/invoices/${invoice.id}`} style={{ color: '#2563eb', textDecoration: 'none' }}>
-                            {invoice.invoice_number ?? 'Koncept'}
-                          </Link>
-                          {invoice.variable_symbol ? (
-                            <div style={{ color: '#6b7280', fontSize: '12px', marginTop: '4px' }}>
-                              VS {invoice.variable_symbol}
-                            </div>
-                          ) : null}
-                        </td>
-                        <td style={{ padding: '12px' }}>{invoice.customer?.name ?? '-'}</td>
-                        <td style={{ padding: '12px' }}>{formatDate(invoice.issue_date)}</td>
-                        <td style={{ padding: '12px' }}>{formatDate(invoice.due_date)}</td>
-                        <td style={{ padding: '12px' }}>
-                          <span style={badgeStyle(invoiceStatusKind(invoice.status))}>
-                            {formatInvoiceStatus(invoice.status)}
-                          </span>
-                        </td>
-                        <td style={{ padding: '12px' }}>
-                          <span style={badgeStyle(exportStatusKind(invoice.pohoda_export_status))}>
-                            {formatPohodaExportStatus(invoice.pohoda_export_status)}
-                          </span>
-                          {invoice.pohoda_last_error ? (
-                            <div style={{ color: '#991b1b', fontSize: '12px', marginTop: '4px' }}>
-                              {invoice.pohoda_last_error}
-                            </div>
-                          ) : null}
-                        </td>
-                        <td style={{ padding: '12px', textAlign: 'right', fontWeight: 800 }}>
-                          {formatCurrency(invoice.total_with_vat)}
-                        </td>
-                      </tr>
-                    )
-                  })
-                )}
-              </tbody>
-            </table>
+                ))}</tbody>
+              </table>
+            </div>
+            <div className={styles.mobileInvoices}>
+              {invoices.map((invoice) => (
+                <Link key={invoice.id} href={`/invoices/${invoice.id}`} className={styles.invoiceCard}>
+                  <div className={styles.invoiceCardTop}>
+                    <strong>{invoice.invoice_number ?? 'Koncept'}</strong>
+                    <span style={badgeStyle(invoiceStatusKind(invoice.status))}>{formatInvoiceStatus(invoice.status)}</span>
+                  </div>
+                  <div className={styles.resourceTitle}>{invoice.customer?.name ?? 'Bez zákazníka'}</div>
+                  <div className={styles.meta}>
+                    <span>Vystaveno {formatDate(invoice.issue_date)}</span><span>Splatnost {formatDate(invoice.due_date)}</span>
+                    {invoice.variable_symbol ? <span>VS {invoice.variable_symbol}</span> : null}
+                    <span>Pohoda: {formatPohodaExportStatus(invoice.pohoda_export_status)}</span>
+                  </div>
+                  <div className={styles.invoiceCardTop}><strong>{formatCurrency(invoice.total_with_vat)}</strong><span aria-hidden="true">→</span></div>
+                </Link>
+              ))}
+            </div>
           </section>
-        </div>
+        )}
       </main>
     </DashboardShell>
   )
