@@ -883,7 +883,7 @@ export const enDictionary: TranslationDictionary = {
       dangerZone: {
         title: 'Danger zone',
         description:
-          'These actions modify or delete data. Deleting the job does not delete the customer from the customers table; it only deletes the job and its related records.',
+          'Deleting removes the job and its related records. The customer is kept.',
         detachCustomer: 'Detach customer from job',
         detachingCustomer: 'Detaching customer...',
         deleteJob: 'Delete job',

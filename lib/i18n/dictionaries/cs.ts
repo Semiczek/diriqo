@@ -883,7 +883,7 @@ export const csDictionary: TranslationDictionary = {
       dangerZone: {
         title: 'Nebezpečná zóna',
         description:
-          'Tady jsou akce, které mění nebo mažou data. Mazání zakázky nesmaže zákazníka z tabulky customers, smaže se jen zakázka a její návaznosti.',
+          'Smazáním odstraníte zakázku a její navázané záznamy. Zákazník zůstane zachovaný.',
         detachCustomer: 'Odebrat zákazníka od zakázky',
         detachingCustomer: 'Odebírám zákazníka...',
         deleteJob: 'Smazat zakázku',

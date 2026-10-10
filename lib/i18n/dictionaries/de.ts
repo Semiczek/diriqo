@@ -886,7 +886,7 @@ export const deDictionary: TranslationDictionary = {
       dangerZone: {
         title: 'Gefahrenbereich',
         description:
-          'Hier sind Aktionen, die Daten ändern oder löschen. Das Löschen des Auftrags löscht nicht den Kunden aus der Tabelle customers, sondern nur den Auftrag und seine Verknüpfungen.',
+          'Beim Löschen werden der Auftrag und seine zugehörigen Einträge entfernt. Der Kunde bleibt erhalten.',
         detachCustomer: 'Kunden vom Auftrag lösen',
         detachingCustomer: 'Kunde wird gelöst...',
         deleteJob: 'Auftrag löschen',

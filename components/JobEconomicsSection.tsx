@@ -1,6 +1,7 @@
 ﻿'use client'
 
 import { useState } from 'react'
+import styles from './JobEconomicsSection.module.css'
 import { useI18n } from '@/components/I18nProvider'
 import { getIntlLocale } from '@/lib/i18n/config'
 import JobEconomicsEditor from './JobEconomicsEditor'
@@ -132,12 +133,6 @@ export default function JobEconomicsSection({
     cursor: 'pointer',
   }
 
-  const cardsWrapStyle: React.CSSProperties = {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-    gap: '16px',
-  }
-
   const cardStyle: React.CSSProperties = {
     ...metaItemStyle,
   }
@@ -148,7 +143,7 @@ export default function JobEconomicsSection({
 
   const valueStyle: React.CSSProperties = {
     ...metaValueStyle,
-    fontSize: '28px',
+    fontSize: 'clamp(16px, 2vw, 22px)',
     lineHeight: '1.2',
   }
 
@@ -171,7 +166,7 @@ export default function JobEconomicsSection({
       </div>
 
       {!isEditing ? (
-        <div style={cardsWrapStyle}>
+        <div className={styles.summary}>
           <div style={cardStyle}>
             <div style={labelStyle}>{detailMessages.accountingRevenue}</div>
             <div style={valueStyle}>{formatCurrency(revenue, dateLocale)}</div>

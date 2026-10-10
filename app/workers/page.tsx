@@ -3,6 +3,7 @@ import type { CSSProperties } from 'react'
 import Link from 'next/link'
 
 import DashboardShell from '@/components/DashboardShell'
+import styles from './workers.module.css'
 import { getActiveCompanyContext } from '@/lib/active-company'
 import { getIntlLocale } from '@/lib/i18n/config'
 import { getRequestDictionary, getRequestLocale } from '@/lib/i18n/server'
@@ -777,31 +778,31 @@ export default async function WorkersPage({ searchParams }: WorkersPageProps) {
     .reduce((sum, worker) => sum + worker.payrollPaidAmount, 0)
   const totalPeriodPayrollUnpaid = Math.max(0, totalPeriodPayroll - totalPeriodPayrollPaid)
 
-  const cardStyle: CSSProperties = { border: '1px solid rgba(226, 232, 240, 0.9)', borderRadius: '18px', padding: '18px', background: 'linear-gradient(145deg, #ffffff 0%, #f8fbff 100%)', color: '#111827', textDecoration: 'none', display: 'block', boxShadow: '0 12px 28px rgba(15, 23, 42, 0.055)' }
-  const statBoxStyle: CSSProperties = { border: '1px solid rgba(226, 232, 240, 0.9)', borderRadius: '16px', padding: '14px 16px', background: 'linear-gradient(145deg, #ffffff 0%, #f8fbff 100%)', boxShadow: '0 10px 24px rgba(15, 23, 42, 0.045)' }
+  const cardStyle: CSSProperties = { border: '1px solid rgba(226, 232, 240, 0.9)', borderRadius: '14px', padding: '18px', background: '#ffffff', color: '#202534', textDecoration: 'none', display: 'block', boxShadow: 'none' }
+  const statBoxStyle: CSSProperties = { border: '1px solid rgba(226, 232, 240, 0.9)', borderRadius: '16px', padding: '14px 16px', background: '#ffffff', boxShadow: 'none' }
   const miniStatStyle: CSSProperties = { border: '1px solid rgba(226, 232, 240, 0.9)', borderRadius: '12px', padding: '10px 11px', background: '#f8fafc' }
   const summaryWideBoxStyle: CSSProperties = { border: '1px solid rgba(203, 213, 225, 0.9)', borderRadius: '14px', padding: '11px 12px', background: '#f8fafc', marginBottom: '10px' }
-  const monthNavButtonStyle: CSSProperties = { display: 'inline-flex', padding: '8px 12px', borderRadius: '999px', background: '#ffffff', color: '#111827', textDecoration: 'none', fontSize: '14px', fontWeight: 800, border: '1px solid #e5e7eb', whiteSpace: 'nowrap', boxShadow: '0 8px 18px rgba(15,23,42,0.045)' }
+  const monthNavButtonStyle: CSSProperties = { display: 'inline-flex', alignItems: 'center', minHeight: '44px', padding: '8px 12px', borderRadius: '9px', background: '#ffffff', color: '#202534', textDecoration: 'none', fontSize: '14px', fontWeight: 600, border: '1px solid #e5e7eb', whiteSpace: 'nowrap', boxShadow: 'none' }
 
   return (
     <DashboardShell activeItem="workers">
-      <main style={{ maxWidth: '1100px', color: '#111827' }}>
-        <div style={{ position: 'relative', overflow: 'hidden', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: '14px', marginBottom: '16px', flexWrap: 'wrap', padding: '20px 22px', borderRadius: '22px', background: 'linear-gradient(135deg, rgba(240,253,250,0.96) 0%, rgba(239,246,255,0.94) 52%, rgba(250,245,255,0.9) 100%)', border: '1px solid rgba(203, 213, 225, 0.78)', boxShadow: '0 14px 38px rgba(15, 23, 42, 0.075)' }}>
+      <main className={styles.page}>
+        <div className={styles.hero}>
           <div>
-            <div style={{ display: 'inline-flex', marginBottom: '9px', padding: '5px 10px', borderRadius: '999px', backgroundColor: 'rgba(255,255,255,0.72)', border: '1px solid rgba(6,182,212,0.22)', color: '#0e7490', fontSize: '12px', fontWeight: 900 }}>
+            <div className={styles.eyebrow}>
               Tým
             </div>
-            <h1 style={{ margin: 0, fontSize: '34px', lineHeight: '1.08', fontWeight: 850, color: '#0f172a' }}>{dictionary.workers.title}</h1>
+            <h1 style={{ margin: 0, fontSize: '32px', lineHeight: '1.08', fontWeight: 600, color: '#202534' }}>{dictionary.workers.title}</h1>
             <p style={{ margin: '8px 0 0 0', color: '#475569', fontSize: '14px', lineHeight: 1.45 }}>
               {dictionary.workers.workingMonth}: {workPeriodLabel}. {dictionary.workers.advancesForPayroll}: {advancePeriodLabel}. {dictionary.workers.payrollDue}: {payDateLabel}.
             </p>
           </div>
 
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-            <Link href={workersExportHref} download style={{ display: 'inline-flex', padding: '10px 14px', borderRadius: '999px', background: '#ffffff', color: '#111827', textDecoration: 'none', fontSize: '14px', fontWeight: 900, border: '1px solid #e5e7eb', boxShadow: '0 12px 26px rgba(15, 23, 42, 0.08)' }}>
+          <div className={styles.actions}>
+            <Link href={workersExportHref} download className={styles.secondaryAction}>
               Export do Excelu
             </Link>
-            <Link href="/workers/new" data-tour="workers-new-button" style={{ display: 'inline-flex', padding: '10px 14px', borderRadius: '999px', background: 'linear-gradient(135deg, #7c3aed 0%, #2563eb 52%, #06b6d4 100%)', color: '#ffffff', textDecoration: 'none', fontSize: '14px', fontWeight: 900, boxShadow: '0 12px 26px rgba(37, 99, 235, 0.18)' }}>
+            <Link href="/workers/new" data-tour="workers-new-button" className={styles.primaryAction}>
               {dictionary.workers.addWorker}
             </Link>
           </div>
@@ -809,51 +810,55 @@ export default async function WorkersPage({ searchParams }: WorkersPageProps) {
 
         <div data-tour="workers-month-filter" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '16px' }}>
           <Link href={`/workers?month=${previousMonth}`} style={monthNavButtonStyle}>{dictionary.workers.previousPayroll}</Link>
-          <div style={{ padding: '8px 13px', borderRadius: '999px', background: 'linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%)', color: '#ffffff', fontSize: '14px', fontWeight: 800 }}>{monthLabel}</div>
+          <div style={{ padding: '8px 13px', borderRadius: '999px', background: '#f0ecff', color: '#5936c6', fontSize: '14px', fontWeight: 600 }}>{monthLabel}</div>
           <Link href={`/workers?month=${nextMonth}`} style={monthNavButtonStyle}>{dictionary.workers.nextPayroll}</Link>
           <Link href={`/workers?month=${getTodayMonthString()}`} style={monthNavButtonStyle}>{dictionary.workers.currentPayroll}</Link>
         </div>
 
-        <div data-tour="workers-summary" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px', marginBottom: '18px' }}>
-          <div style={statBoxStyle}><div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '5px' }}>{dictionary.workers.shiftsForPeriod}</div><div style={{ fontSize: '24px', fontWeight: 750, lineHeight: 1.15 }}>{formatHours(totalPeriodShiftHours)} h</div></div>
-          <div style={statBoxStyle}><div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '5px' }}>Celkem na výplaty</div><div style={{ fontSize: '24px', fontWeight: 750, lineHeight: 1.15 }}>{formatCurrency(totalPeriodPayroll)}</div></div>
-          <div style={statBoxStyle}><div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '5px' }}>Uhrazeno / zbývá</div><div style={{ fontSize: '24px', fontWeight: 750, lineHeight: 1.15 }}>{formatCurrency(totalPeriodPayrollPaid)} / {formatCurrency(totalPeriodPayrollUnpaid)}</div></div>
-          <div style={statBoxStyle}><div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '5px' }}>{dictionary.workers.totalAdvancesForPeriod}</div><div style={{ fontSize: '24px', fontWeight: 750, lineHeight: 1.15 }}>{formatCurrency(totalPeriodAdvances)}</div></div>
-          <div style={statBoxStyle}><div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '5px' }}>{dictionary.workers.adminHoursFromJobs}</div><div style={{ fontSize: '24px', fontWeight: 750, lineHeight: 1.15 }}>{formatHours(totalPeriodAssignments)} h</div></div>
+        <div data-tour="workers-summary" className={styles.summary}>
+          <div style={statBoxStyle}><div style={{ fontSize: '12px', color: '#717684', marginBottom: '5px' }}>{dictionary.workers.shiftsForPeriod}</div><div style={{ fontSize: '21px', fontWeight: 600, lineHeight: 1.15 }}>{formatHours(totalPeriodShiftHours)} h</div></div>
+          <div style={statBoxStyle}><div style={{ fontSize: '12px', color: '#717684', marginBottom: '5px' }}>Celkem na výplaty</div><div style={{ fontSize: '21px', fontWeight: 600, lineHeight: 1.15 }}>{formatCurrency(totalPeriodPayroll)}</div></div>
+          <div style={statBoxStyle}><div style={{ fontSize: '12px', color: '#717684', marginBottom: '5px' }}>Uhrazeno / zbývá</div><div style={{ fontSize: '21px', fontWeight: 600, lineHeight: 1.15 }}>{formatCurrency(totalPeriodPayrollPaid)} / {formatCurrency(totalPeriodPayrollUnpaid)}</div></div>
+          <div style={statBoxStyle}><div style={{ fontSize: '12px', color: '#717684', marginBottom: '5px' }}>{dictionary.workers.totalAdvancesForPeriod}</div><div style={{ fontSize: '21px', fontWeight: 600, lineHeight: 1.15 }}>{formatCurrency(totalPeriodAdvances)}</div></div>
+          <div style={statBoxStyle}><div style={{ fontSize: '12px', color: '#717684', marginBottom: '5px' }}>{dictionary.workers.adminHoursFromJobs}</div><div style={{ fontSize: '21px', fontWeight: 600, lineHeight: 1.15 }}>{formatHours(totalPeriodAssignments)} h</div></div>
         </div>
 
         {workers.length === 0 ? (
           <div data-tour="workers-list" style={cardStyle}>
             <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
-              <div style={{ width: '38px', height: '38px', borderRadius: '14px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, rgba(22,163,74,0.14), rgba(6,182,212,0.16))', color: '#16a34a', fontWeight: 950 }}>P</div>
+              <div style={{ width: '38px', height: '38px', borderRadius: '14px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: '#f0ecff', color: '#16a34a', fontWeight: 600 }}>P</div>
               <div>
-                <div style={{ color: '#0f172a', fontSize: '16px', fontWeight: 850, marginBottom: '4px' }}>Zatím tu nejsou pracovníci.</div>
-                <p style={{ margin: 0, color: '#6b7280' }}>{dictionary.workers.empty}</p>
-                <Link href="/workers/new" data-tour="workers-new-button" style={{ display: 'inline-flex', marginTop: '10px', padding: '8px 11px', borderRadius: '999px', background: 'linear-gradient(135deg, #7c3aed 0%, #2563eb 52%, #06b6d4 100%)', color: '#ffffff', textDecoration: 'none', fontSize: '13px', fontWeight: 900 }}>
+                <div style={{ color: '#202534', fontSize: '16px', fontWeight: 600, marginBottom: '4px' }}>Zatím tu nejsou pracovníci.</div>
+                <p style={{ margin: 0, color: '#717684' }}>{dictionary.workers.empty}</p>
+                <Link href="/workers/new" data-tour="workers-new-button" className={styles.primaryAction}>
                   {dictionary.workers.addWorker}
                 </Link>
               </div>
             </div>
           </div>
         ) : (
-          <div data-tour="workers-list" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px' }}>
+          <div data-tour="workers-list" className={styles.workerGrid}>
             {workers.map((worker) => {
               const absenceVisual = getAbsenceVisual(worker.absenceState)
               const absenceLabel = getAbsenceLabel(worker.absenceState)
 
               return (
-                <Link key={worker.id} href={`/workers/${worker.id}?month=${selectedMonth}`} style={{ ...cardStyle, border: `1px solid ${absenceVisual.cardBorder}`, background: `linear-gradient(145deg, ${absenceVisual.cardBackground} 0%, #ffffff 100%)` }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px', marginBottom: '10px' }}>
+                <Link key={worker.id} href={`/workers/${worker.id}?month=${selectedMonth}`} className={styles.workerCard} style={{ ...cardStyle, border: `1px solid ${absenceVisual.cardBorder}`, background: '#ffffff' }}>
+                  <div className={styles.workerHeader}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
-                      <div style={{ width: '40px', height: '40px', borderRadius: '14px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #7c3aed 0%, #2563eb 52%, #06b6d4 100%)', color: '#ffffff', fontSize: '13px', fontWeight: 950, flexShrink: 0 }}>
+                      <div style={{ width: '40px', height: '40px', borderRadius: '14px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: '#6d4aff', color: '#ffffff', fontSize: '13px', fontWeight: 600, flexShrink: 0 }}>
                         {worker.fullName.slice(0, 2).toUpperCase()}
                       </div>
-                      <h2 style={{ margin: 0, fontSize: '19px', lineHeight: '1.2', color: '#111827' }}>{worker.fullName}</h2>
+                      <h2 style={{ margin: 0, fontSize: '19px', lineHeight: '1.2', color: '#202534' }}>{worker.fullName}</h2>
                     </div>
                     <div style={{ display: 'grid', gap: '6px', justifyItems: 'end' }}>
-                      <div style={{ background: absenceVisual.badgeBackground, color: absenceVisual.badgeColor, borderRadius: '999px', padding: '6px 9px', fontSize: '11px', fontWeight: 800, whiteSpace: 'nowrap' }}>{absenceLabel}</div>
-                      <div style={{ background: worker.inviteStatus === 'active' ? '#dcfce7' : worker.inviteStatus === 'disabled' ? '#fee2e2' : '#dbeafe', color: worker.inviteStatus === 'active' ? '#166534' : worker.inviteStatus === 'disabled' ? '#991b1b' : '#1d4ed8', borderRadius: '999px', padding: '6px 9px', fontSize: '11px', fontWeight: 800, whiteSpace: 'nowrap' }}>
-                        {worker.inviteStatus === 'active' ? 'Active' : worker.inviteStatus === 'disabled' ? 'Disabled' : 'Invited'}
+                      <div style={{ background: absenceVisual.badgeBackground, color: absenceVisual.badgeColor, borderRadius: '999px', padding: '6px 9px', fontSize: '11px', fontWeight: 600, whiteSpace: 'nowrap' }}>{absenceLabel}</div>
+                      <div style={{ background: worker.inviteStatus === 'active' ? '#dcfce7' : worker.inviteStatus === 'disabled' ? '#fee2e2' : '#dbeafe', color: worker.inviteStatus === 'active' ? '#166534' : worker.inviteStatus === 'disabled' ? '#991b1b' : '#1d4ed8', borderRadius: '999px', padding: '6px 9px', fontSize: '11px', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                        {worker.inviteStatus === 'active'
+                          ? locale === 'cs' ? 'Aktivní' : locale === 'de' ? 'Aktiv' : 'Active'
+                          : worker.inviteStatus === 'disabled'
+                            ? locale === 'cs' ? 'Přístup vypnutý' : locale === 'de' ? 'Zugang deaktiviert' : 'Access disabled'
+                            : locale === 'cs' ? 'Pozván' : locale === 'de' ? 'Eingeladen' : 'Invited'}
                       </div>
                     </div>
                   </div>
@@ -870,49 +875,35 @@ export default async function WorkersPage({ searchParams }: WorkersPageProps) {
                       color: worker.workerType === 'contractor' ? '#9a3412' : '#1d4ed8',
                       padding: '5px 8px',
                       fontSize: '11px',
-                      fontWeight: 900,
+                      fontWeight: 600,
                     }}
                   >
                     {getWorkerTypeLabel(worker.workerType)}
                   </div>
 
-                  <div style={{ ...summaryWideBoxStyle, background: absenceVisual.accentBackground, border: `1px solid ${absenceVisual.cardBorder}` }}>
-                    <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '4px' }}>{dictionary.workers.workerStatus}</div>
-                    <div style={{ fontSize: '17px', fontWeight: 800, color: absenceVisual.badgeColor, lineHeight: 1.1 }}>{absenceLabel}</div>
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '8px' }}>
-                    <div style={miniStatStyle}><div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '4px' }}>{dictionary.workers.shifts}</div><div style={{ fontSize: '17px', fontWeight: 750 }}>{formatHours(worker.shiftHoursMonth)} h</div></div>
-                    <div style={miniStatStyle}><div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '4px' }}>{dictionary.workers.workLogs}</div><div style={{ fontSize: '17px', fontWeight: 750 }}>{formatHours(worker.workLogHours)} h</div></div>
-                    <div style={miniStatStyle}><div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '4px' }}>{dictionary.workers.adminHours}</div><div style={{ fontSize: '17px', fontWeight: 750 }}>{formatHours(worker.jobAssignmentHours)} h</div></div>
+                  <div className={styles.workerMetrics}>
+                    <div style={miniStatStyle}><div style={{ fontSize: '11px', color: '#717684', marginBottom: '4px' }}>{dictionary.workers.shifts}</div><div style={{ fontSize: '17px', fontWeight: 600 }}>{formatHours(worker.shiftHoursMonth)} h</div></div>
                     <div style={miniStatStyle}>
-                      <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '4px' }}>{dictionary.workers.advancesForThisPayroll}</div>
-                      <div style={{ fontSize: '17px', fontWeight: 750 }}>
+                      <div style={{ fontSize: '11px', color: '#717684', marginBottom: '4px' }}>{dictionary.workers.advancesForThisPayroll}</div>
+                      <div style={{ fontSize: '17px', fontWeight: 600 }}>
                         {formatCurrency(worker.advancePaidInPeriod)}
                       </div>
                     </div>
                   </div>
 
                   <div style={summaryWideBoxStyle}>
-                    <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '4px' }}>
+                    <div style={{ fontSize: '11px', color: '#717684', marginBottom: '4px' }}>
                       {worker.workerType === 'contractor' ? 'Vyúčtování subdodavatele' : dictionary.workers.totalRewardAfterAdvances}
                     </div>
-                    <div style={{ fontSize: '22px', fontWeight: 750, lineHeight: 1.1, color: '#111827' }}>{formatCurrency(worker.totalRewardAfterAdvance)}</div>
-                    <div style={{ marginTop: '6px', display: 'inline-flex', borderRadius: '999px', padding: '5px 8px', fontSize: '11px', fontWeight: 900, background: worker.payrollPaidAt ? '#dcfce7' : '#fff7ed', color: worker.payrollPaidAt ? '#166534' : '#9a3412' }}>
+                    <div style={{ fontSize: '22px', fontWeight: 600, lineHeight: 1.1, color: '#202534' }}>{formatCurrency(worker.totalRewardAfterAdvance)}</div>
+                    <div style={{ marginTop: '6px', display: 'inline-flex', borderRadius: '999px', padding: '5px 8px', fontSize: '11px', fontWeight: 600, background: worker.payrollPaidAt ? '#dcfce7' : '#fff7ed', color: worker.payrollPaidAt ? '#166534' : '#9a3412' }}>
                       {worker.payrollPaidAt ? 'Výplata uhrazena' : 'Čeká na úhradu'}
-                    </div>
-                    <div style={{ marginTop: '6px', fontSize: '11px', color: '#6b7280', lineHeight: 1.35 }}>
-                      {worker.payrollBaseSource === 'job'
-                        ? `Úkolově podle zakázek ${formatCurrency(worker.jobAssignmentReward)} - ${dictionary.workers.advancesForThisPayroll.toLowerCase()} ${formatCurrency(worker.advancePaidInPeriod)}`
-                        : `Směny ${formatCurrency(worker.shiftReward)}; zakázky ${formatCurrency(worker.jobAssignmentReward)} jen pro rozpad nákladů - ${dictionary.workers.advancesForThisPayroll.toLowerCase()} ${formatCurrency(worker.advancePaidInPeriod)}`}
                     </div>
                   </div>
 
                   <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '10px', display: 'grid', gap: '6px', fontSize: '13px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}><span style={{ color: '#6b7280' }}>{dictionary.workers.defaultHourlyRate}</span><strong>{worker.defaultHourlyRate > 0 ? formatCurrency(worker.defaultHourlyRate) : '-'}</strong></div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}><span style={{ color: '#6b7280' }}>{dictionary.workers.workPeriod}</span><strong>{workPeriodLabel}</strong></div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}><span style={{ color: '#6b7280' }}>{dictionary.workers.advancesPeriod}</span><strong>{advancePeriodLabel}</strong></div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}><span style={{ color: '#6b7280' }}>{dictionary.workers.payrollDueLabel}</span><strong>{worker.workerType === 'contractor' ? 'Podle vyúčtování' : payDateLabel}</strong></div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}><span style={{ color: '#717684' }}>{dictionary.workers.defaultHourlyRate}</span><strong>{worker.defaultHourlyRate > 0 ? formatCurrency(worker.defaultHourlyRate) : '-'}</strong></div>
+                    <span className={styles.detailHint}>{locale === 'en' ? 'View worker details' : locale === 'de' ? 'Mitarbeiterdetails öffnen' : 'Otevřít detail pracovníka'} <span aria-hidden="true">→</span></span>
                   </div>
                 </Link>
               )
