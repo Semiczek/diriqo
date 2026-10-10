@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import Image from 'next/image'
+import { useEffect, useRef } from 'react'
 import { usePathname } from 'next/navigation'
 import { useI18n } from './I18nProvider'
 import type { CompanyModuleKey } from '@/lib/company-settings-shared'
@@ -23,6 +24,7 @@ type SidebarItemKey =
   | 'account'
   | 'companySettings'
   | 'billing'
+  | 'modules'
   | 'setupGuide'
   | 'legalTerms'
   | 'legalPrivacy'
@@ -31,6 +33,7 @@ type SidebarItemKey =
 type DashboardSidebarProps = {
   activeItem?: SidebarItemKey
   enabledModules?: Partial<Record<CompanyModuleKey, boolean>> | null
+  showModuleCatalog?: boolean
   mobileOpen?: boolean
   onNavigate?: () => void
 }
@@ -38,11 +41,61 @@ type DashboardSidebarProps = {
 export default function DashboardSidebar({
   activeItem,
   enabledModules = null,
+  showModuleCatalog = false,
   mobileOpen = false,
   onNavigate,
 }: DashboardSidebarProps) {
   const pathname = usePathname()
-  const { dictionary } = useI18n()
+  const { dictionary, locale } = useI18n()
+  const sidebarRef = useRef<HTMLElement>(null)
+  const navigationText = {
+    cs: { core: 'ZÁKLAD', modules: 'Základ a moduly', label: 'Hlavní navigace' },
+    en: { core: 'CORE', modules: 'Core and modules', label: 'Main navigation' },
+    de: { core: 'BASIS', modules: 'Basis und Module', label: 'Hauptnavigation' },
+  }[locale]
+
+  useEffect(() => {
+    if (!mobileOpen || !window.matchMedia('(max-width: 767px)').matches) return
+    const sidebar = sidebarRef.current
+    if (!sidebar) return
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    sidebar.querySelector<HTMLButtonElement>('.dashboard-sidebar-close')?.focus()
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        onNavigate?.()
+      }
+      if (event.key !== 'Tab' || !sidebar) return
+      const controls = Array.from(sidebar.querySelectorAll<HTMLElement>('a[href], button:not([disabled])'))
+        .filter((element) => element.getClientRects().length > 0)
+      const first = controls[0]
+      const last = controls[controls.length - 1]
+      if (!first || !last) return
+      if (event.shiftKey && (document.activeElement === first || !sidebar.contains(document.activeElement))) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && (document.activeElement === last || !sidebar.contains(document.activeElement))) {
+        event.preventDefault()
+        first.focus()
+      }
+    }
+    function handleResize() {
+      if (!window.matchMedia('(max-width: 767px)').matches) onNavigate?.()
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    window.addEventListener('resize', handleResize)
+    return () => {
+      document.body.style.overflow = previousOverflow
+      document.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('resize', handleResize)
+      if (previousFocus?.isConnected && window.matchMedia('(max-width: 767px)').matches) {
+        previousFocus.focus({ preventScroll: true })
+      }
+    }
+  }, [mobileOpen, onNavigate])
 
   const menuGroups: Array<{
     title: string
@@ -55,9 +108,11 @@ export default function DashboardSidebar({
     }>
   }> = [
     {
-      title: dictionary.navigation.mainGroup,
+      title: navigationText.core,
       items: [
         { href: '/', label: dictionary.navigation.dashboard, key: 'dashboard', icon: 'P' },
+        { href: '/billing/modules', label: navigationText.modules, key: 'modules', icon: '+' },
+        { href: '/?onboarding=open', label: dictionary.navigation.setupGuide, key: 'setupGuide', icon: 'OK' },
         { href: '/jobs', label: dictionary.navigation.jobs, key: 'jobs', icon: 'Z', module: 'jobs' },
         { href: '/customers', label: dictionary.navigation.customers, key: 'customers', icon: 'K' },
       ],
@@ -90,7 +145,6 @@ export default function DashboardSidebar({
       title: dictionary.navigation.settingsGroup,
       items: [
         { href: '/settings/company', label: dictionary.navigation.companySettings, key: 'companySettings', icon: 'S' },
-        { href: '/?onboarding=open', label: dictionary.navigation.setupGuide, key: 'setupGuide', icon: 'OK' },
         { href: '/ucet', label: dictionary.navigation.account, key: 'account', icon: '?' },
       ],
     },
@@ -108,6 +162,11 @@ export default function DashboardSidebar({
   return (
     <>
       <aside
+        id="dashboard-navigation"
+        ref={sidebarRef}
+        aria-label={navigationText.label}
+        role={mobileOpen ? 'dialog' : undefined}
+        aria-modal={mobileOpen ? true : undefined}
         className={`dashboard-sidebar${mobileOpen ? ' is-mobile-open' : ''}`}
         style={{
           width: '276px',
@@ -132,7 +191,7 @@ export default function DashboardSidebar({
           <button
             type="button"
             className="dashboard-sidebar-close"
-            aria-label="Zavřít menu"
+            aria-label={dictionary.common.closeMenu}
             onClick={onNavigate}
           >
             ×
@@ -163,13 +222,14 @@ export default function DashboardSidebar({
           </div>
         </div>
 
-        <nav className="dashboard-sidebar-nav" style={{ position: 'relative', zIndex: 1, display: 'grid', gap: '9px', flex: 1, minHeight: 0 }}>
+        <nav aria-label={navigationText.label} className="dashboard-sidebar-nav" style={{ position: 'relative', zIndex: 1, display: 'grid', gap: '9px', flex: 1, minHeight: 0 }}>
           {menuGroups
             .map((group) => ({
               ...group,
               items: group.items.filter(
                 (item) =>
                   item.key !== 'account' &&
+                  (item.key !== 'modules' || showModuleCatalog) &&
                   (!item.module || enabledModules?.[item.module] !== false)
               ),
             }))
@@ -198,6 +258,7 @@ export default function DashboardSidebar({
                     key={item.href}
                     className={`dashboard-sidebar-link${isActive ? ' is-active' : ''}`}
                     href={item.href}
+                    aria-current={isActive ? 'page' : undefined}
                     data-tour={`nav-${item.key}`}
                     onClick={onNavigate}
                     style={{
@@ -262,6 +323,36 @@ export default function DashboardSidebar({
       </aside>
 
       <style>{`
+        .dashboard-sidebar-link:focus-visible,
+        .dashboard-sidebar-close:focus-visible {
+          outline: 2px solid #67e8f9;
+          outline-offset: 2px;
+        }
+
+        @media (max-width: 767px) {
+          .dashboard-sidebar {
+            z-index: 120 !important;
+            visibility: hidden;
+          }
+          .dashboard-sidebar.is-mobile-open {
+            visibility: visible;
+          }
+          .dashboard-sidebar-backdrop {
+            z-index: 110;
+          }
+          .dashboard-sidebar-link {
+            min-height: 44px;
+            box-sizing: border-box;
+          }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .dashboard-sidebar,
+          .dashboard-sidebar-link {
+            transition: none !important;
+          }
+        }
+
         .dashboard-sidebar-nav {
           max-height: none;
           overflow-y: auto;

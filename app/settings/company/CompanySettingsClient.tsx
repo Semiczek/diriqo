@@ -1,6 +1,7 @@
 'use client'
 
 import { type FormEvent, type ReactNode, useState, useTransition } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
 import {
@@ -113,7 +114,7 @@ const tabs: Array<{ key: TabKey; label: string; description: string }> = [
   { key: 'payroll', label: 'Pracovníci a výplaty', description: 'Sazby, zálohy, výjimky' },
   { key: 'jobs', label: 'Zakázky', description: 'Workflow a povinné podklady' },
   { key: 'billing', label: 'Fakturace', description: 'DPH, splatnost, banka' },
-  { key: 'subscription', label: 'Předplatné', description: 'Plán, zkušební období, platby' },
+  { key: 'subscription', label: 'Dosavadní tarif', description: 'Původní předplatné a platby' },
   { key: 'users', label: 'Uživatelé', description: 'Členové a role firmy' },
 ]
 
@@ -543,15 +544,28 @@ function Overview({
   return (
     <section style={panelStyle}>
       <SectionHeader title="Přehled nastavení" description="Rychlá kontrola toho, jak je firma nastavená." />
+      <ModuleBillingNotice />
       <div style={overviewGridStyle}>
         <SummaryCard label="Firma" value={company.name || 'Diriqo'} detail={company.email || 'E-mail není nastavený'} onClick={() => onNavigate('basic')} />
         <SummaryCard label="Pracovníci" value={`${activeWorkersCount}`} detail="Aktivní členové firmy" onClick={() => onNavigate('users')} />
-        <SummaryCard label="Předplatné" value={plan.name} detail={subscriptionStatusText(subscription)} onClick={() => onNavigate('subscription')} />
+        <SummaryCard label="Dosavadní tarif" value={subscription ? plan.name : 'Neevidován'} detail={subscriptionStatusText(subscription)} onClick={() => onNavigate('subscription')} />
         <SummaryCard label="Výplaty" value={getPayTypeLabel(payrollSettings.default_pay_type)} detail={`Výchozí sazba ${payrollSettings.default_hourly_rate ?? 0} Kč/h`} onClick={() => onNavigate('payroll')} />
         <SummaryCard label="Zakázky" value={companySettings.default_job_status_after_worker_done === 'done' ? 'Rovnou hotovo' : 'Čeká na kontrolu'} detail={companySettings.require_work_time_tracking ? 'Čas práce je povinný' : 'Čas práce je volitelný'} onClick={() => onNavigate('jobs')} />
         <SummaryCard label="Doklady" value={`${billingSettings.default_invoice_due_days} dnů`} detail={`Prefix faktur ${billingSettings.invoice_prefix}`} onClick={() => onNavigate('billing')} />
       </div>
     </section>
+  )
+}
+
+function ModuleBillingNotice() {
+  return (
+    <div style={moduleBillingNoticeStyle}>
+      <p style={{ margin: 0, color: '#334155', lineHeight: 1.6 }}>
+        Stav základu a jednotlivých modulů, včetně testovacího zpřístupnění, najdete v samostatném přehledu.
+        Dosavadní tarif níže se týká původního předplatného a jeho plateb; jeho stav neurčuje stav nových modulů.
+      </p>
+      <Link href="/billing/modules" style={moduleBillingLinkStyle}>Základ a moduly →</Link>
+    </div>
   )
 }
 
@@ -571,9 +585,9 @@ function getTrialDaysLeft(subscription: SubscriptionView | null) {
 }
 
 function subscriptionStatusText(subscription: SubscriptionView | null) {
-  if (!subscription) return 'Zkušební období zatím není založené'
+  if (!subscription) return 'Dosavadní předplatné není evidované'
   if (subscription.status === 'trialing') return `Zkušební období: ${getTrialDaysLeft(subscription)} dní zbývá`
-  if (subscription.status === 'active') return 'Aktivní předplatné'
+  if (subscription.status === 'active') return 'Dosavadní předplatné je aktivní'
   if (subscription.status === 'past_due') return 'Platba po splatnosti'
   if (subscription.status === 'canceled') return 'Zrušeno'
   if (subscription.status === 'expired') return 'Neaktivní'
@@ -664,18 +678,21 @@ function SubscriptionPanel({
   return (
     <section style={panelStyle}>
       <SectionHeader
-        title="Předplatné"
-        description="Tady vidíš aktuální plán, zkušební období, další platbu a čtyři dostupné tarify."
+        title="Dosavadní tarif a platby"
+        description="Evidence původního firemního předplatného v EUR, jeho zkušebního období a plateb."
       />
+      <ModuleBillingNotice />
 
       <div style={subscriptionHeroStyle}>
         <div>
-          <span style={labelStyle}>Aktuální plán</span>
-          <strong style={subscriptionPlanStyle}>{currentPlan.name}</strong>
-          <span style={summaryDetailStyle}>{formatMonthlyPrice(currentPlan.priceMonthly)} · {currentInterval} · {formatWorkerLimit(currentPlan.workerLimit)}</span>
+          <span style={labelStyle}>Dosavadní tarif</span>
+          <strong style={subscriptionPlanStyle}>{subscription ? currentPlan.name : 'Neevidován'}</strong>
+          {subscription ? (
+            <span style={summaryDetailStyle}>{formatMonthlyPrice(currentPlan.priceMonthly)} · {currentInterval} · {formatWorkerLimit(currentPlan.workerLimit)}</span>
+          ) : null}
         </div>
         <div style={subscriptionStatusCardStyle}>
-          <span style={labelStyle}>Stav</span>
+          <span style={labelStyle}>Stav dosavadního tarifu</span>
           <strong style={subscriptionStatusValueStyle}>{subscriptionStatusLabel(subscription?.status)}</strong>
           <span style={summaryDetailStyle}>{subscriptionStatusText(subscription)}</span>
         </div>
@@ -684,29 +701,29 @@ function SubscriptionPanel({
       <div style={overviewGridStyle}>
         <div style={metricCardStyle}>
           <span style={labelStyle}>Zkušební období</span>
-          <strong style={summaryValueStyle}>{subscription?.status === 'trialing' ? `${trialDaysLeft} dní` : 'Hotovo'}</strong>
+          <strong style={summaryValueStyle}>{subscription?.status === 'trialing' ? `${trialDaysLeft} dní` : subscription?.trial_ends_at ? 'Ukončeno' : 'Neevidováno'}</strong>
           <span style={summaryDetailStyle}>Končí {formatDate(subscription?.trial_ends_at)}</span>
         </div>
         <div style={metricCardStyle}>
           <span style={labelStyle}>Další prodloužení</span>
           <strong style={summaryValueStyle}>{formatDate(subscription?.current_period_end)}</strong>
-          <span style={summaryDetailStyle}>{subscription?.cancel_at_period_end ? 'Předplatné se na konci období zruší' : 'Podle aktivního Stripe předplatného'}</span>
+          <span style={summaryDetailStyle}>{subscription?.cancel_at_period_end ? 'Dosavadní předplatné se na konci období zruší' : 'Podle evidence dosavadního předplatného'}</span>
         </div>
         <div style={metricCardStyle}>
           <span style={labelStyle}>Pracovníci</span>
-          <strong style={summaryValueStyle}>{activeWorkersCount} / {currentPlan.workerLimit ?? '∞'}</strong>
-          <span style={summaryDetailStyle}>Aktivní členové vůči limitu plánu</span>
+          <strong style={summaryValueStyle}>{activeWorkersCount}{subscription ? ` / ${currentPlan.workerLimit ?? '∞'}` : ''}</strong>
+          <span style={summaryDetailStyle}>{subscription ? 'Aktivní členové vůči limitu dosavadního tarifu' : 'Aktivní členové firmy'}</span>
         </div>
       </div>
 
       {subscription?.stripe_customer_id ? (
         <button type="button" style={secondaryButtonStyle} disabled={billingPending === 'portal'} onClick={openCustomerPortal}>
-          {billingPending === 'portal' ? 'Otevírám...' : 'Spravovat předplatné'}
+          {billingPending === 'portal' ? 'Otevírám...' : 'Spravovat platby dosavadního tarifu'}
         </button>
       ) : null}
 
       <div style={subscriptionSectionStyle}>
-        <SectionHeader title="Plány" description="Vyber plán podle velikosti týmu. Growth je doporučený pro většinu rostoucích firem." />
+        <SectionHeader title="Dosavadní tarify v EUR" description="Tato volba mění původní firemní tarif. Samostatné moduly se spravují v přehledu Základ a moduly." />
         <div style={planGridStyle}>
           {mainPlans.map((plan) => {
             const isCurrent = plan.key === currentPlan.key
@@ -897,6 +914,30 @@ function roleLabel(role: string) {
 
 const pageStyle = { display: 'grid', gap: '12px' } as const
 const contentStyle = { display: 'grid', gap: '16px', minWidth: 0 } as const
+
+const moduleBillingNoticeStyle = {
+  display: 'grid',
+  gap: '12px',
+  marginBottom: '18px',
+  padding: '16px',
+  border: '1px solid #bfdbfe',
+  borderRadius: '14px',
+  background: '#eff6ff',
+} as const
+
+const moduleBillingLinkStyle = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  justifySelf: 'start',
+  minHeight: '44px',
+  padding: '10px 16px',
+  borderRadius: '8px',
+  background: '#1d4ed8',
+  color: '#ffffff',
+  textDecoration: 'none',
+  fontWeight: 850,
+} as const
 
 const panelStyle = {
   borderRadius: '20px',

@@ -1,23 +1,24 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import Link from 'next/link'
 
 import styles from './modules.module.css'
 
 const products = [
-  { code: 'diriqo_core', title: 'Základ Diriqa', description: 'Zakázky, lidé a každodenní provoz firmy.', note: 'Jednoduché nabídky patří do základu.' },
-  { code: 'inventory', title: 'Sklad', description: 'Příjmy, výdeje a přehled zásob.' },
-  { code: 'invoicing', title: 'Fakturace', description: 'Faktury a jejich návaznost na práci firmy.' },
-  { code: 'smart_quotes', title: 'Chytré nabídky', description: 'Rozšířené nabídky a práce s podklady.' },
-  { code: 'fleet', title: 'Vozidla', description: 'Evidence vozidel a cest.' },
-  { code: 'ai_assistant', title: 'Diriqent', description: 'Asistent pro práci s firemními podklady.', note: 'Dostupné AI funkce a rozpočet budou uvedené při spuštění.' },
-  { code: 'pos', title: 'DiriPOS', description: 'Samostatná pokladna s vlastní licencí.', note: 'Podporovaná zařízení a terminály budou uvedené u dostupné nabídky.' },
+  { code: 'diriqo_core', title: 'Základ Diriqa', description: 'Zakázky, zákazníci, pracovníci a každodenní provoz firmy.', note: 'Kalendář, evidence práce a jednoduché nabídky patří do základu.', href: '/jobs', action: 'Otevřít zakázky' },
+  { code: 'inventory', title: 'Sklad', description: 'Příjmy, výdeje a přehled zásob.', development: 'Skladové obrazovky ještě nejsou dostupné.' },
+  { code: 'invoicing', title: 'Fakturace', description: 'Návrhy a vystavování faktur z dokončených zakázek v Kč.', note: 'Pokročilé funkce včetně OCR ještě připravujeme.', href: '/invoices', action: 'Otevřít fakturaci' },
+  { code: 'smart_quotes', title: 'Chytré nabídky', description: 'Rozšířené nabídky a práce s podklady.', development: 'Rozšířené šablony a OCR ještě připravujeme. Jednoduché nabídky už jsou součástí základu.' },
+  { code: 'fleet', title: 'Vozidla', description: 'Evidence vozidel a cest.', development: 'Evidence vozidel a jízd ještě není dostupná.' },
+  { code: 'ai_assistant', title: 'Diriqent', description: 'Asistent pro práci s firemními podklady.', development: 'Asistenta ještě připravujeme. Testovací licence nespouští placené AI služby.' },
+  { code: 'pos', title: 'DiriPOS', description: 'Samostatná pokladna s vlastní licencí.', development: 'Pokladní aplikace a připojení zařízení ještě nejsou dostupné. Testovací licence není připojená pokladna.' },
 ] as const
 
 type ProductCode = (typeof products)[number]['code']
 type Offer = { id: string; product: ProductCode; offerKey: string; unitAmount: number; currency: string; billingInterval: 'month' | 'year' }
 type Catalog = { enabled: boolean; offers: Offer[] }
-type Purchase = { product: ProductCode; registerId: string | null; isPaidActive: boolean; paidUntil: string | null }
+type Purchase = { product: ProductCode; registerId: string | null; isPaidActive: boolean; paidUntil: string | null; isTestActive: boolean; testUntil: string | null; legacyAccess: boolean }
 type Remote<T> = { status: 'loading' } | { status: 'ready'; data: T } | { status: 'error'; message: string }
 type Props = { companyId: string; checkoutReturn: 'returned' | 'cancelled' | null }
 
@@ -58,11 +59,16 @@ function parsePurchases(value: unknown, companyId: string): Purchase[] {
   if (!Array.isArray(value.products)) throw new Error('Stav nákupů se nepodařilo ověřit.')
   return value.products.map((raw) => {
     if (!record(raw) || !knownProduct(raw.product) || typeof raw.isPaidActive !== 'boolean'
+      || typeof raw.isTestActive !== 'boolean' || typeof raw.legacyAccess !== 'boolean'
       || (raw.registerId !== null && !nonempty(raw.registerId))
       || (raw.paidUntil !== null && (typeof raw.paidUntil !== 'string' || !Number.isFinite(Date.parse(raw.paidUntil))))) {
       throw new Error('Stav nákupů se nepodařilo ověřit.')
     }
-    return { product: raw.product, registerId: raw.registerId, isPaidActive: raw.isPaidActive, paidUntil: raw.paidUntil } as Purchase
+    if (raw.testUntil !== null && (typeof raw.testUntil !== 'string' || !Number.isFinite(Date.parse(raw.testUntil)))) {
+      throw new Error('Stav testovacího přístupu se nepodařilo ověřit.')
+    }
+    return { product: raw.product, registerId: raw.registerId, isPaidActive: raw.isPaidActive, paidUntil: raw.paidUntil,
+      isTestActive: raw.isTestActive, testUntil: raw.testUntil, legacyAccess: raw.legacyAccess } as Purchase
   })
 }
 
@@ -88,7 +94,7 @@ async function fetchJson(url: string, signal: AbortSignal, init: RequestInit = {
 
 export default function ModuleCatalogClient({ companyId, checkoutReturn }: Props) {
   const [catalog, setCatalog] = useState<Remote<Catalog>>({ status: 'loading' })
-  const [purchases, setPurchases] = useState<Remote<Purchase[]> | { status: 'disabled' }>({ status: 'loading' })
+  const [purchases, setPurchases] = useState<Remote<Purchase[]>>({ status: 'loading' })
   const [pendingOffer, setPendingOffer] = useState<string | null>(null)
   const [checkoutError, setCheckoutError] = useState<string | null>(null)
   const [checkoutUncertain, setCheckoutUncertain] = useState(false)
@@ -102,17 +108,19 @@ export default function ModuleCatalogClient({ companyId, checkoutReturn }: Props
     setCatalog({ status: 'loading' })
     setPurchases({ status: 'loading' })
     setCheckoutError(null)
-    try {
-      const { response, value } = await fetchJson('/api/billing/modules/catalog', controller.signal, { cache: 'no-store' })
-      if (!response.ok) throw new Error('catalog_unavailable')
-      const data = parseCatalog(value, companyId)
-      if (controller.signal.aborted) return
-      setCatalog({ status: 'ready', data })
-      if (!data.enabled) {
-        setPurchases({ status: 'disabled' })
-        setCheckoutUncertain(false)
-        return
+    const loadCatalog = async () => {
+      try {
+        const { response, value } = await fetchJson('/api/billing/modules/catalog', controller.signal, { cache: 'no-store' })
+        if (!response.ok) throw new Error('catalog_unavailable')
+        const data = parseCatalog(value, companyId)
+        if (controller.signal.aborted) return
+        setCatalog({ status: 'ready', data })
+      } catch (error) {
+        if (controller.signal.aborted) return
+        setCatalog({ status: 'error', message: friendlyError(error, 'Nabídku modulů teď nelze načíst. Zkuste to prosím znovu.') })
       }
+    }
+    const loadAccess = async () => {
       try {
         const { response: statusResponse, value: statusValue } = await fetchJson('/api/billing/modules', controller.signal, { cache: 'no-store' })
         if (!statusResponse.ok) throw new Error('purchase_status_unavailable')
@@ -122,13 +130,12 @@ export default function ModuleCatalogClient({ companyId, checkoutReturn }: Props
         setCheckoutUncertain(false)
       } catch (error) {
         if (controller.signal.aborted) return
-        setPurchases({ status: 'error', message: friendlyError(error, 'Stav nákupů teď nelze ověřit. Neznamená to, že žádný modul nemáte zakoupený.') })
+        setPurchases({ status: 'error', message: friendlyError(error, 'Stav licencí teď nelze ověřit. Vaše licence tím nejsou zrušené. Zkuste stav obnovit.') })
       }
-    } catch (error) {
-      if (controller.signal.aborted) return
-      setCatalog({ status: 'error', message: friendlyError(error, 'Nabídku modulů teď nelze načíst. Zkuste to prosím znovu.') })
-      setPurchases({ status: 'disabled' })
     }
+    // Purchase availability and existing access are independent. Turning sales off must
+    // never hide paid or test licences, and catalog outages must not erase access status.
+    await Promise.all([loadCatalog(), loadAccess()])
   }, [companyId])
 
   useEffect(() => {
@@ -140,13 +147,14 @@ export default function ModuleCatalogClient({ companyId, checkoutReturn }: Props
   }, [refresh])
 
   const loading = catalog.status === 'loading' || purchases.status === 'loading'
-  const unknown = catalog.status === 'error' || purchases.status === 'error'
   const enabled = catalog.status === 'ready' && catalog.data.enabled
   const canPurchase = enabled && purchases.status === 'ready' && !loading && !pendingOffer && !checkoutUncertain
+  const testCount = purchases.status === 'ready'
+    ? new Set(purchases.data.filter((entry) => entry.isTestActive).map((entry) => entry.product)).size : 0
 
   async function checkout(offer: Offer) {
     if (!canPurchase || checkoutRequest.current || purchases.status !== 'ready'
-      || purchases.data.some((entry) => entry.product === offer.product && entry.isPaidActive)) return
+      || purchases.data.some((entry) => entry.product === offer.product && (entry.isPaidActive || entry.isTestActive))) return
     const controller = new AbortController()
     checkoutRequest.current = controller
     setPendingOffer(offer.id)
@@ -192,18 +200,23 @@ export default function ModuleCatalogClient({ companyId, checkoutReturn }: Props
 
       <section className={styles.summary} aria-label="Dostupnost modulů">
         <div aria-live="polite" aria-atomic="true">
-          <strong>{loading ? 'Načítáme nabídku a stav nákupů…'
+          <strong>{loading ? 'Ověřujeme dostupnost modulů…'
+            : testCount > 0 ? `Testovací přístup: ${testCount} ze ${products.length} modulů`
             : catalog.status === 'ready' && !catalog.data.enabled ? 'Nákup modulů zatím není spuštěný'
               : catalog.status === 'error' ? 'Nabídka je dočasně nedostupná'
                 : 'Vyberte si, co vaše firma potřebuje'}</strong>
-          <p>{catalog.status === 'ready' && !catalog.data.enabled
-            ? 'Základ a doplňky připravujeme k samostatnému nákupu. Ceny se zobrazí u zveřejněných nabídek.'
-            : 'Stávající předplatné najdete také v přehledu předplatného. Stav této stránky se ověřuje samostatně.'}</p>
+          <p>{testCount > 0 ? 'Testovací licence jsou bezplatné a po skončení se automaticky neúčtují. Dostupné části otevřete přímo níže; rozpracované moduly jsou označené.'
+            : 'Začněte základem a doplňujte jen to, co vaše firma potřebuje. U každého modulu vidíte stav licence i dostupnost funkcí.'}</p>
+          {catalog.status === 'ready' && !catalog.data.enabled ? <p>Nákupy jsou zatím vypnuté. Aktivní přístup tím není ovlivněný.</p> : null}
         </div>
         <button type="button" className={styles.secondaryButton} onClick={() => void refresh()} disabled={loading || Boolean(pendingOffer)}>
-          {loading ? 'Načítání…' : checkoutReturn ? 'Obnovit stav platby' : 'Obnovit nabídku a stav'}
+          {loading ? 'Načítání…' : checkoutReturn ? 'Obnovit stav platby' : 'Obnovit stav'}
         </button>
       </section>
+      <nav className={styles.quickLinks} aria-label="První kroky a nastavení modulů">
+        <Link href="/?onboarding=open" className={styles.secondaryButton}>Průvodce nastavením firmy</Link>
+        <Link href="/settings/company" className={styles.secondaryButton}>Nastavení společnosti</Link>
+      </nav>
 
       {catalog.status === 'error' || purchases.status === 'error' || checkoutError ? (
         <div className={styles.error} role="alert">
@@ -220,17 +233,23 @@ export default function ModuleCatalogClient({ companyId, checkoutReturn }: Props
       <div className={styles.grid} aria-busy={loading}>
         {products.map((product, index) => {
           const offers = catalog.status === 'ready' && catalog.data.enabled ? catalog.data.offers.filter((offer) => offer.product === product.code) : []
-          const active = purchases.status === 'ready' ? purchases.data.filter((entry) => entry.product === product.code && entry.isPaidActive) : []
-          const hasActive = active.length > 0
+          const current = purchases.status === 'ready' ? purchases.data.filter((entry) => entry.product === product.code) : []
+          const active = current.filter((entry) => entry.isPaidActive)
+          const test = current.filter((entry) => entry.isTestActive)
+          const legacy = current.some((entry) => entry.legacyAccess)
+          const hasActive = active.length > 0 || test.length > 0
+          const canOpen = 'href' in product && (hasActive || legacy)
           const paidUntil = active.length === 1 && active[0].paidUntil
             ? new Date(active[0].paidUntil).toLocaleDateString('cs-CZ') : null
+          const testUntil = test.length === 1 && test[0].testUntil
+            ? new Date(test[0].testUntil).toLocaleDateString('cs-CZ') : null
           return (
             <section key={product.code} className={`${styles.card} ${product.code === 'diriqo_core' ? styles.coreCard : ''}`} aria-labelledby={`module-${product.code}`}>
               <div className={styles.cardTop}>
                 <span className={styles.moduleNumber} aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
-                <span className={hasActive ? styles.activeBadge : styles.badge}>
-                  {hasActive ? 'Aktivní licence' : unknown ? 'Stav neověřen'
-                    : loading ? 'Ověřujeme…' : offers.length ? 'Nabídka' : 'Připravujeme'}
+                <span className={test.length ? styles.testBadge : hasActive || legacy ? styles.activeBadge : styles.badge}>
+                  {purchases.status === 'loading' ? 'Ověřujeme…' : purchases.status === 'error' ? 'Stav neověřen'
+                    : active.length ? 'Placená licence' : test.length ? 'Testovací licence' : legacy ? 'Stávající přístup' : 'Bez aktivní licence'}
                 </span>
               </div>
               <div>
@@ -239,13 +258,23 @@ export default function ModuleCatalogClient({ companyId, checkoutReturn }: Props
                 <p className={styles.description}>{product.description}</p>
                 {'note' in product ? <p className={styles.note}>{product.note}</p> : null}
               </div>
-              {hasActive ? (
+              {active.length > 0 ? (
                 <p className={styles.paidStatus}>
                   {product.code === 'pos' ? `Evidované aktivní licence pokladen: ${active.length}. ` : 'Evidujeme aktivní placené období. '}
                   {paidUntil ? `Uhrazeno do ${paidUntil}.` : ''}
                 </p>
               ) : null}
+              {test.length > 0 ? <p className={styles.testStatus}>Bezplatný testovací přístup{testUntil ? ` do ${testUntil}` : ''}. Bez automatické platby.</p> : null}
+              {legacy && !hasActive ? <p className={styles.note}>Používáte dosavadní firemní přístup. Samostatná licence tohoto modulu zatím není aktivovaná.</p> : null}
+              {'development' in product ? (
+                <div className={styles.development}>
+                  <strong>Funkce připravujeme</strong>
+                  <p>{product.development}</p>
+                  {hasActive ? <p>Licence je evidovaná; funkce bude možné používat po jejich zpřístupnění.</p> : null}
+                </div>
+              ) : null}
               <div className={styles.offerList}>
+                {canOpen && 'href' in product ? <Link href={product.href} className={styles.primaryButton}>{product.action}</Link> : null}
                 {offers.map((offer) => (
                   <div key={offer.id} className={styles.offer}>
                     <div>
@@ -254,11 +283,11 @@ export default function ModuleCatalogClient({ companyId, checkoutReturn }: Props
                     </div>
                     <button type="button" className={styles.primaryButton} disabled={!canPurchase || hasActive}
                       onClick={() => void checkout(offer)} aria-label={`Vybrat ${product.title}, ${price(offer)} za ${offer.billingInterval === 'year' ? 'rok' : 'měsíc'}`}>
-                      {pendingOffer === offer.id ? 'Otevíráme platbu…' : hasActive ? 'Již zakoupeno' : 'Vybrat'}
+                      {pendingOffer === offer.id ? 'Otevíráme platbu…' : active.length ? 'Již zakoupeno' : test.length ? 'Testovací přístup aktivní' : 'Vybrat'}
                     </button>
                   </div>
                 ))}
-                {offers.length === 0 ? <p className={styles.preparing}>{catalog.status === 'error'
+                {offers.length === 0 && !hasActive && !legacy ? <p className={styles.preparing}>{catalog.status === 'error'
                   ? 'Nabídku teď nelze ověřit.' : loading ? 'Načítáme nabídku…' : 'Zveřejněnou nabídku zatím nemáme k dispozici.'}</p> : null}
               </div>
             </section>

@@ -87,6 +87,8 @@ export default function OnboardingChecklist({
   const progressText = `${checklist.completed}/${checklist.total}`
   const shouldShowFull = forceOpen || !checklist.isDismissed
   const errorMessage = getErrorMessage(errorCode, labels)
+  const nextStep = checklist.steps.find((step) => !step.done)
+  const nextStepTitle = nextStep ? labels[stepContent[nextStep.key].titleKey] : null
 
   if (checklist.isComplete && !forceOpen) {
     return null
@@ -106,7 +108,7 @@ export default function OnboardingChecklist({
             </button>
           </form>
           <Link href="/?onboarding=open" style={primaryLinkStyle}>
-            {labels.continue}
+            {labels.continue}{nextStepTitle ? `: ${nextStepTitle}` : ''}
           </Link>
         </div>
       </section>
@@ -137,6 +139,14 @@ export default function OnboardingChecklist({
           <div style={eyebrowStyle}>{labels.progress} {progressText}</div>
           <h2 style={titleStyle}>{labels.title}</h2>
           <p style={introStyle}>{labels.intro}</p>
+          {nextStep ? (
+            <Link
+              href={nextStep.key === 'first_worker' ? '#onboarding-first_worker' : nextStep.href}
+              style={{ ...primaryLinkStyle, marginTop: 12 }}
+            >
+              {labels.continue}: {nextStepTitle}
+            </Link>
+          ) : null}
         </div>
         <form action={dismissCompanyOnboardingAction}>
           <button type="submit" style={secondaryButtonStyle}>
@@ -145,7 +155,14 @@ export default function OnboardingChecklist({
         </form>
       </div>
 
-      {errorMessage ? <div style={errorStyle}>{errorMessage}</div> : null}
+      <progress
+        value={checklist.completed}
+        max={checklist.total}
+        aria-label={`${labels.progress} ${progressText}`}
+        style={{ width: '100%', height: 8, accentColor: '#2563eb' }}
+      />
+
+      {errorMessage ? <div role="alert" style={errorStyle}>{errorMessage}</div> : null}
 
       <div style={stepsGridStyle}>
         {checklist.steps.map((step, index) => {
@@ -153,7 +170,11 @@ export default function OnboardingChecklist({
           const isWorkerStep = step.key === 'first_worker'
 
           return (
-            <article key={step.key} style={step.done ? doneStepStyle : stepStyle}>
+            <article
+              key={step.key}
+              id={`onboarding-${step.key}`}
+              style={step.done ? doneStepStyle : step.key === nextStep?.key ? nextStepStyle : stepStyle}
+            >
               <div style={stepTopStyle}>
                 <span style={step.done ? doneBadgeStyle : badgeStyle}>
                   {step.done ? 'OK' : String(index + 1)}
@@ -209,8 +230,8 @@ export default function OnboardingChecklist({
                     <span style={doneTextStyle}>{labels.completeSetup}</span>
                   ) : (
                     <>
-                      <Link href={step.href} style={primaryLinkStyle}>
-                        {labels.continue}
+                      <Link href={step.href} style={primaryLinkStyle} aria-label={`${labels.continue}: ${labels[content.titleKey]}`}>
+                        {labels[content.titleKey]}
                       </Link>
                       {step.key === 'company_profile' ? (
                         <span style={skipTextStyle}>{labels.skip}</span>
@@ -271,7 +292,7 @@ const introStyle: CSSProperties = {
 
 const stepsGridStyle: CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 240px), 1fr))',
   gap: 12,
 }
 
@@ -289,6 +310,13 @@ const doneStepStyle: CSSProperties = {
   ...stepStyle,
   borderColor: '#bbf7d0',
   background: '#f0fdf4',
+}
+
+const nextStepStyle: CSSProperties = {
+  ...stepStyle,
+  borderColor: '#93c5fd',
+  background: '#eff6ff',
+  scrollMarginTop: 20,
 }
 
 const stepTopStyle: CSSProperties = {

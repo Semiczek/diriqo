@@ -15,7 +15,7 @@ export default async function ModuleCatalogPage({ searchParams }: { searchParams
   const checkoutReturn = query.checkout === 'returned' || query.checkout === 'cancelled' ? query.checkout : null
 
   return (
-    <DashboardShell activeItem="billing">
+    <DashboardShell activeItem="modules">
       <main className={styles.page}>
         <header className={styles.header}>
           <Link href="/billing" className={styles.backLink}>← Předplatné</Link>
@@ -23,7 +23,7 @@ export default async function ModuleCatalogPage({ searchParams }: { searchParams
           <h1>Základ a moduly</h1>
           <p className={styles.subtitle}>
             {company
-              ? `Základ i samostatné doplňky pro ${company.companyName || 'vaši firmu'}.`
+              ? `Licence a dostupné funkce · ${company.companyName || 'Vaše firma'}`
               : 'Nabídku a nákupy spravuje administrátor aktivní firmy.'}
           </p>
         </header>
