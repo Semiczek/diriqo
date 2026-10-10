@@ -58,7 +58,6 @@ export default function DashboardSidebar({
     if (!mobileOpen || !window.matchMedia('(max-width: 767px)').matches) return
     const sidebar = sidebarRef.current
     if (!sidebar) return
-    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
     const previousOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     sidebar.querySelector<HTMLButtonElement>('.dashboard-sidebar-close')?.focus()
@@ -91,9 +90,6 @@ export default function DashboardSidebar({
       document.body.style.overflow = previousOverflow
       document.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('resize', handleResize)
-      if (previousFocus?.isConnected && window.matchMedia('(max-width: 767px)').matches) {
-        previousFocus.focus({ preventScroll: true })
-      }
     }
   }, [mobileOpen, onNavigate])
 

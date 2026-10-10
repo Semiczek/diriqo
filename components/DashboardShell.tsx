@@ -1,7 +1,7 @@
 ﻿'use client'
 
 import Link from 'next/link'
-import { ReactNode, useCallback, useEffect, useState } from 'react'
+import { ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 import { supabase } from '@/lib/supabase'
@@ -118,12 +118,23 @@ export default function DashboardShell({
   const [companyMenuOpen, setCompanyMenuOpen] = useState(false)
   const [switchingCompanyId, setSwitchingCompanyId] = useState<string | null>(null)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const mobileMenuOpenerRef = useRef<HTMLButtonElement | null>(null)
   const [activeCompany, setActiveCompany] = useState<ActiveCompanyPayload | null>(null)
   const [companyModules, setCompanyModules] = useState<Partial<Record<CompanyModuleKey, boolean>> | null>(null)
   const [activeCompanyLoading, setActiveCompanyLoading] = useState(true)
   const [companySwitchError, setCompanySwitchError] = useState<string | null>(null)
   const { dictionary } = useI18n()
   const closeMobileMenu = useCallback(() => setMobileMenuOpen(false), [])
+
+  useEffect(() => {
+    if (mobileMenuOpen) return
+    const opener = mobileMenuOpenerRef.current
+    mobileMenuOpenerRef.current = null
+    // The closed state has removed inert before focus returns to the opener.
+    if (opener?.isConnected && window.matchMedia('(max-width: 767px)').matches) {
+      opener.focus({ preventScroll: true })
+    }
+  }, [mobileMenuOpen])
 
   useEffect(() => {
     let cancelled = false
@@ -297,7 +308,8 @@ export default function DashboardShell({
                     aria-label={dictionary.common.openMenu}
                     aria-expanded={mobileMenuOpen}
                     aria-controls="dashboard-navigation"
-                    onClick={() => {
+                    onClick={(event) => {
+                      mobileMenuOpenerRef.current = event.currentTarget
                       setCompanyMenuOpen(false)
                       setUserMenuOpen(false)
                       setMobileMenuOpen(true)
