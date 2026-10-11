@@ -165,7 +165,11 @@ export default function DashboardSidebar({
         <div className="dq-nav-section">
           <p className="dq-nav-label">{workspaceLabel}</p>
           {showCoreNavigation ? primaryItems.filter(isAvailable).map(renderItem) : renderItem({href: '/moje-prace', label: {cs:'Moje práce',en:'My work',de:'Meine Arbeit'}[locale], key:'dashboard',icon:'jobs'})}
-          {officeEnabled ? <Link href="/office" onClick={onNavigate} className="dashboard-sidebar-link"><span>Diriqo Office</span></Link> : null}
+          {officeEnabled ? (
+            // A new document prevents Office's global CSS/print rules from leaking to the host.
+            // eslint-disable-next-line @next/next/no-html-link-for-pages
+            <a href="/office" onClick={onNavigate} className="dashboard-sidebar-link"><span>Diriqo Office</span></a>
+          ) : null}
         </div>
         {visibleMore.length > 0 ? (
           <details className="dq-nav-more" open={visibleMore.some(isItemActive) ? true : undefined}>

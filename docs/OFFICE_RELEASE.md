@@ -39,6 +39,10 @@ Tyto odkazy zachycují poslední ověřené stagingové deploymenty; samy nedokl
 
 Office má samostatné routy, tabulky, oprávnění a přepínač firmy. Pokladní zdroje, stock pohyby, párování zařízení a terminálové API nejsou součástí změn Office. Sdílené dotčené části (menu, aktivní firma, proxy a příjmové limity hostitele) musí projít regresními testy proti výslednému commitu, nikoli pouze proti starému integračnímu základu.
 
+Office obsahuje také globální styly spreadsheetu a tisková pravidla `@page`. Vstup z menu či nastavení i návrat z editoru proto používají nativní odkazy a plné načtení stránky. Tím při přechodu nevzniká společný dokument s CSS načteným z Office a pokladny. Tyto odkazy nenahrazujte klientským `next/link` ani `router.push`; standardní navigace DiriPOS zůstává zachovaná. Přihlášení již používá `window.location.assign` a obnova panelu otevírá Office nativním odkazem v novém panelu. Test `scripts/office-release.test.mjs` ověřuje skutečné typy vykreslených odkazů, zachování menu callbacku, firemního kontextu i původního POS odkazu. Jde o kontrolu aplikačního kontraktu, nikoli důkaz tisku na fyzické pokladně.
+
+Stejnou hranici zachovávají právní odkazy v globálním cookie banneru i jeho nastavení: na `/office` a podřízených Office cestách jsou nativní, na ostatních stránkách včetně DiriPOS ponechávají původní klientskou navigaci. Nejde o změnu souhlasu s cookies ani o zapnutí analytiky.
+
 Nové UI v připojeném Chrome **není vizuálně ověřené**; uživatel dokončení s tímto omezením schválil. Dřívější kontrola PDF/tiskového rozložení nepotvrzuje fyzickou pokladnu, platební terminál, tiskárnu, zásuvku ani tiskový dialog. Produkční funkčnost těchto zařízení se neprohlašuje. Zděděné bezpečnostní nálezy hostitelských modulů mimo Office mají vlastní kontrolu před produkčním rolloutem.
 
 Návrat: nejprve vypněte Office pro konkrétní firmu přes autorizované nastavení, ponechte uložená data a vraťte aplikační verzi. Databázové tabulky ani historii nesmazávejte. Zpětný převod normalizace má samostatné přísné podmínky v kanonickém `docs/NORMALIZED_PERSISTENCE.md`; nelze slepě vrátit staré zapisující klienty nad nově vzniklá data.

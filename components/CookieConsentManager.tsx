@@ -2,6 +2,7 @@
 
 import { Analytics } from '@vercel/analytics/next'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
 
 import { useI18n } from '@/components/I18nProvider'
@@ -187,6 +188,8 @@ function beforeSendAnalyticsEvent<T extends { url: string }>(event: T) {
 
 export default function CookieConsentManager() {
   const { locale } = useI18n()
+  const pathname = usePathname()
+  const isOfficePage = pathname === '/office' || pathname?.startsWith('/office/') === true
   const text = copy[locale]
   const [loaded, setLoaded] = useState(false)
   const [consent, setConsent] = useState<CookieConsent | null>(null)
@@ -221,11 +224,18 @@ export default function CookieConsentManager() {
   const legalLinks = useMemo(
     () => (
       <span className="cookie-consent-links">
-        <Link href="/legal?doc=cookies">{text.cookies}</Link>
-        <Link href="/legal?doc=privacy">{text.privacy}</Link>
+        {isOfficePage ? (
+          // Leave Office with a new document, releasing its global CSS and print rules.
+          // eslint-disable-next-line @next/next/no-html-link-for-pages
+          <a href="/legal?doc=cookies">{text.cookies}</a>
+        ) : <Link href="/legal?doc=cookies">{text.cookies}</Link>}
+        {isOfficePage ? (
+          // eslint-disable-next-line @next/next/no-html-link-for-pages
+          <a href="/legal?doc=privacy">{text.privacy}</a>
+        ) : <Link href="/legal?doc=privacy">{text.privacy}</Link>}
       </span>
     ),
-    [text.cookies, text.privacy]
+    [isOfficePage, text.cookies, text.privacy]
   )
 
   function saveConsent(nextAnalyticsEnabled: boolean) {

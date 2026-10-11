@@ -31,19 +31,25 @@ test('Diriqo Office visibility does not grant, hide or alter POS/product/core na
     useI18n: () => ({ locale: 'cs', dictionary: { navigation: {}, common: {} } }),
     useEffect: () => {}, useRef: () => ({ current: null }),
   }, 'DashboardSidebar');
+  const onNavigate = () => {};
   for (const showCoreNavigation of [false, true]) for (const pos of [false, true]) {
-    const props = { showCoreNavigation, availableProducts: pos ? ['pos', 'inventory'] : ['inventory'] };
+    const props = { showCoreNavigation, onNavigate, availableProducts: pos ? ['pos', 'inventory'] : ['inventory'] };
     const links = officeEnabled => flatten(sidebar({ ...props, officeEnabled })).filter(node => node.props.href).map(node => ({
-      href: node.props.href, className: node.props.className, current: node.props['aria-current'],
+      type: node.type, href: node.props.href, className: node.props.className, current: node.props['aria-current'], onClick: node.props.onClick,
     }));
     const disabled = links(false), enabled = links(true);
     assert.deepEqual(enabled.filter(item => item.href !== '/office'), disabled);
     assert.equal(enabled.filter(item => item.href === '/office').length, 1);
+    assert.equal(enabled.find(item => item.href === '/office').type, 'a', 'Office must start a new document, without retaining host/Office styles');
+    assert.equal(enabled.find(item => item.href === '/office').onClick, onNavigate, 'The existing menu close callback is preserved');
     assert.equal(disabled.some(item => item.href === '/office'), false);
     assert.equal(enabled.some(item => item.href === '/pos'), pos);
     assert.equal(enabled.some(item => item.href === '/jobs'), showCoreNavigation);
     assert.equal(enabled.some(item => item.href === '/settings/company'), showCoreNavigation);
-    if (pos) assert.equal(enabled.find(item => item.href === '/pos').current, 'page');
+    if (pos) {
+      assert.equal(enabled.find(item => item.href === '/pos').current, 'page');
+      assert.equal(enabled.find(item => item.href === '/pos').type, 'Link', 'POS retains its existing navigation');
+    }
   }
 });
 
@@ -94,6 +100,7 @@ test('Diriqo normal company settings expose Office configuration only to the pla
     const nodes = flatten(await page());
     const link = nodes.find(node => node.props.href === '/office/settings');
     assert.equal(Boolean(link), platformAdmin);
+    if (link) assert.equal(link.type, 'a', 'Office configuration starts a new document');
     assert.deepEqual(adminClients, [client], 'Platform authority uses the signed-in client');
     assert.ok(filters.every(([, column, value]) => !['company_id', 'id'].includes(column) || value === A));
   }
@@ -128,7 +135,40 @@ test('Diriqo settings return through a full navigation so the company menu reads
     hasPlatformAdminAccess: async () => true, revalidatePath: () => {}, Link: 'Link',
     createSupabaseServerClient: async () => ({ from: () => ({ select() { return this; }, eq() { return this; }, maybeSingle: async () => ({ data: { enabled: true } }) }) }),
   }, 'OfficeSettings');
-  const links = flatten(await page()).filter(node => node.props.href === '/');
+  const tree = flatten(await page());
+  const links = tree.filter(node => node.props.href === '/');
   assert.equal(links.length, 1);
   assert.equal(links[0].type, 'a', 'Full navigation clears DashboardShell module cache after a toggle');
+  assert.equal(tree.find(node => node.props.href === '/office').type, 'a', 'Opening the editor cannot inherit the settings document styles');
+});
+
+test('Diriqo Office exits through a native link while keeping the server-verified company in the editor', async () => {
+  const page = await authored('app/office/page.tsx', {
+    requireOfficeContext: async () => ({ actor: { tenantId: A, actorId: 'profile-A', role: 'reader' }, active: { companyName: 'A', companyMemberships: [{ companyId: A, companyName: 'A' }] } }),
+    getRequestLocale: async () => 'cs', OfficeClient: 'OfficeClient',
+  }, 'OfficePage');
+  const nodes = flatten(await page());
+  assert.equal(nodes.find(node => node.props.href === '/').type, 'a', 'Leaving Office releases its global CSS and print rules');
+  const editor = nodes.find(node => node.type === 'OfficeClient');
+  assert.equal(editor.props.tenantId, A);
+  assert.equal(editor.props.readOnly, true);
+});
+
+test('global cookie banner and preferences leave Office natively without changing POS navigation', async () => {
+  for (const pathname of ['/office', '/office/settings', '/pos', '/office-other']) {
+    for (const preferencesOpen of [false, true]) {
+      let state = 0;
+      const values = [true, null, preferencesOpen, false, false];
+      const manager = await authored('components/CookieConsentManager.tsx', {
+        Link: 'Link', Analytics: 'Analytics', usePathname: () => pathname,
+        useI18n: () => ({ locale: 'cs' }), useMemo: fn => fn(), useEffect: () => {},
+        useState: () => [values[state++], () => {}],
+      }, 'CookieConsentManager');
+      const links = flatten(manager()).filter(node => node.props.href?.startsWith('/legal?'));
+      assert.equal(links.length, preferencesOpen ? 4 : 2);
+      for (const link of links) {
+        assert.equal(link.type, pathname === '/office' || pathname.startsWith('/office/') ? 'a' : 'Link');
+      }
+    }
+  }
 });
