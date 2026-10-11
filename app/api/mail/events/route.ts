@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-import { verifyMailgunSignature } from '@/lib/mail/mailgun-signature'
+import { isMailgunWebhookConfigured, verifyMailgunSignature } from '@/lib/mail/mailgun-signature'
 import { createSupabaseAdminClient } from '@/lib/supabase-admin'
 
 export const runtime = 'nodejs'
@@ -105,6 +105,10 @@ async function findMessage(providerMessageId: string | null) {
 }
 
 export async function POST(request: NextRequest) {
+  if (!isMailgunWebhookConfigured()) {
+    return NextResponse.json({ ok: false, error: 'Mailgun webhook is not configured.' }, { status: 503 })
+  }
+
   try {
     const payload = await readEventPayload(request)
     const signatureOk = verifyMailgunSignature({
