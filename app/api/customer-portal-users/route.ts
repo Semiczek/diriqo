@@ -225,23 +225,28 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      const updateUserResponse = await admin.auth.admin.updateUserById(authUserId, {
-        email: requestedEmail,
-        user_metadata: {
-          customer_id: customerId,
-          customer_contact_id: contactId,
-          full_name: requestedFullName || contact.full_name || null,
-        },
-      })
+      // Contact administrators control this company's portal record, not a shared Auth identity.
+      // Always resolve recovery from Auth; local contact/portal email copies may be stale or edited.
+      const authEmail = authUserResponse.data.user.email?.trim().toLowerCase()
 
-      if (updateUserResponse.error || !updateUserResponse.data.user) {
+      if (!authEmail) {
         return NextResponse.json(
-          { error: updateUserResponse.error?.message || 'Nepodařilo se aktualizovat auth účet.' },
-          { status: 400 }
+          { error: 'Portálový účet nemá přihlašovací e-mail. Obraťte se na podporu.' },
+          { status: 409 }
         )
       }
 
-      resolvedEmail = updateUserResponse.data.user.email?.trim().toLowerCase() || requestedEmail
+      if (requestedEmail !== authEmail) {
+        return NextResponse.json(
+          {
+            error:
+              'E-mail kontaktu neodpovídá přihlašovacímu e-mailu portálového účtu. Přihlašovací e-mail může změnit pouze vlastník účtu; přístup nebyl odeslán.',
+          },
+          { status: 409 }
+        )
+      }
+
+      resolvedEmail = authEmail
 
       const updatePortalUserResponse = await admin
         .from('customer_portal_users')
