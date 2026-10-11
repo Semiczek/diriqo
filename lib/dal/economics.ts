@@ -146,7 +146,7 @@ export async function listJobEconomicsSummaries(
   const scopedJobIds = jobs.map((job) => job.id)
   if (scopedJobIds.length === 0) return []
 
-  const [shiftsResponse, logsResponse, assignmentsResponse, costItemsResponse] = await Promise.all([
+  const [shiftsResponse, logsResponse, assignmentsResponse, costItemsResponse, moduleCostsResponse] = await Promise.all([
     ctx.supabase
       .from('work_shifts')
       .select(
@@ -225,12 +225,14 @@ export async function listJobEconomicsSummaries(
       .select('job_id, total_price, quantity, unit_price')
       .eq('company_id', ctx.companyId)
       .in('job_id', scopedJobIds),
+    ctx.supabase.rpc('job_module_cost_totals', { company: ctx.companyId, job_ids: scopedJobIds }),
   ])
 
   if (shiftsResponse.error) throw shiftsResponse.error
   if (logsResponse.error) throw logsResponse.error
   if (assignmentsResponse.error) throw assignmentsResponse.error
   if (costItemsResponse.error) throw costItemsResponse.error
+  if (moduleCostsResponse.error) throw moduleCostsResponse.error
 
   const laborHoursByJobId = new Map<string, number>()
   const internalLaborByJobId = new Map<string, number>()
@@ -302,6 +304,9 @@ export async function listJobEconomicsSummaries(
 
   for (const item of (costItemsResponse.data ?? []) as CostItemRow[]) {
     addToMap(directCostByJobId, item.job_id, getDirectCostTotal(item))
+  }
+  for (const item of (moduleCostsResponse.data ?? []) as { job_id: string; total_amount: number | string }[]) {
+    addToMap(directCostByJobId, item.job_id, toEconomicsNumber(item.total_amount))
   }
 
   const revenueByJobId = await getInvoiceRevenueByJobId(ctx, scopedJobIds)

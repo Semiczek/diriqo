@@ -7,12 +7,12 @@ import styles from './modules.module.css'
 
 const products = [
   { code: 'diriqo_core', title: 'Základ Diriqa', description: 'Vše pro každodenní práci firmy na jednom místě.', note: 'Zakázky · zákazníci · tým · kalendář · jednoduché nabídky', href: '/jobs', action: 'Otevřít zakázky' },
-  { code: 'invoicing', title: 'Fakturace', description: 'Od dokončené zakázky k vystavené faktuře v Kč.', note: 'Pokročilé funkce včetně OCR připravujeme.', href: '/invoices', action: 'Otevřít fakturaci' },
-  { code: 'inventory', title: 'Sklad', description: 'Příjmy, výdeje a přehled zásob.', development: 'Skladové obrazovky ještě nejsou dostupné.' },
-  { code: 'smart_quotes', title: 'Chytré nabídky', description: 'Rozšířené nabídky a práce s podklady.', development: 'Rozšířené šablony a OCR ještě připravujeme. Jednoduché nabídky už jsou součástí základu.' },
-  { code: 'fleet', title: 'Vozidla', description: 'Evidence vozidel a cest.', development: 'Evidence vozidel a jízd ještě není dostupná.' },
-  { code: 'ai_assistant', title: 'Diriqent', description: 'Asistent pro práci s firemními podklady.', development: 'Asistenta ještě připravujeme. Testovací licence nespouští placené AI služby.' },
-  { code: 'pos', title: 'DiriPOS', description: 'Samostatná pokladna s vlastní licencí.', development: 'Pokladní aplikace a připojení zařízení ještě nejsou dostupné. Testovací licence není připojená pokladna.' },
+  { code: 'invoicing', title: 'Fakturace', description: 'Od dokončené zakázky k vystavené faktuře v Kč.', note: 'Faktury · úhrady · čtení obrázku dokladu pomocí OCR za samostatný kredit', href: '/invoices', action: 'Otevřít fakturaci' },
+  { code: 'inventory', title: 'Sklad', description: 'Zásoby pod kontrolou, od nákupu po výdej.', note: 'Objednávky · příjmy · převody · rezervace · inventury', href: '/inventory', action: 'Otevřít sklad' },
+  { code: 'smart_quotes', title: 'Chytré nabídky', description: 'Připravte varianty a nechte zákazníka vybrat.', note: 'Šablony · schválení marže · sdílení odkazu · přijetí nabídky', href: '/smart-quotes', action: 'Otevřít nabídky' },
+  { code: 'fleet', title: 'Vozidla', description: 'Jízdy, servis a náklady vaší flotily.', note: 'Vozidla · řidiči · kniha jízd · doklady · náklady zakázek', href: '/fleet', action: 'Otevřít vozidla' },
+  { code: 'ai_assistant', title: 'Diriqent', description: 'Pomoc s firemními podklady a návrhy zakázek.', note: 'AI úlohy čerpají samostatný kredit. Návrh zakázky před uložením potvrdíte.', href: '/diriqent', action: 'Otevřít Diriqenta' },
+  { code: 'pos', title: 'DiriPOS', description: 'Samostatná online pokladna s vlastní licencí.', note: 'Prodej · účtenky · vratky · uzávěrka. Terminál a offline provoz zatím nejsou připojené.', href: '/pos', action: 'Otevřít pokladnu' },
 ] as const
 
 type ProductCode = (typeof products)[number]['code']
@@ -219,7 +219,7 @@ export default function ModuleCatalogClient({ companyId, checkoutReturn }: Props
             : catalog.status === 'ready' && !catalog.data.enabled ? 'Nákup modulů zatím není spuštěný'
               : catalog.status === 'error' ? 'Nabídka je dočasně nedostupná'
                 : 'Vyberte si, co vaše firma potřebuje'}</strong>
-          <p>{testCount > 0 ? 'Zdarma, bez automatické platby. Připravované funkce budou dostupné později.'
+          <p>{testCount > 0 ? 'Otevřete modul a vyzkoušejte jej. Testovací licence nespouští automatickou platbu.'
             : 'Začněte základem. Další funkce si přidáte podle potřeby.'}</p>
           {testCount > 0 && catalog.status === 'ready' && !catalog.data.enabled ? <p className={styles.salesNote}>Nákupy zatím nejsou spuštěné.</p> : null}
         </div>
@@ -258,25 +258,19 @@ export default function ModuleCatalogClient({ companyId, checkoutReturn }: Props
             {index === 0 || index === 2 ? (
               <div className={styles.sectionHeading}>
                 <h2>{index === 0 ? 'Pro každodenní práci' : 'Další možnosti Diriqa'}</h2>
-                <p>{index === 0 ? 'Otevřete dostupnou část a začněte pracovat.' : 'Připravujeme. Aktivní licence sama o sobě tyto funkce nezpřístupňuje.'}</p>
+                <p>{index === 0 ? 'Otevřete dostupnou část a začněte pracovat.' : 'Každý modul má vlastní pracovní prostor a oprávnění.'}</p>
               </div>
             ) : null}
-            <section className={`${styles.card} ${index < 2 ? styles.availableCard : ''} ${product.code === 'diriqo_core' ? styles.coreCard : ''}`} aria-labelledby={`module-${product.code}`}>
+            <section className={`${styles.card} ${styles.availableCard} ${product.code === 'diriqo_core' ? styles.coreCard : ''}`} aria-labelledby={`module-${product.code}`}>
               <div className={styles.cardTop}>
                 <span className={styles.moduleIcon}><ModuleIcon product={product.code} /></span>
-                <span className={styles.category}>{product.code === 'diriqo_core' ? 'Základ' : 'development' in product ? 'Připravujeme' : 'Doplněk'}</span>
+                <span className={styles.category}>{product.code === 'diriqo_core' ? 'Základ' : 'Doplněk'}</span>
               </div>
               <div>
                 <h3 id={`module-${product.code}`}>{product.title}</h3>
                 <p className={styles.description}>{product.description}</p>
                 {'note' in product ? <p className={styles.note}>{product.note}</p> : null}
               </div>
-              {'development' in product ? (
-                <details className={styles.development}>
-                  <summary>O připravovaném modulu</summary>
-                  <p>{product.development}</p>
-                </details>
-              ) : null}
               <div className={styles.licence}>
                 <span className={active.length ? styles.activeBadge : test.length ? styles.testBadge : legacy ? styles.activeBadge : styles.badge}>
                   {purchases.status === 'loading' ? 'Ověřujeme…' : purchases.status === 'error' ? 'Stav neověřen'

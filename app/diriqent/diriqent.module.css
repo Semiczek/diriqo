@@ -1,0 +1,30 @@
+.page {display:grid;gap:20px;max-width:1150px;color:#202534;min-width:0}
+.page h1 {margin:0;font-size:30px;letter-spacing:-.025em;font-weight:650}
+.page h2 {font-size:19px;margin:0 0 12px;font-weight:600}
+.page h3 {font-size:16px;margin:0;font-weight:600}
+.muted {color:#717684;font-size:14px;line-height:1.6}
+.nav,.actions,.row {display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.row {justify-content:space-between}
+.nav a {color:#5f4ca0;background:#eeebfa;padding:10px 14px;border-radius:9px;text-decoration:none;font-size:14px}
+.card {background:white;border:1px solid #e3e6ee;border-radius:14px;padding:20px;min-width:0}
+.stack {display:grid;gap:16px}
+.grid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.field {display:grid;gap:6px;font-size:13px;font-weight:500;min-width:0}
+.field input,.field select,.field textarea {min-height:44px;width:100%;box-sizing:border-box;min-width:0;border:1px solid #dce0ea;border-radius:9px;padding:10px 12px;font:inherit;background:white;color:#202534}
+.field textarea {min-height:110px;resize:vertical;line-height:1.6}
+.primary,.secondary {display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:10px 15px;border-radius:9px;font-size:14px;font-weight:600;cursor:pointer;text-decoration:none;border:1px solid #dce0ea}
+.primary {background:#6d4aff;color:white;border-color:#6d4aff}.secondary{background:white;color:#434a5b}
+.primary:disabled,.secondary:disabled{opacity:.6;cursor:not-allowed}
+.page :is(input,textarea,select,button,a,summary):focus-visible{outline:3px solid #ac99ff;outline-offset:3px}
+.notice,.error{border:1px solid #e1dafb;background:#f4f1ff;padding:14px 16px;border-radius:10px;line-height:1.6;font-size:14px;overflow-wrap:anywhere}
+.error{background:#fff4f5;border-color:#f0cfd7;color:#9e2942}
+.message{padding:18px;border:1px solid #e3e6ee;background:white;border-radius:12px;display:grid;gap:12px}
+.question{background:#f1eefb;color:#483e67;border-radius:10px;padding:12px 14px;white-space:pre-wrap;overflow-wrap:anywhere;margin:0}
+.answer{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.7;font-size:15px;margin:0}
+.details summary{min-height:44px;display:flex;align-items:center;cursor:pointer;font-size:14px;color:#665789}
+.tableWrap{overflow-x:auto}
+.table{width:100%;border-collapse:collapse;font-size:13px;min-width:590px}
+.table th,.table td{text-align:left;padding:12px 8px;border-bottom:1px solid #e5e8ee}
+.table th{font-weight:500;color:#717684}
+.badge{padding:4px 8px;background:#f1eefb;border-radius:7px;color:#665789;font-size:12px}
+@media(max-width:640px){.grid{grid-template-columns:1fr}.card{padding:16px}.message{padding:14px}.page h1{font-size:26px}}

@@ -4,7 +4,7 @@ import { resolveActiveCompanySwitch } from '@/lib/active-company-switch'
 import { getActiveCompanyContext } from '@/lib/active-company'
 
 export async function GET() {
-  const activeCompany = await getActiveCompanyContext()
+  const activeCompany = await getActiveCompanyContext({ allowedRoles: ['super_admin', 'company_admin', 'manager', 'worker'] })
 
   if (!activeCompany) {
     return NextResponse.json(
@@ -28,7 +28,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const activeCompany = await getActiveCompanyContext()
+  const activeCompany = await getActiveCompanyContext({ allowedRoles: ['super_admin', 'company_admin', 'manager', 'worker'] })
 
   if (!activeCompany) {
     return NextResponse.json(

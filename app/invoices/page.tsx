@@ -173,7 +173,7 @@ export default async function InvoicesPage({ searchParams }: PageProps) {
             <h1 className={styles.title}>Fakturace</h1>
             <p className={styles.subtitle}>Faktury, jejich splatnost a úhrady na jednom místě.</p>
           </div>
-          <Link href="/invoices/new" data-tour="new-invoice-button" style={primaryButtonStyle}>+ Nová faktura</Link>
+          <div style={{display:'flex',gap:8,flexWrap:'wrap'}}><Link href="/diriqent/ocr?domain=invoicing" style={secondaryButtonStyle}>Přečíst podklad</Link><Link href="/invoices/new" data-tour="new-invoice-button" style={primaryButtonStyle}>+ Nová faktura</Link></div>
         </header>
 
         <form method="get" data-tour="invoices-filters" className={styles.filterPanel}>

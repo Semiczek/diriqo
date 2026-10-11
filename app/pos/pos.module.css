@@ -1,0 +1,26 @@
+.page { max-width: 1440px; margin: 0 auto; padding: 24px; color: #172033; background: #f5f7fb; min-height: 100dvh; }
+.header, .toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; }
+.header { margin-bottom: 20px; }.header h1 { margin: 3px 0; font-size: 32px; }.header p { margin: 4px 0; color: #536177; }
+.eyebrow { text-transform: uppercase; letter-spacing: .09em; font-weight: 750; font-size: 12px; }
+.panel { padding: 22px; border: 1px solid #dce3ec; background: white; border-radius: 12px; min-width: 0; margin: 16px 0; }
+.panel h2 { margin-top: 0; }.panel p { line-height: 1.55; }.panel h3 { margin-top: 26px; }
+.page a { color: #1752ae; font-weight: 650; }.page button, .page select, .page input { font: inherit; min-height: 44px; box-sizing: border-box; }
+.page button { border: 1px solid #ccd6e5; background: #fff; border-radius: 8px; padding: 9px 14px; cursor: pointer; color: #18314f; font-weight: 650; }
+.page button:hover:not(:disabled) { background: #eef5ff; border-color: #a9c4ec; }.page button:disabled { opacity: .5; cursor: default; }
+.page .primary { width: 100%; background: #185ac1; color: white; margin-top: 16px; }.page .primary:hover:not(:disabled) { background: #164da4; }
+.page label { display: grid; gap: 6px; font-size: 14px; font-weight: 650; min-width: 0; margin-bottom: 12px; }
+.page input, .page select { border: 1px solid #c9d3e1; border-radius: 7px; padding: 9px 10px; background: white; width: 100%; max-width: 100%; color: #18243a; }
+.page fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }.page fieldset>button { margin-right: 8px; }
+.page :is(button,a,input,select):focus-visible { outline: 3px solid #60a5fa; outline-offset: 3px; }
+.notice, .warning, .error, .success { padding: 15px 18px; border-radius: 9px; line-height: 1.6; margin: 14px 0; }
+.notice { background: #eaf1fa; color: #284c76; }.warning { background: #fff4d6; color: #744a02; }.error { background: #fff0f0; border: 1px solid #f2b5b5; color: #951c1c; }.success { background: #eafaed; color: #216033; }
+.tabs { display: flex; gap: 8px; overflow-x: auto; margin-top: 20px; padding-bottom: 6px; }.tabs button { white-space: nowrap; }.tabs [aria-current] { background: #185ac1; color: white; }
+.saleGrid { display: grid; grid-template-columns: minmax(0,1.4fr) minmax(310px,1fr); gap: 20px; }.stack { display: grid; grid-template-columns: minmax(0,1fr); }
+.products { display: grid; grid-template-columns: repeat(auto-fill,minmax(160px,1fr)); gap: 10px; margin: 16px 0; }.page .product { display: grid; text-align: left; gap: 8px; padding: 16px; overflow-wrap: anywhere; }.product span { font-size: 12px; color: #697589; }.product b { font-size: 18px; }
+.formGrid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 0 18px; }.page .check { display: flex; align-items: center; gap: 10px; }.check input { width: 20px; flex-shrink: 0; }
+.cartLine { display: grid; grid-template-columns: minmax(0,1fr) 86px 44px; align-items: center; gap: 10px; border-bottom: 1px solid #e3e9f0; padding: 10px 0; }.cartLine small { display: block; color: #64748b; margin-top: 5px; }.cartLine label { margin: 0; font-size: 11px; }.total { text-align: right; font-size: 30px; font-weight: 850; }
+.tableWrap { overflow-x: auto; margin: 16px 0; }.page table { border-collapse: collapse; width: 100%; font-size: 14px; }.page th, .page td { text-align: left; padding: 12px 10px; border-bottom: 1px solid #e3e9f0; white-space: nowrap; }.page td a { margin-right: 12px; }
+.returnForm { padding: 18px; border: 2px solid #e3b45d; border-radius: 9px; margin-top: 20px; }.operator { border-top: 1px solid #e3e9f0; padding-top: 15px; margin-top: 15px; }.operator fieldset { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }.operator select { width: auto; }.operator label { margin: 0; }
+@media(max-width: 900px) { .saleGrid { grid-template-columns: minmax(0,1fr); }.page { padding: 14px; }.panel { padding: 16px; } }
+@media(max-width: 540px) { .formGrid { grid-template-columns: minmax(0,1fr); }.toolbar { align-items: stretch; }.toolbar>label { width: 100%; }.products { grid-template-columns: repeat(2,minmax(0,1fr)); }.cartLine { grid-template-columns: minmax(0,1fr) 72px 44px; } }
+@media print { .page { background: white; padding: 0; } }
