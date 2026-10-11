@@ -24,7 +24,7 @@ export type WorkerJobCard = {
   openShiftId: string | null
 }
 
-function formatDate(value: string | null) {
+function formatDate(value: string | null, timeZone: string) {
   if (!value) return 'Bez termínu'
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return 'Bez termínu'
@@ -33,6 +33,7 @@ function formatDate(value: string | null) {
     month: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
+    timeZone,
   })
 }
 
@@ -45,7 +46,7 @@ const buttonStyle = {
   cursor: 'pointer',
 } as const
 
-export default function WorkerFlowClient({ jobs }: { jobs: WorkerJobCard[] }) {
+export default function WorkerFlowClient({ jobs, timeZone }: { jobs: WorkerJobCard[]; timeZone: string }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [message, setMessage] = useState<string | null>(null)
@@ -62,6 +63,15 @@ export default function WorkerFlowClient({ jobs }: { jobs: WorkerJobCard[] }) {
     }>
   >([])
   const fileInputsRef = useRef<Record<string, HTMLInputElement | null>>({})
+  const photoTypesRef = useRef<Record<string, JobPhotoUploadCategory>>({})
+
+  function choosePhoto(jobId: string, photoType: JobPhotoUploadCategory) {
+    const input = fileInputsRef.current[jobId]
+    if (!input || uploadingJobId) return
+    photoTypesRef.current[jobId] = photoType
+    input.value = ''
+    input.click()
+  }
 
   function runJobAction(
     jobId: string,
@@ -73,22 +83,24 @@ export default function WorkerFlowClient({ jobs }: { jobs: WorkerJobCard[] }) {
     setActiveJobId(jobId)
 
     startTransition(async () => {
-      const result = await callback()
-
-      if (!result.ok) {
-        setError(result.error)
+      try {
+        const result = await callback()
+        if (!result.ok) {
+          setError(result.error)
+          return
+        }
+        setMessage(successMessage)
+        router.refresh()
+      } catch {
+        setError('Nepodařilo se potvrdit výsledek. Zkontrolujte připojení a obnovte přehled, než akci zopakujete.')
+      } finally {
         setActiveJobId(null)
-        return
       }
-
-      setMessage(successMessage)
-      setActiveJobId(null)
-      router.refresh()
     })
   }
 
   async function uploadPhoto(jobId: string, photoType: JobPhotoUploadCategory, queuedFile?: File, queuedId?: string) {
-    const fileInput = fileInputsRef.current[`${jobId}-${photoType}`]
+    const fileInput = fileInputsRef.current[jobId]
     const file = queuedFile ?? fileInput?.files?.[0]
 
     if (!file) {
@@ -145,12 +157,12 @@ export default function WorkerFlowClient({ jobs }: { jobs: WorkerJobCard[] }) {
   return (
     <div style={{ display: 'grid', gap: '14px' }}>
       {message ? (
-        <div style={{ padding: 12, borderRadius: 12, background: '#ecfdf5', color: '#166534', fontWeight: 750 }}>
+        <div role="status" style={{ padding: 12, borderRadius: 12, background: '#ecfdf5', color: '#166534', fontWeight: 750 }}>
           {message}
         </div>
       ) : null}
       {error ? (
-        <div style={{ padding: 12, borderRadius: 12, background: '#fef2f2', color: '#b91c1c', fontWeight: 750 }}>
+        <div role="alert" style={{ padding: 12, borderRadius: 12, background: '#fef2f2', color: '#b91c1c', fontWeight: 750 }}>
           {error}
         </div>
       ) : null}
@@ -165,7 +177,7 @@ export default function WorkerFlowClient({ jobs }: { jobs: WorkerJobCard[] }) {
               </div>
               <button
                 type="button"
-                disabled={uploadingJobId === item.jobId}
+                disabled={Boolean(uploadingJobId)}
                 onClick={() => uploadPhoto(item.jobId, item.photoType, item.file, item.id)}
                 style={{ ...buttonStyle, background: '#ffedd5', color: '#9a3412', opacity: uploadingJobId === item.jobId ? 0.6 : 1 }}
               >
@@ -217,7 +229,7 @@ export default function WorkerFlowClient({ jobs }: { jobs: WorkerJobCard[] }) {
                     {job.openShiftId ? 'Běží' : isDone ? 'Hotovo' : 'Přiřazeno'}
                   </span>
                 </div>
-                <div style={{ color: '#64748b', fontSize: 14 }}>{formatDate(job.startAt)}</div>
+                <div style={{ color: '#64748b', fontSize: 14 }}>{formatDate(job.startAt, timeZone)}</div>
                 {job.address ? <div style={{ color: '#475569', fontSize: 14 }}>{job.address}</div> : null}
               </div>
 
@@ -264,32 +276,38 @@ export default function WorkerFlowClient({ jobs }: { jobs: WorkerJobCard[] }) {
 
               <div style={{ display: 'grid', gap: 8 }}>
                 <div style={{ color: '#334155', fontSize: 13, fontWeight: 850 }}>Fotka</div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 8, alignItems: 'center' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, alignItems: 'center' }}>
                   <input
                     ref={(node) => {
-                      fileInputsRef.current[`${job.jobId}-before`] = node
+                      fileInputsRef.current[job.jobId] = node
                     }}
                     type="file"
                     accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
-                    style={{ minWidth: 0 }}
+                    aria-label={`Fotografie k zakázce ${job.title}`}
+                    style={{ display: 'none' }}
+                    onChange={(event) => {
+                      const file = event.target.files?.[0]
+                      if (file) void uploadPhoto(job.jobId, photoTypesRef.current[job.jobId] ?? 'before', file)
+                    }}
                   />
                   <button
                     type="button"
-                    disabled={isUploading}
-                    onClick={() => uploadPhoto(job.jobId, 'before')}
-                    style={{ ...buttonStyle, background: '#eef2ff', color: '#3730a3', opacity: isUploading ? 0.6 : 1 }}
+                    disabled={Boolean(uploadingJobId)}
+                    onClick={() => choosePhoto(job.jobId, 'before')}
+                    style={{ ...buttonStyle, background: '#f5f0ff', color: '#6d28d9', opacity: isUploading ? 0.6 : 1 }}
                   >
-                    Před
+                    Fotka před
                   </button>
                   <button
                     type="button"
-                    disabled={isUploading}
-                    onClick={() => uploadPhoto(job.jobId, 'after')}
-                    style={{ ...buttonStyle, background: '#f0fdf4', color: '#166534', opacity: isUploading ? 0.6 : 1 }}
+                    disabled={Boolean(uploadingJobId)}
+                    onClick={() => choosePhoto(job.jobId, 'after')}
+                    style={{ ...buttonStyle, background: '#eff6ff', color: '#1d4ed8', opacity: isUploading ? 0.6 : 1 }}
                   >
-                    Po
+                    Fotka po
                   </button>
                 </div>
+                <p style={{ margin: 0, color: '#64748b', fontSize: 12 }} aria-live="polite">{isUploading ? 'Nahrávám fotografii…' : 'Vyberte nebo vyfoťte. Fotka se rovnou uloží k zakázce.'}</p>
               </div>
             </article>
           )

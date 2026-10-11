@@ -94,7 +94,14 @@ export async function uploadJobPhotoDirect(input: {
         upsert: false,
       })
 
-    if (error) {
+    // A previous attempt may have reached Storage before its response was lost.
+    // Keep this signed path and let PATCH verify the real object and metadata;
+    // a conflict alone is never reported as a completed upload.
+    const mayAlreadyExist = error && (
+      error.status === 409 || error.statusCode === '409'
+      || ['ResourceAlreadyExists', 'KeyAlreadyExists', 'already_exists'].includes(error.statusCode ?? '')
+    )
+    if (error && !mayAlreadyExist) {
       throw new Error(error.message)
     }
   })

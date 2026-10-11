@@ -33,6 +33,7 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.webkit.URLUtil;
 import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
@@ -106,7 +107,7 @@ public final class MainActivity extends Activity {
             return insets;
         });
         LinearLayout header = new LinearLayout(this); header.setGravity(Gravity.CENTER_VERTICAL); header.setPadding(dp(18), dp(9), dp(12), dp(9));
-        TextView mark = text("D", 22, Color.WHITE, true); mark.setGravity(Gravity.CENTER); mark.setBackground(surface(brand, 13)); mark.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        ImageView mark = new ImageView(this); mark.setImageResource(R.drawable.diriqo_logo); mark.setScaleType(ImageView.ScaleType.CENTER_CROP); mark.setBackground(surface(brand, 13)); mark.setClipToOutline(true); mark.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
         header.addView(mark, new LinearLayout.LayoutParams(dp(40), dp(40)));
         LinearLayout titles = new LinearLayout(this); titles.setOrientation(LinearLayout.VERTICAL); titles.setPadding(dp(12), 0, 0, 0);
         titles.addView(text(getString(R.string.app_name), 17, INK, true));

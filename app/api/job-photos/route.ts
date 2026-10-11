@@ -354,7 +354,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Zakázka nebyla nalezena.' }, { status: 404 })
     }
 
-    const supabase = await createSupabaseServerClient()
+    // This branch already required admin role, company licence and job scope.
+    const supabase = createSupabaseAdminClient()
     const uploadedPaths: string[] = []
     const insertedItems = []
 
@@ -452,7 +453,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Chybí jobId.' }, { status: 400 })
   }
 
-  if (payload.sizeBytes <= 0 || payload.sizeBytes > MAX_JOB_PHOTO_UPLOAD_BYTES) {
+  if (!Number.isSafeInteger(payload.sizeBytes) || payload.sizeBytes <= 0 || payload.sizeBytes > MAX_JOB_PHOTO_UPLOAD_BYTES) {
     return NextResponse.json({ error: 'Fotografie je prázdná nebo příliš velká.' }, { status: 400 })
   }
 
@@ -478,7 +479,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Zakázka nebyla nalezena.' }, { status: 404 })
   }
 
-  const supabase = await createSupabaseServerClient()
+  // Signed upload is issued only after paid capability + current assignment/job
+  // scope have passed; no service credential reaches the browser.
+  const supabase = createSupabaseAdminClient()
   const uploadContext = { fileSize: payload.sizeBytes, mimeType: payload.mimeType }
 
   try {
@@ -545,7 +548,7 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: 'Storage path neodpovídá tenant/job scope.' }, { status: 400 })
   }
 
-  if (payload.sizeBytes <= 0 || payload.sizeBytes > MAX_JOB_PHOTO_UPLOAD_BYTES) {
+  if (!Number.isSafeInteger(payload.sizeBytes) || payload.sizeBytes <= 0 || payload.sizeBytes > MAX_JOB_PHOTO_UPLOAD_BYTES) {
     return NextResponse.json({ error: 'Fotografie je prázdná nebo příliš velká.' }, { status: 400 })
   }
 
@@ -571,8 +574,22 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: 'Zakázka nebyla nalezena.' }, { status: 404 })
   }
 
-  const supabase = await createSupabaseServerClient()
+  const supabase = createSupabaseAdminClient()
   const uploadContext = { fileSize: payload.sizeBytes, mimeType: payload.mimeType }
+
+  const objectInfo = await supabase.storage.from(JOB_PHOTO_BUCKET).info(payload.storagePath)
+  if (objectInfo.error || !objectInfo.data) {
+    return NextResponse.json({ error: 'Fotografie ještě není uložená. Dokončete nahrání a zkuste potvrzení znovu.' }, { status: 409 })
+  }
+  const storedSize = objectInfo.data.size
+  const storedMime = objectInfo.data.contentType?.split(';')[0].trim().toLowerCase()
+  if (!Number.isSafeInteger(storedSize) || storedSize !== payload.sizeBytes || storedSize! > MAX_JOB_PHOTO_UPLOAD_BYTES
+    || storedMime !== payload.mimeType.toLowerCase() || !isSupportedJobPhotoMimeType(storedMime)) {
+    return NextResponse.json({ error: 'Uložený soubor neodpovídá potvrzené fotografii.' }, { status: 400 })
+  }
+  // A single generated object path owns a single metadata row. A lost response
+  // can safely retry without producing duplicate photos or deleting live data.
+  const photoId = payload.storagePath.split('/')[3].split('.')[0]
 
   try {
     const inserted = await withRetry(
@@ -581,6 +598,7 @@ export async function PATCH(request: NextRequest) {
         const { data, error } = await supabase
           .from('job_photos')
           .insert({
+            id: photoId,
             company_id: activeCompany.companyId,
             job_id: payload.jobId,
             uploaded_by: activeCompany.profileId,
@@ -596,6 +614,13 @@ export async function PATCH(request: NextRequest) {
           .select('id, photo_type, file_name, note, taken_at, storage_path, thumb_storage_path')
           .single()
 
+        if (error?.code === '23505') {
+          const existing = await supabase.from('job_photos')
+            .select('id, photo_type, file_name, note, taken_at, storage_path, thumb_storage_path')
+            .eq('id', photoId).eq('company_id', activeCompany.companyId).eq('job_id', payload.jobId)
+            .eq('storage_path', payload.storagePath).maybeSingle()
+          if (!existing.error && existing.data) return existing.data
+        }
         if (error) throw error
         return data
       },
@@ -615,19 +640,10 @@ export async function PATCH(request: NextRequest) {
       },
     }, { status: 201 })
   } catch {
-    logJobPhotoWarning({ operation: 'metadata_insert', status: 'cleanup_storage_after_db_failure', ...uploadContext })
-
-    const { error: cleanupError } = await supabase.storage.from(JOB_PHOTO_BUCKET).remove([payload.storagePath])
-    if (cleanupError) {
-      logJobPhotoWarning({
-        operation: 'storage_cleanup',
-        status: 'failed',
-        errorName: getErrorName(cleanupError),
-        errorCode: getErrorCode(cleanupError),
-      })
-    }
-
-    return NextResponse.json({ error: 'Fotografie byla nahrána, ale metadata se nepodařilo uložit.' }, { status: 500 })
+    // A timeout may have committed the metadata. Never remove the underlying
+    // object on an uncertain write; an explicit retry uses the same photo id.
+    logJobPhotoWarning({ operation: 'metadata_insert', status: 'confirmation_unknown', ...uploadContext })
+    return NextResponse.json({ error: 'Fotografie je nahraná, ale potvrzení se nepodařilo ověřit. Zkuste potvrzení znovu.' }, { status: 503 })
   }
 }
 
