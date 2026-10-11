@@ -14,7 +14,7 @@ export default async function SignInPage() {
   } = await supabase.auth.getUser()
 
   if (user) {
-    redirect(await getPostLoginRedirect(user.id))
+    redirect(process.env.OFFICE_STAGING_ONLY === '1' ? '/office' : await getPostLoginRedirect(user.id))
   }
 
   return (

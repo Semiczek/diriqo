@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 
 import { resolveActiveCompanySwitch } from '@/lib/active-company-switch'
 import { getActiveCompanyContext } from '@/lib/active-company'
+import { readOfficeAvailability } from '@/lib/office/availability'
 
 export async function GET() {
   const activeCompany = await getActiveCompanyContext({ allowedRoles: ['super_admin', 'company_admin', 'manager', 'worker'] })
@@ -16,6 +17,7 @@ export async function GET() {
   }
 
   return NextResponse.json({
+    officeEnabled: await readOfficeAvailability(activeCompany.companyId),
     companyId: activeCompany.companyId,
     companyName: activeCompany.companyName,
     timeZone: activeCompany.timeZone,

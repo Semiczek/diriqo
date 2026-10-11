@@ -32,6 +32,7 @@ type SidebarItemKey =
   | 'legalGdpr'
 
 type DashboardSidebarProps = {
+  officeEnabled?: boolean
   activeItem?: SidebarItemKey
   enabledModules?: Partial<Record<CompanyModuleKey, boolean>> | null
   availableProducts?: string[]
@@ -42,6 +43,7 @@ type DashboardSidebarProps = {
 }
 
 export default function DashboardSidebar({
+  officeEnabled = false,
   activeItem,
   enabledModules = null,
   availableProducts = [],
@@ -163,6 +165,7 @@ export default function DashboardSidebar({
         <div className="dq-nav-section">
           <p className="dq-nav-label">{workspaceLabel}</p>
           {showCoreNavigation ? primaryItems.filter(isAvailable).map(renderItem) : renderItem({href: '/moje-prace', label: {cs:'Moje práce',en:'My work',de:'Meine Arbeit'}[locale], key:'dashboard',icon:'jobs'})}
+          {officeEnabled ? <Link href="/office" onClick={onNavigate} className="dashboard-sidebar-link"><span>Diriqo Office</span></Link> : null}
         </div>
         {visibleMore.length > 0 ? (
           <details className="dq-nav-more" open={visibleMore.some(isItemActive) ? true : undefined}>
