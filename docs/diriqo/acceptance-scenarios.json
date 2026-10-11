@@ -2,466 +2,4636 @@
   {
     "id": "C01-01",
     "scenario": "Firma bez skladu, fakturace a AI založí zakázku, zadá ruční rozpočet, eviduje práci a zakázku uzavře.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "ČÁSTEČNĚ",
+    "title": "Jádro bez doplňků",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "EXISTUJE ALESPOŇ ČÁST",
+      "detail": "Zakázky, ruční náklady a pracovní vstupy existují.",
+      "files": [
+        "app/jobs/actions.ts",
+        "lib/dal/jobs.ts",
+        "lib/dal/flow.ts",
+        "app/moje-prace/actions.ts"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Úplný původní scénář není prokázaný; dílčí funkce nelze zaměnit za plnou akceptaci."
+    },
+    "security": {
+      "state": "DÍLČÍ DŮKAZ",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [
+          "tests/module-operation-entrypoints.test.ts",
+          "tests/mobile-worker-actions.test.ts"
+        ],
+        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [
+          "supabase/tests/module-capability-authority.sql"
+        ],
+        "state": "DÍLČÍ PŘEDCHOZÍ BĚH",
+        "reportedAt": "2026-10-10",
+        "reports": [
+          "docs/diriqo/acceptance-report.md"
+        ],
+        "scope": "Dílčí skutečné SQL autority schopností; nikoli celý core tok.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Zakázky, ruční náklady a pracovní vstupy existují.",
+      "Předchozí doložené dílčí DB běhy 2026-10-10: Dílčí skutečné SQL autority schopností; nikoli celý core tok. Zdroj: docs/diriqo/acceptance-report.md."
+    ],
+    "remaining": [
+      "Projít celé UI bez placených doplňků, znovu se přihlásit a ověřit uzavřenou zakázku."
+    ]
   },
   {
     "id": "C01-02",
     "scenario": "Opakovaný požadavek na převod stejné přijaté nabídky vrátí již vytvořenou zakázku, nevytvoří další.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "CHYBA",
+    "title": "Jednorázová konverze nabídky",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "EXISTUJE S KONKRÉTNÍ CHYBOU",
+      "detail": "Core cesta kontroluje existující source_quote_id; smart quotes mají atomickou konverzi. Core vícedenní cesta ale může po selhání child INSERT vrátit existujícího rodiče jako úspěch.",
+      "files": [
+        "app/jobs/actions.ts",
+        "lib/dal/jobs.ts",
+        "lib/dal/flow.ts",
+        "app/moje-prace/actions.ts"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Konkrétní porušení kontraktu je doložené čtením aktuálního kódu."
+    },
+    "security": {
+      "state": "DÍLČÍ DŮKAZ",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [
+          "tests/module-operation-entrypoints.test.ts",
+          "tests/mobile-worker-actions.test.ts"
+        ],
+        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [
+          "supabase/tests/module-capability-authority.sql"
+        ],
+        "state": "DÍLČÍ PŘEDCHOZÍ BĚH",
+        "reportedAt": "2026-10-10",
+        "reports": [
+          "docs/diriqo/acceptance-report.md"
+        ],
+        "scope": "Dílčí skutečné SQL autority schopností; nikoli celý core tok.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Core cesta kontroluje existující source_quote_id; smart quotes mají atomickou konverzi. Core vícedenní cesta ale může po selhání child INSERT vrátit existujícího rodiče jako úspěch.",
+      "Předchozí doložené dílčí DB běhy 2026-10-10: Dílčí skutečné SQL autority schopností; nikoli celý core tok. Zdroj: docs/diriqo/acceptance-report.md."
+    ],
+    "remaining": [
+      "Atomizovat core rodiče/podzakázky/přijetí a otestovat retry po vložení rodiče i skutečný souběh."
+    ]
   },
   {
     "id": "C01-03",
     "scenario": "Rodič s vlastním nákladem 100 Kč a dvěma podzakázkami s náklady 200 a 300 Kč ukáže souhrn 600 Kč. Rozbalení podzakázek ani přepnutí pohledu součet nezmění.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "NEOVĚŘENO",
+    "title": "Součet rodiče a podzakázek",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "EXISTUJE ALESPOŇ ČÁST",
+      "detail": "Existuje seskupování zakázek a ekonomika jednotlivých zdrojů. Přesný případ 100 + 200 + 300 v obou UI pohledech nemá doložený průchod.",
+      "files": [
+        "lib/dal/economics.ts",
+        "lib/economics.ts",
+        "lib/job-grouping.ts",
+        "lib/labor-calculation.ts"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Úplný původní scénář není prokázaný; dílčí funkce nelze zaměnit za plnou akceptaci."
+    },
+    "security": {
+      "state": "DÍLČÍ DŮKAZ",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [
+          "tests/economics.test.ts",
+          "tests/labor-calculation.test.ts",
+          "tests/worker-payroll.test.ts"
+        ],
+        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [
+          "tests/inventory-integration.sql",
+          "tests/fleet-integration.sql"
+        ],
+        "state": "DÍLČÍ PŘEDCHOZÍ BĚH",
+        "reportedAt": "2026-10-11",
+        "reports": [
+          "docs/diriqo/functional-modules-release.md"
+        ],
+        "scope": "Skladová/fleet nákladová vazba, nikoli historické mzdy a všechny core náklady.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Existuje seskupování zakázek a ekonomika jednotlivých zdrojů. Přesný případ 100 + 200 + 300 v obou UI pohledech nemá doložený průchod.",
+      "Předchozí doložené dílčí DB běhy 2026-10-11: Skladová/fleet nákladová vazba, nikoli historické mzdy a všechny core náklady. Zdroj: docs/diriqo/functional-modules-release.md."
+    ],
+    "remaining": [
+      "Připravit částkovou fixture a ověřit 600 Kč bez změny při rozbalování."
+    ]
   },
   {
     "id": "C02-01",
     "scenario": "Zahraniční zákazník bez českého identifikátoru má dvě místa realizace a zakázku v každém z nich.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "ČÁSTEČNĚ",
+    "title": "Zahraniční zákazník a místa",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "EXISTUJE ALESPOŇ ČÁST",
+      "detail": "Zákazník může mít prázdné IČO a billing_country; zakázka vlastní adresu.",
+      "files": [
+        "app/customers/actions.ts",
+        "app/customers/[customerId]/delete/actions.ts",
+        "app/jobs/actions.ts"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Úplný původní scénář není prokázaný; dílčí funkce nelze zaměnit za plnou akceptaci."
+    },
+    "security": {
+      "state": "NEOVĚŘENO V CELÉM ROZSAHU",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [],
+        "state": "CÍLENÝ TEST SCÉNÁŘE NENALEZEN",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [],
+        "state": "BĚH SCÉNÁŘE NEDOLOŽEN",
+        "reportedAt": null,
+        "reports": [],
+        "scope": "Žádné konkrétní živé DB ověření této scénářové hranice se netvrdí.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Zákazník může mít prázdné IČO a billing_country; zakázka vlastní adresu."
+    ],
+    "remaining": [
+      "Ověřit dvě místa stejného zahraničního zákazníka; rozhodnout samostatný adresář míst. Vyplněný zahraniční identifikátor dnes stále podléhá osmimístné validaci."
+    ]
   },
   {
     "id": "C02-02",
     "scenario": "Změna aktuální adresy zákazníka nezmění adresu v již vydané nabídce.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "CHYBA",
+    "title": "Historická adresa nabídky",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "EXISTUJE S KONKRÉTNÍ CHYBOU",
+      "detail": "Základní PDF vytváří customerToSnapshot z aktuálního joinu customers při každém exportu. Nejde o uložený historický snapshot.",
+      "files": [
+        "lib/dal/calculations.ts",
+        "lib/dal/flow.ts",
+        "lib/dal/quotes.ts",
+        "app/api/quotes/[quoteId]/pdf/route.ts",
+        "app/api/offers/[token]/pdf/route.ts"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Konkrétní porušení kontraktu je doložené čtením aktuálního kódu."
+    },
+    "security": {
+      "state": "NEOVĚŘENO V CELÉM ROZSAHU",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [
+          "tests/public-token-security.test.ts"
+        ],
+        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [],
+        "state": "BĚH SCÉNÁŘE NEDOLOŽEN",
+        "reportedAt": null,
+        "reports": [],
+        "scope": "Žádné konkrétní živé DB ověření této scénářové hranice se netvrdí.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Základní PDF vytváří customerToSnapshot z aktuálního joinu customers při každém exportu. Nejde o uložený historický snapshot."
+    ],
+    "remaining": [
+      "Uložit kontaktní snapshot při vydání základní nabídky a používat jej v každém pozdějším exportu. Nové smart quotes tuto starou cestu nenahrazují."
+    ]
   },
   {
     "id": "C02-03",
     "scenario": "Archivace zákazníka zachová minulou zakázku a její dokumenty, ale zákazníka nenabízí jako výchozí volbu pro novou práci.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "CHYBÍ",
+    "title": "Archivace zákazníka",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "CHYBÍ ČÁST POŽADOVANÉHO TOKU",
+      "detail": "V kontrolované zákaznické cestě je fyzické delete a ochrana vazeb, nikoli lifecycle archivace zákazníka.",
+      "files": [
+        "app/customers/actions.ts",
+        "app/customers/[customerId]/delete/actions.ts",
+        "app/jobs/actions.ts"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Kontrolované aplikační a datové cesty nemají uvedenou schopnost."
+    },
+    "security": {
+      "state": "NEOVĚŘENO V CELÉM ROZSAHU",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [],
+        "state": "CÍLENÝ TEST SCÉNÁŘE NENALEZEN",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [],
+        "state": "BĚH SCÉNÁŘE NEDOLOŽEN",
+        "reportedAt": null,
+        "reports": [],
+        "scope": "Žádné konkrétní živé DB ověření této scénářové hranice se netvrdí.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: V kontrolované zákaznické cestě je fyzické delete a ochrana vazeb, nikoli lifecycle archivace zákazníka."
+    ],
+    "remaining": [
+      "Doplnit archivaci zachovávající zakázky/dokumenty a vyloučení z výchozí nabídky nových prací."
+    ]
   },
   {
     "id": "C03-01",
     "scenario": "Vedoucí zaeviduje docházku pracovníka bez přihlášení; pozdější propojení jeho účtu nezaloží druhou osobu.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "ČÁSTEČNĚ",
+    "title": "Pracovník bez účtu",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "EXISTUJE ALESPOŇ ČÁST",
+      "detail": "Příprava profilu a pozvánky existuje; propojení identity má cílené testy.",
+      "files": [
+        "lib/active-company.ts",
+        "lib/invites/worker-invites.ts",
+        "app/workers/new/page.tsx",
+        "lib/payroll-settings.ts"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Úplný původní scénář není prokázaný; dílčí funkce nelze zaměnit za plnou akceptaci."
+    },
+    "security": {
+      "state": "DÍLČÍ DŮKAZ",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [
+          "tests/worker-invites.test.ts",
+          "tests/auth-guards.test.ts",
+          "tests/mobile-access.test.ts"
+        ],
+        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [
+          "supabase/tests/platform-authority.sql"
+        ],
+        "state": "DÍLČÍ PŘEDCHOZÍ BĚH",
+        "reportedAt": "2026-10-10",
+        "reports": [
+          "docs/diriqo/acceptance-report.md"
+        ],
+        "scope": "Dílčí identity, onboarding a platformní role; nikoli celý pracovní vztah.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Příprava profilu a pozvánky existuje; propojení identity má cílené testy.",
+      "Předchozí doložené dílčí DB běhy 2026-10-10: Dílčí identity, onboarding a platformní role; nikoli celý pracovní vztah. Zdroj: docs/diriqo/acceptance-report.md."
+    ],
+    "remaining": [
+      "Ověřit vedoucího, zápis času a pozdější propojení stejné osoby jedním přihlášeným tokem."
+    ]
   },
   {
     "id": "C03-02",
     "scenario": "Jedna přihlášená osoba je vedoucím ve firmě A a pracovníkem ve firmě B; práva se mezi firmami nepřenášejí.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "ČÁSTEČNĚ",
+    "title": "Role jedné osoby v A/B",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "EXISTUJE ALESPOŇ ČÁST",
+      "detail": "Aktivní firma se vybírá z čerstvých členství; mobile guard řeší role po volbě firmy.",
+      "files": [
+        "lib/active-company.ts",
+        "lib/invites/worker-invites.ts",
+        "app/workers/new/page.tsx",
+        "lib/payroll-settings.ts"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Úplný původní scénář není prokázaný; dílčí funkce nelze zaměnit za plnou akceptaci."
+    },
+    "security": {
+      "state": "DÍLČÍ DŮKAZ",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [
+          "tests/worker-invites.test.ts",
+          "tests/auth-guards.test.ts",
+          "tests/mobile-access.test.ts"
+        ],
+        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [
+          "supabase/tests/platform-authority.sql"
+        ],
+        "state": "DÍLČÍ PŘEDCHOZÍ BĚH",
+        "reportedAt": "2026-10-10",
+        "reports": [
+          "docs/diriqo/acceptance-report.md"
+        ],
+        "scope": "Dílčí identity, onboarding a platformní role; nikoli celý pracovní vztah.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Aktivní firma se vybírá z čerstvých členství; mobile guard řeší role po volbě firmy.",
+      "Předchozí doložené dílčí DB běhy 2026-10-10: Dílčí identity, onboarding a platformní role; nikoli celý pracovní vztah. Zdroj: docs/diriqo/acceptance-report.md."
+    ],
+    "remaining": [
+      "Přihlásit skutečné syntetické role manager A / worker B a ověřit finance, docházku i přepnutí."
+    ]
   },
   {
     "id": "C03-03",
     "scenario": "Zvýšení nákladové sazby od listopadu samo nepřepočítá již schválené říjnové náklady.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "CHYBA",
+    "title": "Historie nákladových sazeb",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "EXISTUJE S KONKRÉTNÍ CHYBOU",
+      "detail": "Ekonomika směn bez hourly_rate a work_logs používá dnešní profilovou sazbu; není úplná účinnost sazeb a neměnný snapshot schválené práce.",
+      "files": [
+        "lib/dal/economics.ts",
+        "lib/economics.ts",
+        "lib/job-grouping.ts",
+        "lib/labor-calculation.ts"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Konkrétní porušení kontraktu je doložené čtením aktuálního kódu."
+    },
+    "security": {
+      "state": "DÍLČÍ DŮKAZ",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [
+          "tests/economics.test.ts",
+          "tests/labor-calculation.test.ts",
+          "tests/worker-payroll.test.ts"
+        ],
+        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [
+          "tests/inventory-integration.sql",
+          "tests/fleet-integration.sql"
+        ],
+        "state": "DÍLČÍ PŘEDCHOZÍ BĚH",
+        "reportedAt": "2026-10-11",
+        "reports": [
+          "docs/diriqo/functional-modules-release.md"
+        ],
+        "scope": "Skladová/fleet nákladová vazba, nikoli historické mzdy a všechny core náklady.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Ekonomika směn bez hourly_rate a work_logs používá dnešní profilovou sazbu; není úplná účinnost sazeb a neměnný snapshot schválené práce.",
+      "Předchozí doložené dílčí DB běhy 2026-10-11: Skladová/fleet nákladová vazba, nikoli historické mzdy a všechny core náklady. Zdroj: docs/diriqo/functional-modules-release.md."
+    ],
+    "remaining": [
+      "Zavést historický zdroj sazby a schválení bez odhadovaného přepočtu starých záznamů; regrese říjen/listopad."
+    ]
   },
   {
     "id": "C04-01",
     "scenario": "Dvojí kliknutí nebo dvě otevřené karty nevytvoří dva současně běžící časovače stejného pracovníka ve firmě.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "ČÁSTEČNĚ",
+    "title": "Souběžný start směny",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "IMPLEMENTOVÁNO; DB OVĚŘENA",
+      "detail": "Aditivní unikátní invariant a autentizovaná atomická RPC start/stop/complete. DB migrace aplikovaná; aplikační nasazení čeká na release.",
+      "files": [
+        "app/moje-prace/actions.ts",
+        "app/work-shifts/[shiftId]/edit/page.tsx",
+        "lib/labor-calculation.ts",
+        "supabase/migrations/20261011191250_atomic_mobile_work.sql"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Skutečný RPC souběh dvou DB spojení vrací stejné ID; různé zakázky vrací řízený konflikt. Next UI po nasazení zatím neověřeno."
+    },
+    "security": {
+      "state": "DÍLČÍ DŮKAZ",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [
+          "tests/mobile-worker-actions.test.ts",
+          "tests/labor-calculation.test.ts"
+        ],
+        "state": "23/23 Server Action regresí PASS; ostatní související testy nejsou tímto údajem tvrzené",
+        "executedThisReview": true
+      },
+      "database": {
+        "files": [
+          "supabase/tests/atomic-mobile-work.sql",
+          "scripts/test-mobile-work-concurrency.mjs"
+        ],
+        "state": "27 ASERCÍ + 3 CLEANUP + SKUTEČNÝ SOUBĚH PASS",
+        "reportedAt": "2026-10-11",
+        "reports": [
+          "docs/diriqo/atomic-mobile-work-release.md"
+        ],
+        "scope": "Authenticated RPC, dvě současně blokovaná DB spojení, stejné i různé zakázky, syntetické firmy A/B; ne plný UI nebo telefon.",
+        "executedThisReview": true
+      }
+    },
+    "e2e": {
+      "state": "SKUTEČNÝ AUTH/RPC/DB; UI PO NASAZENÍ ČEKÁ",
+      "executedThisReview": true,
+      "partialEvidence": [
+        "docs/diriqo/atomic-mobile-work-release.md"
+      ]
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Baseline používá kontrolu otevřené směny před INSERT bez atomického zákazu souběhu. P0 oprava je rozpracovaná odděleně.",
+      "Předchozí doložené dílčí DB běhy 2026-10-11: Živé sloupcové granty a čtecí dotazy; nikoli start/stop ani souběh. Zdroj: docs/diriqo/android-test-release.md.",
+      "2026-10-11: migrace 20261011191250 aplikována v testovacím Diriqu; 27+3 DB kontrol, 23 unit, dvě DB spojení PID1609020/1609021, jediný časovač. Viz atomic-mobile-work-release.md."
+    ],
+    "remaining": [
+      "Ověřit finální aplikační commit v CI, nasadit a projít start/stop/dokončení ve webovém a následně fyzickém mobilním pilotu.",
+      "Pozdní opakování startu po ukončení předchozí směny nemá trvalý request-ID ledger; nepovažovat za neomezenou idempotenci."
+    ]
   },
   {
     "id": "C04-02",
     "scenario": "Přesnoční směna s přestávkou a změnou času má správnou skutečnou délku.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "ČÁSTEČNĚ",
+    "title": "Přesnoc a změna času",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "EXISTUJE ALESPOŇ ČÁST",
+      "detail": "Délka vychází z rozdílu timestampů; mobilní zobrazení používá firemní zónu. Úplná evidence přestávek v kalkulaci chybí.",
+      "files": [
+        "app/moje-prace/actions.ts",
+        "app/work-shifts/[shiftId]/edit/page.tsx",
+        "lib/labor-calculation.ts"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Úplný původní scénář není prokázaný; dílčí funkce nelze zaměnit za plnou akceptaci."
+    },
+    "security": {
+      "state": "DÍLČÍ DŮKAZ",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [
+          "tests/mobile-worker-actions.test.ts",
+          "tests/labor-calculation.test.ts"
+        ],
+        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [
+          "tests/mobile-runtime-grants-verification.sql"
+        ],
+        "state": "DÍLČÍ PŘEDCHOZÍ BĚH",
+        "reportedAt": "2026-10-11",
+        "reports": [
+          "docs/diriqo/android-test-release.md"
+        ],
+        "scope": "Živé sloupcové granty a čtecí dotazy; nikoli start/stop ani souběh.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Délka vychází z rozdílu timestampů; mobilní zobrazení používá firemní zónu. Úplná evidence přestávek v kalkulaci chybí.",
+      "Předchozí doložené dílčí DB běhy 2026-10-11: Živé sloupcové granty a čtecí dotazy; nikoli start/stop ani souběh. Zdroj: docs/diriqo/android-test-release.md."
+    ],
+    "remaining": [
+      "Ověřit DST/přesnoc a explicitní přestávku, schválení i náklad ve firemní zóně."
+    ]
   },
   {
     "id": "C04-03",
     "scenario": "Oprava schválených hodin zachová původní verzi; náklady zakázky se po schválení revize opraví právě jednou.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "CHYBÍ",
+    "title": "Revize schváleného času",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "CHYBÍ ČÁST POŽADOVANÉHO TOKU",
+      "detail": "Editor mění work_shifts přímo; v kontrolované cestě není neměnná revize schválení.",
+      "files": [
+        "app/moje-prace/actions.ts",
+        "app/work-shifts/[shiftId]/edit/page.tsx",
+        "lib/labor-calculation.ts"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Kontrolované aplikační a datové cesty nemají uvedenou schopnost."
+    },
+    "security": {
+      "state": "DÍLČÍ DŮKAZ",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [
+          "tests/mobile-worker-actions.test.ts",
+          "tests/labor-calculation.test.ts"
+        ],
+        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [
+          "tests/mobile-runtime-grants-verification.sql"
+        ],
+        "state": "DÍLČÍ PŘEDCHOZÍ BĚH",
+        "reportedAt": "2026-10-11",
+        "reports": [
+          "docs/diriqo/android-test-release.md"
+        ],
+        "scope": "Živé sloupcové granty a čtecí dotazy; nikoli start/stop ani souběh.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Editor mění work_shifts přímo; v kontrolované cestě není neměnná revize schválení.",
+      "Předchozí doložené dílčí DB běhy 2026-10-11: Živé sloupcové granty a čtecí dotazy; nikoli start/stop ani souběh. Zdroj: docs/diriqo/android-test-release.md."
+    ],
+    "remaining": [
+      "Doplnit původní verzi, schválení revize a přesně jednu nákladovou korekci."
+    ]
   },
   {
     "id": "C05-01",
     "scenario": "Uživatel bez skladu vytvoří položku materiálu ručně a stáhne jednoduchou nabídku do PDF.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "ČÁSTEČNĚ",
+    "title": "Ruční kalkulace a PDF",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "EXISTUJE ALESPOŇ ČÁST",
+      "detail": "Core kalkulace a zákaznické řádky nabídky i PDF endpoint existují.",
+      "files": [
+        "lib/dal/calculations.ts",
+        "lib/dal/flow.ts",
+        "lib/dal/quotes.ts",
+        "app/api/quotes/[quoteId]/pdf/route.ts",
+        "app/api/offers/[token]/pdf/route.ts"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Úplný původní scénář není prokázaný; dílčí funkce nelze zaměnit za plnou akceptaci."
+    },
+    "security": {
+      "state": "NEOVĚŘENO V CELÉM ROZSAHU",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [
+          "tests/public-token-security.test.ts"
+        ],
+        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [],
+        "state": "BĚH SCÉNÁŘE NEDOLOŽEN",
+        "reportedAt": null,
+        "reports": [],
+        "scope": "Žádné konkrétní živé DB ověření této scénářové hranice se netvrdí.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Core kalkulace a zákaznické řádky nabídky i PDF endpoint existují."
+    ],
+    "remaining": [
+      "Ověřit ruční materiál bez inventory nároku a skutečně stažené PDF z přihlášeného průchodu."
+    ]
   },
   {
     "id": "C05-02",
     "scenario": "Zákaznický dokument ani jeho exportní odpověď neobsahují skryté interní sazby a marže.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "ČÁSTEČNĚ",
+    "title": "Zákaznický dokument bez marží",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "EXISTUJE ALESPOŇ ČÁST",
+      "detail": "Smart quote veřejný snapshot má explicitní omezenou projekci a SQL kontrolu zakázaných polí; core veřejná nabídka má vlastní endpoint.",
+      "files": [
+        "app/smart-quotes/actions.ts",
+        "lib/smart-quotes/server.ts",
+        "app/quote/[token]/actions.ts",
+        "app/smart-quotes/[id]/export/route.ts"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Úplný původní scénář není prokázaný; dílčí funkce nelze zaměnit za plnou akceptaci."
+    },
+    "security": {
+      "state": "DÍLČÍ DŮKAZ",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [
+          "tests/smart-quotes-domain.test.ts",
+          "tests/smart-quotes-actions.test.ts",
+          "tests/smart-quotes-export.test.ts"
+        ],
+        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [
+          "tests/smart-quotes-integration.sql"
+        ],
+        "state": "DÍLČÍ PŘEDCHOZÍ BĚH",
+        "reportedAt": "2026-10-11",
+        "reports": [
+          "docs/diriqo/functional-modules-release.md"
+        ],
+        "scope": "21 skupin SQL v jedné relaci včetně snapshotu, přijetí a konverze; nikoli celý zákaznický UI tok.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Smart quote veřejný snapshot má explicitní omezenou projekci a SQL kontrolu zakázaných polí; core veřejná nabídka má vlastní endpoint.",
+      "Předchozí doložené dílčí DB běhy 2026-10-11: 21 skupin SQL v jedné relaci včetně snapshotu, přijetí a konverze; nikoli celý zákaznický UI tok. Zdroj: docs/diriqo/functional-modules-release.md."
+    ],
+    "remaining": [
+      "Prověřit také všechny staré core PDF, portal a exportní odpovědi; E2E s nákladovou canary hodnotou."
+    ]
   },
   {
     "id": "C05-03",
     "scenario": "Nová verze nabídky nemění přijatou verzi; zakázka používá jednoznačně vybraný snímek.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "ČÁSTEČNĚ",
+    "title": "Neměnná přijatá verze",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "EXISTUJE ALESPOŇ ČÁST",
+      "detail": "Nový smart quote má immutable versions a vazbu přijetí; základní nabídky používají jinou mutovatelnou cestu.",
+      "files": [
+        "app/smart-quotes/actions.ts",
+        "lib/smart-quotes/server.ts",
+        "app/quote/[token]/actions.ts",
+        "app/smart-quotes/[id]/export/route.ts"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Úplný původní scénář není prokázaný; dílčí funkce nelze zaměnit za plnou akceptaci."
+    },
+    "security": {
+      "state": "DÍLČÍ DŮKAZ",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [
+          "tests/smart-quotes-domain.test.ts",
+          "tests/smart-quotes-actions.test.ts",
+          "tests/smart-quotes-export.test.ts"
+        ],
+        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [
+          "tests/smart-quotes-integration.sql"
+        ],
+        "state": "DÍLČÍ PŘEDCHOZÍ BĚH",
+        "reportedAt": "2026-10-11",
+        "reports": [
+          "docs/diriqo/functional-modules-release.md"
+        ],
+        "scope": "21 skupin SQL v jedné relaci včetně snapshotu, přijetí a konverze; nikoli celý zákaznický UI tok.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Nový smart quote má immutable versions a vazbu přijetí; základní nabídky používají jinou mutovatelnou cestu.",
+      "Předchozí doložené dílčí DB běhy 2026-10-11: 21 skupin SQL v jedné relaci včetně snapshotu, přijetí a konverze; nikoli celý zákaznický UI tok. Zdroj: docs/diriqo/functional-modules-release.md."
+    ],
+    "remaining": [
+      "Sjednotit kontrakt základní nabídky bez vynucení placeného modulu a ověřit navazující zakázku."
+    ]
   },
   {
     "id": "C06-01",
     "scenario": "Schválení nepřítomnosti okamžitě změní dostupnost a označí dotčená plánovaná přidělení.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "ČÁSTEČNĚ",
+    "title": "Absence a plán",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "EXISTUJE ALESPOŇ ČÁST",
+      "detail": "Schválení absence a zobrazení absencí existuje. Automatické označení všech kolidujících přidělení není doložené.",
+      "files": [
+        "app/calendar/actions.ts",
+        "app/calendar/page.tsx",
+        "app/absences/actions.ts"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Úplný původní scénář není prokázaný; dílčí funkce nelze zaměnit za plnou akceptaci."
+    },
+    "security": {
+      "state": "NEOVĚŘENO V CELÉM ROZSAHU",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [],
+        "state": "CÍLENÝ TEST SCÉNÁŘE NENALEZEN",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [],
+        "state": "BĚH SCÉNÁŘE NEDOLOŽEN",
+        "reportedAt": null,
+        "reports": [],
+        "scope": "Žádné konkrétní živé DB ověření této scénářové hranice se netvrdí.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Schválení absence a zobrazení absencí existuje. Automatické označení všech kolidujících přidělení není doložené."
+    ],
+    "remaining": [
+      "Doplnit nebo prokázat konflikt přidělení ihned po schválení, včetně načteného kalendáře."
+    ]
   },
   {
     "id": "C06-02",
     "scenario": "Pracovník bez práva plánovat nemůže přidělení přesunout ani přímým požadavkem na server.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "ČÁSTEČNĚ",
+    "title": "Pracovník nesmí plánovat",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "EXISTUJE ALESPOŇ ČÁST",
+      "detail": "Kalendář používá serverový hub context a modulový guard.",
+      "files": [
+        "app/calendar/actions.ts",
+        "app/calendar/page.tsx",
+        "app/absences/actions.ts"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Úplný původní scénář není prokázaný; dílčí funkce nelze zaměnit za plnou akceptaci."
+    },
+    "security": {
+      "state": "NEOVĚŘENO V CELÉM ROZSAHU",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [],
+        "state": "CÍLENÝ TEST SCÉNÁŘE NENALEZEN",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [],
+        "state": "BĚH SCÉNÁŘE NEDOLOŽEN",
+        "reportedAt": null,
+        "reports": [],
+        "scope": "Žádné konkrétní živé DB ověření této scénářové hranice se netvrdí.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Kalendář používá serverový hub context a modulový guard."
+    ],
+    "remaining": [
+      "Skutečným worker účtem ověřit Server Action, přímý REST a DB/RPC všech přesunů."
+    ]
   },
   {
     "id": "C06-03",
     "scenario": "Souběžné přesunutí stejné události dvěma vedoucími vyvolá řešitelný konflikt, ne tiché přepsání.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "CHYBA",
+    "title": "Konflikt přesunu",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "EXISTUJE S KONKRÉTNÍ CHYBOU",
+      "detail": "updateCalendarEventAction aktualizuje podle id/company bez očekávané verze; přiřazení pak maže a vkládá samostatně.",
+      "files": [
+        "app/calendar/actions.ts",
+        "app/calendar/page.tsx",
+        "app/absences/actions.ts"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Konkrétní porušení kontraktu je doložené čtením aktuálního kódu."
+    },
+    "security": {
+      "state": "NEOVĚŘENO V CELÉM ROZSAHU",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [],
+        "state": "CÍLENÝ TEST SCÉNÁŘE NENALEZEN",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [],
+        "state": "BĚH SCÉNÁŘE NEDOLOŽEN",
+        "reportedAt": null,
+        "reports": [],
+        "scope": "Žádné konkrétní živé DB ověření této scénářové hranice se netvrdí.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: updateCalendarEventAction aktualizuje podle id/company bez očekávané verze; přiřazení pak maže a vkládá samostatně."
+    ],
+    "remaining": [
+      "Zavést optimistickou verzi a atomickou událost s přiřazeními; druhý vedoucí dostane řízený konflikt."
+    ]
   },
   {
     "id": "C07-01",
     "scenario": "Žádost přes několik dnů v různých časových zónách zůstane žádostí o správná místní data.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "NEOVĚŘENO",
+    "title": "Místní data absence",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "EXISTUJE ALESPOŇ ČÁST",
+      "detail": "Absence mají časové údaje, ale tento vícedenní průchod napříč zónami není doložený.",
+      "files": [
+        "app/absences/actions.ts",
+        "app/absences/page.tsx",
+        "app/workers/[workerId]/page.tsx"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Úplný původní scénář není prokázaný; dílčí funkce nelze zaměnit za plnou akceptaci."
+    },
+    "security": {
+      "state": "NEOVĚŘENO V CELÉM ROZSAHU",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [],
+        "state": "CÍLENÝ TEST SCÉNÁŘE NENALEZEN",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [],
+        "state": "BĚH SCÉNÁŘE NEDOLOŽEN",
+        "reportedAt": null,
+        "reports": [],
+        "scope": "Žádné konkrétní živé DB ověření této scénářové hranice se netvrdí.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Absence mají časové údaje, ale tento vícedenní průchod napříč zónami není doložený."
+    ],
+    "remaining": [
+      "Otestovat celé místní dny a DST v nejméně dvou firemních zónách bez posunu žádosti."
+    ]
   },
   {
     "id": "C07-02",
     "scenario": "Vedoucí při schvalování uvidí kolidující směnu; kolega vidí pouze nedostupnost.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "ČÁSTEČNĚ",
+    "title": "Konflikty a soukromí absence",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "EXISTUJE ALESPOŇ ČÁST",
+      "detail": "Administrátorská správa žádostí existuje. Redukovaný kolegův pohled a kolize při schválení nejsou kompletně doložené.",
+      "files": [
+        "app/absences/actions.ts",
+        "app/absences/page.tsx",
+        "app/workers/[workerId]/page.tsx"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Úplný původní scénář není prokázaný; dílčí funkce nelze zaměnit za plnou akceptaci."
+    },
+    "security": {
+      "state": "NEOVĚŘENO V CELÉM ROZSAHU",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [],
+        "state": "CÍLENÝ TEST SCÉNÁŘE NENALEZEN",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [],
+        "state": "BĚH SCÉNÁŘE NEDOLOŽEN",
+        "reportedAt": null,
+        "reports": [],
+        "scope": "Žádné konkrétní živé DB ověření této scénářové hranice se netvrdí.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Administrátorská správa žádostí existuje. Redukovaný kolegův pohled a kolize při schválení nejsou kompletně doložené."
+    ],
+    "remaining": [
+      "Ověřit viditelnost důvodu absence, konfliktní směnu a výstupy worker/manager rolí."
+    ]
   },
   {
     "id": "C07-03",
     "scenario": "Schválené zrušení absence opraví dostupnost a historii, nevytvoří automaticky docházku ani novou směnu.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "CHYBÍ",
+    "title": "Zrušení schválené absence",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "CHYBÍ ČÁST POŽADOVANÉHO TOKU",
+      "detail": "Serverová akce nabízí pouze pending → approved/rejected, ne auditované zrušení schválené absence.",
+      "files": [
+        "app/absences/actions.ts",
+        "app/absences/page.tsx",
+        "app/workers/[workerId]/page.tsx"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Kontrolované aplikační a datové cesty nemají uvedenou schopnost."
+    },
+    "security": {
+      "state": "NEOVĚŘENO V CELÉM ROZSAHU",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [],
+        "state": "CÍLENÝ TEST SCÉNÁŘE NENALEZEN",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [],
+        "state": "BĚH SCÉNÁŘE NEDOLOŽEN",
+        "reportedAt": null,
+        "reports": [],
+        "scope": "Žádné konkrétní živé DB ověření této scénářové hranice se netvrdí.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Serverová akce nabízí pouze pending → approved/rejected, ne auditované zrušení schválené absence."
+    ],
+    "remaining": [
+      "Doplnit žádost/zrušení, historii a přepočet dostupnosti bez vytváření směn."
+    ]
   },
   {
     "id": "C08-01",
     "scenario": "Žádost na 5 000 Kč je schválena na 3 000 Kč a vyplacena ve dvou částkách; přehled správně ukazuje obě salda.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "CHYBÍ",
+    "title": "Částečné vyplacení zálohy",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "CHYBÍ ČÁST POŽADOVANÉHO TOKU",
+      "detail": "Žádost má jednu částku a stav paid; schvalování existuje, více samostatných výplat a dvě salda ne.",
+      "files": [
+        "app/advance-requests/actions.ts",
+        "app/workers/[workerId]/WorkerAdvancesSection.tsx",
+        "lib/payroll/payroll-periods.ts"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Kontrolované aplikační a datové cesty nemají uvedenou schopnost."
+    },
+    "security": {
+      "state": "NEOVĚŘENO V CELÉM ROZSAHU",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [
+          "tests/worker-payroll.test.ts"
+        ],
+        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [],
+        "state": "BĚH SCÉNÁŘE NEDOLOŽEN",
+        "reportedAt": null,
+        "reports": [],
+        "scope": "Žádné konkrétní živé DB ověření této scénářové hranice se netvrdí.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Žádost má jednu částku a stav paid; schvalování existuje, více samostatných výplat a dvě salda ne."
+    ],
+    "remaining": [
+      "Doplnit oddělené požadované/schválené/vyplacené částky a platební ledger."
+    ]
   },
   {
     "id": "C08-02",
     "scenario": "Opakované potvrzení téže výplaty nevytvoří další pohyb.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "CHYBA",
+    "title": "Retry výplaty",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "EXISTUJE S KONKRÉTNÍ CHYBOU",
+      "detail": "Stav žádosti se změní na paid před odděleným upsertem worker_advances; chyba upsertu již nemá opakovatelnou cestu, protože retry vyžaduje approved.",
+      "files": [
+        "app/advance-requests/actions.ts",
+        "app/workers/[workerId]/WorkerAdvancesSection.tsx",
+        "lib/payroll/payroll-periods.ts"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Konkrétní porušení kontraktu je doložené čtením aktuálního kódu."
+    },
+    "security": {
+      "state": "NEOVĚŘENO V CELÉM ROZSAHU",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [
+          "tests/worker-payroll.test.ts"
+        ],
+        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [],
+        "state": "BĚH SCÉNÁŘE NEDOLOŽEN",
+        "reportedAt": null,
+        "reports": [],
+        "scope": "Žádné konkrétní živé DB ověření této scénářové hranice se netvrdí.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Stav žádosti se změní na paid před odděleným upsertem worker_advances; chyba upsertu již nemá opakovatelnou cestu, protože retry vyžaduje approved."
+    ],
+    "remaining": [
+      "Atomická výplata a request ID; simulovat selhání mezi oběma zápisy i souběh."
+    ]
   },
   {
     "id": "C08-03",
     "scenario": "Záloha se nepřičte k nákladům zakázky podruhé vedle nákladů odpracovaného času; vypořádání má doložený záznam.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "ČÁSTEČNĚ",
+    "title": "Záloha není druhý náklad",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "EXISTUJE ALESPOŇ ČÁST",
+      "detail": "Zaměstnanecké zálohy a pracovní odměny jsou oddělené; úplné vypořádání se zdrojovým dokladem není doložené.",
+      "files": [
+        "app/advance-requests/actions.ts",
+        "app/workers/[workerId]/WorkerAdvancesSection.tsx",
+        "lib/payroll/payroll-periods.ts"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Úplný původní scénář není prokázaný; dílčí funkce nelze zaměnit za plnou akceptaci."
+    },
+    "security": {
+      "state": "NEOVĚŘENO V CELÉM ROZSAHU",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [
+          "tests/worker-payroll.test.ts"
+        ],
+        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [],
+        "state": "BĚH SCÉNÁŘE NEDOLOŽEN",
+        "reportedAt": null,
+        "reports": [],
+        "scope": "Žádné konkrétní živé DB ověření této scénářové hranice se netvrdí.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Zaměstnanecké zálohy a pracovní odměny jsou oddělené; úplné vypořádání se zdrojovým dokladem není doložené."
+    ],
+    "remaining": [
+      "Ověřit přesný náklad zakázky a audit vypořádání po částečných výplatách."
+    ]
   },
   {
     "id": "C09-01",
     "scenario": "Pracovník nahraje fotku k přidělené zakázce a vedoucí ji zahrne do předání.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "ČÁSTEČNĚ",
+    "title": "Fotografie a předání",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "EXISTUJE ALESPOŇ ČÁST",
+      "detail": "Mobilní nahrání syntetické fotky bylo v předchozím vydání ověřeno UI + DB; protokol předání tím ověřen není.",
+      "files": [
+        "app/api/job-photos/route.ts",
+        "app/api/job-photos/url/route.ts",
+        "lib/job-photo-storage.ts",
+        "lib/job-photo-upload-client.ts"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Úplný původní scénář není prokázaný; dílčí funkce nelze zaměnit za plnou akceptaci."
+    },
+    "security": {
+      "state": "DÍLČÍ DŮKAZ",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [
+          "tests/mobile-photos.test.ts",
+          "tests/mobile-photo-upload-client.test.ts"
+        ],
+        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [
+          "tests/mobile-runtime-grants-verification.sql"
+        ],
+        "state": "DÍLČÍ PŘEDCHOZÍ BĚH",
+        "reportedAt": "2026-10-11",
+        "reports": [
+          "docs/diriqo/android-test-release.md"
+        ],
+        "scope": "Živé granty; předchozí přihlášený upload syntetické fotky v Demo, nikoli celý proces předání.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": [
+        "2026-10-11: předchozí ověření přihlášeného Demo UI, upload syntetické fotky a kontrola privátního objektu/metadat; bez předání a fyzické kamery."
+      ]
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Mobilní nahrání syntetické fotky bylo v předchozím vydání ověřeno UI + DB; protokol předání tím ověřen není.",
+      "Předchozí doložené dílčí DB běhy 2026-10-11: Živé granty; předchozí přihlášený upload syntetické fotky v Demo, nikoli celý proces předání. Zdroj: docs/diriqo/android-test-release.md."
+    ],
+    "remaining": [
+      "Dokončit zahrnutí konkrétní fotky do verzovaného předání a pilot worker/manager."
+    ]
   },
   {
     "id": "C09-02",
     "scenario": "Znalost identifikátoru nevydá nový přístupový odkaz pracovníkovi bez aktuálního oprávnění. Již vydané podepsané URL mají ověřenou omezenou platnost; pokud je požadováno okamžité odvolání, soubor se doručuje přes cestu znovu ověřující oprávnění.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "ČÁSTEČNĚ",
+    "title": "Odvolání přístupu k souboru",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "EXISTUJE ALESPOŇ ČÁST",
+      "detail": "API znovu ověřuje aktuální firmu, členství a přiřazení; privátní bucket a krátké signed URL mají testy.",
+      "files": [
+        "app/api/job-photos/route.ts",
+        "app/api/job-photos/url/route.ts",
+        "lib/job-photo-storage.ts",
+        "lib/job-photo-upload-client.ts"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Úplný původní scénář není prokázaný; dílčí funkce nelze zaměnit za plnou akceptaci."
+    },
+    "security": {
+      "state": "DÍLČÍ DŮKAZ",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [
+          "tests/mobile-photos.test.ts",
+          "tests/mobile-photo-upload-client.test.ts"
+        ],
+        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [
+          "tests/mobile-runtime-grants-verification.sql"
+        ],
+        "state": "DÍLČÍ PŘEDCHOZÍ BĚH",
+        "reportedAt": "2026-10-11",
+        "reports": [
+          "docs/diriqo/android-test-release.md"
+        ],
+        "scope": "Živé granty; předchozí přihlášený upload syntetické fotky v Demo, nikoli celý proces předání.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: API znovu ověřuje aktuální firmu, členství a přiřazení; privátní bucket a krátké signed URL mají testy.",
+      "Předchozí doložené dílčí DB běhy 2026-10-11: Živé granty; předchozí přihlášený upload syntetické fotky v Demo, nikoli celý proces předání. Zdroj: docs/diriqo/android-test-release.md."
+    ],
+    "remaining": [
+      "Skutečný A/B Storage test, odebrání přiřazení a změřená expirace již vydaného odkazu pro všechny přílohy."
+    ]
   },
   {
     "id": "C09-03",
     "scenario": "Oprava předání vytvoří novou verzi; původní potvrzený dokument zůstane dohledatelný.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "CHYBÍ",
+    "title": "Verzované předání",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "CHYBÍ ČÁST POŽADOVANÉHO TOKU",
+      "detail": "Fotodokumentace je dostupná, ale neměnné potvrzené předání s revizemi není v kontrolovaných cestách implementované.",
+      "files": [
+        "app/api/job-photos/route.ts",
+        "app/api/job-photos/url/route.ts",
+        "lib/job-photo-storage.ts",
+        "lib/job-photo-upload-client.ts"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Kontrolované aplikační a datové cesty nemají uvedenou schopnost."
+    },
+    "security": {
+      "state": "DÍLČÍ DŮKAZ",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [
+          "tests/mobile-photos.test.ts",
+          "tests/mobile-photo-upload-client.test.ts"
+        ],
+        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [
+          "tests/mobile-runtime-grants-verification.sql"
+        ],
+        "state": "DÍLČÍ PŘEDCHOZÍ BĚH",
+        "reportedAt": "2026-10-11",
+        "reports": [
+          "docs/diriqo/android-test-release.md"
+        ],
+        "scope": "Živé granty; předchozí přihlášený upload syntetické fotky v Demo, nikoli celý proces předání.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Fotodokumentace je dostupná, ale neměnné potvrzené předání s revizemi není v kontrolovaných cestách implementované.",
+      "Předchozí doložené dílčí DB běhy 2026-10-11: Živé granty; předchozí přihlášený upload syntetické fotky v Demo, nikoli celý proces předání. Zdroj: docs/diriqo/android-test-release.md."
+    ],
+    "remaining": [
+      "Doplnit dokument/verze/schválení a zachování původního výstupu."
+    ]
   },
   {
     "id": "C10-01",
     "scenario": "Zakázka bez skladu obsahuje schválené hodiny, ruční materiál a dopravu; plán a skutečnost se srovnají ve stejné měně.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "ČÁSTEČNĚ",
+    "title": "Plán a skutečnost zakázky",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "EXISTUJE ALESPOŇ ČÁST",
+      "detail": "Core ruční náklady a oddělený souhrn skladových/fleet zdrojů existují.",
+      "files": [
+        "lib/dal/economics.ts",
+        "lib/economics.ts",
+        "lib/job-grouping.ts",
+        "lib/labor-calculation.ts"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Úplný původní scénář není prokázaný; dílčí funkce nelze zaměnit za plnou akceptaci."
+    },
+    "security": {
+      "state": "DÍLČÍ DŮKAZ",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [
+          "tests/economics.test.ts",
+          "tests/labor-calculation.test.ts",
+          "tests/worker-payroll.test.ts"
+        ],
+        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [
+          "tests/inventory-integration.sql",
+          "tests/fleet-integration.sql"
+        ],
+        "state": "DÍLČÍ PŘEDCHOZÍ BĚH",
+        "reportedAt": "2026-10-11",
+        "reports": [
+          "docs/diriqo/functional-modules-release.md"
+        ],
+        "scope": "Skladová/fleet nákladová vazba, nikoli historické mzdy a všechny core náklady.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Core ruční náklady a oddělený souhrn skladových/fleet zdrojů existují.",
+      "Předchozí doložené dílčí DB běhy 2026-10-11: Skladová/fleet nákladová vazba, nikoli historické mzdy a všechny core náklady. Zdroj: docs/diriqo/functional-modules-release.md."
+    ],
+    "remaining": [
+      "End-to-end bez skladu: schválená práce, ruční materiál, doprava, měna a oba souhrny."
+    ]
   },
   {
     "id": "C10-02",
     "scenario": "Chybějící sazba pracovníka nevytvoří falešný nulový náklad a zdánlivě vysokou marži; přehled ukáže neúplnost.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "CHYBA",
+    "title": "Chybějící sazba",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "EXISTUJE S KONKRÉTNÍ CHYBOU",
+      "detail": "toEconomicsNumber/getProfileHourlyRate normalizují absenci sazby na nulu; JobEconomicsSummary nemá příznak neúplnosti.",
+      "files": [
+        "lib/dal/economics.ts",
+        "lib/economics.ts",
+        "lib/job-grouping.ts",
+        "lib/labor-calculation.ts"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Konkrétní porušení kontraktu je doložené čtením aktuálního kódu."
+    },
+    "security": {
+      "state": "DÍLČÍ DŮKAZ",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [
+          "tests/economics.test.ts",
+          "tests/labor-calculation.test.ts",
+          "tests/worker-payroll.test.ts"
+        ],
+        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [
+          "tests/inventory-integration.sql",
+          "tests/fleet-integration.sql"
+        ],
+        "state": "DÍLČÍ PŘEDCHOZÍ BĚH",
+        "reportedAt": "2026-10-11",
+        "reports": [
+          "docs/diriqo/functional-modules-release.md"
+        ],
+        "scope": "Skladová/fleet nákladová vazba, nikoli historické mzdy a všechny core náklady.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: toEconomicsNumber/getProfileHourlyRate normalizují absenci sazby na nulu; JobEconomicsSummary nemá příznak neúplnosti.",
+      "Předchozí doložené dílčí DB běhy 2026-10-11: Skladová/fleet nákladová vazba, nikoli historické mzdy a všechny core náklady. Zdroj: docs/diriqo/functional-modules-release.md."
+    ],
+    "remaining": [
+      "Propagovat missing-rate stav do souhrnu a marže; regrese pracovníka bez sazby."
+    ]
   },
   {
     "id": "C10-03",
     "scenario": "Opakované zpracování stejného zdroje nebo pozdější propojení již zaevidované faktury nenavýší náklady či výnosy podruhé.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "ČÁSTEČNĚ",
+    "title": "Jedinečný nákladový původ",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "EXISTUJE ALESPOŇ ČÁST",
+      "detail": "Inventory/fleet mají zdrojové vazby a idempotentní příkazy; ruční core doklady a fakturační dopárování nejsou uzavřené.",
+      "files": [
+        "lib/dal/economics.ts",
+        "lib/economics.ts",
+        "lib/job-grouping.ts",
+        "lib/labor-calculation.ts"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Úplný původní scénář není prokázaný; dílčí funkce nelze zaměnit za plnou akceptaci."
+    },
+    "security": {
+      "state": "DÍLČÍ DŮKAZ",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [
+          "tests/economics.test.ts",
+          "tests/labor-calculation.test.ts",
+          "tests/worker-payroll.test.ts"
+        ],
+        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [
+          "tests/inventory-integration.sql",
+          "tests/fleet-integration.sql"
+        ],
+        "state": "DÍLČÍ PŘEDCHOZÍ BĚH",
+        "reportedAt": "2026-10-11",
+        "reports": [
+          "docs/diriqo/functional-modules-release.md"
+        ],
+        "scope": "Skladová/fleet nákladová vazba, nikoli historické mzdy a všechny core náklady.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Inventory/fleet mají zdrojové vazby a idempotentní příkazy; ruční core doklady a fakturační dopárování nejsou uzavřené.",
+      "Předchozí doložené dílčí DB běhy 2026-10-11: Skladová/fleet nákladová vazba, nikoli historické mzdy a všechny core náklady. Zdroj: docs/diriqo/functional-modules-release.md."
+    ],
+    "remaining": [
+      "Otestovat sjednocené zdroje nákladů i výnosů při pozdějším dodavatelském dokladu."
+    ]
   },
   {
     "id": "M01-01",
     "scenario": "Objednávka na deset kusů přijme šest kusů. Sklad vzroste o šest, objednávka zůstane částečně přijatá se čtyřmi nedodanými kusy. Opakované potvrzení stejné příjemky nepřidá dalších šest.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "ČÁSTEČNĚ",
+    "title": "Částečný příjem",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "EXISTUJE ALESPOŇ ČÁST",
+      "detail": "SQL sada výslovně pokrývá 10 objednáno, 6 přijato, 4 zbývá a retry bez dalšího příjmu.",
+      "files": [
+        "app/inventory/actions.ts",
+        "lib/inventory/data.ts",
+        "app/inventory/export/route.ts",
+        "supabase/migrations/20261011153923_functional_inventory.sql"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Úplný původní scénář není prokázaný; dílčí funkce nelze zaměnit za plnou akceptaci."
+    },
+    "security": {
+      "state": "DÍLČÍ DŮKAZ",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [
+          "tests/inventory-domain.test.ts",
+          "tests/inventory-data.test.ts"
+        ],
+        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [
+          "tests/inventory-integration.sql"
+        ],
+        "state": "DÍLČÍ PŘEDCHOZÍ BĚH",
+        "reportedAt": "2026-10-11",
+        "reports": [
+          "docs/diriqo/functional-modules-release.md"
+        ],
+        "scope": "18 skupin SQL v jedné relaci, rollback syntetických dat; nikoli UI nebo skutečný souběh.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: SQL sada výslovně pokrývá 10 objednáno, 6 přijato, 4 zbývá a retry bez dalšího příjmu.",
+      "Předchozí doložené dílčí DB běhy 2026-10-11: 18 skupin SQL v jedné relaci, rollback syntetických dat; nikoli UI nebo skutečný souběh. Zdroj: docs/diriqo/functional-modules-release.md."
+    ],
+    "remaining": [
+      "Doložit přihlášené UI a souběh dvou příjmů proti téže zbývající položce."
+    ]
   },
   {
     "id": "M01-02",
     "scenario": "Přijde deset kusů za předběžných 100 Kč, tři se vydají na zakázku. Pozdější doklad upřesní cenu na 110 Kč. V řízeném scénáři bez jiných pohybů činí náklad zakázky 330 Kč a ocenění sedmi zbývajících kusů 770 Kč; faktura nezaloží další plný náklad.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "ČÁSTEČNĚ",
+    "title": "Přecenění FIFO",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "EXISTUJE ALESPOŇ ČÁST",
+      "detail": "SQL sada ověřuje 330 Kč náklad + 770 Kč sklad po změně ceny a jediné promítnutí do job_module_cost_totals.",
+      "files": [
+        "app/inventory/actions.ts",
+        "lib/inventory/data.ts",
+        "app/inventory/export/route.ts",
+        "supabase/migrations/20261011153923_functional_inventory.sql"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Úplný původní scénář není prokázaný; dílčí funkce nelze zaměnit za plnou akceptaci."
+    },
+    "security": {
+      "state": "DÍLČÍ DŮKAZ",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [
+          "tests/inventory-domain.test.ts",
+          "tests/inventory-data.test.ts"
+        ],
+        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [
+          "tests/inventory-integration.sql"
+        ],
+        "state": "DÍLČÍ PŘEDCHOZÍ BĚH",
+        "reportedAt": "2026-10-11",
+        "reports": [
+          "docs/diriqo/functional-modules-release.md"
+        ],
+        "scope": "18 skupin SQL v jedné relaci, rollback syntetických dat; nikoli UI nebo skutečný souběh.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: SQL sada ověřuje 330 Kč náklad + 770 Kč sklad po změně ceny a jediné promítnutí do job_module_cost_totals.",
+      "Předchozí doložené dílčí DB běhy 2026-10-11: 18 skupin SQL v jedné relaci, rollback syntetických dat; nikoli UI nebo skutečný souběh. Zdroj: docs/diriqo/functional-modules-release.md."
+    ],
+    "remaining": [
+      "Ověřit skutečný dodavatelský import/dopárování; současná ruční korekce ceny není celý fakturační import."
+    ]
   },
   {
     "id": "M01-03",
     "scenario": "Uživatel smí číst dostupnost, ale nesmí nákupní ceny. Nedostane je ani přes export či přímé API. Vypnutý sklad odmítne nový pohyb, zatímco oprávněný export historie funguje.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "ČÁSTEČNĚ",
+    "title": "Dostupnost bez nákupních cen",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "EXISTUJE ALESPOŇ ČÁST",
+      "detail": "Workspace a export mají samostatný licenční guard; sklad nyní cílí na manager/admin role.",
+      "files": [
+        "app/inventory/actions.ts",
+        "lib/inventory/data.ts",
+        "app/inventory/export/route.ts",
+        "supabase/migrations/20261011153923_functional_inventory.sql"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Úplný původní scénář není prokázaný; dílčí funkce nelze zaměnit za plnou akceptaci."
+    },
+    "security": {
+      "state": "DÍLČÍ DŮKAZ",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [
+          "tests/inventory-domain.test.ts",
+          "tests/inventory-data.test.ts"
+        ],
+        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [
+          "tests/inventory-integration.sql"
+        ],
+        "state": "DÍLČÍ PŘEDCHOZÍ BĚH",
+        "reportedAt": "2026-10-11",
+        "reports": [
+          "docs/diriqo/functional-modules-release.md"
+        ],
+        "scope": "18 skupin SQL v jedné relaci, rollback syntetických dat; nikoli UI nebo skutečný souběh.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Workspace a export mají samostatný licenční guard; sklad nyní cílí na manager/admin role.",
+      "Předchozí doložené dílčí DB běhy 2026-10-11: 18 skupin SQL v jedné relaci, rollback syntetických dat; nikoli UI nebo skutečný souběh. Zdroj: docs/diriqo/functional-modules-release.md."
+    ],
+    "remaining": [
+      "Doplnit/prokázat samostatné oprávnění dostupnosti bez ocenění a všechny RPC/export/retence cesty."
+    ]
   },
   {
     "id": "M02-01",
     "scenario": "Dvakrát dorazí požadavek na vydání stejného konceptu. Vznikne jedna faktura s jedním číslem a jedním záznamem o vydání; obě odpovědi odkazují na tentýž dokument.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "ČÁSTEČNĚ",
+    "title": "Opakované vystavení",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "EXISTUJE ALESPOŇ ČÁST",
+      "detail": "issue_invoice_atomic a skutečné SQL opakování jsou doložené. Dřívější dvourelační pokus se časově nepřekryl.",
+      "files": [
+        "lib/dal/invoices.ts",
+        "lib/dal/invoice-drafts.ts",
+        "app/invoices/actions.ts",
+        "app/api/invoices/[invoiceId]/pdf/route.ts"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Úplný původní scénář není prokázaný; dílčí funkce nelze zaměnit za plnou akceptaci."
+    },
+    "security": {
+      "state": "DÍLČÍ DŮKAZ",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [
+          "tests/invoice-drafts.test.ts",
+          "tests/invoice-issue.test.ts"
+        ],
+        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [
+          "supabase/tests/invoice-draft-transactions.sql",
+          "supabase/tests/invoice-issue-authority.sql"
+        ],
+        "state": "DÍLČÍ PŘEDCHOZÍ BĚH",
+        "reportedAt": "2026-10-10",
+        "reports": [
+          "docs/diriqo/acceptance-report.md"
+        ],
+        "scope": "Atomická tvorba/vystavení/mazání, nikoli celá editace, úhrady a účetní lifecycle.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: issue_invoice_atomic a skutečné SQL opakování jsou doložené. Dřívější dvourelační pokus se časově nepřekryl.",
+      "Předchozí doložené dílčí DB běhy 2026-10-10: Atomická tvorba/vystavení/mazání, nikoli celá editace, úhrady a účetní lifecycle. Zdroj: docs/diriqo/acceptance-report.md."
+    ],
+    "remaining": [
+      "Doložit skutečně současné vydání přes dvě spojení a stejné číslo v obou odpovědích."
+    ]
   },
   {
     "id": "M02-02",
     "scenario": "Zakázka má konečnou cenu 10 000 Kč a přijatou zálohu 3 000 Kč. Konečné vyúčtování ukáže již uhrazených 3 000 Kč a zbývajících 7 000 Kč. Přehled nezobrazí 13 000 Kč prodeje ani další příjem původní zálohy.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "CHYBÍ",
+    "title": "Zálohová a konečná faktura",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "CHYBÍ ČÁST POŽADOVANÉHO TOKU",
+      "detail": "Běžný koncept/vystavení existuje; požadované zálohové vyúčtování a propojený platební ledger nejsou dokončené.",
+      "files": [
+        "lib/dal/invoices.ts",
+        "lib/dal/invoice-drafts.ts",
+        "app/invoices/actions.ts",
+        "app/api/invoices/[invoiceId]/pdf/route.ts"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Kontrolované aplikační a datové cesty nemají uvedenou schopnost."
+    },
+    "security": {
+      "state": "DÍLČÍ DŮKAZ",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [
+          "tests/invoice-drafts.test.ts",
+          "tests/invoice-issue.test.ts"
+        ],
+        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [
+          "supabase/tests/invoice-draft-transactions.sql",
+          "supabase/tests/invoice-issue-authority.sql"
+        ],
+        "state": "DÍLČÍ PŘEDCHOZÍ BĚH",
+        "reportedAt": "2026-10-10",
+        "reports": [
+          "docs/diriqo/acceptance-report.md"
+        ],
+        "scope": "Atomická tvorba/vystavení/mazání, nikoli celá editace, úhrady a účetní lifecycle.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Běžný koncept/vystavení existuje; požadované zálohové vyúčtování a propojený platební ledger nejsou dokončené.",
+      "Předchozí doložené dílčí DB běhy 2026-10-10: Atomická tvorba/vystavení/mazání, nikoli celá editace, úhrady a účetní lifecycle. Zdroj: docs/diriqo/acceptance-report.md."
+    ],
+    "remaining": [
+      "Implementovat 10 000 / 3 000 / 7 000 Kč včetně daňových dokladů a souhrnů bez druhého příjmu."
+    ]
   },
   {
     "id": "M02-03",
     "scenario": "Faktura navazuje na zaplacený prodej z DiriPOS. Stav úhrady odpovídá původní platbě a počet prodejů i skladových výdejů zůstane stejný. Uživatel bez práva vydávat doklady neobejde omezení přímým API.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "CHYBÍ",
+    "title": "Faktura z POS",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "CHYBÍ ČÁST POŽADOVANÉHO TOKU",
+      "detail": "Online POS a faktury existují samostatně; kanonická vazba paid sale → invoice v kontrolovaných cestách chybí.",
+      "files": [
+        "lib/dal/invoices.ts",
+        "lib/dal/invoice-drafts.ts",
+        "app/invoices/actions.ts",
+        "app/api/invoices/[invoiceId]/pdf/route.ts"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Kontrolované aplikační a datové cesty nemají uvedenou schopnost."
+    },
+    "security": {
+      "state": "DÍLČÍ DŮKAZ",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [
+          "tests/invoice-drafts.test.ts",
+          "tests/invoice-issue.test.ts"
+        ],
+        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [
+          "supabase/tests/invoice-draft-transactions.sql",
+          "supabase/tests/invoice-issue-authority.sql"
+        ],
+        "state": "DÍLČÍ PŘEDCHOZÍ BĚH",
+        "reportedAt": "2026-10-10",
+        "reports": [
+          "docs/diriqo/acceptance-report.md"
+        ],
+        "scope": "Atomická tvorba/vystavení/mazání, nikoli celá editace, úhrady a účetní lifecycle.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Online POS a faktury existují samostatně; kanonická vazba paid sale → invoice v kontrolovaných cestách chybí.",
+      "Předchozí doložené dílčí DB běhy 2026-10-10: Atomická tvorba/vystavení/mazání, nikoli celá editace, úhrady a účetní lifecycle. Zdroj: docs/diriqo/acceptance-report.md."
+    ],
+    "remaining": [
+      "Doplnit referenci původní platby, vydání podle role a ochranu opakovaného finančního/skladového účinku."
+    ]
   },
   {
     "id": "M03-01",
     "scenario": "Zákazník přijme verzi 2; verze 1 již byla nahrazena. Přijetí verze 1 je odmítnuto s vysvětlením. Dvojí callback přijetí verze 2 založí jen jednu následnou objednávku či zakázku.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "ČÁSTEČNĚ",
+    "title": "Přijetí přesné verze",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "EXISTUJE ALESPOŇ ČÁST",
+      "detail": "SQL test pokrývá odmítnutí verze 1, idempotentní přijetí verze 2 a jednorázovou konverzi administrátorem.",
+      "files": [
+        "app/smart-quotes/actions.ts",
+        "lib/smart-quotes/server.ts",
+        "app/quote/[token]/actions.ts",
+        "app/smart-quotes/[id]/export/route.ts"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Úplný původní scénář není prokázaný; dílčí funkce nelze zaměnit za plnou akceptaci."
+    },
+    "security": {
+      "state": "DÍLČÍ DŮKAZ",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [
+          "tests/smart-quotes-domain.test.ts",
+          "tests/smart-quotes-actions.test.ts",
+          "tests/smart-quotes-export.test.ts"
+        ],
+        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [
+          "tests/smart-quotes-integration.sql"
+        ],
+        "state": "DÍLČÍ PŘEDCHOZÍ BĚH",
+        "reportedAt": "2026-10-11",
+        "reports": [
+          "docs/diriqo/functional-modules-release.md"
+        ],
+        "scope": "21 skupin SQL v jedné relaci včetně snapshotu, přijetí a konverze; nikoli celý zákaznický UI tok.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: SQL test pokrývá odmítnutí verze 1, idempotentní přijetí verze 2 a jednorázovou konverzi administrátorem.",
+      "Předchozí doložené dílčí DB běhy 2026-10-11: 21 skupin SQL v jedné relaci včetně snapshotu, přijetí a konverze; nikoli celý zákaznický UI tok. Zdroj: docs/diriqo/functional-modules-release.md."
+    ],
+    "remaining": [
+      "Skutečný zákaznický proklik a dvě současná potvrzení; automatický callback nesmí obcházet potvrzení správce."
+    ]
   },
   {
     "id": "M03-02",
     "scenario": "Chytré nabídky jsou zapnuté, konverzační AI vypnuté. Ruční nabídka funguje a oprávněný OCR požadavek proběhne podle dostupného rozpočtu. Bez kreditu zůstává ruční práce dostupná.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "ČÁSTEČNĚ",
+    "title": "Nabídka a OCR bez chatu",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "EXISTUJE ALESPOŇ ČÁST",
+      "detail": "Ruční smart quote nepotřebuje AI grant; OCR používá doménovou schopnost a samostatný kredit.",
+      "files": [
+        "app/smart-quotes/actions.ts",
+        "lib/smart-quotes/server.ts",
+        "app/quote/[token]/actions.ts",
+        "app/smart-quotes/[id]/export/route.ts"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Úplný původní scénář není prokázaný; dílčí funkce nelze zaměnit za plnou akceptaci."
+    },
+    "security": {
+      "state": "DÍLČÍ DŮKAZ",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [
+          "tests/smart-quotes-domain.test.ts",
+          "tests/smart-quotes-actions.test.ts",
+          "tests/smart-quotes-export.test.ts"
+        ],
+        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [
+          "tests/smart-quotes-integration.sql"
+        ],
+        "state": "DÍLČÍ PŘEDCHOZÍ BĚH",
+        "reportedAt": "2026-10-11",
+        "reports": [
+          "docs/diriqo/functional-modules-release.md"
+        ],
+        "scope": "21 skupin SQL v jedné relaci včetně snapshotu, přijetí a konverze; nikoli celý zákaznický UI tok.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Ruční smart quote nepotřebuje AI grant; OCR používá doménovou schopnost a samostatný kredit.",
+      "Předchozí doložené dílčí DB běhy 2026-10-11: 21 skupin SQL v jedné relaci včetně snapshotu, přijetí a konverze; nikoli celý zákaznický UI tok. Zdroj: docs/diriqo/functional-modules-release.md."
+    ],
+    "remaining": [
+      "Propojit důkazy UI pro AI vypnuto / kredit dostupný / kredit nulový, ruční práce stále dostupná."
+    ]
   },
   {
     "id": "M03-03",
     "scenario": "Nabídka plánuje materiál za 5 000 Kč a rezervuje jej. Skutečný náklad zakázky je zatím nulový. Vznikne až potvrzeným výdejem; zákaznický export nikdy neobsahuje interní marži.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "ČÁSTEČNĚ",
+    "title": "Rezervace není náklad",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "EXISTUJE ALESPOŇ ČÁST",
+      "detail": "Sklad rezervuje a skutečné náklady bere z výdejů; smart quote veřejná projekce skrývá náklady.",
+      "files": [
+        "app/inventory/actions.ts",
+        "lib/inventory/data.ts",
+        "app/inventory/export/route.ts",
+        "supabase/migrations/20261011153923_functional_inventory.sql"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Úplný původní scénář není prokázaný; dílčí funkce nelze zaměnit za plnou akceptaci."
+    },
+    "security": {
+      "state": "DÍLČÍ DŮKAZ",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [
+          "tests/inventory-domain.test.ts",
+          "tests/inventory-data.test.ts"
+        ],
+        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [
+          "tests/inventory-integration.sql"
+        ],
+        "state": "DÍLČÍ PŘEDCHOZÍ BĚH",
+        "reportedAt": "2026-10-11",
+        "reports": [
+          "docs/diriqo/functional-modules-release.md"
+        ],
+        "scope": "18 skupin SQL v jedné relaci, rollback syntetických dat; nikoli UI nebo skutečný souběh.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Sklad rezervuje a skutečné náklady bere z výdejů; smart quote veřejná projekce skrývá náklady.",
+      "Předchozí doložené dílčí DB běhy 2026-10-11: 18 skupin SQL v jedné relaci, rollback syntetických dat; nikoli UI nebo skutečný souběh. Zdroj: docs/diriqo/functional-modules-release.md."
+    ],
+    "remaining": [
+      "Doložit nabídku 5 000 Kč → rezervaci → nulovou skutečnost → výdej a zákaznický export v jednom toku."
+    ]
   },
   {
     "id": "M04-01",
     "scenario": "Firma má pět aktivních vozidel a dvě archivovaná. Cena modulu je 199 Kč. Přidání šestého aktivního vozidla aktivuje jednu položku za 29 Kč podle schváleného pravidla účtovacího období.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "ČÁSTEČNĚ",
+    "title": "Kapacita a cena vozidel",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "EXISTUJE ALESPOŇ ČÁST",
+      "detail": "SQL limit počítá aktivní/servisní vozidla a odmítá šesté; automatický placený doplněk 29 Kč není zavedený.",
+      "files": [
+        "lib/fleet/domain.ts",
+        "lib/fleet/server.ts",
+        "app/fleet/actions.ts",
+        "app/fleet/documents/[documentId]/route.ts"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Úplný původní scénář není prokázaný; dílčí funkce nelze zaměnit za plnou akceptaci."
+    },
+    "security": {
+      "state": "DÍLČÍ DŮKAZ",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [
+          "tests/fleet-domain.test.ts",
+          "tests/fleet-actions.test.ts",
+          "tests/fleet-export.test.ts"
+        ],
+        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [
+          "tests/fleet-integration.sql"
+        ],
+        "state": "DÍLČÍ PŘEDCHOZÍ BĚH",
+        "reportedAt": "2026-10-11",
+        "reports": [
+          "docs/diriqo/functional-modules-release.md"
+        ],
+        "scope": "18 SQL kontrol vozidel/jízd/nákladů/rolí, nikoli celé UI, import dodavatelských faktur nebo účtování kapacit.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: SQL limit počítá aktivní/servisní vozidla a odmítá šesté; automatický placený doplněk 29 Kč není zavedený.",
+      "Předchozí doložené dílčí DB běhy 2026-10-11: 18 SQL kontrol vozidel/jízd/nákladů/rolí, nikoli celé UI, import dodavatelských faktur nebo účtování kapacit. Zdroj: docs/diriqo/functional-modules-release.md."
+    ],
+    "remaining": [
+      "Schválit období/proraci a realizovat sandbox nákup další kapacity; návrhovou cenu nevydávat za účtovanou."
+    ]
   },
   {
     "id": "M04-02",
     "scenario": "Zakázce se připíše sto kilometrů po 10 Kč včetně paliva. Následné tankování nezvýší stejný zakázkový náklad o celé palivo; přehled jasně ukáže použitou metodiku.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "ČÁSTEČNĚ",
+    "title": "Palivo pouze jednou",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "EXISTUJE ALESPOŇ ČÁST",
+      "detail": "SQL ověřuje 100 km × 10 Kč a zákaz druhé alokace PHM při metodě včetně paliva.",
+      "files": [
+        "lib/fleet/domain.ts",
+        "lib/fleet/server.ts",
+        "app/fleet/actions.ts",
+        "app/fleet/documents/[documentId]/route.ts"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Úplný původní scénář není prokázaný; dílčí funkce nelze zaměnit za plnou akceptaci."
+    },
+    "security": {
+      "state": "DÍLČÍ DŮKAZ",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [
+          "tests/fleet-domain.test.ts",
+          "tests/fleet-actions.test.ts",
+          "tests/fleet-export.test.ts"
+        ],
+        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [
+          "tests/fleet-integration.sql"
+        ],
+        "state": "DÍLČÍ PŘEDCHOZÍ BĚH",
+        "reportedAt": "2026-10-11",
+        "reports": [
+          "docs/diriqo/functional-modules-release.md"
+        ],
+        "scope": "18 SQL kontrol vozidel/jízd/nákladů/rolí, nikoli celé UI, import dodavatelských faktur nebo účtování kapacit.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: SQL ověřuje 100 km × 10 Kč a zákaz druhé alokace PHM při metodě včetně paliva.",
+      "Předchozí doložené dílčí DB běhy 2026-10-11: 18 SQL kontrol vozidel/jízd/nákladů/rolí, nikoli celé UI, import dodavatelských faktur nebo účtování kapacit. Zdroj: docs/diriqo/functional-modules-release.md."
+    ],
+    "remaining": [
+      "Doložit celý UI průchod a správné vysvětlení metodiky v přehledu zakázky."
+    ]
   },
   {
     "id": "M04-03",
     "scenario": "Jeden servisní náklad 2 000 Kč se rozdělí mezi dvě zakázky po 1 000 Kč. Import související faktury ani jeho opakování nevytvoří dalších 2 000 Kč nákladů. Řidič bez schvalovacího oprávnění rozdělení nezmění.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "ČÁSTEČNĚ",
+    "title": "Alokace servisních nákladů",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "EXISTUJE ALESPOŇ ČÁST",
+      "detail": "Náklady, rozdělení, role a duplicita receipt_ref existují; kompletní dodavatelská faktura není integrovaná.",
+      "files": [
+        "lib/fleet/domain.ts",
+        "lib/fleet/server.ts",
+        "app/fleet/actions.ts",
+        "app/fleet/documents/[documentId]/route.ts"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Úplný původní scénář není prokázaný; dílčí funkce nelze zaměnit za plnou akceptaci."
+    },
+    "security": {
+      "state": "DÍLČÍ DŮKAZ",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [
+          "tests/fleet-domain.test.ts",
+          "tests/fleet-actions.test.ts",
+          "tests/fleet-export.test.ts"
+        ],
+        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [
+          "tests/fleet-integration.sql"
+        ],
+        "state": "DÍLČÍ PŘEDCHOZÍ BĚH",
+        "reportedAt": "2026-10-11",
+        "reports": [
+          "docs/diriqo/functional-modules-release.md"
+        ],
+        "scope": "18 SQL kontrol vozidel/jízd/nákladů/rolí, nikoli celé UI, import dodavatelských faktur nebo účtování kapacit.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Náklady, rozdělení, role a duplicita receipt_ref existují; kompletní dodavatelská faktura není integrovaná.",
+      "Předchozí doložené dílčí DB běhy 2026-10-11: 18 SQL kontrol vozidel/jízd/nákladů/rolí, nikoli celé UI, import dodavatelských faktur nebo účtování kapacit. Zdroj: docs/diriqo/functional-modules-release.md."
+    ],
+    "remaining": [
+      "Ověřit 2 000 → 1 000 + 1 000, retry importu a pokus řidiče přes server."
+    ]
   },
   {
     "id": "M05-01",
     "scenario": "Firma koupí pouze DiriPOS, vytvoří katalog a provede prodej. Rozhraní ani API po ní nevyžaduje placené jádro. Pozdější přikoupení jádra zpřístupní vazby nad stejnými zákazníky a prodeji.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "ČÁSTEČNĚ",
+    "title": "Samostatný POS",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "EXISTUJE ALESPOŇ ČÁST",
+      "detail": "SQL sada pro POS-only grant prokazuje katalog/prodej bez Core; společná platforma a katalog existují.",
+      "files": [
+        "lib/pos/server.ts",
+        "lib/pos/domain.ts",
+        "app/pos/api/route.ts",
+        "app/pos/PosClient.tsx"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Úplný původní scénář není prokázaný; dílčí funkce nelze zaměnit za plnou akceptaci."
+    },
+    "security": {
+      "state": "DÍLČÍ DŮKAZ",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [
+          "tests/pos-domain.test.ts",
+          "tests/pos-api.test.ts"
+        ],
+        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [
+          "tests/pos-integration.sql",
+          "tests/pos-stock-integration.sql"
+        ],
+        "state": "DÍLČÍ PŘEDCHOZÍ BĚH",
+        "reportedAt": "2026-10-11",
+        "reports": [
+          "docs/diriqo/functional-modules-release.md"
+        ],
+        "scope": "Jednorelační SQL pro online prodej, role, retry, částečné vratky a FIFO; bez terminálu/offline.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: SQL sada pro POS-only grant prokazuje katalog/prodej bez Core; společná platforma a katalog existují.",
+      "Předchozí doložené dílčí DB běhy 2026-10-11: Jednorelační SQL pro online prodej, role, retry, částečné vratky a FIFO; bez terminálu/offline. Zdroj: docs/diriqo/functional-modules-release.md."
+    ],
+    "remaining": [
+      "Skutečný sandbox nákup POS a pozdější Core aktivace ve stejném tenantu v UI."
+    ]
   },
   {
     "id": "M05-02",
     "scenario": "Offline hotovostní prodej přežije restart a synchronizuje se třikrát. Na serveru vznikne jeden prodej, jedna platba a při zapnutém skladu jeden výdej. Ztracené potvrzení synchronizace nezpůsobí další operaci.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "CHYBÍ",
+    "title": "Offline prodej a synchronizace",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "CHYBÍ ČÁST POŽADOVANÉHO TOKU",
+      "detail": "Aktuální POS je online; nativní/offline outbox se v tomto repozitáři neimplementuje jako hotová funkce.",
+      "files": [
+        "lib/pos/server.ts",
+        "lib/pos/domain.ts",
+        "app/pos/api/route.ts",
+        "app/pos/PosClient.tsx"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Kontrolované aplikační a datové cesty nemají uvedenou schopnost."
+    },
+    "security": {
+      "state": "DÍLČÍ DŮKAZ",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [
+          "tests/pos-domain.test.ts",
+          "tests/pos-api.test.ts"
+        ],
+        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [
+          "tests/pos-integration.sql",
+          "tests/pos-stock-integration.sql"
+        ],
+        "state": "DÍLČÍ PŘEDCHOZÍ BĚH",
+        "reportedAt": "2026-10-11",
+        "reports": [
+          "docs/diriqo/functional-modules-release.md"
+        ],
+        "scope": "Jednorelační SQL pro online prodej, role, retry, částečné vratky a FIFO; bez terminálu/offline.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Aktuální POS je online; nativní/offline outbox se v tomto repozitáři neimplementuje jako hotová funkce.",
+      "Předchozí doložené dílčí DB běhy 2026-10-11: Jednorelační SQL pro online prodej, role, retry, částečné vratky a FIFO; bez terminálu/offline. Zdroj: docs/diriqo/functional-modules-release.md."
+    ],
+    "remaining": [
+      "Doplnit trvalý lokální prodej, offline oprávnění, restart a přesně jednou idempotentní sync."
+    ]
   },
   {
     "id": "M05-03",
     "scenario": "Terminál potvrdí platbu, ale pokladně vyprší spojení. Obnova dohledá původní transakci bez dalšího stržení. Následná faktura ani opakovaná vratka nevytvoří duplicitní inkaso, výdej či vrácení peněz.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "CHYBÍ",
+    "title": "Neznámý výsledek terminálu",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "CHYBÍ ČÁST POŽADOVANÉHO TOKU",
+      "detail": "Platební metoda external je ruční záznam, nikoli integrace terminálu s dohledáním transakce.",
+      "files": [
+        "lib/pos/server.ts",
+        "lib/pos/domain.ts",
+        "app/pos/api/route.ts",
+        "app/pos/PosClient.tsx"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Kontrolované aplikační a datové cesty nemají uvedenou schopnost."
+    },
+    "security": {
+      "state": "DÍLČÍ DŮKAZ",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [
+          "tests/pos-domain.test.ts",
+          "tests/pos-api.test.ts"
+        ],
+        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [
+          "tests/pos-integration.sql",
+          "tests/pos-stock-integration.sql"
+        ],
+        "state": "DÍLČÍ PŘEDCHOZÍ BĚH",
+        "reportedAt": "2026-10-11",
+        "reports": [
+          "docs/diriqo/functional-modules-release.md"
+        ],
+        "scope": "Jednorelační SQL pro online prodej, role, retry, částečné vratky a FIFO; bez terminálu/offline.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Platební metoda external je ruční záznam, nikoli integrace terminálu s dohledáním transakce.",
+      "Předchozí doložené dílčí DB běhy 2026-10-11: Jednorelační SQL pro online prodej, role, retry, částečné vratky a FIFO; bez terminálu/offline. Zdroj: docs/diriqo/functional-modules-release.md."
+    ],
+    "remaining": [
+      "Vybrat konkrétní terminál/API; platební reconciliation, refund a hardware pilot před tvrzením podpory."
+    ]
   },
   {
     "id": "M06-01",
     "scenario": "Pracovník požádá o mzdy kolegů a podklad obsahuje instrukci obejít omezení. Server odmítne nepovolené načtení; informace neunikne ani citací, náhledem přílohy nebo výsledkem hledání.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "ČÁSTEČNĚ",
+    "title": "AI a zakázaná mzda",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "EXISTUJE ALESPOŇ ČÁST",
+      "detail": "Server sestavuje omezený kontext; worker SQL test nevrací firemní adresář/nepřiřazené zakázky. Mzdový nástroj není implementován.",
+      "files": [
+        "lib/diriqent/domain.ts",
+        "lib/diriqent/server.ts",
+        "lib/diriqent/provider.ts",
+        "app/diriqent/ocr/OcrClient.tsx"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Úplný původní scénář není prokázaný; dílčí funkce nelze zaměnit za plnou akceptaci."
+    },
+    "security": {
+      "state": "DÍLČÍ DŮKAZ",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [
+          "tests/diriqent-domain.test.ts",
+          "tests/diriqent-provider.test.ts"
+        ],
+        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [
+          "tests/diriqent-integration.sql"
+        ],
+        "state": "DÍLČÍ PŘEDCHOZÍ BĚH",
+        "reportedAt": "2026-10-11",
+        "reports": [
+          "docs/diriqo/functional-modules-release.md"
+        ],
+        "scope": "36 SQL kontrol rezervace, vyúčtování, návrhu zakázky a rolí; provider synteticky zavolán, nikoli plný agentní E2E.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Server sestavuje omezený kontext; worker SQL test nevrací firemní adresář/nepřiřazené zakázky. Mzdový nástroj není implementován.",
+      "Předchozí doložené dílčí DB běhy 2026-10-11: 36 SQL kontrol rezervace, vyúčtování, návrhu zakázky a rolí; provider synteticky zavolán, nikoli plný agentní E2E. Zdroj: docs/diriqo/functional-modules-release.md."
+    ],
+    "remaining": [
+      "Adversariální dokument a skutečný provider E2E; ověřit všechny budoucí retrieval/citace/přílohy."
+    ]
   },
   {
     "id": "M06-02",
     "scenario": "Jedna operace stojí podle uloženého ceníku 15 Kč prodejního kreditu. Tři retry vytvoří jednu rezervaci a jeden konečný odečet 15 Kč. Pokud asistent připravuje zakázku, stejné schválení nezaloží několik zakázek.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "ČÁSTEČNĚ",
+    "title": "AI rezervace a retry",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "EXISTUJE ALESPOŇ ČÁST",
+      "detail": "SQL pokrývá rezervaci, finální odečet a jediné potvrzení návrhu zakázky; ukládá tarif i provider cost odděleně.",
+      "files": [
+        "lib/diriqent/domain.ts",
+        "lib/diriqent/server.ts",
+        "lib/diriqent/provider.ts",
+        "app/diriqent/ocr/OcrClient.tsx"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Úplný původní scénář není prokázaný; dílčí funkce nelze zaměnit za plnou akceptaci."
+    },
+    "security": {
+      "state": "DÍLČÍ DŮKAZ",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [
+          "tests/diriqent-domain.test.ts",
+          "tests/diriqent-provider.test.ts"
+        ],
+        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [
+          "tests/diriqent-integration.sql"
+        ],
+        "state": "DÍLČÍ PŘEDCHOZÍ BĚH",
+        "reportedAt": "2026-10-11",
+        "reports": [
+          "docs/diriqo/functional-modules-release.md"
+        ],
+        "scope": "36 SQL kontrol rezervace, vyúčtování, návrhu zakázky a rolí; provider synteticky zavolán, nikoli plný agentní E2E.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: SQL pokrývá rezervaci, finální odečet a jediné potvrzení návrhu zakázky; ukládá tarif i provider cost odděleně.",
+      "Předchozí doložené dílčí DB běhy 2026-10-11: 36 SQL kontrol rezervace, vyúčtování, návrhu zakázky a rolí; provider synteticky zavolán, nikoli plný agentní E2E. Zdroj: docs/diriqo/functional-modules-release.md."
+    ],
+    "remaining": [
+      "Přesná fixture 15 Kč, ztráta odpovědi po provideru a dva současné požadavky."
+    ]
   },
   {
     "id": "M06-03",
     "scenario": "Firma vypne Diriqenta, ale ponechá Chytré nabídky. Nový firemní chat není dostupný, autorizované OCR nabídky se svým rozpočtem funguje a historické rozhovory zůstávají dostupné pouze aktuálně oprávněným osobám.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "ČÁSTEČNĚ",
+    "title": "AI vypnuto, OCR zachováno",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "EXISTUJE ALESPOŇ ČÁST",
+      "detail": "SQL ověřuje historii bez nového chatu, OCR bez chat entitlementu a oddělené exportní právo.",
+      "files": [
+        "lib/diriqent/domain.ts",
+        "lib/diriqent/server.ts",
+        "lib/diriqent/provider.ts",
+        "app/diriqent/ocr/OcrClient.tsx"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Úplný původní scénář není prokázaný; dílčí funkce nelze zaměnit za plnou akceptaci."
+    },
+    "security": {
+      "state": "DÍLČÍ DŮKAZ",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [
+          "tests/diriqent-domain.test.ts",
+          "tests/diriqent-provider.test.ts"
+        ],
+        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [
+          "tests/diriqent-integration.sql"
+        ],
+        "state": "DÍLČÍ PŘEDCHOZÍ BĚH",
+        "reportedAt": "2026-10-11",
+        "reports": [
+          "docs/diriqo/functional-modules-release.md"
+        ],
+        "scope": "36 SQL kontrol rezervace, vyúčtování, návrhu zakázky a rolí; provider synteticky zavolán, nikoli plný agentní E2E.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: SQL ověřuje historii bez nového chatu, OCR bez chat entitlementu a oddělené exportní právo.",
+      "Předchozí doložené dílčí DB běhy 2026-10-11: 36 SQL kontrol rezervace, vyúčtování, návrhu zakázky a rolí; provider synteticky zavolán, nikoli plný agentní E2E. Zdroj: docs/diriqo/functional-modules-release.md."
+    ],
+    "remaining": [
+      "Ověřit přihlášené UI, časovou expiraci a odvolání oprávnění při otevřeném rozhovoru."
+    ]
   },
   {
     "id": "P01",
     "scenario": "Cizí záznam přes přímý požadavek. Uživatel A dosadí ID zakázky, zákazníka či zaměstnance B do čtení, změny a hromadného endpointu. Nedostane data ani nezpůsobí změnu. Důkaz: požadavky, odpovědi a porovnání relevantních dat B.",
-    "status": "DÍLČÍ DŮKAZ",
+    "status": "ČÁSTEČNĚ",
+    "title": "Úplná matice tenantů",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "EXISTUJE ALESPOŇ ČÁST",
+      "detail": "Dílčí skutečné A/B testy existují pro platformu a nové moduly; celá aplikace tím není pokryta.",
+      "files": [
+        "lib/server-guards.ts",
+        "lib/active-company.ts",
+        "lib/module-access.ts",
+        "lib/platform/module-operation-access.ts",
+        "proxy.ts"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Úplný původní scénář není prokázaný; dílčí funkce nelze zaměnit za plnou akceptaci."
+    },
+    "security": {
+      "state": "DÍLČÍ DŮKAZ",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [
+          "tests/auth-guards.test.ts",
+          "tests/active-company-switch.test.ts",
+          "tests/module-operation-access.test.ts",
+          "tests/platform-admin.test.ts"
+        ],
+        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [
+          "supabase/tests/platform-authority.sql",
+          "supabase/tests/module-capability-authority.sql"
+        ],
+        "state": "DÍLČÍ PŘEDCHOZÍ BĚH",
+        "reportedAt": "2026-10-10",
+        "reports": [
+          "docs/diriqo/acceptance-report.md"
+        ],
+        "scope": "Dílčí reálné A/B SQL a platformní autorita; nepokrývá všechny doménové endpointy.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
     "evidence": [
-      "supabase/tests/platform-authority.sql: 31 asercí PASS pod skutečnými rolemi; dílčí platformní hranice a ochrana identit.",
-      "supabase/tests/module-payment-authority.sql: 59 asercí PASS včetně čtení placených grantů firem A/B, omezení zápisů a odvolání členství.",
-      "Lokální guard/proxy a placený loader ověřují aktuální identitu a firmu; celý průchod aplikací neproběhl.",
-      "supabase/tests/module-checkout-sessions.sql: 73 asercí PASS; rezervace znovu kontroluje aktuálního správce firmy. Checkout route přijímá pouze ID nabídky a kontroluje změnu firemního kontextu."
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Dílčí skutečné A/B testy existují pro platformu a nové moduly; celá aplikace tím není pokryta.",
+      "Předchozí doložené dílčí DB běhy 2026-10-10: Dílčí reálné A/B SQL a platformní autorita; nepokrývá všechny doménové endpointy. Zdroj: docs/diriqo/acceptance-report.md."
     ],
     "remaining": [
-      "Úplná matice přímého čtení, změn a hromadných endpointů pro cizí zakázky, zákazníky a pracovníky firmy B; přihlášený proklik."
-    ]
+      "Projít každé API, action, RPC, Storage a hromadné operace se syntetickými rolemi A/B; převzít výsledky bezpečnostního auditu."
+    ],
+    "previousEvidence": {
+      "date": "2026-10-10",
+      "status": "DÍLČÍ DŮKAZ",
+      "evidence": [
+        "supabase/tests/platform-authority.sql: 31 asercí PASS pod skutečnými rolemi; dílčí platformní hranice a ochrana identit.",
+        "supabase/tests/module-payment-authority.sql: 59 asercí PASS včetně čtení placených grantů firem A/B, omezení zápisů a odvolání členství.",
+        "Lokální guard/proxy a placený loader ověřují aktuální identitu a firmu; celý průchod aplikací neproběhl.",
+        "supabase/tests/module-checkout-sessions.sql: 73 asercí PASS; rezervace znovu kontroluje aktuálního správce firmy. Checkout route přijímá pouze ID nabídky a kontroluje změnu firemního kontextu."
+      ]
+    }
   },
   {
     "id": "P02",
     "scenario": "Osoba ve dvou firmách. Stejná identita má různá členství a pracovní vztahy v A a B. Docházka, zálohy a role zůstávají oddělené; odebrání členství A neodstraní B. Důkaz: relační záznamy a ověřené akce obou kontextů.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "ČÁSTEČNĚ",
+    "title": "Více pracovních vztahů",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "EXISTUJE ALESPOŇ ČÁST",
+      "detail": "Členství je firemní; aktivní kontext se obnovuje podle membership. Některé sazby/profilové údaje zůstávají na profiles.",
+      "files": [
+        "lib/active-company.ts",
+        "lib/invites/worker-invites.ts",
+        "app/workers/new/page.tsx",
+        "lib/payroll-settings.ts"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Úplný původní scénář není prokázaný; dílčí funkce nelze zaměnit za plnou akceptaci."
+    },
+    "security": {
+      "state": "DÍLČÍ DŮKAZ",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [
+          "tests/worker-invites.test.ts",
+          "tests/auth-guards.test.ts",
+          "tests/mobile-access.test.ts"
+        ],
+        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [
+          "supabase/tests/platform-authority.sql"
+        ],
+        "state": "DÍLČÍ PŘEDCHOZÍ BĚH",
+        "reportedAt": "2026-10-10",
+        "reports": [
+          "docs/diriqo/acceptance-report.md"
+        ],
+        "scope": "Dílčí identity, onboarding a platformní role; nikoli celý pracovní vztah.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Členství je firemní; aktivní kontext se obnovuje podle membership. Některé sazby/profilové údaje zůstávají na profiles.",
+      "Předchozí doložené dílčí DB běhy 2026-10-10: Dílčí identity, onboarding a platformní role; nikoli celý pracovní vztah. Zdroj: docs/diriqo/acceptance-report.md."
+    ],
+    "remaining": [
+      "Ověřit pracovní vztahy a finance stejné osoby v A/B a odebrání pouze jednoho členství."
+    ]
   },
   {
     "id": "P03",
     "scenario": "Vypnutý modul všemi cestami. Firma, která nikdy nezískala oprávnění ke skladu, zkouší URL, API, RPC, export, import a AI nástroj skladu. Nepovolená data se nevydají a nové placené operace jsou odmítnuté před změnou. Samostatně se ověří firma s ukončeným skladem, která má po dobu retence právo číst a exportovat svou historii. Důkaz: matice cest a výsledků; základní katalog POS dál funguje.",
-    "status": "DÍLČÍ DŮKAZ",
+    "status": "ČÁSTEČNĚ",
+    "title": "Licence všemi vstupy",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "EXISTUJE ALESPOŇ ČÁST",
+      "detail": "Nové moduly používají DB workspace/capability autoritu; čtení a export jsou oddělené.",
+      "files": [
+        "lib/server-guards.ts",
+        "lib/active-company.ts",
+        "lib/module-access.ts",
+        "lib/platform/module-operation-access.ts",
+        "proxy.ts"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Úplný původní scénář není prokázaný; dílčí funkce nelze zaměnit za plnou akceptaci."
+    },
+    "security": {
+      "state": "DÍLČÍ DŮKAZ",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [
+          "tests/auth-guards.test.ts",
+          "tests/active-company-switch.test.ts",
+          "tests/module-operation-access.test.ts",
+          "tests/platform-admin.test.ts"
+        ],
+        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [
+          "supabase/tests/platform-authority.sql",
+          "supabase/tests/module-capability-authority.sql"
+        ],
+        "state": "DÍLČÍ PŘEDCHOZÍ BĚH",
+        "reportedAt": "2026-10-10",
+        "reports": [
+          "docs/diriqo/acceptance-report.md"
+        ],
+        "scope": "Dílčí reálné A/B SQL a platformní autorita; nepokrývá všechny doménové endpointy.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
     "evidence": [
-      "Foundation registry a 19 testů diagnostického EUR adaptéru/loaderu; nový placený loader má 24 testů a stavové API 8 testů.",
-      "Nová placená období jsou uložená v DB; stavový endpoint není doménovým enforcementem. UI používá explicitní isPaidActive, nikoliv počet historických schopností."
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Nové moduly používají DB workspace/capability autoritu; čtení a export jsou oddělené.",
+      "Předchozí doložené dílčí DB běhy 2026-10-10: Dílčí reálné A/B SQL a platformní autorita; nepokrývá všechny doménové endpointy. Zdroj: docs/diriqo/acceptance-report.md."
     ],
     "remaining": [
-      "Doplnění historických EUR grantů a skutečný enforcement přes URL, API, RPC, export, import a AI včetně samostatného katalogu POS."
-    ]
+      "Kompletní matice URL/API/RPC/AI/import/export pro nikdy aktivní a expirovanou firmu; core legacy cesty zvlášť."
+    ],
+    "previousEvidence": {
+      "date": "2026-10-10",
+      "status": "DÍLČÍ DŮKAZ",
+      "evidence": [
+        "Foundation registry a 19 testů diagnostického EUR adaptéru/loaderu; nový placený loader má 24 testů a stavové API 8 testů.",
+        "Nová placená období jsou uložená v DB; stavový endpoint není doménovým enforcementem. UI používá explicitní isPaidActive, nikoliv počet historických schopností."
+      ]
+    }
   },
   {
     "id": "P04",
     "scenario": "Samostatný DiriPOS a následné rozšíření. Firma bez jádra Diriqa dokončí základní prodejní tok. Po dokoupení jádra používá totožnou organizaci a odpovídající sdílená data. Důkaz: provedený prodej, identity záznamů před a po změně, absence duplicit.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "ČÁSTEČNĚ",
+    "title": "POS a rozšíření na Core",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "EXISTUJE ALESPOŇ ČÁST",
+      "detail": "Online POS-only SQL tok existuje, společný tenant a katalog jsou zachované.",
+      "files": [
+        "lib/pos/server.ts",
+        "lib/pos/domain.ts",
+        "app/pos/api/route.ts",
+        "app/pos/PosClient.tsx"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Úplný původní scénář není prokázaný; dílčí funkce nelze zaměnit za plnou akceptaci."
+    },
+    "security": {
+      "state": "DÍLČÍ DŮKAZ",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [
+          "tests/pos-domain.test.ts",
+          "tests/pos-api.test.ts"
+        ],
+        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [
+          "tests/pos-integration.sql",
+          "tests/pos-stock-integration.sql"
+        ],
+        "state": "DÍLČÍ PŘEDCHOZÍ BĚH",
+        "reportedAt": "2026-10-11",
+        "reports": [
+          "docs/diriqo/functional-modules-release.md"
+        ],
+        "scope": "Jednorelační SQL pro online prodej, role, retry, částečné vratky a FIFO; bez terminálu/offline.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Online POS-only SQL tok existuje, společný tenant a katalog jsou zachované.",
+      "Předchozí doložené dílčí DB běhy 2026-10-11: Jednorelační SQL pro online prodej, role, retry, částečné vratky a FIFO; bez terminálu/offline. Zdroj: docs/diriqo/functional-modules-release.md."
+    ],
+    "remaining": [
+      "Dokončit placenou sandbox aktivaci a navázání Core nad stejnými zákazníky bez duplicit."
+    ]
   },
   {
     "id": "P05",
     "scenario": "Odebrání oprávnění za běhu. Uživatel otevře editaci a připraví úlohu; správce mu odebere roli nebo modul. Starý token, odeslání formuláře a nově spuštěná část úlohy respektují nová pravidla. Důkaz: časová posloupnost a žádné nepovolené zápisy.",
-    "status": "DÍLČÍ DŮKAZ",
+    "status": "ČÁSTEČNĚ",
+    "title": "Revokace za běhu",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "EXISTUJE ALESPOŇ ČÁST",
+      "detail": "Platformní, POS a AI SQL testy ověřují vybrané revokace; čerstvé guardy jsou v serveru.",
+      "files": [
+        "lib/server-guards.ts",
+        "lib/active-company.ts",
+        "lib/module-access.ts",
+        "lib/platform/module-operation-access.ts",
+        "proxy.ts"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Úplný původní scénář není prokázaný; dílčí funkce nelze zaměnit za plnou akceptaci."
+    },
+    "security": {
+      "state": "DÍLČÍ DŮKAZ",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [
+          "tests/auth-guards.test.ts",
+          "tests/active-company-switch.test.ts",
+          "tests/module-operation-access.test.ts",
+          "tests/platform-admin.test.ts"
+        ],
+        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [
+          "supabase/tests/platform-authority.sql",
+          "supabase/tests/module-capability-authority.sql"
+        ],
+        "state": "DÍLČÍ PŘEDCHOZÍ BĚH",
+        "reportedAt": "2026-10-10",
+        "reports": [
+          "docs/diriqo/acceptance-report.md"
+        ],
+        "scope": "Dílčí reálné A/B SQL a platformní autorita; nepokrývá všechny doménové endpointy.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
     "evidence": [
-      "Skutečné SQL odvolání platformního grantu a odebrání čtení placených grantů po deaktivaci členství prošlo; fixtures rollback.",
-      "Lokální guard a loadery znovu ověřují současnou autoritu a členství; service-only checkout rezervace samostatně znovu autorizuje aktuálního správce firmy."
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Platformní, POS a AI SQL testy ověřují vybrané revokace; čerstvé guardy jsou v serveru.",
+      "Předchozí doložené dílčí DB běhy 2026-10-10: Dílčí reálné A/B SQL a platformní autorita; nepokrývá všechny doménové endpointy. Zdroj: docs/diriqo/acceptance-report.md."
     ],
     "remaining": [
-      "Odebrání role nebo modulu při rozpracovaném formuláři, se starým tokenem a během asynchronní úlohy; úplný přihlášený průchod a odvolání placené licence."
-    ]
+      "Otevřený formulář, stale token, odvolání modulu a další krok rozpracované úlohy ve skutečném E2E."
+    ],
+    "previousEvidence": {
+      "date": "2026-10-10",
+      "status": "DÍLČÍ DŮKAZ",
+      "evidence": [
+        "Skutečné SQL odvolání platformního grantu a odebrání čtení placených grantů po deaktivaci členství prošlo; fixtures rollback.",
+        "Lokální guard a loadery znovu ověřují současnou autoritu a členství; service-only checkout rezervace samostatně znovu autorizuje aktuálního správce firmy."
+      ]
+    }
   },
   {
     "id": "P06",
     "scenario": "Soubory a exporty. A zná cestu nebo ID exportu B. Nemůže získat soubor, náhled ani novou přístupovou URL. Vlastní dočasný odkaz odpovídá dokumentované expiraci. Důkaz: odpovědi úložiště, metadata vlastnictví a kontrola doby platnosti.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "ČÁSTEČNĚ",
+    "title": "Cizí soubor a export",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "EXISTUJE ALESPOŇ ČÁST",
+      "detail": "Fotky a modulové exporty mají scoped kontroly, signed URL a lokální negativní testy.",
+      "files": [
+        "app/api/job-photos/route.ts",
+        "app/api/job-photos/url/route.ts",
+        "lib/job-photo-storage.ts",
+        "lib/job-photo-upload-client.ts"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Úplný původní scénář není prokázaný; dílčí funkce nelze zaměnit za plnou akceptaci."
+    },
+    "security": {
+      "state": "DÍLČÍ DŮKAZ",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [
+          "tests/mobile-photos.test.ts",
+          "tests/mobile-photo-upload-client.test.ts"
+        ],
+        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [
+          "tests/mobile-runtime-grants-verification.sql"
+        ],
+        "state": "DÍLČÍ PŘEDCHOZÍ BĚH",
+        "reportedAt": "2026-10-11",
+        "reports": [
+          "docs/diriqo/android-test-release.md"
+        ],
+        "scope": "Živé granty; předchozí přihlášený upload syntetické fotky v Demo, nikoli celý proces předání.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Fotky a modulové exporty mají scoped kontroly, signed URL a lokální negativní testy.",
+      "Předchozí doložené dílčí DB běhy 2026-10-11: Živé granty; předchozí přihlášený upload syntetické fotky v Demo, nikoli celý proces předání. Zdroj: docs/diriqo/android-test-release.md."
+    ],
+    "remaining": [
+      "Skutečné A/B Storage, PDF, QR, pohoda, fleet a AI soubory včetně TTL a odebraného členství."
+    ]
   },
   {
     "id": "P07",
     "scenario": "Cache a přepnutí organizace. Jedna identita rychle přepíná A/B při rozpracovaném načítání a použije shodné vyhledávání. Pozdní odpověď A se nezobrazí v B; agregace ani serverová cache nepřenesou data. Důkaz: sled síťových odpovědí a výsledná zobrazení.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "NEOVĚŘENO",
+    "title": "Zpožděná odpověď A/B",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "EXISTUJE ALESPOŇ ČÁST",
+      "detail": "Přepnutí firmy a no-store autorita existují; řízený závod opožděných browser odpovědí nebyl doložen.",
+      "files": [
+        "lib/server-guards.ts",
+        "lib/active-company.ts",
+        "lib/module-access.ts",
+        "lib/platform/module-operation-access.ts",
+        "proxy.ts"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Úplný původní scénář není prokázaný; dílčí funkce nelze zaměnit za plnou akceptaci."
+    },
+    "security": {
+      "state": "DÍLČÍ DŮKAZ",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [
+          "tests/auth-guards.test.ts",
+          "tests/active-company-switch.test.ts",
+          "tests/module-operation-access.test.ts",
+          "tests/platform-admin.test.ts"
+        ],
+        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [
+          "supabase/tests/platform-authority.sql",
+          "supabase/tests/module-capability-authority.sql"
+        ],
+        "state": "DÍLČÍ PŘEDCHOZÍ BĚH",
+        "reportedAt": "2026-10-10",
+        "reports": [
+          "docs/diriqo/acceptance-report.md"
+        ],
+        "scope": "Dílčí reálné A/B SQL a platformní autorita; nepokrývá všechny doménové endpointy.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Přepnutí firmy a no-store autorita existují; řízený závod opožděných browser odpovědí nebyl doložen.",
+      "Předchozí doložené dílčí DB běhy 2026-10-10: Dílčí reálné A/B SQL a platformní autorita; nepokrývá všechny doménové endpointy. Zdroj: docs/diriqo/acceptance-report.md."
+    ],
+    "remaining": [
+      "Zpomalit odpověď A, přepnout na B, ověřit všechny klientské seznamy a cache klíče."
+    ]
   },
   {
     "id": "P08",
     "scenario": "AI a škodlivý obsah dokumentu. Dokument A žádá čtení firmy B či zapnutí modulu. AI takovou operaci přes nástroj neprovede a nezíská cizí kontext ani historii. Důkaz: autorizované retrieval výsledky a redigovaná stopa volání nástrojů.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "ČÁSTEČNĚ",
+    "title": "Prompt injection",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "EXISTUJE ALESPOŇ ČÁST",
+      "detail": "Omezený serverový kontext, tenantové SQL a potvrzení návrhu brání přímé delegaci autority modelu.",
+      "files": [
+        "lib/diriqent/domain.ts",
+        "lib/diriqent/server.ts",
+        "lib/diriqent/provider.ts",
+        "app/diriqent/ocr/OcrClient.tsx"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Úplný původní scénář není prokázaný; dílčí funkce nelze zaměnit za plnou akceptaci."
+    },
+    "security": {
+      "state": "DÍLČÍ DŮKAZ",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [
+          "tests/diriqent-domain.test.ts",
+          "tests/diriqent-provider.test.ts"
+        ],
+        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [
+          "tests/diriqent-integration.sql"
+        ],
+        "state": "DÍLČÍ PŘEDCHOZÍ BĚH",
+        "reportedAt": "2026-10-11",
+        "reports": [
+          "docs/diriqo/functional-modules-release.md"
+        ],
+        "scope": "36 SQL kontrol rezervace, vyúčtování, návrhu zakázky a rolí; provider synteticky zavolán, nikoli plný agentní E2E.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Omezený serverový kontext, tenantové SQL a potvrzení návrhu brání přímé delegaci autority modelu.",
+      "Předchozí doložené dílčí DB běhy 2026-10-11: 36 SQL kontrol rezervace, vyúčtování, návrhu zakázky a rolí; provider synteticky zavolán, nikoli plný agentní E2E. Zdroj: docs/diriqo/functional-modules-release.md."
+    ],
+    "remaining": [
+      "Adversariální OCR/retrieval průchod s canary firmy B a redigovanou stopou; budoucí nástroje zvlášť."
+    ]
   },
   {
     "id": "P09",
     "scenario": "Souběžná spotřeba kreditu a pád. Více úloh soupeří o poslední kredit; jedna spadne po externím volání. Nevznikne záporný dostupný zůstatek ani dvojí zákaznické zaúčtování. Případná kompenzace podle pravidla 9.2 nesmaže skutečný náklad poskytovatele. Důkaz: ledger, rezervace, reconciliace a propojené identifikátory operací.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "ČÁSTEČNĚ",
+    "title": "Souběžný AI kredit",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "EXISTUJE ALESPOŇ ČÁST",
+      "detail": "Rezervace a ledger jsou transakční a testují retry i zachování provider cost při neúspěchu.",
+      "files": [
+        "lib/diriqent/domain.ts",
+        "lib/diriqent/server.ts",
+        "lib/diriqent/provider.ts",
+        "app/diriqent/ocr/OcrClient.tsx"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Úplný původní scénář není prokázaný; dílčí funkce nelze zaměnit za plnou akceptaci."
+    },
+    "security": {
+      "state": "DÍLČÍ DŮKAZ",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [
+          "tests/diriqent-domain.test.ts",
+          "tests/diriqent-provider.test.ts"
+        ],
+        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [
+          "tests/diriqent-integration.sql"
+        ],
+        "state": "DÍLČÍ PŘEDCHOZÍ BĚH",
+        "reportedAt": "2026-10-11",
+        "reports": [
+          "docs/diriqo/functional-modules-release.md"
+        ],
+        "scope": "36 SQL kontrol rezervace, vyúčtování, návrhu zakázky a rolí; provider synteticky zavolán, nikoli plný agentní E2E.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Rezervace a ledger jsou transakční a testují retry i zachování provider cost při neúspěchu.",
+      "Předchozí doložené dílčí DB běhy 2026-10-11: 36 SQL kontrol rezervace, vyúčtování, návrhu zakázky a rolí; provider synteticky zavolán, nikoli plný agentní E2E. Zdroj: docs/diriqo/functional-modules-release.md."
+    ],
+    "remaining": [
+      "Dvě současné DB relace na poslední kredit a pád po reálném provider výsledku; bezpečná reconciliace unknown."
+    ]
   },
   {
     "id": "P10",
     "scenario": "Opakované a opožděné platební události. Dvakrát přijde úhrada, poté starší událost a nový výsledek. Oprávnění i kredit odpovídají rozhodnému stavu, kredit se nepřičte dvakrát. Důkaz: události, jejich deduplikace a konečný stav předplatného.",
-    "status": "DÍLČÍ DŮKAZ",
+    "status": "ČÁSTEČNĚ",
+    "title": "Duplicity platebních událostí",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "EXISTUJE ALESPOŇ ČÁST",
+      "detail": "Placené granty a event ledger jsou neměnné a mají SQL retry/konflikt/pozdní období.",
+      "files": [
+        "lib/platform/module-checkout.ts",
+        "lib/platform/module-payment-handler.ts",
+        "lib/platform/paid-entitlement-loader.ts",
+        "app/api/stripe/webhook/route.ts"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Úplný původní scénář není prokázaný; dílčí funkce nelze zaměnit za plnou akceptaci."
+    },
+    "security": {
+      "state": "DÍLČÍ DŮKAZ",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [
+          "tests/module-checkout.test.ts",
+          "tests/module-payment-handler.test.ts",
+          "tests/module-payment-validation.test.ts",
+          "tests/paid-entitlement-loader.test.ts"
+        ],
+        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [
+          "supabase/tests/module-payment-authority.sql",
+          "supabase/tests/module-checkout-sessions.sql"
+        ],
+        "state": "DÍLČÍ PŘEDCHOZÍ BĚH",
+        "reportedAt": "2026-10-10",
+        "reports": [
+          "docs/diriqo/acceptance-report.md"
+        ],
+        "scope": "59 + 73 SQL asercí, provider v unit testech mockovaný; skutečný Stripe sandbox průchod nedoložen.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
     "evidence": [
-      "supabase/tests/module-payment-authority.sql: 59 asercí PASS včetně opakování události, sémantické duplicity, konfliktu obsahu a opožděných placených období bez přepsání historie.",
-      "107 testů platebního validátoru a 57 handleru/webhooku PASS; poskytovatel je v lokálních testech řízeným rozhraním.",
-      "První nákup má 73 checkout SQL asercí a 141 service testů PASS pro rezervaci, opakování a provider vazby. Návratová UI obrazovka nikdy sama nepotvrzuje úhradu."
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Placené granty a event ledger jsou neměnné a mají SQL retry/konflikt/pozdní období.",
+      "Předchozí doložené dílčí DB běhy 2026-10-10: 59 + 73 SQL asercí, provider v unit testech mockovaný; skutečný Stripe sandbox průchod nedoložen. Zdroj: docs/diriqo/acceptance-report.md."
     ],
     "remaining": [
-      "Skutečný celý Stripe sandbox tok, současné transakce, úplný lifecycle předplatného a kreditový ledger s deduplikovaným připsáním kreditu."
-    ]
+      "Skutečný Stripe sandbox webhook lifecycle, dvě transakce a placené přidělení AI kreditu."
+    ],
+    "previousEvidence": {
+      "date": "2026-10-10",
+      "status": "DÍLČÍ DŮKAZ",
+      "evidence": [
+        "supabase/tests/module-payment-authority.sql: 59 asercí PASS včetně opakování události, sémantické duplicity, konfliktu obsahu a opožděných placených období bez přepsání historie.",
+        "107 testů platebního validátoru a 57 handleru/webhooku PASS; poskytovatel je v lokálních testech řízeným rozhraním.",
+        "První nákup má 73 checkout SQL asercí a 141 service testů PASS pro rezervaci, opakování a provider vazby. Návratová UI obrazovka nikdy sama nepotvrzuje úhradu."
+      ]
+    }
   },
   {
     "id": "P11",
     "scenario": "Neuhrazení a konec předplatného. Simulovaný čas projde aktivním obdobím, tolerancí a omezením přístupu. Čtení, export a zápisy odpovídají tabulce stavů, data zůstávají zachovaná. Obnovení nevyžaduje novou firmu. Důkaz: stavové přechody a povolené/odmítnuté akce.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "ČÁSTEČNĚ",
+    "title": "Expirace a historie",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "EXISTUJE ALESPOŇ ČÁST",
+      "detail": "Loadery rozlišují aktivitu a historická práva; některé dokončovací akce mají výjimku.",
+      "files": [
+        "lib/platform/module-checkout.ts",
+        "lib/platform/module-payment-handler.ts",
+        "lib/platform/paid-entitlement-loader.ts",
+        "app/api/stripe/webhook/route.ts"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Úplný původní scénář není prokázaný; dílčí funkce nelze zaměnit za plnou akceptaci."
+    },
+    "security": {
+      "state": "DÍLČÍ DŮKAZ",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [
+          "tests/module-checkout.test.ts",
+          "tests/module-payment-handler.test.ts",
+          "tests/module-payment-validation.test.ts",
+          "tests/paid-entitlement-loader.test.ts"
+        ],
+        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [
+          "supabase/tests/module-payment-authority.sql",
+          "supabase/tests/module-checkout-sessions.sql"
+        ],
+        "state": "DÍLČÍ PŘEDCHOZÍ BĚH",
+        "reportedAt": "2026-10-10",
+        "reports": [
+          "docs/diriqo/acceptance-report.md"
+        ],
+        "scope": "59 + 73 SQL asercí, provider v unit testech mockovaný; skutečný Stripe sandbox průchod nedoložen.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Loadery rozlišují aktivitu a historická práva; některé dokončovací akce mají výjimku.",
+      "Předchozí doložené dílčí DB běhy 2026-10-10: 59 + 73 SQL asercí, provider v unit testech mockovaný; skutečný Stripe sandbox průchod nedoložen. Zdroj: docs/diriqo/acceptance-report.md."
+    ],
+    "remaining": [
+      "Kompletní grace/refund/dispute/cancel/resume lifecycle, test času a retenční export všech modulů."
+    ]
   },
   {
     "id": "P12",
     "scenario": "Země, jazyk a obor se nepletou. Změna jazyka a oborového profilu nezmění rozhodná pravidla existujícího dokladu. Různé firmy mohou mít různou zemi a časové pásmo bez globálního přepisu. Důkaz: konfigurace, historický dokument a výsledky odpovídajících operací.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "ČÁSTEČNĚ",
+    "title": "Jazyk, země a čas",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "EXISTUJE ALESPOŇ ČÁST",
+      "detail": "Oddělené i18n, zemská konfigurace a firemní časová zóna existují; jazyky cs/en/de.",
+      "files": [
+        "lib/i18n/config.ts",
+        "lib/company-country-config.ts",
+        "lib/company-timezone.ts",
+        "app/settings/company/actions.ts"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Úplný původní scénář není prokázaný; dílčí funkce nelze zaměnit za plnou akceptaci."
+    },
+    "security": {
+      "state": "NEOVĚŘENO V CELÉM ROZSAHU",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [
+          "tests/platform-foundation.test.mjs"
+        ],
+        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [],
+        "state": "BĚH SCÉNÁŘE NEDOLOŽEN",
+        "reportedAt": null,
+        "reports": [],
+        "scope": "Žádné konkrétní živé DB ověření této scénářové hranice se netvrdí.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Oddělené i18n, zemská konfigurace a firemní časová zóna existují; jazyky cs/en/de."
+    ],
+    "remaining": [
+      "Změna jazyka s neměnným historickým dokladem, dvě různé zóny; žádná legislativní akceptace země zatím."
+    ]
   },
   {
     "id": "P13",
     "scenario": "Čistá extrakce bez interních dat. Nové prostředí vznikne z čisté instalace, migrací a syntetických vzorů. Neobsahuje interní záznamy, přístupové údaje ani přílohy. Důkaz: manifest přenesených souborů, seznam vytvořených dat a kontrola zakázaných kategorií obsahu.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "NEOVĚŘENO",
+    "title": "Čistá instalace",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "EXISTUJE ALESPOŇ ČÁST",
+      "detail": "Přenesená specifikace a migrace jsou verzované, ale reprodukovatelná instalace z prázdné DB nebyla aktuálně provedena.",
+      "files": [
+        "docs/diriqo/product-contract.md",
+        "docs/diriqo/migration-plan.md",
+        "docs/diriqo/functional-modules-release.md",
+        "docs/diriqo/android-test-release.md"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Úplný původní scénář není prokázaný; dílčí funkce nelze zaměnit za plnou akceptaci."
+    },
+    "security": {
+      "state": "NEOVĚŘENO V CELÉM ROZSAHU",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [
+          "tests/platform-foundation.test.mjs"
+        ],
+        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [],
+        "state": "BĚH SCÉNÁŘE NEDOLOŽEN",
+        "reportedAt": null,
+        "reports": [],
+        "scope": "Žádné konkrétní živé DB ověření této scénářové hranice se netvrdí.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Přenesená specifikace a migrace jsou verzované, ale reprodukovatelná instalace z prázdné DB nebyla aktuálně provedena."
+    ],
+    "remaining": [
+      "Prokázat bootstrap/migrační řetězec a manifest bez tajných údajů či dat Hubu."
+    ]
   },
   {
     "id": "P14",
     "scenario": "Import po pádu a opakovaném spuštění. Import A je násilně ukončen mezi dávkami i při potvrzení dávky. Pokračování skončí přesně jednou sadou záznamů; nahlásí vadné řádky. Důkaz: checkpointy, počty, klíče a porovnání s jedním nepřerušeným během.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "CHYBÍ",
+    "title": "Obnovitelný import",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "CHYBÍ ČÁST POŽADOVANÉHO TOKU",
+      "detail": "Exporty a OCR návrhy existují; obecný import s checkpointy/dávkami a atomickým potvrzením není zavedený.",
+      "files": [
+        "app/inventory",
+        "app/diriqent/ocr",
+        "lib/excel-export.ts",
+        "docs/diriqo/migration-plan.md"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Kontrolované aplikační a datové cesty nemají uvedenou schopnost."
+    },
+    "security": {
+      "state": "NEOVĚŘENO V CELÉM ROZSAHU",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [],
+        "state": "CÍLENÝ TEST SCÉNÁŘE NENALEZEN",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [],
+        "state": "BĚH SCÉNÁŘE NEDOLOŽEN",
+        "reportedAt": null,
+        "reports": [],
+        "scope": "Žádné konkrétní živé DB ověření této scénářové hranice se netvrdí.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Exporty a OCR návrhy existují; obecný import s checkpointy/dávkami a atomickým potvrzením není zavedený."
+    ],
+    "remaining": [
+      "Doplnit importní kontrakt, idempotenci dávky, vadné řádky a řízený pád/restart."
+    ]
   },
   {
     "id": "P15",
     "scenario": "Zachování HUBu a druhé firmy. Provoz B se ověří během změn A. Pokud změna zasahuje sdílený kód používaný HUBem, proveď cílenou regresi jeho dotčených toků v testovací kopii; pokud se HUB nemění, dolož tuto skutečnost přehledem změn. Žádný krok importu, vypnutí modulu nebo obnovy A nepřepíše B. Důkaz: cílené regrese, invarianty, snímky relevantních dat a ověřený postup návratu.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "ČÁSTEČNĚ",
+    "title": "Zachování Hubu a firmy B",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "EXISTUJE ALESPOŇ ČÁST",
+      "detail": "Tento blok mění pouze Diriqo; předchozí modulové SQL testy používaly rollback syntetických A/B fixtures.",
+      "files": [
+        "docs/diriqo/product-contract.md",
+        "docs/diriqo/migration-plan.md",
+        "docs/diriqo/functional-modules-release.md",
+        "docs/diriqo/android-test-release.md"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Úplný původní scénář není prokázaný; dílčí funkce nelze zaměnit za plnou akceptaci."
+    },
+    "security": {
+      "state": "NEOVĚŘENO V CELÉM ROZSAHU",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [
+          "tests/platform-foundation.test.mjs"
+        ],
+        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [],
+        "state": "BĚH SCÉNÁŘE NEDOLOŽEN",
+        "reportedAt": null,
+        "reports": [],
+        "scope": "Žádné konkrétní živé DB ověření této scénářové hranice se netvrdí.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Tento blok mění pouze Diriqo; předchozí modulové SQL testy používaly rollback syntetických A/B fixtures."
+    ],
+    "remaining": [
+      "Doložit aktuální diff, snímky B a ověřený návrat pro každou novou DB změnu; Hub se neupravuje."
+    ]
   },
   {
     "id": "P16",
     "scenario": "Celé jádro bez doplňků. Založ zákazníka, kalkulaci s ručním materiálem, nabídku, zakázku, pracovníka, plán, čas, nepřítomnost, zálohu a předání. Žádný krok nevyžaduje sklad, fakturaci, POS ani AI. Ověř uložení a následné načtení po novém přihlášení.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "ČÁSTEČNĚ",
+    "title": "Celý core tok po přihlášení",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "EXISTUJE ALESPOŇ ČÁST",
+      "detail": "Jednotlivé core obrazovky a autorita existují, ale část koncových procesů (předání, revize, částečné zálohy) chybí.",
+      "files": [
+        "app/jobs/actions.ts",
+        "lib/dal/jobs.ts",
+        "lib/dal/flow.ts",
+        "app/moje-prace/actions.ts"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Úplný původní scénář není prokázaný; dílčí funkce nelze zaměnit za plnou akceptaci."
+    },
+    "security": {
+      "state": "DÍLČÍ DŮKAZ",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [
+          "tests/module-operation-entrypoints.test.ts",
+          "tests/mobile-worker-actions.test.ts"
+        ],
+        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [
+          "supabase/tests/module-capability-authority.sql"
+        ],
+        "state": "DÍLČÍ PŘEDCHOZÍ BĚH",
+        "reportedAt": "2026-10-10",
+        "reports": [
+          "docs/diriqo/acceptance-report.md"
+        ],
+        "scope": "Dílčí skutečné SQL autority schopností; nikoli celý core tok.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Jednotlivé core obrazovky a autorita existují, ale část koncových procesů (předání, revize, částečné zálohy) chybí.",
+      "Předchozí doložené dílčí DB běhy 2026-10-10: Dílčí skutečné SQL autority schopností; nikoli celý core tok. Zdroj: docs/diriqo/acceptance-report.md."
+    ],
+    "remaining": [
+      "Dokončit chybějící díly a E2E od registrace po znovunačtení bez doplňků."
+    ]
   },
   {
     "id": "P17",
     "scenario": "Historie a finanční souhrny. Změna aktuální sazby nepřepíše schválený čas. Rodič a podzakázky nezapočtou zdroje dvakrát. Dodavatelská faktura k výdeji upraví případný rozdíl ocenění, nevytvoří druhý plný náklad. Ověř konkrétní částky a zdrojové vazby.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "CHYBA",
+    "title": "Historie a finanční souhrny",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "EXISTUJE S KONKRÉTNÍ CHYBOU",
+      "detail": "Nový sklad/fleet zdrojový součet má SQL důkaz; historické core sazby mohou spadnout na dnešní profil (C03-03).",
+      "files": [
+        "lib/dal/economics.ts",
+        "lib/economics.ts",
+        "lib/job-grouping.ts",
+        "lib/labor-calculation.ts"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Konkrétní porušení kontraktu je doložené čtením aktuálního kódu."
+    },
+    "security": {
+      "state": "DÍLČÍ DŮKAZ",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [
+          "tests/economics.test.ts",
+          "tests/labor-calculation.test.ts",
+          "tests/worker-payroll.test.ts"
+        ],
+        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [
+          "tests/inventory-integration.sql",
+          "tests/fleet-integration.sql"
+        ],
+        "state": "DÍLČÍ PŘEDCHOZÍ BĚH",
+        "reportedAt": "2026-10-11",
+        "reports": [
+          "docs/diriqo/functional-modules-release.md"
+        ],
+        "scope": "Skladová/fleet nákladová vazba, nikoli historické mzdy a všechny core náklady.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Nový sklad/fleet zdrojový součet má SQL důkaz; historické core sazby mohou spadnout na dnešní profil (C03-03).",
+      "Předchozí doložené dílčí DB běhy 2026-10-11: Skladová/fleet nákladová vazba, nikoli historické mzdy a všechny core náklady. Zdroj: docs/diriqo/functional-modules-release.md."
+    ],
+    "remaining": [
+      "Opravit snapshot sazeb a doložit rodič/podzakázky/dodavatelské ocenění v jednom částkovém scénáři."
+    ]
   },
   {
     "id": "P18",
     "scenario": "Pokladní události a částečné opravy. Stejná událost přijatá třikrát má jeden finanční účinek. Stejné ID s jiným obsahem vyvolá konflikt. Dvě částečné vratky nesmějí překročit původní množství a částku. Ztracené potvrzení ani opakovaný tisk nevytvoří nový prodej.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "ČÁSTEČNĚ",
+    "title": "POS události a vratky",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "EXISTUJE ALESPOŇ ČÁST",
+      "detail": "SQL opakuje prodej, odmítá změněný payload a testuje kumulativní částečné vratky včetně zaokrouhlení.",
+      "files": [
+        "lib/pos/server.ts",
+        "lib/pos/domain.ts",
+        "app/pos/api/route.ts",
+        "app/pos/PosClient.tsx"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Úplný původní scénář není prokázaný; dílčí funkce nelze zaměnit za plnou akceptaci."
+    },
+    "security": {
+      "state": "DÍLČÍ DŮKAZ",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [
+          "tests/pos-domain.test.ts",
+          "tests/pos-api.test.ts"
+        ],
+        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [
+          "tests/pos-integration.sql",
+          "tests/pos-stock-integration.sql"
+        ],
+        "state": "DÍLČÍ PŘEDCHOZÍ BĚH",
+        "reportedAt": "2026-10-11",
+        "reports": [
+          "docs/diriqo/functional-modules-release.md"
+        ],
+        "scope": "Jednorelační SQL pro online prodej, role, retry, částečné vratky a FIFO; bez terminálu/offline.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: SQL opakuje prodej, odmítá změněný payload a testuje kumulativní částečné vratky včetně zaokrouhlení.",
+      "Předchozí doložené dílčí DB běhy 2026-10-11: Jednorelační SQL pro online prodej, role, retry, částečné vratky a FIFO; bez terminálu/offline. Zdroj: docs/diriqo/functional-modules-release.md."
+    ],
+    "remaining": [
+      "Skutečný souběh vratek a UI ztraceného potvrzení; fyzický tisk je samostatná hranice."
+    ]
   },
   {
     "id": "P19",
     "scenario": "Offline oprávnění a pozdní vypořádání. Po expiraci offline oprávnění nevznikne nový prodej. Již oprávněně uložený prodej přežije restart a po vypnutí licence se bezpečně dosynchronizuje. Ověř také nejasnou platební odpověď a revokaci po opětovném připojení.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "CHYBÍ",
+    "title": "Offline práva a settlement",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "CHYBÍ ČÁST POŽADOVANÉHO TOKU",
+      "detail": "Online POS neobsahuje offline token/outbox ani terminálovou reconciliaci.",
+      "files": [
+        "lib/pos/server.ts",
+        "lib/pos/domain.ts",
+        "app/pos/api/route.ts",
+        "app/pos/PosClient.tsx"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Kontrolované aplikační a datové cesty nemají uvedenou schopnost."
+    },
+    "security": {
+      "state": "DÍLČÍ DŮKAZ",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [
+          "tests/pos-domain.test.ts",
+          "tests/pos-api.test.ts"
+        ],
+        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [
+          "tests/pos-integration.sql",
+          "tests/pos-stock-integration.sql"
+        ],
+        "state": "DÍLČÍ PŘEDCHOZÍ BĚH",
+        "reportedAt": "2026-10-11",
+        "reports": [
+          "docs/diriqo/functional-modules-release.md"
+        ],
+        "scope": "Jednorelační SQL pro online prodej, role, retry, částečné vratky a FIFO; bez terminálu/offline.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Online POS neobsahuje offline token/outbox ani terminálovou reconciliaci.",
+      "Předchozí doložené dílčí DB běhy 2026-10-11: Jednorelační SQL pro online prodej, role, retry, částečné vratky a FIFO; bez terminálu/offline. Zdroj: docs/diriqo/functional-modules-release.md."
+    ],
+    "remaining": [
+      "Doplnit konec offline oprávnění, restart, pozdní sync po expiraci a revokaci."
+    ]
   },
   {
     "id": "P20",
     "scenario": "OCR bez přepsání člověka. Rozpoznání připraví návrh, člověk opraví řádek a nastane retry. Opravený údaj zůstane zachovaný a zásoba se změní až explicitním příjmem. Dvakrát potvrzený příjem nevytvoří dva pohyby.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "ČÁSTEČNĚ",
+    "title": "OCR zachová opravu",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "EXISTUJE ALESPOŇ ČÁST",
+      "detail": "OCR dává návrh k ruční kontrole; skladové/fakturační výsledky samy nezapisují pohyb. Převod je nyní pro smart quote.",
+      "files": [
+        "lib/diriqent/domain.ts",
+        "lib/diriqent/server.ts",
+        "lib/diriqent/provider.ts",
+        "app/diriqent/ocr/OcrClient.tsx"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Úplný původní scénář není prokázaný; dílčí funkce nelze zaměnit za plnou akceptaci."
+    },
+    "security": {
+      "state": "DÍLČÍ DŮKAZ",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [
+          "tests/diriqent-domain.test.ts",
+          "tests/diriqent-provider.test.ts"
+        ],
+        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [
+          "tests/diriqent-integration.sql"
+        ],
+        "state": "DÍLČÍ PŘEDCHOZÍ BĚH",
+        "reportedAt": "2026-10-11",
+        "reports": [
+          "docs/diriqo/functional-modules-release.md"
+        ],
+        "scope": "36 SQL kontrol rezervace, vyúčtování, návrhu zakázky a rolí; provider synteticky zavolán, nikoli plný agentní E2E.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: OCR dává návrh k ruční kontrole; skladové/fakturační výsledky samy nezapisují pohyb. Převod je nyní pro smart quote.",
+      "Předchozí doložené dílčí DB běhy 2026-10-11: 36 SQL kontrol rezervace, vyúčtování, návrhu zakázky a rolí; provider synteticky zavolán, nikoli plný agentní E2E. Zdroj: docs/diriqo/functional-modules-release.md."
+    ],
+    "remaining": [
+      "Ověřit editaci/retry/ztrátu odpovědi a řízený převod do příjemky s jedním pohybem."
+    ]
   },
   {
     "id": "P21",
     "scenario": "Ceník a kapacity. Stejný manažer s docházkou nečerpá dvě místa. Diriqo a POS sdílejí jeden skladový nárok za firmu. Dvě pokladny mají dvě odpovídající licence. Archivované vozidlo nečerpá aktivní kapacitu a starý EUR odběratel nezíská bez pravidla jinou cenu.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "ČÁSTEČNĚ",
+    "title": "Kapacity a historické ceny",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "EXISTUJE ALESPOŇ ČÁST",
+      "detail": "DRAFT CZK katalog, diagnostický EUR adaptér, per-register POS a limit vozidel existují.",
+      "files": [
+        "lib/platform/module-checkout.ts",
+        "lib/platform/module-payment-handler.ts",
+        "lib/platform/paid-entitlement-loader.ts",
+        "app/api/stripe/webhook/route.ts"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Úplný původní scénář není prokázaný; dílčí funkce nelze zaměnit za plnou akceptaci."
+    },
+    "security": {
+      "state": "DÍLČÍ DŮKAZ",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [
+          "tests/module-checkout.test.ts",
+          "tests/module-payment-handler.test.ts",
+          "tests/module-payment-validation.test.ts",
+          "tests/paid-entitlement-loader.test.ts"
+        ],
+        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [
+          "supabase/tests/module-payment-authority.sql",
+          "supabase/tests/module-checkout-sessions.sql"
+        ],
+        "state": "DÍLČÍ PŘEDCHOZÍ BĚH",
+        "reportedAt": "2026-10-10",
+        "reports": [
+          "docs/diriqo/acceptance-report.md"
+        ],
+        "scope": "59 + 73 SQL asercí, provider v unit testech mockovaný; skutečný Stripe sandbox průchod nedoložen.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: DRAFT CZK katalog, diagnostický EUR adaptér, per-register POS a limit vozidel existují.",
+      "Předchozí doložené dílčí DB běhy 2026-10-10: 59 + 73 SQL asercí, provider v unit testech mockovaný; skutečný Stripe sandbox průchod nedoložen. Zdroj: docs/diriqo/acceptance-report.md."
+    ],
+    "remaining": [
+      "Dokončit nákup kapacit, jednotné počítání osob a doložené zachování starých EUR smluv v sandboxu."
+    ]
   },
   {
     "id": "P22",
     "scenario": "Stránkování a velký katalog. Vyhledání, export a agregace nad 20 000 syntetickými položkami či více stránkami vrátí správný celý výběr. Zaznamenej čas a prostředí měření; ověř, že limit načtení nezmění finanční součet.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "NEOVĚŘENO",
+    "title": "20 000 položek",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "EXISTUJE ALESPOŇ ČÁST",
+      "detail": "Inventory stránkuje a načítá závislosti po dávkách; exporty mají vlastní smyčky. Měřený dataset 20 000 nebyl doložen.",
+      "files": [
+        "app/inventory/actions.ts",
+        "lib/inventory/data.ts",
+        "app/inventory/export/route.ts",
+        "supabase/migrations/20261011153923_functional_inventory.sql"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Úplný původní scénář není prokázaný; dílčí funkce nelze zaměnit za plnou akceptaci."
+    },
+    "security": {
+      "state": "DÍLČÍ DŮKAZ",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [
+          "tests/inventory-domain.test.ts",
+          "tests/inventory-data.test.ts"
+        ],
+        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [
+          "tests/inventory-integration.sql"
+        ],
+        "state": "DÍLČÍ PŘEDCHOZÍ BĚH",
+        "reportedAt": "2026-10-11",
+        "reports": [
+          "docs/diriqo/functional-modules-release.md"
+        ],
+        "scope": "18 skupin SQL v jedné relaci, rollback syntetických dat; nikoli UI nebo skutečný souběh.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Inventory stránkuje a načítá závislosti po dávkách; exporty mají vlastní smyčky. Měřený dataset 20 000 nebyl doložen.",
+      "Předchozí doložené dílčí DB běhy 2026-10-11: 18 skupin SQL v jedné relaci, rollback syntetických dat; nikoli UI nebo skutečný souběh. Zdroj: docs/diriqo/functional-modules-release.md."
+    ],
+    "remaining": [
+      "Syntetická zátěž s úplnými počty/součty, filtrem/exportem, prostředím a dobou běhu."
+    ]
   },
   {
     "id": "P23",
     "scenario": "Selhání navazující služby. Po potvrzení prodeje nebo vydání dokladu selže e-mail, tisk nebo asynchronní projekce. Uživateli zůstane správně označený stav a cesta k nápravě. Retry nezopakuje již dokončený obchodní účinek.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "ČÁSTEČNĚ",
+    "title": "Selhání navazující služby",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "EXISTUJE ALESPOŇ ČÁST",
+      "detail": "Prodej/účtenka mají kanonický výsledek a replay; systém e-mailů existuje, není však plná společná outbox/recovery akceptace.",
+      "files": [
+        "lib/pos/server.ts",
+        "lib/pos/domain.ts",
+        "app/pos/api/route.ts",
+        "app/pos/PosClient.tsx"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Úplný původní scénář není prokázaný; dílčí funkce nelze zaměnit za plnou akceptaci."
+    },
+    "security": {
+      "state": "DÍLČÍ DŮKAZ",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [
+          "tests/pos-domain.test.ts",
+          "tests/pos-api.test.ts"
+        ],
+        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [
+          "tests/pos-integration.sql",
+          "tests/pos-stock-integration.sql"
+        ],
+        "state": "DÍLČÍ PŘEDCHOZÍ BĚH",
+        "reportedAt": "2026-10-11",
+        "reports": [
+          "docs/diriqo/functional-modules-release.md"
+        ],
+        "scope": "Jednorelační SQL pro online prodej, role, retry, částečné vratky a FIFO; bez terminálu/offline.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Prodej/účtenka mají kanonický výsledek a replay; systém e-mailů existuje, není však plná společná outbox/recovery akceptace.",
+      "Předchozí doložené dílčí DB běhy 2026-10-11: Jednorelační SQL pro online prodej, role, retry, částečné vratky a FIFO; bez terminálu/offline. Zdroj: docs/diriqo/functional-modules-release.md."
+    ],
+    "remaining": [
+      "Vynutit chybu po commitu prodeje/faktury, e-mail/tisk/projekci a ověřit opravu bez opakování obchodu."
+    ]
   },
   {
     "id": "P24",
     "scenario": "Návrat skladu do provozu. Firma vědomě vypne skladovou evidenci a prodává v povoleném režimu POS. Zůstatek se neprezentuje jako aktuální. Opětovná aktivace požaduje odsouhlasení skutečného stavu a nevytvoří nezdokumentované zpětné pohyby.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "CHYBÍ",
+    "title": "Obnova skladové evidence",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "CHYBÍ ČÁST POŽADOVANÉHO TOKU",
+      "detail": "Volitelné skladové propojení POS existuje; řízené pozastavení a inventurní odsouhlasení před reaktivací není implementované.",
+      "files": [
+        "lib/pos/server.ts",
+        "lib/pos/domain.ts",
+        "app/pos/api/route.ts",
+        "app/pos/PosClient.tsx"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Kontrolované aplikační a datové cesty nemají uvedenou schopnost."
+    },
+    "security": {
+      "state": "DÍLČÍ DŮKAZ",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [
+          "tests/pos-domain.test.ts",
+          "tests/pos-api.test.ts"
+        ],
+        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [
+          "tests/pos-integration.sql",
+          "tests/pos-stock-integration.sql"
+        ],
+        "state": "DÍLČÍ PŘEDCHOZÍ BĚH",
+        "reportedAt": "2026-10-11",
+        "reports": [
+          "docs/diriqo/functional-modules-release.md"
+        ],
+        "scope": "Jednorelační SQL pro online prodej, role, retry, částečné vratky a FIFO; bez terminálu/offline.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Volitelné skladové propojení POS existuje; řízené pozastavení a inventurní odsouhlasení před reaktivací není implementované.",
+      "Předchozí doložené dílčí DB běhy 2026-10-11: Jednorelační SQL pro online prodej, role, retry, částečné vratky a FIFO; bez terminálu/offline. Zdroj: docs/diriqo/functional-modules-release.md."
+    ],
+    "remaining": [
+      "Doplnit stav evidence, zákaz tvrzení aktuálního zůstatku a auditovanou inventuru/reconciliation."
+    ]
   },
   {
     "id": "P25",
     "scenario": "Úplnost a pravdivost předání. Všechny navržené tarify mají skutečný seznam dostupných schopností. Report neoznačuje neověřenou zemi, terminál, migraci ani neprovedený test za hotový. Čisté testovací prostředí lze reprodukovat z doložených podkladů bez interních dat JSPD.",
-    "status": "NEPROVEDENO",
-    "evidence": []
+    "status": "ČÁSTEČNĚ",
+    "title": "Pravdivé a reprodukovatelné předání",
+    "reviewedAt": "2026-10-11",
+    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "implementation": {
+      "state": "EXISTUJE ALESPOŇ ČÁST",
+      "detail": "Nové release dokumenty rozlišují online, mock/SQL a hardware; staré status/report z 10. 10. jsou historický checkpoint.",
+      "files": [
+        "docs/diriqo/product-contract.md",
+        "docs/diriqo/migration-plan.md",
+        "docs/diriqo/functional-modules-release.md",
+        "docs/diriqo/android-test-release.md"
+      ]
+    },
+    "functionality": {
+      "fullyVerified": false,
+      "basis": "Úplný původní scénář není prokázaný; dílčí funkce nelze zaměnit za plnou akceptaci."
+    },
+    "security": {
+      "state": "NEOVĚŘENO V CELÉM ROZSAHU",
+      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+    },
+    "tests": {
+      "unitOrMock": {
+        "files": [
+          "tests/platform-foundation.test.mjs"
+        ],
+        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "executedThisReview": false
+      },
+      "database": {
+        "files": [],
+        "state": "BĚH SCÉNÁŘE NEDOLOŽEN",
+        "reportedAt": null,
+        "reports": [],
+        "scope": "Žádné konkrétní živé DB ověření této scénářové hranice se netvrdí.",
+        "executedThisReview": false
+      }
+    },
+    "e2e": {
+      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "executedThisReview": false,
+      "partialEvidence": []
+    },
+    "productionReadiness": {
+      "ready": false,
+      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+    },
+    "evidence": [
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Nové release dokumenty rozlišují online, mock/SQL a hardware; staré status/report z 10. 10. jsou historický checkpoint."
+    ],
+    "remaining": [
+      "Aktualizovat hlavní odkaz na tuto matici, potvrdit capability katalog a čistou instalaci; obchodní go-live zatím nesplněn."
+    ]
   }
 ]
