@@ -2,7 +2,7 @@
 
 ## Rozsah a stav
 
-Výchozí auditovaná revize `cd9291e3414891de7603ec79d1a219f200903993`. Migrace `20261011191250_atomic_mobile_work.sql` je **aplikovaná pouze v testovacím Diriqu `wfcpfraxiuhuglnuaxqj`**, schémata public/private. Oprava směn z [PR #10](https://github.com/Semiczek/diriqo/pull/10) a nezávislá oprava Mailgun z PR #11 jsou sloučené. Aplikační přechod na RPC je **nasazený na `app.diriqo.com` v revizi `35c24a2d2a046bbed8cc1f07a997d1fa63b3b1be`**; Vercel deployment `dpl_ET6ZRtDDCZoU4au1pDoA5ZMCade1` má stav READY a přiřazenou tuto doménu. Hub se neměnil.
+Výchozí auditovaná revize `cd9291e3414891de7603ec79d1a219f200903993`. Migrace `20261011191250_atomic_mobile_work.sql` je **aplikovaná pouze v testovacím Diriqu `wfcpfraxiuhuglnuaxqj`**, schémata public/private. Oprava směn z [PR #10](https://github.com/Semiczek/diriqo/pull/10) a nezávislá oprava Mailgun z PR #11 jsou sloučené. První doložený release RPC na `app.diriqo.com` byl `35c24a2d2a046bbed8cc1f07a997d1fa63b3b1be`, deployment `dpl_ET6ZRtDDCZoU4au1pDoA5ZMCade1` READY s touto doménou. Následující dvojklik a souběh dvou webových karet byly ověřeny na revizi **`915705d58d11fcc522dc43c28f55b92af6107505`**. Aktuální produkční revize po samostatném PR #13 je `6c67d9e0cbe9b9a0b5cd22146bae4a2103028db6`, deployment `dpl_9HZ1xqhnVPGj2ajw41oEDL5nSG8y` READY s aliasem `app.diriqo.com`; tím se nepřepisuje revize, na níž proběhl UI důkaz. Hub se neměnil.
 
 Jeden pracovník může mít ve firmě nejvýše jednu skutečně běžící směnu (started_at není null, ended_at je null). Databázový unikátní index chrání i jiné zapisující cesty. Nová autentizovaná RPC zpracuje start, stop a dokončení práce v jedné transakci; odvozuje pracovníka z Auth, ověřuje aktuální členství, přidělení, licenci i přepínač modulu. Starty i dokončení stejné identity/firmy sdílejí zámek. Datum směny odpovídá časovému pásmu firmy.
 
@@ -43,7 +43,7 @@ Před úspěchem byly zaznamenány transportní výpadky, příliš pozdní bari
 
 ## Přihlášený průchod nasazeným webem
 
-Dne 11. 10. 2026 proběhl v My Diriqo na `app.diriqo.com` skutečný průchod jako Adam Admin / Diriqo Demo: **start → obnovení stránky → stop → Hotovo**. Po obnovení zůstala právě jedna běžící směna; UI potvrdilo zastavení a dokončení a následně deaktivovalo start i Hotovo. Nešlo o nové přihlášení; použita již přihlášená relace.
+Dne 11. 10. 2026 proběhl v My Diriqo na `app.diriqo.com`, revizi `35c24a2d2a046bbed8cc1f07a997d1fa63b3b1be`, skutečný průchod jako Adam Admin / Diriqo Demo: **start → obnovení stránky → stop → Hotovo**. Po obnovení zůstala právě jedna běžící směna; UI potvrdilo zastavení a dokončení a následně deaktivovalo start i Hotovo. Nešlo o nové přihlášení; použita již přihlášená relace.
 
 Použita pouze syntetická zakázka `defc75ba-9bce-4d62-81cc-f09879d335bc` a přiřazení `240af06a-cd57-4aa6-a038-be18190f782d`. Následné čtení DB potvrdilo:
 
@@ -53,8 +53,21 @@ Použita pouze syntetická zakázka `defc75ba-9bce-4d62-81cc-f09879d335bc` a př
 
 Po kontrole výsledků byly odstraněny pouze přesné syntetické záznamy směny, přiřazení a zakázky. Úklid ověřil firmu, označení, nulovou hodnotu, interní příznak a dokončený stav; závěrečné DB kontroly: preserved_shift_count = 5, remaining_fixture_jobs = 0. Původních pět směn zůstalo zachováno. Snímek dokončeného webového průchodu je uložen jako místní důkaz, bez osobní cesty v repozitáři.
 
+## Dvě webové karty a dvojklik: C04-01 HOTOVO
+
+Původní scénář „Dvojí kliknutí nebo dvě otevřené karty nevytvoří dva současně běžící časovače stejného pracovníka ve firmě.“ je nyní **HOTOVO**. Dne 11. 10. 2026 byly na nasazené revizi `915705d58d11fcc522dc43c28f55b92af6107505` otevřeny dvě skutečné karty `/mobile/my` stejného přihlášeného Adam Admin / Diriqo Demo. Použita pouze nová interní syntetická zakázka s nulovou cenou `ffa8b3ca-2845-475a-be15-a99ac270c87a` a přiřazení `7b9ee6ad-5adf-4e29-8822-bd4a80730fd7`.
+
+| Akce v nasazeném UI | Následný důkaz UI a databáze |
+|---|---|
+| Souběžný start ze dvou karet v 20:11:49 UTC; oba skutečné kliky spuštěny přes `Promise.allSettled` | Obě karty zobrazily jednu běžící směnu. DB potvrdila právě jeden řádek `9c982ef3-4189-487b-a32e-1fe96bbfaad8`, start `2026-10-11T20:11:49.156858Z`. |
+| Stop v `2026-10-11T20:12:16.321223Z` a obnovení druhé karty | První směna zůstala ukončená; druhá karta po obnovení zobrazila 0 běžících směn. |
+| Skutečný dvojklik na Start (`clickCount: 2`) | Vznikla právě jedna nová směna `972977d5-ab88-4181-8e16-79be4abe290b`, start `2026-10-11T20:12:42.385781Z`. První směna zůstala ukončená, celkový počet běžících byl 1. |
+| Stop v `2026-10-11T20:12:59.219262Z` | DB potvrdila 0 běžících směn. |
+
+Úklid nejdříve ověřil přesnou identitu zakázky/přiřazení a dvě ukončené testovací směny, potom odstranil pouze tyto fixtures. Závěrečná kontrola: `preserved_shift_count = 5`, `remaining_fixture_jobs = 0`, `remaining_fixture_shifts = 0`, `remaining_fixture_assignments = 0`. Původní data zůstala zachována. Snímek `mobile-two-tabs-one-shift.png` je uložen jako místní důkaz; osobní cesta není v repozitáři.
+
 ## Omezení a další ověření
 
-Přihlášené HTTP→Auth→PostgREST→PostgreSQL i nasazené Next UI mají výše uvedený skutečný důkaz. C04-01 zůstává **ČÁSTEČNĚ**: souběh je doložen dvěma skutečnými RPC/DB spojeními, zatím však ne současným ovládáním dvou webových karet nebo dvojklikem v nasazeném UI. Fyzický Android pilot a zachování dat po odhlášení a novém přihlášení zůstávají neověřené; nelze je odvodit z obnovení stránky.
+HOTOVO platí pro přesný původní invariant C04-01, podložený skutečným DB souběhem i dvojklikem/dvěma kartami v nasazeném webu. Neznamená dokončení celého mobilního produktu. Fyzický Android pilot a zachování dat po odhlášení a novém přihlášení zůstávají neověřené; nelze je odvodit z obnovení stránky. Pozdní nový start po ukončení první směny je legitimní nový časovač, nikoli důkaz trvalé idempotence starého požadavku.
 
 Starší administrativní zápisy, mzdové RLS, historické sazby a úplná revokační/souběhová matice ostatních domén jsou samostatné otevřené úkoly. Žádný závěr tohoto reportu neprokazuje připravenost celého produktu.

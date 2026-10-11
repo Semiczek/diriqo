@@ -2,7 +2,7 @@
 
 ## Rozsah a stav
 
-Migrace `20261011195912_lock_issued_invoice_accounting_content.sql` je **aplikovaná pouze v testovacím Diriqu `wfcpfraxiuhuglnuaxqj`**. Na `public.invoices` přidává trigger `guard_invoice_accounting_content` s funkcí `private.guard_invoice_accounting_content()`. Ochrana v této databázi již působí; změna neobsahuje webový kód a nevyžaduje nový webový deployment. Commit/PR a jeho CI při tomto checkpointu ještě nejsou uzavřené.
+Migrace `20261011195912_lock_issued_invoice_accounting_content.sql` je **aplikovaná pouze v testovacím Diriqu `wfcpfraxiuhuglnuaxqj`**. Na `public.invoices` přidává trigger `guard_invoice_accounting_content` s funkcí `private.guard_invoice_accounting_content()`. Ochrana v této databázi již působí; změna neobsahuje webový kód a nevyžaduje nový webový deployment. [PR #13](https://github.com/Semiczek/diriqo/pull/13) je sloučené do main `6c67d9e0cbe9b9a0b5cd22146bae4a2103028db6`. Přesný head `1249f7943984fbad1644a9f592024c82a2eb57d8` má [CI 38170905020](https://github.com/Semiczek/diriqo/actions/runs/38170905020) SUCCESS a preview `dpl_9DfVgvB1qLmwEycqUq19NdPjt56v` READY. Produkční deployment `dpl_9HZ1xqhnVPGj2ajw41oEDL5nSG8y` je READY pro přesný merge commit s potvrzeným aliasem `app.diriqo.com`. DB invariant byl aktivní již po aplikaci migrace; webový deployment jej teprve nezapíná.
 
 Oprava chrání finanční a kontaktní obsah již vydaného dokladu na společné databázové hranici. **Neřeší atomickou editaci konceptu, souběh úhrady/storna, ochranu DELETE ani úplný fakturační lifecycle.** Tyto P0 úkoly zůstávají otevřené. JSPD Hub se neměnil.
 

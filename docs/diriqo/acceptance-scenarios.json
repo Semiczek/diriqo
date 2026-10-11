@@ -561,13 +561,13 @@
   {
     "id": "C04-01",
     "scenario": "Dvojí kliknutí nebo dvě otevřené karty nevytvoří dva současně běžící časovače stejného pracovníka ve firmě.",
-    "status": "ČÁSTEČNĚ",
+    "status": "HOTOVO",
     "title": "Souběžný start směny",
     "reviewedAt": "2026-10-11",
-    "reviewedCommit": "35c24a2d2a046bbed8cc1f07a997d1fa63b3b1be",
+    "reviewedCommit": "915705d58d11fcc522dc43c28f55b92af6107505",
     "implementation": {
-      "state": "IMPLEMENTOVÁNO; DÍLČÍ OVĚŘENÍ DB A NASAZENÉHO WEBU",
-      "detail": "Aditivní unikátní invariant a autentizovaná atomická RPC start/stop/complete. Migrace 20261011191250 aplikovaná; PR #10 nasazené na app.diriqo.com v revizi 35c24a2d2a046bbed8cc1f07a997d1fa63b3b1be.",
+      "state": "IMPLEMENTOVÁNO; PŮVODNÍ INVARIANT OVĚŘEN V DB I NASAZENÉM WEBU",
+      "detail": "Aditivní unikátní invariant a autentizovaná atomická RPC start/stop/complete. Migrace 20261011191250 aplikovaná. Přesný původní scénář dvojkliku/dvou UI karet ověřen na app.diriqo.com v revizi 915705d58d11fcc522dc43c28f55b92af6107505.",
       "files": [
         "app/moje-prace/actions.ts",
         "app/work-shifts/[shiftId]/edit/page.tsx",
@@ -576,12 +576,12 @@
       ]
     },
     "functionality": {
-      "fullyVerified": false,
-      "basis": "Skutečný RPC souběh dvou DB spojení vrací stejné ID; různé zakázky vrací řízený konflikt. Přihlášený nasazený web: start, reload s jednou běžící směnou, stop, Hotovo; UI i DB potvrdily dokončení. Dvojklik/dvě UI karty a nové přihlášení dosud neověřeny."
+      "fullyVerified": true,
+      "basis": "Pro přesný původní invariant: dvě současně blokovaná DB spojení i dva souběžné kliky ve skutečných webových kartách a skutečný dvojklik vytvořily vždy právě jednu běžící směnu. Nasazené UI i následné DB počty to potvrdily; stop/reload ukázaly 0. Nejde o akceptaci celého mobilního produktu."
     },
     "security": {
-      "state": "DÍLČÍ DŮKAZ",
-      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+      "state": "OVĚŘENO PRO PŮVODNÍ INVARIANT",
+      "detail": "Unikátní DB invariant a řízený souběh chrání jednoho pracovníka/firmu. Cílené skutečné A/B role a revokace byly ověřeny SQL sadou; širší bezpečnostní matice ostatních cest zůstává samostatně otevřená."
     },
     "tests": {
       "unitOrMock": {
@@ -607,7 +607,7 @@
       }
     },
     "e2e": {
-      "state": "SKUTEČNÝ AUTH/RPC/DB A NASAZENÝ WEB; DÍLČÍ PRŮCHOD",
+      "state": "PŮVODNÍ SCÉNÁŘ OVĚŘEN: SKUTEČNÝ SOUBĚH DB, DVĚ UI KARTY A DVOJKLIK",
       "executedThisReview": true,
       "partialEvidence": [
         "docs/diriqo/atomic-mobile-work-release.md"
@@ -615,18 +615,20 @@
     },
     "productionReadiness": {
       "ready": false,
-      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+      "reason": "Původní C04-01 je HOTOVO v nasazeném webu. Celý mobilní produkt ani komerční provoz tím nejsou schválené; fyzický Android a nové přihlášení zůstávají mimo tento uzavřený scénář neověřené."
     },
     "evidence": [
       "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11 zjistila kontrolu otevřené směny před INSERT bez atomického zákazu souběhu. Následující migrace a PR #10 tuto cestu opravily; konkrétní důkazy jsou uvedeny níže.",
       "Předchozí doložené dílčí DB běhy 2026-10-11: Živé sloupcové granty a čtecí dotazy; nikoli start/stop ani souběh. Zdroj: docs/diriqo/android-test-release.md.",
       "2026-10-11: migrace 20261011191250 aplikována v testovacím Diriqu; 27+3 DB kontrol, 23 unit, dvě DB spojení PID1609020/1609021, jediný časovač. Viz atomic-mobile-work-release.md.",
       "2026-10-11: PR #10 CI 38169091592 PASS; sloučený main 35c24a2d2a046bbed8cc1f07a997d1fa63b3b1be CI 38169427378 PASS; deployment dpl_ET6ZRtDDCZoU4au1pDoA5ZMCade1 READY, app.diriqo.com. CI zahrnuje lint, TypeScript, testy a build.",
-      "2026-10-11: Adam Admin / Diriqo Demo provedl v nasazeném My Diriqo start/reload/stop/Hotovo na syntetické zakázce defc75ba-9bce-4d62-81cc-f09879d335bc. DB: směna bfdb7708-6817-4daa-98b9-514bc4aaba9f completed (19:49:16.993Z až 19:49:54.585013Z), přiřazení completed 19:50:23.516571Z, job waiting_check/partially_done. Syntetická směna/přiřazení/zakázka byly po ověření odstraněny; DB potvrdila zachování původních pěti směn a nulový počet zbývajících testovacích zakázek."
+      "2026-10-11: Adam Admin / Diriqo Demo provedl v nasazeném My Diriqo start/reload/stop/Hotovo na syntetické zakázce defc75ba-9bce-4d62-81cc-f09879d335bc. DB: směna bfdb7708-6817-4daa-98b9-514bc4aaba9f completed (19:49:16.993Z až 19:49:54.585013Z), přiřazení completed 19:50:23.516571Z, job waiting_check/partially_done. Syntetická směna/přiřazení/zakázka byly po ověření odstraněny; DB potvrdila zachování původních pěti směn a nulový počet zbývajících testovacích zakázek.",
+      "2026-10-11: nasazená revize 915705d58d11fcc522dc43c28f55b92af6107505, Adam Admin / Diriqo Demo, dvě skutečné /mobile/my karty. Současné kliky v 20:11:49 UTC vytvořily právě jednu směnu 9c982ef3-4189-487b-a32e-1fe96bbfaad8 (start 20:11:49.156858Z), obě UI 1 running a DB count 1. Stop 20:12:16.321223Z; reload druhé karty ukázal 0 running.",
+      "2026-10-11: skutečný UI dvojklik clickCount 2 na Start vytvořil právě jednu novou směnu 972977d5-ab88-4181-8e16-79be4abe290b (20:12:42.385781Z); první směna zůstala ended, all active 1. Stop 20:12:59.219262Z; DB active 0. Interní zakázka s nulovou cenou ffa8b3ca-2845-475a-be15-a99ac270c87a a přiřazení 7b9ee6ad-5adf-4e29-8822-bd4a80730fd7 byly přesně ověřeny před úklidem dvou ended směn/přiřazení/zakázky. Zachováno 5 původních směn; zbývající fixture jobs/shifts/assignments = 0. Místní snímek mobile-two-tabs-one-shift.png."
     ],
     "remaining": [
-      "Doplnit dvojklik a současné ovládání dvou karet v nasazeném UI; dosavadní souběh byl prokázán na skutečné Auth/RPC/DB hranici. Samostatně ověřit odhlášení/nové přihlášení a fyzický Android pilot.",
-      "Pozdní opakování startu po ukončení předchozí směny nemá trvalý request-ID ledger; nepovažovat za neomezenou idempotenci."
+      "Žádný chybějící krok pro přesný původní invariant C04-01. Samostatná širší mobilní akceptace ještě vyžaduje odhlášení/nové přihlášení a fyzický Android pilot.",
+      "Hranice mimo původní scénář: pozdní opakování startu po ukončení předchozí směny nemá trvalý request-ID ledger; nepovažovat za neomezenou idempotenci."
     ]
   },
   {
