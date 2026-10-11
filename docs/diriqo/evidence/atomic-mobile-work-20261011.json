@@ -1,0 +1,68 @@
+{
+  "project": "wfcpfraxiuhuglnuaxqj",
+  "migration": "20261011191250_atomic_mobile_work",
+  "date": "2026-10-11",
+  "baseline": "cd9291e3414891de7603ec79d1a219f200903993",
+  "database": {
+    "assertions": 27,
+    "cleanupAssertions": 3,
+    "fixtureMode": "rollback"
+  },
+  "sameJobConcurrency": {
+    "sample_at": "2026-10-11T19:28:33.862576+00:00",
+    "barrier_pid": 1609018,
+    "held_since": "2026-10-11T19:28:08.986609+00:00",
+    "blocked_sessions": [
+      {
+        "pid": 1609021,
+        "state": "active",
+        "wait_event": "advisory",
+        "query_start": "2026-10-11T19:28:33.796395+00:00"
+      },
+      {
+        "pid": 1609020,
+        "state": "active",
+        "wait_event": "advisory",
+        "query_start": "2026-10-11T19:28:33.623994+00:00"
+      }
+    ],
+    "responseStatuses": [
+      200,
+      200
+    ],
+    "sameShiftId": "434f2efc-1f4e-480d-9cce-651d1f69fbd1",
+    "reused": [
+      false,
+      true
+    ]
+  },
+  "differentJobsConcurrency": {
+    "requestStarts": [
+      "2026-10-11T19:35:24.269Z",
+      "2026-10-11T19:35:24.270Z"
+    ],
+    "statuses": [
+      400,
+      200
+    ],
+    "conflict": "WORK_ANOTHER_SHIFT_RUNNING",
+    "finalRunningCount": 1,
+    "measuredBackendPids": false
+  },
+  "cleanup": {
+    "syntheticCompaniesRemoved": 2,
+    "syntheticUsersRemoved": 1,
+    "preservedShiftCount": 5,
+    "globalDuplicates": 0
+  },
+  "tests": {
+    "mobileWorkerUnit": 23,
+    "fullVitestIncludingMailgun": 994,
+    "platformFoundation": 18
+  },
+  "limitations": [
+    "Full UI/deployment verification still pending",
+    "Late start after ended shift lacks durable request ID",
+    "No full security/commercial readiness implied"
+  ]
+}
