@@ -564,10 +564,10 @@
     "status": "ČÁSTEČNĚ",
     "title": "Souběžný start směny",
     "reviewedAt": "2026-10-11",
-    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "reviewedCommit": "35c24a2d2a046bbed8cc1f07a997d1fa63b3b1be",
     "implementation": {
-      "state": "IMPLEMENTOVÁNO; DB OVĚŘENA",
-      "detail": "Aditivní unikátní invariant a autentizovaná atomická RPC start/stop/complete. DB migrace aplikovaná; aplikační nasazení čeká na release.",
+      "state": "IMPLEMENTOVÁNO; DÍLČÍ OVĚŘENÍ DB A NASAZENÉHO WEBU",
+      "detail": "Aditivní unikátní invariant a autentizovaná atomická RPC start/stop/complete. Migrace 20261011191250 aplikovaná; PR #10 nasazené na app.diriqo.com v revizi 35c24a2d2a046bbed8cc1f07a997d1fa63b3b1be.",
       "files": [
         "app/moje-prace/actions.ts",
         "app/work-shifts/[shiftId]/edit/page.tsx",
@@ -577,7 +577,7 @@
     },
     "functionality": {
       "fullyVerified": false,
-      "basis": "Skutečný RPC souběh dvou DB spojení vrací stejné ID; různé zakázky vrací řízený konflikt. Next UI po nasazení zatím neověřeno."
+      "basis": "Skutečný RPC souběh dvou DB spojení vrací stejné ID; různé zakázky vrací řízený konflikt. Přihlášený nasazený web: start, reload s jednou běžící směnou, stop, Hotovo; UI i DB potvrdily dokončení. Dvojklik/dvě UI karty a nové přihlášení dosud neověřeny."
     },
     "security": {
       "state": "DÍLČÍ DŮKAZ",
@@ -607,7 +607,7 @@
       }
     },
     "e2e": {
-      "state": "SKUTEČNÝ AUTH/RPC/DB; UI PO NASAZENÍ ČEKÁ",
+      "state": "SKUTEČNÝ AUTH/RPC/DB A NASAZENÝ WEB; DÍLČÍ PRŮCHOD",
       "executedThisReview": true,
       "partialEvidence": [
         "docs/diriqo/atomic-mobile-work-release.md"
@@ -618,12 +618,14 @@
       "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
     },
     "evidence": [
-      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Baseline používá kontrolu otevřené směny před INSERT bez atomického zákazu souběhu. P0 oprava je rozpracovaná odděleně.",
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11 zjistila kontrolu otevřené směny před INSERT bez atomického zákazu souběhu. Následující migrace a PR #10 tuto cestu opravily; konkrétní důkazy jsou uvedeny níže.",
       "Předchozí doložené dílčí DB běhy 2026-10-11: Živé sloupcové granty a čtecí dotazy; nikoli start/stop ani souběh. Zdroj: docs/diriqo/android-test-release.md.",
-      "2026-10-11: migrace 20261011191250 aplikována v testovacím Diriqu; 27+3 DB kontrol, 23 unit, dvě DB spojení PID1609020/1609021, jediný časovač. Viz atomic-mobile-work-release.md."
+      "2026-10-11: migrace 20261011191250 aplikována v testovacím Diriqu; 27+3 DB kontrol, 23 unit, dvě DB spojení PID1609020/1609021, jediný časovač. Viz atomic-mobile-work-release.md.",
+      "2026-10-11: PR #10 CI 38169091592 PASS; sloučený main 35c24a2d2a046bbed8cc1f07a997d1fa63b3b1be CI 38169427378 PASS; deployment dpl_ET6ZRtDDCZoU4au1pDoA5ZMCade1 READY, app.diriqo.com. CI zahrnuje lint, TypeScript, testy a build.",
+      "2026-10-11: Adam Admin / Diriqo Demo provedl v nasazeném My Diriqo start/reload/stop/Hotovo na syntetické zakázce defc75ba-9bce-4d62-81cc-f09879d335bc. DB: směna bfdb7708-6817-4daa-98b9-514bc4aaba9f completed (19:49:16.993Z až 19:49:54.585013Z), přiřazení completed 19:50:23.516571Z, job waiting_check/partially_done. Syntetická směna/přiřazení/zakázka byly po ověření odstraněny; DB potvrdila zachování původních pěti směn a nulový počet zbývajících testovacích zakázek."
     ],
     "remaining": [
-      "Ověřit finální aplikační commit v CI, nasadit a projít start/stop/dokončení ve webovém a následně fyzickém mobilním pilotu.",
+      "Doplnit dvojklik a současné ovládání dvou karet v nasazeném UI; dosavadní souběh byl prokázán na skutečné Auth/RPC/DB hranici. Samostatně ověřit odhlášení/nové přihlášení a fyzický Android pilot.",
       "Pozdní opakování startu po ukončení předchozí směny nemá trvalý request-ID ledger; nepovažovat za neomezenou idempotenci."
     ]
   },
