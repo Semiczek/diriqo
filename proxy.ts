@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { hasAnyHubAccessRole, hasCompanyMemberRole } from '@/lib/hub-access'
 import { hasPlatformAdminAccess } from '@/lib/platform/platform-admin'
+import { isMemberWorkspacePath, MOBILE_ENTRY_COOKIE, mobileEntryPath } from '@/lib/mobile-access'
 import {
   LOCALE_COUNTRY_HEADER_NAME,
   LOCALE_COOKIE_NAME,
@@ -34,6 +35,7 @@ const PROTECTED_MATCHERS = [
   '/diriqent',
   '/work-shifts',
   '/moje-prace',
+  '/mobile',
   '/ucet',
   '/logout',
   '/napoveda',
@@ -80,10 +82,6 @@ function isAdminPath(pathname: string) {
   return pathname === '/admin' || pathname.startsWith('/admin/')
 }
 
-function isWorkerAppPath(pathname: string) {
-  return pathname === '/moje-prace' || pathname.startsWith('/moje-prace/')
-}
-
 function isModuleWorkspacePath(pathname: string) {
   return ['/inventory', '/fleet', '/smart-quotes', '/pos', '/diriqent', '/api/active-company', '/api/company-modules']
     .some(path => pathname === path || pathname.startsWith(path + '/'))
@@ -126,6 +124,10 @@ export async function proxy(request: NextRequest) {
   let response = createResponse()
 
   const ensureLocaleCookie = (target: NextResponse) => {
+    const mobileApp = request.nextUrl.pathname === '/mobile/my' ? 'my' : request.nextUrl.pathname === '/mobile/manager' ? 'manager' : null
+    if (mobileEntryPath(mobileApp)) {
+      target.cookies.set({ name: MOBILE_ENTRY_COOKIE, value: mobileApp!, path: '/', sameSite: 'lax', httpOnly: true, secure: request.nextUrl.protocol === 'https:', maxAge: 60 * 60 * 24 * 30 })
+    }
     if (request.cookies.get(LOCALE_COOKIE_NAME)?.value === locale) {
       return target
     }
@@ -304,7 +306,7 @@ export async function proxy(request: NextRequest) {
   const hasHubAccess = hasAnyHubAccessRole(memberships.map((item) => item.role))
   const hasCompanyAccess = memberships.some((item) => hasCompanyMemberRole(item.role))
   // Domain handlers enforce their own role, tenant and licence checks.
-  if ((isWorkerAppPath(pathname) || isModuleWorkspacePath(pathname)) && hasCompanyAccess) {
+  if ((isMemberWorkspacePath(pathname) || isModuleWorkspacePath(pathname)) && hasCompanyAccess) {
     return ensureLocaleCookie(response)
   }
 
@@ -362,6 +364,7 @@ export const config = {
     '/work-shifts/:path*',
     '/moje-prace',
     '/moje-prace/:path*',
+    '/mobile/:path*',
     '/ucet/:path*',
     '/logout',
     '/napoveda/:path*',

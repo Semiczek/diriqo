@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 import { getActiveCompanyContext } from '@/lib/active-company'
+import { COMPANY_MEMBER_ROLES } from '@/lib/hub-access'
 import { JOB_PHOTO_BUCKET, verifyJobPhotoAccess } from '@/lib/job-photo-storage'
 import { createSupabaseAdminClient } from '@/lib/supabase-admin'
 
@@ -24,7 +25,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Chybí photoId.' }, { status: 400 })
   }
 
-  const activeCompany = await getActiveCompanyContext()
+  const activeCompany = await getActiveCompanyContext({ allowedRoles: COMPANY_MEMBER_ROLES })
 
   if (!activeCompany) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })

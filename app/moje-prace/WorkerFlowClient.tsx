@@ -252,11 +252,11 @@ export default function WorkerFlowClient({ jobs }: { jobs: WorkerJobCard[] }) {
 
                 <button
                   type="button"
-                  disabled={isBusy || isDone}
+                  disabled={isBusy || isDone || Boolean(job.openShiftId)}
                   onClick={() =>
                     runJobAction(job.jobId, () => completeMyJobAction({ jobId: job.jobId }), 'Zakázka je označena hotovo.')
                   }
-                  style={{ ...buttonStyle, background: '#dcfce7', color: '#166534', opacity: isBusy || isDone ? 0.55 : 1 }}
+                  style={{ ...buttonStyle, background: '#dcfce7', color: '#166534', opacity: isBusy || isDone || job.openShiftId ? 0.55 : 1 }}
                 >
                   {isBusy ? 'Ukládám...' : 'Hotovo'}
                 </button>
