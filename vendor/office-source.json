@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "sourceRepository": "https://github.com/Semiczek/diriqo",
+  "sourceBranch": "codex/office-menu-release",
+  "sourceDirectory": "packages/diriqo-office",
+  "sourceContentSha256": "d844f69bb86553869de0b0ede504c11910c63fb72e2cc7105dd4ecaf7d274769",
+  "runtimeArchiveSha256": "fc8b602dc57267f504bbd4d02788b8dc349f4cb03d282fe62008e9d0538e5c5a"
+}
