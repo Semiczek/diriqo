@@ -12,6 +12,10 @@ function getSigningKey() {
   return process.env.MAILGUN_WEBHOOK_SIGNING_KEY?.trim() || ''
 }
 
+export function isMailgunWebhookConfigured() {
+  return Boolean(getSigningKey())
+}
+
 function safeCompare(left: string, right: string) {
   const leftBuffer = Buffer.from(left)
   const rightBuffer = Buffer.from(right)
@@ -24,10 +28,6 @@ export function verifyMailgunSignature(input: MailgunSignatureInput) {
   const timestamp = input.timestamp?.trim() ?? ''
   const token = input.token?.trim() ?? ''
   const signature = input.signature?.trim() ?? ''
-
-  if (!timestamp && !token && !signature && !signingKey) {
-    return true
-  }
 
   if (!signingKey || !timestamp || !token || !signature) {
     return false
