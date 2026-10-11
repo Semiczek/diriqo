@@ -28,7 +28,7 @@ JDK 21+ (lokálně ověřeno JBR 25), Android SDK 36/build-tools 36.0.0, Gradle 
 
 APK vzniknou v `app/build/outputs/apk/{employee,manager}/debug/`. V synchronizované složce může OneDrive zamknout mezivýstupy; nastavte `DIRIQO_ANDROID_BUILD_ROOT` na nesynchronizovanou absolutní cestu a případně `--project-cache-dir` mimo OneDrive.
 
-Pro instrumentační test použijte **nový vyhrazený emulátor** bez skutečných účtů. Test ověřuje spuštění, zabezpečení WebView, skutečný veřejný přihlašovací formulář a stav při odpojení. Nepřihlašuje uživatele ani nevytváří obchodní záznamy. Výsledné obrázky jsou v externí soukromé složce aplikace `files/test-evidence/`.
+Pro instrumentační test použijte **nový vyhrazený emulátor** bez skutečných účtů. Testy ověřují spuštění, zabezpečení WebView, dokončené vykreslení skutečného veřejného přihlašovacího formuláře a stav při odpojení. Druhá zkouška na telefonu nahradí veřejný DOM syntetickým formulářem, klepne na file input a ověří, že HTML přečte konkrétní soubor vrácený přes nativní callback i při zakázaném obecném content přístupu. Neodesílá soubor na server ani nespouští skutečný fotoaparát. Testy nepřihlašují uživatele a nevytvářejí obchodní záznamy. Oba mobilní vstupy již musí být nasazené. Výsledné obrázky jsou v externí soukromé složce aplikace `files/test-evidence/`.
 
 ```powershell
 .\gradlew.bat --no-daemon :app:connectedEmployeeDebugAndroidTest

@@ -66,7 +66,7 @@ export function buildJobPhotoStoragePath(input: {
 }) {
   const extension = getSafeJobPhotoExtension(input.fileName, input.mimeType)
   const photoId = input.photoId ?? crypto.randomUUID()
-  return `${input.jobId}/${input.category}/${photoId}.${extension}`
+  return `${input.companyId}/${input.jobId}/${input.category}/${photoId}.${extension}`
 }
 
 export function isExpectedJobPhotoStoragePath(input: {
@@ -77,10 +77,11 @@ export function isExpectedJobPhotoStoragePath(input: {
 }) {
   const parts = input.storagePath.split('/')
   return (
-    parts.length === 3 &&
-    parts[0] === input.jobId &&
-    parts[1] === input.category &&
-    Boolean(parts[2]?.trim())
+    parts.length === 4 &&
+    parts[0] === input.companyId &&
+    parts[1] === input.jobId &&
+    parts[2] === input.category &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.[a-z0-9]{1,12}$/i.test(parts[3])
   )
 }
 

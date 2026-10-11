@@ -16,7 +16,7 @@ android {
             dimension = "audience"
             applicationId = "com.diriqo.my"
             resValue("string", "app_name", "My Diriqo")
-            resValue("color", "brand", "#7047EB")
+            resValue("color", "brand", "#7C3AED")
             buildConfigField("boolean", "IS_MANAGER", "false")
             buildConfigField("String", "ENTRY_PATH", "\"/mobile/my\"")
         }
@@ -24,7 +24,7 @@ android {
             dimension = "audience"
             applicationId = "com.diriqo.manager"
             resValue("string", "app_name", "Diriqo Manager")
-            resValue("color", "brand", "#176D71")
+            resValue("color", "brand", "#7C3AED")
             buildConfigField("boolean", "IS_MANAGER", "true")
             buildConfigField("String", "ENTRY_PATH", "\"/mobile/manager\"")
         }

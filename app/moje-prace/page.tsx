@@ -153,7 +153,7 @@ export default async function MyWorkPage() {
           ) : null}
         </section>
 
-        <WorkerFlowClient jobs={jobs} />
+        <WorkerFlowClient jobs={jobs} timeZone={access.value.timeZone} />
       </main>
     </DashboardShell>
   )

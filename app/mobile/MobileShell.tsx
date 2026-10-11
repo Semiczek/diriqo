@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { useState, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import type { publicMobileContext } from './data'
@@ -24,7 +25,7 @@ export default function MobileShell({ app, context, children }: Props) {
   }
   return <div className={styles.app} data-app={app}>
     <header className={styles.header}>
-      <Link className={styles.brand} href={`/mobile/${app}`}><span className={styles.logo}>D</span><span>{app === 'my' ? 'My Diriqo' : 'Diriqo Manager'}<small>{app === 'my' ? 'Váš pracovní den' : 'Vaše firma v přehledu'}</small></span></Link>
+      <Link className={styles.brand} href={`/mobile/${app}`}><Image className={styles.logo} src="/diriqo-logo-icon.png" width={42} height={42} alt="" /><span>{app === 'my' ? 'My Diriqo' : 'Diriqo Manager'}<small>{app === 'my' ? 'Váš pracovní den' : 'Vaše firma v přehledu'}</small></span></Link>
       <form action={signOutMobileAction}><button className={styles.logout} type="submit">Odhlásit</button></form>
     </header>
     <main className={styles.main}>
