@@ -61,11 +61,14 @@ type ActiveCompanyPayload = {
 
 type CompanyModulesPayload = {
   modules?: Partial<Record<CompanyModuleKey, boolean>>
+  companyId?: string
+  availableProducts?: string[]
 }
 
 type DashboardContextPayload = {
   activeCompany: ActiveCompanyPayload
   modules: Partial<Record<CompanyModuleKey, boolean>> | null
+  availableProducts: string[]
 }
 
 let dashboardContextCache: { value: DashboardContextPayload; expiresAt: number } | null = null
@@ -92,7 +95,8 @@ async function loadDashboardContext() {
 
       const nextPayload: DashboardContextPayload = {
         activeCompany: payload,
-        modules: modulesPayload?.modules ?? null,
+        modules: modulesPayload?.companyId === payload.companyId ? modulesPayload.modules ?? null : null,
+        availableProducts: modulesPayload?.companyId === payload.companyId ? modulesPayload.availableProducts ?? [] : [],
       }
 
       dashboardContextCache = {
@@ -122,6 +126,7 @@ export default function DashboardShell({
   const mobileMenuOpenerRef = useRef<HTMLButtonElement | null>(null)
   const [activeCompany, setActiveCompany] = useState<ActiveCompanyPayload | null>(null)
   const [companyModules, setCompanyModules] = useState<Partial<Record<CompanyModuleKey, boolean>> | null>(null)
+  const [availableProducts, setAvailableProducts] = useState<string[]>([])
   const [activeCompanyLoading, setActiveCompanyLoading] = useState(true)
   const [companySwitchError, setCompanySwitchError] = useState<string | null>(null)
   const { dictionary } = useI18n()
@@ -156,6 +161,7 @@ export default function DashboardShell({
             companyMemberships: payload.activeCompany.companyMemberships ?? [],
           })
           setCompanyModules(payload.modules)
+          setAvailableProducts(payload.availableProducts)
           setCompanySwitchError(null)
         }
 
@@ -275,7 +281,7 @@ export default function DashboardShell({
         <a href="#workspace-content" className="dq-skip-link">{shellText.skip}</a>
         <div className="dashboard-layout">
           {mobileMenuOpen ? <button type="button" className="dashboard-sidebar-backdrop" aria-label={dictionary.common.closeMenu} onClick={closeMobileMenu} /> : null}
-          <DashboardSidebar activeItem={activeItem} enabledModules={companyModules} showModuleCatalog={canManageModules}
+          <DashboardSidebar activeItem={activeItem} enabledModules={companyModules} availableProducts={availableProducts} showModuleCatalog={canManageModules} showCoreNavigation={canManageModules}
             mobileOpen={mobileMenuOpen} onNavigate={closeMobileMenu} />
           <div className="dashboard-main" inert={mobileMenuOpen}>
             <header className="dashboard-topbar" ref={topbarRef}>
@@ -315,7 +321,7 @@ export default function DashboardShell({
                 </div>
               </div>
               <div className="dashboard-topbar-actions">
-                <Link href="/help" className="dq-header-help"><AppIcon name="help" size={18} /><span>{dictionary.navigation.help}</span></Link>
+                {canManageModules ? <Link href="/help" className="dq-header-help"><AppIcon name="help" size={18} /><span>{dictionary.navigation.help}</span></Link> : null}
                 <div className="dq-user-switcher">
                   <button ref={userTriggerRef} type="button" className="dq-user-trigger" aria-label={userDisplayName}
                     aria-expanded={userMenuOpen} aria-controls="user-account-panel"
@@ -326,7 +332,7 @@ export default function DashboardShell({
                   {userMenuOpen ? (
                     <div id="user-account-panel" className="dq-popover dq-user-popover">
                       <div className="dq-user-summary"><strong>{userDisplayName}</strong>{userSubtitle ? <small>{userSubtitle}</small> : null}</div>
-                      <Link className="dq-popover-item" href="/ucet" onClick={() => setUserMenuOpen(false)}><AppIcon name="workers" size={18} />{dictionary.navigation.account}</Link>
+                      {canManageModules ? <Link className="dq-popover-item" href="/ucet" onClick={() => setUserMenuOpen(false)}><AppIcon name="workers" size={18} />{dictionary.navigation.account}</Link> : null}
                       <div className="dq-language-setting"><LanguageSwitcher compact /></div>
                       <button className="dq-popover-item" type="button" onClick={handleLogout} disabled={loggingOut}>
                         <AppIcon name="logout" size={18} />{loggingOut ? dictionary.common.loggingOut : dictionary.common.logout}

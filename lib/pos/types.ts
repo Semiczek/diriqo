@@ -1,0 +1,10 @@
+export type Register = { id: string; company_id: string; name: string; warehouse_id: string | null; version: number }
+export type Item = { id: string; name: string; sku: string; unit: string; kind: 'stock' | 'nonstock' | 'service'; sale_price_minor: number; currency: 'CZK'; tax_rate: number; archived: boolean; version: number }
+export type Shift = { id: string; opened_at: string; closed_at: string | null; opening_minor: number; expected_minor: number; counted_minor: number | null; difference_minor: number | null; closure_note: string | null; this_browser?: boolean; can_close?: boolean }
+export type Workspace = { register: Register; shift: Shift | null; can_manage: boolean; can_refund: boolean; can_sell: boolean; can_catalog: boolean; warehouses?: { id: string; name: string }[]; operators?: { profile_id: string; name: string; role: string | null; active: boolean }[] }
+export type Bootstrap = { registers: Register[]; available_licences: string[]; can_manage: boolean }
+export type HistoryRow = { id: string; sequence_no: number; document_no: string; created_at: string; payment_method: 'cash' | 'external'; total_minor: number; paid_minor: number; kind: 'sale' | 'return' }
+export type History = { rows: HistoryRow[]; has_more: boolean; totals: { count: number; total_minor: number; paid_minor: number } }
+export type ReceiptLine = { id: string; name: string; unit: string; quantity: number; tax_rate: number; total_minor: number; tax_minor: number; returned_quantity?: number }
+export type Receipt = { kind: 'sale' | 'return'; document: { id: string; document_no: string; created_at: string; payment_method: 'cash' | 'external'; payment_note?: string; reason?: string; total_minor: number; tax_minor: number; paid_minor: number; tendered_minor?: number; rounding_minor?: number }; issuer: { name: string; address?: string; registration_number?: string; tax_number?: string }; original_document_no?: string; lines: ReceiptLine[] }
+export type CommandResult = { sale_id?: string; return_id?: string; document_no?: string; refund_minor?: number; paid_minor?: number; change_minor?: number; difference_minor?: number; replayed: boolean }

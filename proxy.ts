@@ -27,6 +27,11 @@ const PROTECTED_MATCHERS = [
   '/costs',
   '/admin',
   '/invoices',
+  '/inventory',
+  '/fleet',
+  '/smart-quotes',
+  '/pos',
+  '/diriqent',
   '/work-shifts',
   '/moje-prace',
   '/ucet',
@@ -36,6 +41,7 @@ const PROTECTED_MATCHERS = [
   '/debug-auth',
   '/dashboard',
   '/api/active-company',
+  '/api/company-modules',
   '/api/company-billing',
   '/api/billing',
   '/api/customer-portal-users',
@@ -76,6 +82,11 @@ function isAdminPath(pathname: string) {
 
 function isWorkerAppPath(pathname: string) {
   return pathname === '/moje-prace' || pathname.startsWith('/moje-prace/')
+}
+
+function isModuleWorkspacePath(pathname: string) {
+  return ['/inventory', '/fleet', '/smart-quotes', '/pos', '/diriqent', '/api/active-company', '/api/company-modules']
+    .some(path => pathname === path || pathname.startsWith(path + '/'))
 }
 
 type CookieOptions = {
@@ -292,7 +303,8 @@ export async function proxy(request: NextRequest) {
 
   const hasHubAccess = hasAnyHubAccessRole(memberships.map((item) => item.role))
   const hasCompanyAccess = memberships.some((item) => hasCompanyMemberRole(item.role))
-  if (isWorkerAppPath(pathname) && hasCompanyAccess) {
+  // Domain handlers enforce their own role, tenant and licence checks.
+  if ((isWorkerAppPath(pathname) || isModuleWorkspacePath(pathname)) && hasCompanyAccess) {
     return ensureLocaleCookie(response)
   }
 
@@ -342,6 +354,11 @@ export const config = {
     '/admin',
     '/admin/:path*',
     '/invoices/:path*',
+    '/inventory/:path*',
+    '/fleet/:path*',
+    '/smart-quotes/:path*',
+    '/pos/:path*',
+    '/diriqent/:path*',
     '/work-shifts/:path*',
     '/moje-prace',
     '/moje-prace/:path*',
@@ -352,6 +369,7 @@ export const config = {
     '/help/:path*',
     '/debug-auth/:path*',
     '/api/active-company',
+    '/api/company-modules',
     '/api/company-billing',
     '/api/billing/:path*',
     '/api/customer-portal-users',
