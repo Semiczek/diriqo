@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 import { getActiveCompanyContext } from '@/lib/active-company'
+import { COMPANY_MEMBER_ROLES } from '@/lib/hub-access'
+import { requireCompanyModule } from '@/lib/module-access'
 import {
   buildJobPhotoStoragePath,
   hasJobPhotoAdminAccess,
@@ -164,7 +166,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Chybí jobId.' }, { status: 400 })
   }
 
-  const activeCompany = await getActiveCompanyContext()
+  const activeCompany = await getActiveCompanyContext({ allowedRoles: COMPANY_MEMBER_ROLES })
 
   if (!activeCompany) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
@@ -306,11 +308,14 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const activeCompany = await getActiveCompanyContext()
+  const activeCompany = await getActiveCompanyContext({ allowedRoles: COMPANY_MEMBER_ROLES })
 
   if (!activeCompany) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
+
+  const licence = await requireCompanyModule(activeCompany.companyId, 'photos', 'core.files.upload')
+  if (!licence.ok) return NextResponse.json({ error: licence.error }, { status: licence.status ?? 403 })
 
   if (request.headers.get('content-type')?.toLowerCase().includes('multipart/form-data')) {
     if (!hasJobPhotoAdminAccess(activeCompany)) {
@@ -516,11 +521,14 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
-  const activeCompany = await getActiveCompanyContext()
+  const activeCompany = await getActiveCompanyContext({ allowedRoles: COMPANY_MEMBER_ROLES })
 
   if (!activeCompany) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
+
+  const licence = await requireCompanyModule(activeCompany.companyId, 'photos', 'core.files.upload')
+  if (!licence.ok) return NextResponse.json({ error: licence.error }, { status: licence.status ?? 403 })
 
   const payload = normalizeUploadPayload(await request.json().catch(() => null))
 
@@ -624,7 +632,7 @@ export async function PATCH(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  const activeCompany = await getActiveCompanyContext()
+  const activeCompany = await getActiveCompanyContext({ allowedRoles: COMPANY_MEMBER_ROLES })
 
   if (!activeCompany) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })

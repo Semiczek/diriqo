@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { requireWorkerAccess } from '@/lib/server-guards'
 import { createSupabaseAdminClient } from '@/lib/supabase-admin'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
+import { requireCompanyModule } from '@/lib/module-access'
 
 export type WorkerActionResult<T = void> =
   | {
@@ -36,11 +37,20 @@ function getTodayDate() {
   return new Date().toISOString().slice(0, 10)
 }
 
-async function getWorkerContext() {
+async function getWorkerContext(operation: 'shift' | 'complete' | 'stop') {
   const access = await requireWorkerAccess()
 
   if (!access.ok) {
     throw new Error(access.error)
+  }
+
+  // Stopping an already running own shift remains available after expiry; it
+  // settles existing work and must not leave an employee clocked in forever.
+  if (operation !== 'stop') {
+    const licence = operation === 'complete'
+      ? await requireCompanyModule(access.value.companyId, 'jobs', 'core.jobs.update')
+      : await requireCompanyModule(access.value.companyId, 'shifts', 'core.time.record')
+    if (!licence.ok) throw new Error(licence.error)
   }
 
   const supabase = await createSupabaseServerClient()
@@ -73,6 +83,8 @@ async function assertAssignedJob(
       `,
     )
     .eq('job_id', jobId)
+    .eq('company_id', companyId)
+    .eq('jobs.company_id', companyId)
     .eq('profile_id', profileId)
     .is('archived_at', null)
     .limit(1)
@@ -103,10 +115,13 @@ export async function startMyJobShiftAction(input: {
   jobId: string
 }): Promise<WorkerActionResult<{ shiftId: string; reused: boolean }>> {
   try {
-    const { supabase, companyId, profileId } = await getWorkerContext()
+    const { supabase, companyId, profileId } = await getWorkerContext('shift')
     const admin = createSupabaseAdminClient()
   const jobId = requiredId(input.jobId, 'Zakázka')
-    await assertAssignedJob(supabase, companyId, profileId, jobId)
+    const assignment = await assertAssignedJob(supabase, companyId, profileId, jobId)
+    if (assignment.completed_at || assignment.work_completed_at || assignment.status === 'completed') {
+      throw new Error('Dokončenou práci již nelze spustit. Obraťte se na správce.')
+    }
 
     const existingShiftResponse = await admin
       .from('work_shifts')
@@ -154,10 +169,14 @@ export async function startMyJobShiftAction(input: {
         work_started_at: nowIso,
       })
       .eq('job_id', jobId)
+      .eq('company_id', companyId)
       .eq('profile_id', profileId)
       .is('archived_at', null)
 
     revalidatePath('/moje-prace')
+    revalidatePath('/mobile/my')
+    revalidatePath('/mobile/my/finish')
+    revalidatePath('/mobile/manager')
     revalidatePath(`/jobs/${jobId}`)
 
     return { ok: true, data: { shiftId: insertResponse.data.id, reused: false } }
@@ -170,7 +189,7 @@ export async function stopMyJobShiftAction(input: {
   shiftId: string
 }): Promise<WorkerActionResult<{ shiftId: string; reused: boolean }>> {
   try {
-    const { companyId, profileId } = await getWorkerContext()
+    const { companyId, profileId } = await getWorkerContext('stop')
     const admin = createSupabaseAdminClient()
   const shiftId = requiredId(input.shiftId, 'Směna')
 
@@ -201,6 +220,8 @@ export async function stopMyJobShiftAction(input: {
         status: 'completed',
       })
       .eq('id', shiftId)
+      .eq('company_id', companyId)
+      .eq('profile_id', profileId)
       .is('ended_at', null)
 
     if (updateResponse.error) {
@@ -208,6 +229,9 @@ export async function stopMyJobShiftAction(input: {
     }
 
     revalidatePath('/moje-prace')
+    revalidatePath('/mobile/my')
+    revalidatePath('/mobile/my/finish')
+    revalidatePath('/mobile/manager')
 
     if (shiftResponse.data.job_id) {
       revalidatePath(`/jobs/${shiftResponse.data.job_id}`)
@@ -223,7 +247,7 @@ export async function completeMyJobAction(input: {
   jobId: string
 }): Promise<WorkerActionResult<{ jobId: string; reused: boolean }>> {
   try {
-    const { supabase, companyId, profileId } = await getWorkerContext()
+    const { supabase, companyId, profileId } = await getWorkerContext('complete')
     const admin = createSupabaseAdminClient()
   const jobId = requiredId(input.jobId, 'Zakázka')
     const assignment = await assertAssignedJob(supabase, companyId, profileId, jobId)
@@ -231,6 +255,11 @@ export async function completeMyJobAction(input: {
     if (assignment.completed_at || assignment.work_completed_at || assignment.status === 'completed') {
       return { ok: true, data: { jobId, reused: true } }
     }
+
+    const openShift = await admin.from('work_shifts').select('id')
+      .eq('company_id', companyId).eq('profile_id', profileId).eq('job_id', jobId).is('ended_at', null).limit(1)
+    if (openShift.error) throw new Error('Směnu se nepodařilo ověřit. Zkuste to znovu.')
+    if (openShift.data?.length) throw new Error('Nejdříve ukončete směnu tlačítkem Stop.')
 
     const nowIso = new Date().toISOString()
     const assignmentUpdateResponse = await admin
@@ -241,6 +270,8 @@ export async function completeMyJobAction(input: {
         work_completed_at: nowIso,
       })
       .eq('id', assignment.id)
+      .eq('company_id', companyId)
+      .eq('profile_id', profileId)
       .is('archived_at', null)
 
     if (assignmentUpdateResponse.error) {
@@ -258,6 +289,9 @@ export async function completeMyJobAction(input: {
       .in('status', ['planned', 'scheduled', 'in_progress', 'waiting_check'])
 
     revalidatePath('/moje-prace')
+    revalidatePath('/mobile/my')
+    revalidatePath('/mobile/my/finish')
+    revalidatePath('/mobile/manager')
     revalidatePath(`/jobs/${jobId}`)
 
     return { ok: true, data: { jobId, reused: false } }

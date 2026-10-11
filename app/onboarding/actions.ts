@@ -1,6 +1,7 @@
 'use server'
 
 import { cookies } from 'next/headers'
+import { MOBILE_ENTRY_COOKIE, mobileEntryPath } from '@/lib/mobile-access'
 import { redirect } from 'next/navigation'
 
 import { getCompanyCountryConfig } from '@/lib/company-country-config'
@@ -238,6 +239,9 @@ export async function chooseOnboardingMode(formData: FormData) {
     onboardingCompleted: true,
     onboardingMode: mode,
   })
+
+  const mobilePath = mobileEntryPath((await cookies()).get(MOBILE_ENTRY_COOKIE)?.value)
+  if (mobilePath) redirect(mobilePath)
 
   if (mode === 'quick') {
     redirect('/?tour=quick')

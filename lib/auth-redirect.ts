@@ -1,8 +1,10 @@
 import 'server-only'
+import { cookies } from 'next/headers'
 
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 import type { Locale } from '@/lib/i18n/config'
 import { getUserOnboardingState } from '@/lib/user-onboarding'
+import { MOBILE_ENTRY_COOKIE, mobileEntryPath } from '@/lib/mobile-access'
 
 type ProfileRow = {
   id: string
@@ -62,7 +64,9 @@ export async function getPostLoginRedirect(userId: string, locale?: Locale | nul
   if (!companyId) return '/onboarding/company'
 
   const onboardingState = await getUserOnboardingState(userId, companyId)
-  return onboardingState?.onboarding_completed ? getDefaultDashboardPath(locale) : '/onboarding'
+  if (!onboardingState?.onboarding_completed) return '/onboarding'
+  const cookieStore = await cookies()
+  return mobileEntryPath(cookieStore.get(MOBILE_ENTRY_COOKIE)?.value) ?? getDefaultDashboardPath(locale)
 }
 
 async function getProfileIdForUser(userId: string) {

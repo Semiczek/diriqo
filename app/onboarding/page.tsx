@@ -1,4 +1,6 @@
 import { redirect } from 'next/navigation'
+import { cookies } from 'next/headers'
+import { MOBILE_ENTRY_COOKIE, mobileEntryPath } from '@/lib/mobile-access'
 import styles from './onboarding.module.css'
 
 import { chooseOnboardingMode } from '@/app/onboarding/actions'
@@ -36,7 +38,7 @@ export default async function OnboardingPage({ searchParams }: OnboardingPagePro
   const canShowAgain = params.again === '1' || params.again === 'true'
 
   if (state?.onboarding_completed && !canShowAgain) {
-    redirect('/')
+    redirect(mobileEntryPath((await cookies()).get(MOBILE_ENTRY_COOKIE)?.value) ?? '/')
   }
 
   return (
