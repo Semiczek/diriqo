@@ -1,6 +1,7 @@
 import {isOfficeFormulaSafe} from '../core/formula-policy.ts';
 /** Bounded, deliberately partial OOXML adapters authored for Diriqo. No macros or network I/O. */
-import { inflateRawSync } from 'node:zlib';
+import { FORMAT_LIMITS, readSafeZip } from './container-safety.ts';
+export { FORMAT_LIMITS, readSafeZip } from './container-safety.ts';
 import { createHash } from 'node:crypto';
 import { posix } from 'node:path';
 import { zipSync, strToU8 } from 'fflate';
@@ -9,44 +10,12 @@ import { parseDocument } from 'htmlparser2';
 import sanitizeHtml from 'sanitize-html';
 import type { DocumentContent, OfficeContent, SpreadsheetContent } from '../core/types.ts';
 import { exportPdf } from './pdf.ts';
+import { importOdt, exportOdt, ODT_MIME } from './opendocument-text.ts';
+import { importAlternativeSpreadsheet, exportAlternativeSpreadsheet, ODS_MIME } from './alternative-spreadsheets.ts';
+import { importDoc } from './legacy-doc.ts';
 
-export const FORMAT_LIMITS = { inputBytes: 12 * 1024 * 1024, expandedBytes: 48 * 1024 * 1024, entryBytes: 12 * 1024 * 1024, entries: 2048, ratio: 250, cells: 100000, rows: 100000, columns: 16384, sheets: 64 };
 const escapeXml = (v: unknown) => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[c]!));
-const crcTable = Array.from({ length: 256 }, (_, n) => { for (let k = 0; k < 8; k++) n = (n & 1) ? 0xedb88320 ^ (n >>> 1) : n >>> 1; return n >>> 0; });
-function crc32(b: Uint8Array) { let c = 0xffffffff; for (const n of b) c = crcTable[(c ^ n) & 255] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; }
 function fail(message: string): never { throw new Error(`OFFICE_FORMAT: ${message}`); }
-
-export function readSafeZip(input: Uint8Array): Record<string, Buffer> {
-  const b = Buffer.from(input);
-  if (b.length > FORMAT_LIMITS.inputBytes || b.length < 22 || b.readUInt32LE(0) !== 0x04034b50) fail('Invalid ZIP or file too large');
-  let end = -1;
-  for (let i = b.length - 22; i >= Math.max(0, b.length - 65557); i--) if (b.readUInt32LE(i) === 0x06054b50 && i + 22 + b.readUInt16LE(i + 20) === b.length) { end = i; break; }
-  if (end < 0) fail('Missing ZIP directory');
-  const count = b.readUInt16LE(end + 10), directorySize = b.readUInt32LE(end + 12), directoryOffset = b.readUInt32LE(end + 16);
-  if (count > FORMAT_LIMITS.entries || count === 65535 || b.readUInt16LE(end + 4) || b.readUInt16LE(end + 6) || count !== b.readUInt16LE(end + 8) || directoryOffset + directorySize !== end) fail('Unsupported ZIP directory');
-  const result: Record<string, Buffer> = Object.create(null); const spans: [number, number][] = []; let total = 0, p = directoryOffset;
-  for (let i = 0; i < count; i++) {
-    if (p + 46 > end || b.readUInt32LE(p) !== 0x02014b50) fail('Malformed ZIP entry');
-    const flags = b.readUInt16LE(p + 8), method = b.readUInt16LE(p + 10), crc = b.readUInt32LE(p + 16), packed = b.readUInt32LE(p + 20), size = b.readUInt32LE(p + 24);
-    const nl = b.readUInt16LE(p + 28), el = b.readUInt16LE(p + 30), cl = b.readUInt16LE(p + 32), offset = b.readUInt32LE(p + 42);
-    if (p + 46 + nl + el + cl > end || flags & 1 || ![0, 8].includes(method) || size > FORMAT_LIMITS.entryBytes || size > Math.max(1024, packed) * FORMAT_LIMITS.ratio || offset + 30 > directoryOffset) fail('Encrypted, oversized or unsupported ZIP entry');
-    const name = b.subarray(p + 46, p + 46 + nl).toString('utf8');
-    if (!name || /[\\\x00-\x1f]/.test(name) || name.startsWith('/') || name.includes(':') || name.split('/').includes('..') || Object.hasOwn(result, name)) fail('Unsafe or duplicate ZIP path');
-    if (b.readUInt32LE(offset) !== 0x04034b50 || b.readUInt16LE(offset + 8) !== method || b.readUInt16LE(offset + 6) !== flags) fail('Inconsistent ZIP headers');
-    const localName = b.readUInt16LE(offset + 26), localExtra = b.readUInt16LE(offset + 28), start = offset + 30 + localName + localExtra;
-    if (b.subarray(offset + 30, offset + 30 + localName).toString('utf8') !== name || start + packed > directoryOffset || spans.some(([a, z]) => offset < z && start + packed > a)) fail('Overlapping ZIP entries');
-    spans.push([offset, start + packed]); total += size;
-    if (total > FORMAT_LIMITS.expandedBytes) fail('ZIP expansion limit exceeded');
-    const compressed = b.subarray(start, start + packed);
-    const out = method === 0 ? Buffer.from(compressed) : inflateRawSync(compressed, { maxOutputLength: Math.max(1, Math.min(size + 1, FORMAT_LIMITS.entryBytes)) });
-    if (out.length !== size || crc32(out) !== crc) fail('ZIP integrity failure');
-    if (/vba|activex|embeddings\/|externallinks\//i.test(name)) fail('Macros, active objects and external workbooks are not accepted');
-    result[name] = out; p += 46 + nl + el + cl;
-  }
-  if (p !== end || !result['[Content_Types].xml']) fail('Not an OOXML package');
-  for (const [name, data] of Object.entries(result)) if (/\.(xml|rels)$/i.test(name) && /<!DOCTYPE|<!ENTITY|\bDDEAUTO\b|\bDDE\s|macroEnabled/i.test(data.toString('utf8'))) fail('Active XML content is not accepted');
-  return result;
-}
 
 type X = { name: string; attrs: Record<string, string>; children: any[] };
 function xml(data: Buffer | string | undefined): any[] {
@@ -177,7 +146,7 @@ export function address(value: string): { row: number; col: number } { const m =
 export function safeFormula(formula:string):boolean{return isOfficeFormulaSafe(formula);}
 // Imported content must be identical across independent retry/worker executions.
 // Storage creates a separate file ID per operation; these IDs identify workbook content only.
-function importedWorkbookId(format: 'xlsx' | 'csv', source: Uint8Array | string): string { return `import-${format}-${createHash('sha256').update(source).digest('hex')}`; }
+function importedWorkbookId(format: 'xlsx' | 'csv' | 'tsv', source: Uint8Array | string): string { return `import-${format}-${createHash('sha256').update(source).digest('hex')}`; }
 function workbook(id: string, sheets: Record<string, any>, order: string[], name: string): SpreadsheetContent { return { schemaVersion: 1, kind: 'spreadsheet', workbook: { id, name, appVersion: '1.0.4', locale: 'enUS', styles: {}, sheetOrder: order, sheets } }; }
 function sheet(id: string, name: string): any { return { id, name, rowCount: 1000, columnCount: 26, cellData: {}, rowData: {}, columnData: {}, mergeData: [], defaultRowHeight: 24, defaultColumnWidth: 100 }; }
 export function importXlsx(input: Uint8Array): { content: SpreadsheetContent; warnings: string[] } {
@@ -239,30 +208,36 @@ export function exportXlsx(content: SpreadsheetContent): { bytes: Buffer; warnin
   return { bytes: xmlZip(files), warnings };
 }
 
-export function importCsv(value: string): SpreadsheetContent {
+export function importCsv(value: string, delimiter?: '\t'): SpreadsheetContent {
   if (Buffer.byteLength(value) > FORMAT_LIMITS.inputBytes || value.includes('\0')) fail('Invalid CSV');
-  const first = value.split(/\r?\n/)[0]; const separator = (first.match(/;/g)?.length ?? 0) > (first.match(/,/g)?.length ?? 0) ? ';' : ',';
+  const first = value.split(/\r?\n/)[0]; const separator = delimiter ?? ((first.match(/;/g)?.length ?? 0) > (first.match(/,/g)?.length ?? 0) ? ';' : ',');
   const rows: string[][] = []; let row: string[] = [], field = '', quoted = false, closed = false, cells = 0;
   for (let i = 0; i <= value.length; i++) { const c = value[i]; if (quoted) { if (c === '"') { if (value[i + 1] === '"') { field += '"'; i++; } else { quoted = false; closed = true; } } else if (c === undefined) fail('Unclosed CSV quote'); else field += c; continue; }
     if (c === '"' && field === '' && !closed) { quoted = true; continue; }
     if (c === separator || c === '\n' || c === '\r' || c === undefined) { row.push(field); if (++cells > FORMAT_LIMITS.cells || row.length > FORMAT_LIMITS.columns) fail('CSV limit exceeded'); field = ''; closed = false; if (c !== separator) { if (c === '\r' && value[i + 1] === '\n') i++; rows.push(row); row = []; } } else { if (closed) fail('Invalid CSV quoting'); field += c; }
   }
-  const bookId = importedWorkbookId('csv', value), id = `${bookId}-sheet-1`, s = sheet(id, 'CSV'); rows.forEach((r, ri) => { if (ri >= FORMAT_LIMITS.rows) fail('Too many CSV rows'); r.forEach((v, ci) => { (s.cellData[ri] ??= {})[ci] = { v, t: 1 }; }); }); s.rowCount = Math.max(1000, rows.length + 10); s.columnCount = Math.max(26, ...rows.map(r => r.length)); return workbook(bookId, { [id]: s }, [id], 'CSV');
+  const label = delimiter ? 'TSV' : 'CSV';
+  const bookId = importedWorkbookId(delimiter ? 'tsv' : 'csv', value), id = `${bookId}-sheet-1`, s = sheet(id, label); rows.forEach((r, ri) => { if (ri >= FORMAT_LIMITS.rows) fail('Too many CSV rows'); r.forEach((v, ci) => { (s.cellData[ri] ??= {})[ci] = { v, t: 1 }; }); }); s.rowCount = Math.min(FORMAT_LIMITS.rows, Math.max(1000, rows.length + 10)); s.columnCount = Math.max(26, ...rows.map(r => r.length)); return workbook(bookId, { [id]: s }, [id], label);
 }
-export function exportCsv(content: SpreadsheetContent): string {
+export function exportCsv(content: SpreadsheetContent, delimiter = ','): string {
   const s = content.workbook.sheets[content.workbook.sheetOrder[0]]; const rows = Object.keys(s.cellData ?? {}).map(Number); const maxRow = Math.max(0, ...rows); const maxCol = Math.max(0, ...rows.flatMap(r => Object.keys(s.cellData[r]).map(Number))); if ((maxRow + 1) * (maxCol + 1) > FORMAT_LIMITS.cells) fail('CSV export area too large');
-  return Array.from({ length: maxRow + 1 }, (_, r) => Array.from({ length: maxCol + 1 }, (_, c) => { const cell = s.cellData?.[r]?.[c]; let v = String(cell?.v ?? ''); if (/^[\s\uFEFF]*[=+@-]|^[\t\r\n]/.test(v)) v = `'${v}`; return `"${v.replace(/"/g, '""')}"`; }).join(',')).join('\r\n');
+  return Array.from({ length: maxRow + 1 }, (_, r) => Array.from({ length: maxCol + 1 }, (_, c) => { const cell = s.cellData?.[r]?.[c]; let v = String(cell?.v ?? ''); if (/^[\s\uFEFF]*[=+@-]|^[\t\r\n]/.test(v)) v = `'${v}`; return `"${v.replace(/"/g, '""')}"`; }).join(delimiter)).join('\r\n');
 }
 export async function importOfficeFile(name: string, bytes: Uint8Array): Promise<{ content: OfficeContent; warnings: string[]; original: { name: string; mime: string; size: number; sha256: string } }> {
   if (bytes.length > FORMAT_LIMITS.inputBytes) fail('File exceeds 12 MiB'); const ext = name.split('.').at(-1)?.toLowerCase(); let result: { content: OfficeContent; warnings: string[] };
-  if (ext === 'docx') result = importDocx(bytes); else if (ext === 'xlsx') result = importXlsx(bytes); else if (['txt', 'html', 'csv'].includes(ext ?? '')) { const text = new TextDecoder('utf-8', { fatal: true }).decode(bytes); if (text.includes('\0')) fail('Binary content in text file'); result = ext === 'csv' ? { content: importCsv(text), warnings: ['CSV values are imported as text; formulas are not executed.'] } : ext === 'html' ? { content: htmlToDocument(text), warnings: ['HTML is sanitized; scripts, external images, embedded objects and unsupported formatting are removed.'] } : { content: doc(text.split(/\r?\n/).map(t => ({ type: 'paragraph', content: txt(t) }))), warnings: [] }; } else fail('Supported imports: DOCX, XLSX, TXT, HTML, CSV');
+  if (ext === 'docx') result = importDocx(bytes);
+  else if (ext === 'odt') result = importOdt(readSafeZip(bytes, 'odf'));
+  else if (ext === 'doc') result = importDoc(bytes);
+  else if (ext === 'xlsx') result = importXlsx(bytes);
+  else if (ext === 'ods' || ext === 'xls') result = importAlternativeSpreadsheet(bytes, ext);
+  else if (['txt', 'html', 'htm', 'csv', 'tsv'].includes(ext ?? '')) { const text = new TextDecoder('utf-8', { fatal: true }).decode(bytes); if (text.includes('\0')) fail('Binary content in text file'); result = ext === 'csv' || ext === 'tsv' ? { content: importCsv(text, ext === 'tsv' ? '\t' : undefined), warnings: [`${ext.toUpperCase()} values are imported as text; formulas are not executed.`] } : ext === 'html' || ext === 'htm' ? { content: htmlToDocument(text), warnings: ['HTML is sanitized; scripts, external images, embedded objects and unsupported formatting are removed.'] } : { content: doc(text.split(/\r?\n/).map(t => ({ type: 'paragraph', content: txt(t) }))), warnings: [] }; } else fail('Supported imports: DOCX, ODT, DOC, XLSX, ODS, XLS, CSV, TSV, TXT, HTML');
   return { ...result, original: { name: name.slice(0, 200), mime: MIME[ext!], size: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex') } };
 }
-export const MIME: Record<string, string> = { pdf: 'application/pdf', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', txt: 'text/plain;charset=utf-8', html: 'text/html;charset=utf-8', csv: 'text/csv;charset=utf-8' };
+export const MIME: Record<string, string> = { odt: ODT_MIME, doc: 'application/msword', ods: ODS_MIME, xls: 'application/vnd.ms-excel', tsv: 'text/tab-separated-values;charset=utf-8', pdf: 'application/pdf', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', txt: 'text/plain;charset=utf-8', html: 'text/html;charset=utf-8', htm: 'text/html;charset=utf-8', csv: 'text/csv;charset=utf-8' };
 export function exportOfficeFile(content: OfficeContent, title: string, format: string): { name: string; mime: string; base64: string; warnings: string[] } {
   if(format==='print'&&content.kind==='document')return{name:title,mime:'text/plain',base64:'',warnings:[]};
-  let bytes: Buffer, warnings: string[] = [];
-  if (content.kind === 'document') { if (format === 'pdf') ({ bytes, warnings } = exportPdf(content)); else if (format === 'docx') ({ bytes, warnings } = exportDocx(content)); else if (format === 'txt') bytes = Buffer.from(documentToText(content)); else if (format === 'html') bytes = Buffer.from(`<!doctype html><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'"><title>${escapeXml(title)}</title><style>body{font-family:Arial;max-width:170mm;margin:20mm auto}table{border-collapse:collapse}td,th{border:1px solid #aaa;padding:5px}@page{size:A4;margin:${Math.max(5, Math.min(50, content.page.marginMm))}mm}</style><header>${escapeXml(content.page.header)}</header>${documentToHtml(content)}<footer>${escapeXml(content.page.footer)}</footer>`); else fail('Unsupported document export'); }
-  else { if (format === 'xlsx') ({ bytes, warnings } = exportXlsx(structuredClone(content))); else if (format === 'csv') { bytes = Buffer.from('\uFEFF' + exportCsv(content)); warnings = ['CSV exports values from the first sheet only. Potential spreadsheet formulas are prefixed with an apostrophe.']; } else fail('Unsupported spreadsheet export'); }
-  return { name: `${title.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').replace(/\.(docx|xlsx|csv|txt|html|pdf)$/i,'').slice(0, 120)}.${format}`, mime: MIME[format], base64: bytes.toString('base64'), warnings };
+  let bytes: Uint8Array, warnings: string[] = [];
+  if (content.kind === 'document') { if (format === 'pdf') ({ bytes, warnings } = exportPdf(content)); else if (format === 'docx') ({ bytes, warnings } = exportDocx(content)); else if (format === 'odt') ({ bytes, warnings } = exportOdt(content)); else if (format === 'txt') bytes = Buffer.from(documentToText(content)); else if (format === 'html') bytes = Buffer.from(`<!doctype html><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'"><title>${escapeXml(title)}</title><style>body{font-family:Arial;max-width:170mm;margin:20mm auto}table{border-collapse:collapse}td,th{border:1px solid #aaa;padding:5px}@page{size:A4;margin:${Math.max(5, Math.min(50, content.page.marginMm))}mm}</style><header>${escapeXml(content.page.header)}</header>${documentToHtml(content)}<footer>${escapeXml(content.page.footer)}</footer>`); else fail('Unsupported document export'); }
+  else { if (format === 'xlsx') ({ bytes, warnings } = exportXlsx(structuredClone(content))); else if (format === 'ods' || format === 'xls') ({ bytes, warnings } = exportAlternativeSpreadsheet(content, format)); else if (format === 'csv' || format === 'tsv') { bytes = Buffer.from('\uFEFF' + exportCsv(content, format === 'tsv' ? '\t' : ',')); warnings = [`${format.toUpperCase()} exports values from the first sheet only. Potential spreadsheet formulas are prefixed with an apostrophe.`]; } else fail('Unsupported spreadsheet export'); }
+  return { name: `${title.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').replace(/\.(docx|odt|doc|xlsx|ods|xls|csv|tsv|txt|html|pdf)$/i,'').slice(0, 120)}.${format}`, mime: MIME[format], base64: Buffer.from(bytes).toString('base64'), warnings };
 }

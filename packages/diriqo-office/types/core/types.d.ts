@@ -1,4 +1,6 @@
 /** Host-neutral contract. Actor and tenant must originate in an authenticated server guard. */
+import type { OfficeDownloadFormat } from './formats.ts';
+export * from './formats.ts';
 export type OfficeRole = 'owner' | 'editor' | 'reader';
 export type OfficeActor = {
     tenantId: string;
@@ -229,7 +231,7 @@ export type OfficeTransport = {
         file: OfficeFile;
         warnings: string[];
     }>;
-    exportFile: (id: string, format: string) => Promise<{
+    exportFile: (id: string, format: OfficeDownloadFormat) => Promise<{
         name: string;
         mime: string;
         base64: string;

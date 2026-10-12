@@ -6,6 +6,7 @@ import {randomUUID} from 'node:crypto';
 import {transformSync} from 'esbuild';
 import {getOfficeMessages} from '../src/client/locales.ts';
 import {blankDocument} from '../src/core/templates.ts';
+import * as officeFormats from '../src/core/formats.ts';
 
 // Exercise the actual workspace handlers with deterministic hooks, timers and RPCs.
 // This is not a browser/focus-trap simulation; native dialog keyboard proof is separate.
@@ -55,7 +56,7 @@ async function workspace(options={}){
   useEffect(effect,deps){const index=cursor++,previous=slots[index];if(!previous||deps.some((dep,i)=>!Object.is(dep,previous.deps[i]))){slots[index]={deps,cleanup:previous?.cleanup};effects.push(()=>{slots[index].cleanup?.();slots[index].cleanup=effect();});}}
  };
  const module={exports:{}};
- runInNewContext(code,{module,exports:module.exports,require(name){if(name==='react')return React;if(name==='./locales')return {getOfficeMessages};if(name==='./SharingDialog')return {SharingDialog:Symbol('SharingDialog')};if(name==='../core/templates')return {OFFICE_TEMPLATES:[]};throw Error('Unexpected dependency '+name);},structuredClone,crypto:{randomUUID},document,window,navigator:{onLine:true},Event,Intl,Date,console,
+ runInNewContext(code,{module,exports:module.exports,require(name){if(name==='react')return React;if(name==='./locales')return {getOfficeMessages};if(name==='./SharingDialog')return {SharingDialog:Symbol('SharingDialog')};if(name==='../core/templates')return {OFFICE_TEMPLATES:[]};if(name==='../core/formats')return officeFormats;throw Error('Unexpected dependency '+name);},structuredClone,crypto:{randomUUID},document,window,navigator:{onLine:true},Event,Intl,Date,console,
   requestAnimationFrame:fn=>queueMicrotask(fn),setTimeout(fn,delay){const id=++timerId;timers.set(id,{fn,delay});return id;},clearTimeout:id=>timers.delete(id)});
  function render(){
   if(!dirty)return;dirty=false;cursor=0;tree=module.exports.OfficeWorkspace(props);
@@ -247,4 +248,28 @@ test('save error recovery does not expose copying to a shared editor without cre
  app.editor().props.onChange(content('Keep local work'));await app.settle();await app.click(app.button('Save'));
  const copies=app.find(node=>node.type==='button'&&text(node)===getOfficeMessages('en').copy);assert.equal(copies.length,2);assert.equal(copies.every(node=>node.props.disabled),true);
  assert.match(JSON.stringify(app.editor().props.content),/Keep local work/);assert.equal(app.file.revision,3);
+});
+
+test('workspace upload exposes supported formats and explains limited DOC import before choosing a file',async()=>{
+ const app=await workspace({startInList:true});
+ const upload=app.find(node=>node.type==='input'&&node.props.type==='file')[0];
+ for(const extension of ['.odt','.doc','.ods','.xls','.tsv'])assert.ok(upload.props.accept.split(',').includes(extension),extension);
+ assert.match(text(app.tree),/text import only, without formatting or images/);
+ assert.match(text(app.tree),/original file is preserved/);
+ assert.doesNotMatch(upload.props.accept,/\.docm|\.xlsm/);
+});
+
+test('workspace export menus offer document and spreadsheet formats separately and never offer DOC',async()=>{
+ for(const [kind,expected]of [['document',['','docx','odt','pdf','txt','html']],['spreadsheet',['','xlsx','ods','xls','csv','tsv']]]){
+  const app=await workspace({file:{kind}});
+  const select=app.find(node=>node.type==='select'&&node.props['aria-label']==='Export')[0];
+  assert.deepEqual(app.find(node=>node.type==='option',select).map(node=>node.props.value),expected);
+  if(kind==='spreadsheet'){
+   assert.equal(text(app.find(node=>node.type==='option'&&node.props.value==='xls',select)[0]),'XLS (values only)');
+   assert.match(text(app.tree),/XLS export saves the last calculated values without formulas/);
+  }
+  // Forged values must not reach the transport even outside normal select UI.
+  let called=false;app.transport.exportFile=async()=>{called=true;throw Error('Unexpected export');};
+  select.props.onChange({target:{value:'doc'}});await app.settle();assert.equal(called,false);
+ }
 });

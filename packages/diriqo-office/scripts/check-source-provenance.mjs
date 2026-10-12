@@ -33,7 +33,7 @@ if(flags.includes('--write')){
 }
 assert.deepEqual(JSON.parse(await readFile(manifestPath,'utf8')),manifest,'Canonical source or runtime differs from the reviewed manifest');
 const sourceProvenance=JSON.parse(await readFile(resolve(root,'../../vendor/office-source.json'),'utf8'));
-assert.deepEqual(sourceProvenance,{schemaVersion:1,sourceRepository:manifest.repository,sourceBranch:'codex/office-sharing-library',sourceDirectory:manifest.sourceDirectory,sourceContentSha256:manifest.sourceSha256,runtimeArchiveSha256:manifest.runtime.sha256},'Host source provenance differs from the canonical source snapshot');
+assert.deepEqual(sourceProvenance,{schemaVersion:1,sourceRepository:manifest.repository,sourceBranch:'codex/office-formats-library',sourceDirectory:manifest.sourceDirectory,sourceContentSha256:manifest.sourceSha256,runtimeArchiveSha256:manifest.runtime.sha256},'Host source provenance differs from the canonical source snapshot');
 if(flags.includes('--runtime')){
  const tar=gunzipSync(archiveBytes,{maxOutputLength:128*1024*1024});let compared=0;
  for(let offset=0;offset+512<=tar.length;){

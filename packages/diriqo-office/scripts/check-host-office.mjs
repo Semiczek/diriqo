@@ -7,7 +7,7 @@ const metadata=await json('vendor/office-integrity.json'),baseline=await json('v
 const bytes=await readFile('vendor/'+metadata.archive);
 if(hash(bytes)!==metadata.sha256)throw Error('Office archive changed: rebuild and review shared license evidence first.');
 const sourceProvenance=await json('vendor/office-source.json');
-if(sourceProvenance.schemaVersion!==1||sourceProvenance.sourceRepository!=='https://github.com/Semiczek/diriqo'||!['codex/office-menu-release','codex/office-sharing-library'].includes(sourceProvenance.sourceBranch)||sourceProvenance.sourceDirectory!=='packages/diriqo-office'||!/^[a-f0-9]{64}$/.test(sourceProvenance.sourceContentSha256??'')||sourceProvenance.runtimeArchiveSha256!==metadata.sha256)throw Error('Office canonical source provenance is missing or inconsistent');
+if(sourceProvenance.schemaVersion!==1||sourceProvenance.sourceRepository!=='https://github.com/Semiczek/diriqo'||!['codex/office-menu-release','codex/office-sharing-library','codex/office-formats-library'].includes(sourceProvenance.sourceBranch)||sourceProvenance.sourceDirectory!=='packages/diriqo-office'||!/^[a-f0-9]{64}$/.test(sourceProvenance.sourceContentSha256??'')||sourceProvenance.runtimeArchiveSha256!==metadata.sha256)throw Error('Office canonical source provenance is missing or inconsistent');
 const manifest=await json('package.json'),lock=await json('package-lock.json');
 const office=lock.packages['node_modules/@diriqo/office'];
 if(office?.integrity!==metadata.integrity||office?.resolved!=='file:vendor/'+metadata.archive||manifest.dependencies?.['@diriqo/office']!==office.resolved)throw Error('Office declaration/lock/archive mismatch');

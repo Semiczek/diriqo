@@ -3,7 +3,8 @@
   "git": {
     "deploymentEnabled": {
       "codex/office-menu-release": false,
-      "codex/office-sharing-library": false
+      "codex/office-sharing-library": false,
+      "codex/office-formats-library": false
     }
   }
 }

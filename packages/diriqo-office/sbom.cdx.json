@@ -6,7 +6,7 @@
     "component": {
       "type": "application",
       "name": "@diriqo/office",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "bom-ref": "office"
     }
   },
@@ -4756,6 +4756,42 @@
     },
     {
       "type": "library",
+      "name": "xlsx",
+      "version": "0.20.3",
+      "bom-ref": "node_modules/xlsx",
+      "purl": "pkg:npm/xlsx@0.20.3",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "8dc73fc3b00203e72d176e85b50938627c7b086e607c682e8d3c22c02bb99fe8"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
+        }
+      ],
+      "properties": [
+        {
+          "name": "diriqo:declared-license",
+          "value": "Apache-2.0"
+        },
+        {
+          "name": "diriqo:integrity",
+          "value": "sha512-oLDq3jw7AcLqKWH2AhCpVTZl8mf6X2YReP+Neh0SJUzV/BdZYjth94tG5toiMB1PPrYtxOCfaoUCkvtuH+3AJA=="
+        }
+      ]
+    },
+    {
+      "type": "library",
       "name": "xml-naming",
       "version": "0.3.0",
       "bom-ref": "node_modules/xml-naming",
@@ -4854,7 +4890,8 @@
         "node_modules/htmlparser2",
         "node_modules/react",
         "node_modules/react-dom",
-        "node_modules/sanitize-html"
+        "node_modules/sanitize-html",
+        "node_modules/xlsx"
       ]
     },
     {
@@ -5641,6 +5678,10 @@
     },
     {
       "ref": "node_modules/w3c-keyname",
+      "dependsOn": []
+    },
+    {
+      "ref": "node_modules/xlsx",
       "dependsOn": []
     },
     {

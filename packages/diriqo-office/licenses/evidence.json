@@ -1,12 +1,12 @@
 {
   "policyVersion": 1,
   "assetEvidenceSha256": "8b9dfa3f707c206aa311bd67278cb38bdfc02b09cbc12ac97838a0b7b3afe52d",
-  "lockSha256": "5a3b96142c313089ade439edcd185b5b7394cfa3b2ae30e99a5fc1729692ecbb",
-  "declarationSha256": "2cf0e9019e8a301e34725953224778f52435910c13aa8025c33d8af0d87ba178",
+  "lockSha256": "f2a2c5421778b374c9742da00551cd138a85ae59806e2ed0edc98b7d7e17335a",
+  "declarationSha256": "282d8930672c7409a8ecd4506a5c9bbc34e6bf11c1c2859bf85a46ff790d51a3",
   "generatedHashes": {
-    "THIRD_PARTY_LICENSES.md": "95d7ddc21ce1ac3b39f3009a59c19d20f8f97e242110dfd926f52c304c9eaeba",
-    "LICENSE_AUDIT.md": "a3847ac1a84aefd4b3a413911ba034bc323277c810f1be58693486de935552f3",
-    "sbom.cdx.json": "1b1b0905c92c353b300dedf144a8246e9c8a58cea4b793b6f3b3e0b22826ba83"
+    "THIRD_PARTY_LICENSES.md": "07628390dabffeaeb84806a9d1c8ece61073717942de907ad9a083585f5c186c",
+    "LICENSE_AUDIT.md": "5108df34a7be36ae25fae00555021c604c65b441e08411ef9027543be9dba34b",
+    "sbom.cdx.json": "6b811b72fc72d009e107fa686b23667838eeba9dababc7f5faf59916711257b3"
   },
   "packages": [
     {
@@ -4438,6 +4438,35 @@
           "path": "licenses/texts/w3c-keyname@2.2.8/0-LICENSE",
           "archivePath": "package/LICENSE",
           "sha256": "869c30f368eb08735e779027b9f4bc9fea2f39624351856aebe42741f0bc0884"
+        }
+      ]
+    },
+    {
+      "name": "xlsx",
+      "version": "0.20.3",
+      "location": "node_modules/xlsx",
+      "fingerprint": "adbc75af56fc7b26246a98622dc0262c0224282ad1bdfabf8efe332ac07e1240",
+      "declaredLicense": "Apache-2.0",
+      "lockLicense": "Apache-2.0",
+      "selectedLicenses": [
+        "Apache-2.0"
+      ],
+      "supplementalLicenses": [],
+      "author": "sheetjs",
+      "repository": "https://git.sheetjs.com/SheetJS/sheetjs",
+      "resolved": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
+      "integrity": "sha512-oLDq3jw7AcLqKWH2AhCpVTZl8mf6X2YReP+Neh0SJUzV/BdZYjth94tG5toiMB1PPrYtxOCfaoUCkvtuH+3AJA==",
+      "tarballSha256": "8dc73fc3b00203e72d176e85b50938627c7b086e607c682e8d3c22c02bb99fe8",
+      "files": [
+        {
+          "path": "licenses/texts/xlsx@0.20.3/0-LICENSE",
+          "archivePath": "package/dist/LICENSE",
+          "sha256": "4d2a38ac35cda06a555c84074a819d413339cd3691b822cae50f8f322fe01f64"
+        },
+        {
+          "path": "licenses/texts/xlsx@0.20.3/1-LICENSE",
+          "archivePath": "package/LICENSE",
+          "sha256": "4d2a38ac35cda06a555c84074a819d413339cd3691b822cae50f8f322fe01f64"
         }
       ]
     },
