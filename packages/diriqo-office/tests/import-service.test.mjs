@@ -1,0 +1,20 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {randomUUID} from 'node:crypto';
+import {OfficeService} from '../src/server/service.ts';
+import {MemoryStore} from '../src/server/store.ts';
+import {blankDocument} from '../src/core/templates.ts';
+const a={tenantId:'alpha',actorId:'alice',role:'owner',enabled:true,principal:'human'};
+const b={...a,tenantId:'beta',actorId:'bob'};
+test('import attaches original and folder atomically with tenant isolation and stable retry',async()=>{
+ const service=new OfficeService(new MemoryStore());
+ const {file:folder}=await service.request(a,{op:'create',kind:'folder',title:'Imports',idempotencyKey:randomUUID()});
+ const input={title:'Letter',parentId:folder.id,content:blankDocument(),original:{name:'letter.txt',mime:'text/plain',bytes:Buffer.from('Original bytes')},idempotencyKey:randomUUID()};
+ await assert.rejects(service.import(b,input),e=>e.code==='NOT_FOUND');
+ assert.equal((await service.request(b,{op:'list'})).files.length,0);
+ const one=await service.import(a,input),two=await service.import(a,input);
+ assert.equal(one.file.parentId,folder.id);assert.equal(one.file.id,two.file.id);
+ assert.equal((await service.request(a,{op:'list',parentId:folder.id})).files.length,1);
+ assert.equal(Buffer.from((await service.original(a,one.file.id)).bytes).toString(),'Original bytes');
+ await assert.rejects(service.import(a,{...input,parentId:null}),e=>e.code==='IDEMPOTENCY_CONFLICT');
+});

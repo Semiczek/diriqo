@@ -1,0 +1,2 @@
+# Preserve the exact reviewed bytes across Git checkouts, including license evidence.
+* -text

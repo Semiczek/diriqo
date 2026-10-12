@@ -1,0 +1,2585 @@
+{
+  "schemaVersion": 1,
+  "repository": "https://github.com/Semiczek/diriqo",
+  "sourceDirectory": "packages/diriqo-office",
+  "ownership": "One canonical source; both hosts consume the identical reviewed vendor runtime.",
+  "sourceSha256": "d844f69bb86553869de0b0ede504c11910c63fb72e2cc7105dd4ecaf7d274769",
+  "runtime": {
+    "name": "@diriqo/office",
+    "version": "0.1.0",
+    "archive": "vendor/diriqo-office-0.1.0.tgz",
+    "sha256": "fc8b602dc57267f504bbd4d02788b8dc349f4cb03d282fe62008e9d0538e5c5a"
+  },
+  "files": [
+    {
+      "path": ".gitattributes",
+      "bytes": 94,
+      "sha256": "5ea1457bd92bd3904455d9780a4b2ca724569da7102b815368519b0d1a871aad"
+    },
+    {
+      "path": ".gitignore",
+      "bytes": 81,
+      "sha256": "b587ee4bc947c0b37e0e47fc12876c844a60b82dfe6a0b48afb74a82b2686219"
+    },
+    {
+      "path": "ASSET_LICENSES.md",
+      "bytes": 2145,
+      "sha256": "20f3ac900697c1a2fe5b31022ade068dc9fe19f7e43233d62f17a67dabee6eaf"
+    },
+    {
+      "path": "LICENSE_AUDIT.md",
+      "bytes": 3422,
+      "sha256": "fcd027b0e8a5daf7fb9589d199f109368101d111c1a554f84bd44dbb47c9cf17"
+    },
+    {
+      "path": "README.md",
+      "bytes": 3306,
+      "sha256": "0b6723f12c3a7eefdf9be11795fd790757ce3c74c9c912575ef98a7fac69c70d"
+    },
+    {
+      "path": "THIRD_PARTY_LICENSES.md",
+      "bytes": 45767,
+      "sha256": "95d7ddc21ce1ac3b39f3009a59c19d20f8f97e242110dfd926f52c304c9eaeba"
+    },
+    {
+      "path": "database/office-core.sql",
+      "bytes": 38268,
+      "sha256": "df3eedeb486c9e0745405dc238fe6ff46d52ed0796d7b3940591375fbf877f45"
+    },
+    {
+      "path": "database/office-diriqo-adapter.sql",
+      "bytes": 1924,
+      "sha256": "99bf81ea2cad5c702766cc610d0649fd337a19134e62256e85a65ea391c0cc1c"
+    },
+    {
+      "path": "database/office-hub-adapter.sql",
+      "bytes": 1752,
+      "sha256": "0813a5d29d5027e630ec0d8e5888c9631647268b4b6581ae945497dd8bf883fd"
+    },
+    {
+      "path": "database/office-normalized-receipt-commit.sql",
+      "bytes": 592,
+      "sha256": "89c33de5b96ce98ae8f9a2b4448772f9e3d8cbd9b1b25d48fbd5c44125735d17"
+    },
+    {
+      "path": "database/office-normalized.sql",
+      "bytes": 50474,
+      "sha256": "bcb96387b58696d25391e6ea828f21c9bf3da323542ddc5da2ee1b3585c4d131"
+    },
+    {
+      "path": "docs/ARCHITECTURE.md",
+      "bytes": 12416,
+      "sha256": "0713a2defb36b673198bf1b50f7078337b7e875bbe06a8238da750228f0e435f"
+    },
+    {
+      "path": "docs/ENABLEMENT.md",
+      "bytes": 15065,
+      "sha256": "ce7038d4bfeb6b546a84439bf57cdc02da69febcd3de12d42f2e52a8422392d3"
+    },
+    {
+      "path": "docs/EXTERNAL_STORAGE_NOTES.md",
+      "bytes": 3842,
+      "sha256": "f8cca66ac281afcc1eab59f2d8bda0aac85dde1c09ab8ca840169138b7cb7aec"
+    },
+    {
+      "path": "docs/LIMITATIONS.md",
+      "bytes": 9875,
+      "sha256": "27effe885874d2767b46c98b0b94d76b88f0af0e36be81a872cb1b4b9aa2601c"
+    },
+    {
+      "path": "docs/NATIVE_PRINT_VALIDATION.md",
+      "bytes": 4357,
+      "sha256": "6d8c35716388201ac4397401b325c6c2bb93fb649dde0eb169f043a8cc4270e2"
+    },
+    {
+      "path": "docs/NORMALIZED_PERSISTENCE.md",
+      "bytes": 6387,
+      "sha256": "d6a32e32e65d823d7628d9c3f3150a0c28319ab6e31c5181832fd13a00b6e5dc"
+    },
+    {
+      "path": "docs/OFFICE_ORIGIN.md",
+      "bytes": 3279,
+      "sha256": "871dfa83a8bb80653aff12ed1bc760676e65f73c48dce40dd3e0611a5b235235"
+    },
+    {
+      "path": "docs/OFFICE_ROLLOUT_IMPACT.md",
+      "bytes": 9610,
+      "sha256": "cf994910fd06316a272a609d71d2819a66774387559248d400ec04c40e2fa2e9"
+    },
+    {
+      "path": "docs/PDF_EXPORT.md",
+      "bytes": 7593,
+      "sha256": "9d6c94531fcb45603bbdd6565afbf7c24289f06a7e9d289d1a5edc48e40bd5f8"
+    },
+    {
+      "path": "docs/PUBLIC_STAGING.md",
+      "bytes": 6462,
+      "sha256": "c3c9653bd28d6af198517931ca5f31e4eb9696dfb86a3c2ee594904d6c29e171"
+    },
+    {
+      "path": "docs/STAGING_ACCEPTANCE.md",
+      "bytes": 10270,
+      "sha256": "4d84a878f91ef7ddacf89d691d03ea2fde24ea8edf936810b17763dd931cf527"
+    },
+    {
+      "path": "docs/STAGING_DIRIQO_HTTP_PROTOCOL.txt",
+      "bytes": 7456,
+      "sha256": "8c66b4cdb0e6e41feed71e20336105dc2b65a8cfbb6fe330ff095cea5b3b5a92"
+    },
+    {
+      "path": "docs/STAGING_HUB_HTTP_PROTOCOL.md",
+      "bytes": 1802,
+      "sha256": "6c56df61a67e107d0f8a0ad6247c5ff6cc44fc7b69353fd08efa2241e2a59e21"
+    },
+    {
+      "path": "docs/STAGING_PROVISIONING.md",
+      "bytes": 14733,
+      "sha256": "56e188c218b82fc894cd699e3d18cf1485bd884eff6915cdbd7c8bba62ea6fa9"
+    },
+    {
+      "path": "docs/STAGING_RUNBOOK.md",
+      "bytes": 10355,
+      "sha256": "13b02fe9557693c154ef19aea85e95c171f78ce1821fca74c46f58242d1fb416"
+    },
+    {
+      "path": "docs/TECHNOLOGY_DECISION.md",
+      "bytes": 5119,
+      "sha256": "ad3f8c50330488e44ebb9828b8884150817ae5202ad08ff2e5e01050b974df59"
+    },
+    {
+      "path": "docs/TESTING.md",
+      "bytes": 12753,
+      "sha256": "0a802ecea7330d67eebce7f4a3073cd7174a91e933a09701f8262e0b14dfd18c"
+    },
+    {
+      "path": "fixtures/attendance.office.json",
+      "bytes": 3685,
+      "sha256": "45758f6cc4b74f6ce8e476e7eb1332d1ae577ed7bc16d21720ecde83bda777d1"
+    },
+    {
+      "path": "fixtures/attendance.xlsx",
+      "bytes": 2322,
+      "sha256": "4da03755409b3423b62a5d0b9e237d546fefdd1a475a9f12372bdd0a60fa4a19"
+    },
+    {
+      "path": "fixtures/estimate.office.json",
+      "bytes": 4067,
+      "sha256": "52e8255819b7a2de774aa55abf903564d01c3fccbd1b2a22339809c25c59b21f"
+    },
+    {
+      "path": "fixtures/estimate.xlsx",
+      "bytes": 2384,
+      "sha256": "555e63863f788a860a872f03115528daa1f64380bff1a17a45c07aa5e7a66841"
+    },
+    {
+      "path": "fixtures/formula-demo.office.json",
+      "bytes": 1727,
+      "sha256": "aee6cbed2e11132fb8f4f152d0f627f991376a8e196b77d329bfdeb8466d7c8a"
+    },
+    {
+      "path": "fixtures/formula-demo.xlsx",
+      "bytes": 2289,
+      "sha256": "b917c7b6c4ff30550b534728c7af7c06a1d66024ed6d3d263915ae742c3b5221"
+    },
+    {
+      "path": "fixtures/handover.docx",
+      "bytes": 2781,
+      "sha256": "6df1a6c46655328ba0c73c4e52995b5505a131ef8301360d36ce4d8e28b04df0"
+    },
+    {
+      "path": "fixtures/handover.office.json",
+      "bytes": 3937,
+      "sha256": "25711911adbf18cf9a1ccc5f38fb504d4064d8a4f9719094cd7ba52b813831fa"
+    },
+    {
+      "path": "fixtures/letter.docx",
+      "bytes": 2581,
+      "sha256": "d2fdec00747cebaea91fde732be6865bad4f794d905855e980fbd7ca2fbcfc82"
+    },
+    {
+      "path": "fixtures/letter.office.json",
+      "bytes": 1493,
+      "sha256": "b0080d79a57611a26ab9c22cc97a4bb667de89f25722b62004d95cb4d1974b73"
+    },
+    {
+      "path": "fixtures/quote.docx",
+      "bytes": 2827,
+      "sha256": "1f3a96110222c7a4a5cdc2b600107bbe85efe3f9d6d052e967ccced55166c18a"
+    },
+    {
+      "path": "fixtures/quote.office.json",
+      "bytes": 4861,
+      "sha256": "941417279df0b786828ea3c7de5aaa52f73725f94fe5a274ddec7d58dad86859"
+    },
+    {
+      "path": "fixtures/safe-csv.csv",
+      "bytes": 109,
+      "sha256": "d5b0126b60b33b4ba2d8ed742655e2b5696823dab8851b848616f7fff096e2ee"
+    },
+    {
+      "path": "fixtures/workReport.docx",
+      "bytes": 2753,
+      "sha256": "bce1b096752c1b0c5fddf04eacd1c8b578848264caa50e0d7fe53bfa6d0a92d4"
+    },
+    {
+      "path": "fixtures/workReport.office.json",
+      "bytes": 5363,
+      "sha256": "1c5ff727980b08b10744ed4ab97566f938958af9cdb80c5354fcd2b674ea5ad4"
+    },
+    {
+      "path": "licenses/assets/Geist-OFL.txt",
+      "bytes": 4387,
+      "sha256": "1781d2806a07d91c4edf4740b88449fab7d0eadad53f7c351b94cd4d4eb8c00f"
+    },
+    {
+      "path": "licenses/assets/Geist-Regular.ttf",
+      "bytes": 125956,
+      "sha256": "bde046ddd9f20be35b0bd56cc79eb752b967fb6661a3fe76cb067bb09f871d76"
+    },
+    {
+      "path": "licenses/assets/evidence.json",
+      "bytes": 1183,
+      "sha256": "8b9dfa3f707c206aa311bd67278cb38bdfc02b09cbc12ac97838a0b7b3afe52d"
+    },
+    {
+      "path": "licenses/evidence.json",
+      "bytes": 212152,
+      "sha256": "263c8cba0cc1aa86ee5bdce86bf657adfb779c5d4e4354bed4d6e9a85d145277"
+    },
+    {
+      "path": "licenses/pdf-candidates.json",
+      "bytes": 3669,
+      "sha256": "d775631b3d7e113c2a10e26f4b7876605a32e229acec8c3d3ccff52b7429293b"
+    },
+    {
+      "path": "licenses/texts/_esbuild_aix-ppc64@0.28.2/0-esbuild-MIT.txt",
+      "bytes": 1069,
+      "sha256": "b40ec5baec7bb34fa5b1c09521fa3cd52d5fad7adafed74932a2010d3612a681"
+    },
+    {
+      "path": "licenses/texts/_esbuild_aix-ppc64@0.28.2/1-xxhash-MIT.txt",
+      "bytes": 1068,
+      "sha256": "f566a9f97bacdaf00d9f21dd991e81dc11201c4e016c86b470799429a1c9a79c"
+    },
+    {
+      "path": "licenses/texts/_esbuild_aix-ppc64@0.28.2/2-golang-x-sys-BSD3.txt",
+      "bytes": 1479,
+      "sha256": "2d36597f7117c38b006835ae7f537487207d8ec407aa9d9980794b2030cbc067"
+    },
+    {
+      "path": "licenses/texts/_esbuild_aix-ppc64@0.28.2/3-Go-runtime-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_aix-ppc64@0.28.2/4-Go-vendor-x-crypto-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_aix-ppc64@0.28.2/5-Go-vendor-x-net-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_aix-ppc64@0.28.2/6-Go-vendor-x-text-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_android-arm64@0.28.2/0-esbuild-MIT.txt",
+      "bytes": 1069,
+      "sha256": "b40ec5baec7bb34fa5b1c09521fa3cd52d5fad7adafed74932a2010d3612a681"
+    },
+    {
+      "path": "licenses/texts/_esbuild_android-arm64@0.28.2/1-xxhash-MIT.txt",
+      "bytes": 1068,
+      "sha256": "f566a9f97bacdaf00d9f21dd991e81dc11201c4e016c86b470799429a1c9a79c"
+    },
+    {
+      "path": "licenses/texts/_esbuild_android-arm64@0.28.2/2-golang-x-sys-BSD3.txt",
+      "bytes": 1479,
+      "sha256": "2d36597f7117c38b006835ae7f537487207d8ec407aa9d9980794b2030cbc067"
+    },
+    {
+      "path": "licenses/texts/_esbuild_android-arm64@0.28.2/3-Go-runtime-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_android-arm64@0.28.2/4-Go-vendor-x-crypto-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_android-arm64@0.28.2/5-Go-vendor-x-net-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_android-arm64@0.28.2/6-Go-vendor-x-text-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_android-arm@0.28.2/0-esbuild-MIT.txt",
+      "bytes": 1069,
+      "sha256": "b40ec5baec7bb34fa5b1c09521fa3cd52d5fad7adafed74932a2010d3612a681"
+    },
+    {
+      "path": "licenses/texts/_esbuild_android-arm@0.28.2/1-xxhash-MIT.txt",
+      "bytes": 1068,
+      "sha256": "f566a9f97bacdaf00d9f21dd991e81dc11201c4e016c86b470799429a1c9a79c"
+    },
+    {
+      "path": "licenses/texts/_esbuild_android-arm@0.28.2/2-golang-x-sys-BSD3.txt",
+      "bytes": 1479,
+      "sha256": "2d36597f7117c38b006835ae7f537487207d8ec407aa9d9980794b2030cbc067"
+    },
+    {
+      "path": "licenses/texts/_esbuild_android-arm@0.28.2/3-Go-runtime-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_android-arm@0.28.2/4-Go-vendor-x-crypto-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_android-arm@0.28.2/5-Go-vendor-x-net-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_android-arm@0.28.2/6-Go-vendor-x-text-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_android-x64@0.28.2/0-esbuild-MIT.txt",
+      "bytes": 1069,
+      "sha256": "b40ec5baec7bb34fa5b1c09521fa3cd52d5fad7adafed74932a2010d3612a681"
+    },
+    {
+      "path": "licenses/texts/_esbuild_android-x64@0.28.2/1-xxhash-MIT.txt",
+      "bytes": 1068,
+      "sha256": "f566a9f97bacdaf00d9f21dd991e81dc11201c4e016c86b470799429a1c9a79c"
+    },
+    {
+      "path": "licenses/texts/_esbuild_android-x64@0.28.2/2-golang-x-sys-BSD3.txt",
+      "bytes": 1479,
+      "sha256": "2d36597f7117c38b006835ae7f537487207d8ec407aa9d9980794b2030cbc067"
+    },
+    {
+      "path": "licenses/texts/_esbuild_android-x64@0.28.2/3-Go-runtime-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_android-x64@0.28.2/4-Go-vendor-x-crypto-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_android-x64@0.28.2/5-Go-vendor-x-net-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_android-x64@0.28.2/6-Go-vendor-x-text-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_darwin-arm64@0.28.2/0-esbuild-MIT.txt",
+      "bytes": 1069,
+      "sha256": "b40ec5baec7bb34fa5b1c09521fa3cd52d5fad7adafed74932a2010d3612a681"
+    },
+    {
+      "path": "licenses/texts/_esbuild_darwin-arm64@0.28.2/1-xxhash-MIT.txt",
+      "bytes": 1068,
+      "sha256": "f566a9f97bacdaf00d9f21dd991e81dc11201c4e016c86b470799429a1c9a79c"
+    },
+    {
+      "path": "licenses/texts/_esbuild_darwin-arm64@0.28.2/2-golang-x-sys-BSD3.txt",
+      "bytes": 1479,
+      "sha256": "2d36597f7117c38b006835ae7f537487207d8ec407aa9d9980794b2030cbc067"
+    },
+    {
+      "path": "licenses/texts/_esbuild_darwin-arm64@0.28.2/3-Go-runtime-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_darwin-arm64@0.28.2/4-Go-vendor-x-crypto-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_darwin-arm64@0.28.2/5-Go-vendor-x-net-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_darwin-arm64@0.28.2/6-Go-vendor-x-text-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_darwin-x64@0.28.2/0-esbuild-MIT.txt",
+      "bytes": 1069,
+      "sha256": "b40ec5baec7bb34fa5b1c09521fa3cd52d5fad7adafed74932a2010d3612a681"
+    },
+    {
+      "path": "licenses/texts/_esbuild_darwin-x64@0.28.2/1-xxhash-MIT.txt",
+      "bytes": 1068,
+      "sha256": "f566a9f97bacdaf00d9f21dd991e81dc11201c4e016c86b470799429a1c9a79c"
+    },
+    {
+      "path": "licenses/texts/_esbuild_darwin-x64@0.28.2/2-golang-x-sys-BSD3.txt",
+      "bytes": 1479,
+      "sha256": "2d36597f7117c38b006835ae7f537487207d8ec407aa9d9980794b2030cbc067"
+    },
+    {
+      "path": "licenses/texts/_esbuild_darwin-x64@0.28.2/3-Go-runtime-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_darwin-x64@0.28.2/4-Go-vendor-x-crypto-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_darwin-x64@0.28.2/5-Go-vendor-x-net-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_darwin-x64@0.28.2/6-Go-vendor-x-text-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_freebsd-arm64@0.28.2/0-esbuild-MIT.txt",
+      "bytes": 1069,
+      "sha256": "b40ec5baec7bb34fa5b1c09521fa3cd52d5fad7adafed74932a2010d3612a681"
+    },
+    {
+      "path": "licenses/texts/_esbuild_freebsd-arm64@0.28.2/1-xxhash-MIT.txt",
+      "bytes": 1068,
+      "sha256": "f566a9f97bacdaf00d9f21dd991e81dc11201c4e016c86b470799429a1c9a79c"
+    },
+    {
+      "path": "licenses/texts/_esbuild_freebsd-arm64@0.28.2/2-golang-x-sys-BSD3.txt",
+      "bytes": 1479,
+      "sha256": "2d36597f7117c38b006835ae7f537487207d8ec407aa9d9980794b2030cbc067"
+    },
+    {
+      "path": "licenses/texts/_esbuild_freebsd-arm64@0.28.2/3-Go-runtime-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_freebsd-arm64@0.28.2/4-Go-vendor-x-crypto-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_freebsd-arm64@0.28.2/5-Go-vendor-x-net-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_freebsd-arm64@0.28.2/6-Go-vendor-x-text-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_freebsd-x64@0.28.2/0-esbuild-MIT.txt",
+      "bytes": 1069,
+      "sha256": "b40ec5baec7bb34fa5b1c09521fa3cd52d5fad7adafed74932a2010d3612a681"
+    },
+    {
+      "path": "licenses/texts/_esbuild_freebsd-x64@0.28.2/1-xxhash-MIT.txt",
+      "bytes": 1068,
+      "sha256": "f566a9f97bacdaf00d9f21dd991e81dc11201c4e016c86b470799429a1c9a79c"
+    },
+    {
+      "path": "licenses/texts/_esbuild_freebsd-x64@0.28.2/2-golang-x-sys-BSD3.txt",
+      "bytes": 1479,
+      "sha256": "2d36597f7117c38b006835ae7f537487207d8ec407aa9d9980794b2030cbc067"
+    },
+    {
+      "path": "licenses/texts/_esbuild_freebsd-x64@0.28.2/3-Go-runtime-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_freebsd-x64@0.28.2/4-Go-vendor-x-crypto-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_freebsd-x64@0.28.2/5-Go-vendor-x-net-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_freebsd-x64@0.28.2/6-Go-vendor-x-text-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_linux-arm64@0.28.2/0-esbuild-MIT.txt",
+      "bytes": 1069,
+      "sha256": "b40ec5baec7bb34fa5b1c09521fa3cd52d5fad7adafed74932a2010d3612a681"
+    },
+    {
+      "path": "licenses/texts/_esbuild_linux-arm64@0.28.2/1-xxhash-MIT.txt",
+      "bytes": 1068,
+      "sha256": "f566a9f97bacdaf00d9f21dd991e81dc11201c4e016c86b470799429a1c9a79c"
+    },
+    {
+      "path": "licenses/texts/_esbuild_linux-arm64@0.28.2/2-golang-x-sys-BSD3.txt",
+      "bytes": 1479,
+      "sha256": "2d36597f7117c38b006835ae7f537487207d8ec407aa9d9980794b2030cbc067"
+    },
+    {
+      "path": "licenses/texts/_esbuild_linux-arm64@0.28.2/3-Go-runtime-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_linux-arm64@0.28.2/4-Go-vendor-x-crypto-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_linux-arm64@0.28.2/5-Go-vendor-x-net-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_linux-arm64@0.28.2/6-Go-vendor-x-text-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_linux-arm@0.28.2/0-esbuild-MIT.txt",
+      "bytes": 1069,
+      "sha256": "b40ec5baec7bb34fa5b1c09521fa3cd52d5fad7adafed74932a2010d3612a681"
+    },
+    {
+      "path": "licenses/texts/_esbuild_linux-arm@0.28.2/1-xxhash-MIT.txt",
+      "bytes": 1068,
+      "sha256": "f566a9f97bacdaf00d9f21dd991e81dc11201c4e016c86b470799429a1c9a79c"
+    },
+    {
+      "path": "licenses/texts/_esbuild_linux-arm@0.28.2/2-golang-x-sys-BSD3.txt",
+      "bytes": 1479,
+      "sha256": "2d36597f7117c38b006835ae7f537487207d8ec407aa9d9980794b2030cbc067"
+    },
+    {
+      "path": "licenses/texts/_esbuild_linux-arm@0.28.2/3-Go-runtime-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_linux-arm@0.28.2/4-Go-vendor-x-crypto-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_linux-arm@0.28.2/5-Go-vendor-x-net-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_linux-arm@0.28.2/6-Go-vendor-x-text-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_linux-ia32@0.28.2/0-esbuild-MIT.txt",
+      "bytes": 1069,
+      "sha256": "b40ec5baec7bb34fa5b1c09521fa3cd52d5fad7adafed74932a2010d3612a681"
+    },
+    {
+      "path": "licenses/texts/_esbuild_linux-ia32@0.28.2/1-xxhash-MIT.txt",
+      "bytes": 1068,
+      "sha256": "f566a9f97bacdaf00d9f21dd991e81dc11201c4e016c86b470799429a1c9a79c"
+    },
+    {
+      "path": "licenses/texts/_esbuild_linux-ia32@0.28.2/2-golang-x-sys-BSD3.txt",
+      "bytes": 1479,
+      "sha256": "2d36597f7117c38b006835ae7f537487207d8ec407aa9d9980794b2030cbc067"
+    },
+    {
+      "path": "licenses/texts/_esbuild_linux-ia32@0.28.2/3-Go-runtime-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_linux-ia32@0.28.2/4-Go-vendor-x-crypto-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_linux-ia32@0.28.2/5-Go-vendor-x-net-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_linux-ia32@0.28.2/6-Go-vendor-x-text-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_linux-loong64@0.28.2/0-esbuild-MIT.txt",
+      "bytes": 1069,
+      "sha256": "b40ec5baec7bb34fa5b1c09521fa3cd52d5fad7adafed74932a2010d3612a681"
+    },
+    {
+      "path": "licenses/texts/_esbuild_linux-loong64@0.28.2/1-xxhash-MIT.txt",
+      "bytes": 1068,
+      "sha256": "f566a9f97bacdaf00d9f21dd991e81dc11201c4e016c86b470799429a1c9a79c"
+    },
+    {
+      "path": "licenses/texts/_esbuild_linux-loong64@0.28.2/2-golang-x-sys-BSD3.txt",
+      "bytes": 1479,
+      "sha256": "2d36597f7117c38b006835ae7f537487207d8ec407aa9d9980794b2030cbc067"
+    },
+    {
+      "path": "licenses/texts/_esbuild_linux-loong64@0.28.2/3-Go-runtime-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_linux-loong64@0.28.2/4-Go-vendor-x-crypto-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_linux-loong64@0.28.2/5-Go-vendor-x-net-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_linux-loong64@0.28.2/6-Go-vendor-x-text-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_linux-mips64el@0.28.2/0-esbuild-MIT.txt",
+      "bytes": 1069,
+      "sha256": "b40ec5baec7bb34fa5b1c09521fa3cd52d5fad7adafed74932a2010d3612a681"
+    },
+    {
+      "path": "licenses/texts/_esbuild_linux-mips64el@0.28.2/1-xxhash-MIT.txt",
+      "bytes": 1068,
+      "sha256": "f566a9f97bacdaf00d9f21dd991e81dc11201c4e016c86b470799429a1c9a79c"
+    },
+    {
+      "path": "licenses/texts/_esbuild_linux-mips64el@0.28.2/2-golang-x-sys-BSD3.txt",
+      "bytes": 1479,
+      "sha256": "2d36597f7117c38b006835ae7f537487207d8ec407aa9d9980794b2030cbc067"
+    },
+    {
+      "path": "licenses/texts/_esbuild_linux-mips64el@0.28.2/3-Go-runtime-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_linux-mips64el@0.28.2/4-Go-vendor-x-crypto-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_linux-mips64el@0.28.2/5-Go-vendor-x-net-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_linux-mips64el@0.28.2/6-Go-vendor-x-text-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_linux-ppc64@0.28.2/0-esbuild-MIT.txt",
+      "bytes": 1069,
+      "sha256": "b40ec5baec7bb34fa5b1c09521fa3cd52d5fad7adafed74932a2010d3612a681"
+    },
+    {
+      "path": "licenses/texts/_esbuild_linux-ppc64@0.28.2/1-xxhash-MIT.txt",
+      "bytes": 1068,
+      "sha256": "f566a9f97bacdaf00d9f21dd991e81dc11201c4e016c86b470799429a1c9a79c"
+    },
+    {
+      "path": "licenses/texts/_esbuild_linux-ppc64@0.28.2/2-golang-x-sys-BSD3.txt",
+      "bytes": 1479,
+      "sha256": "2d36597f7117c38b006835ae7f537487207d8ec407aa9d9980794b2030cbc067"
+    },
+    {
+      "path": "licenses/texts/_esbuild_linux-ppc64@0.28.2/3-Go-runtime-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_linux-ppc64@0.28.2/4-Go-vendor-x-crypto-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_linux-ppc64@0.28.2/5-Go-vendor-x-net-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_linux-ppc64@0.28.2/6-Go-vendor-x-text-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_linux-riscv64@0.28.2/0-esbuild-MIT.txt",
+      "bytes": 1069,
+      "sha256": "b40ec5baec7bb34fa5b1c09521fa3cd52d5fad7adafed74932a2010d3612a681"
+    },
+    {
+      "path": "licenses/texts/_esbuild_linux-riscv64@0.28.2/1-xxhash-MIT.txt",
+      "bytes": 1068,
+      "sha256": "f566a9f97bacdaf00d9f21dd991e81dc11201c4e016c86b470799429a1c9a79c"
+    },
+    {
+      "path": "licenses/texts/_esbuild_linux-riscv64@0.28.2/2-golang-x-sys-BSD3.txt",
+      "bytes": 1479,
+      "sha256": "2d36597f7117c38b006835ae7f537487207d8ec407aa9d9980794b2030cbc067"
+    },
+    {
+      "path": "licenses/texts/_esbuild_linux-riscv64@0.28.2/3-Go-runtime-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_linux-riscv64@0.28.2/4-Go-vendor-x-crypto-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_linux-riscv64@0.28.2/5-Go-vendor-x-net-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_linux-riscv64@0.28.2/6-Go-vendor-x-text-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_linux-s390x@0.28.2/0-esbuild-MIT.txt",
+      "bytes": 1069,
+      "sha256": "b40ec5baec7bb34fa5b1c09521fa3cd52d5fad7adafed74932a2010d3612a681"
+    },
+    {
+      "path": "licenses/texts/_esbuild_linux-s390x@0.28.2/1-xxhash-MIT.txt",
+      "bytes": 1068,
+      "sha256": "f566a9f97bacdaf00d9f21dd991e81dc11201c4e016c86b470799429a1c9a79c"
+    },
+    {
+      "path": "licenses/texts/_esbuild_linux-s390x@0.28.2/2-golang-x-sys-BSD3.txt",
+      "bytes": 1479,
+      "sha256": "2d36597f7117c38b006835ae7f537487207d8ec407aa9d9980794b2030cbc067"
+    },
+    {
+      "path": "licenses/texts/_esbuild_linux-s390x@0.28.2/3-Go-runtime-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_linux-s390x@0.28.2/4-Go-vendor-x-crypto-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_linux-s390x@0.28.2/5-Go-vendor-x-net-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_linux-s390x@0.28.2/6-Go-vendor-x-text-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_linux-x64@0.28.2/0-esbuild-MIT.txt",
+      "bytes": 1069,
+      "sha256": "b40ec5baec7bb34fa5b1c09521fa3cd52d5fad7adafed74932a2010d3612a681"
+    },
+    {
+      "path": "licenses/texts/_esbuild_linux-x64@0.28.2/1-xxhash-MIT.txt",
+      "bytes": 1068,
+      "sha256": "f566a9f97bacdaf00d9f21dd991e81dc11201c4e016c86b470799429a1c9a79c"
+    },
+    {
+      "path": "licenses/texts/_esbuild_linux-x64@0.28.2/2-golang-x-sys-BSD3.txt",
+      "bytes": 1479,
+      "sha256": "2d36597f7117c38b006835ae7f537487207d8ec407aa9d9980794b2030cbc067"
+    },
+    {
+      "path": "licenses/texts/_esbuild_linux-x64@0.28.2/3-Go-runtime-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_linux-x64@0.28.2/4-Go-vendor-x-crypto-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_linux-x64@0.28.2/5-Go-vendor-x-net-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_linux-x64@0.28.2/6-Go-vendor-x-text-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_netbsd-arm64@0.28.2/0-esbuild-MIT.txt",
+      "bytes": 1069,
+      "sha256": "b40ec5baec7bb34fa5b1c09521fa3cd52d5fad7adafed74932a2010d3612a681"
+    },
+    {
+      "path": "licenses/texts/_esbuild_netbsd-arm64@0.28.2/1-xxhash-MIT.txt",
+      "bytes": 1068,
+      "sha256": "f566a9f97bacdaf00d9f21dd991e81dc11201c4e016c86b470799429a1c9a79c"
+    },
+    {
+      "path": "licenses/texts/_esbuild_netbsd-arm64@0.28.2/2-golang-x-sys-BSD3.txt",
+      "bytes": 1479,
+      "sha256": "2d36597f7117c38b006835ae7f537487207d8ec407aa9d9980794b2030cbc067"
+    },
+    {
+      "path": "licenses/texts/_esbuild_netbsd-arm64@0.28.2/3-Go-runtime-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_netbsd-arm64@0.28.2/4-Go-vendor-x-crypto-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_netbsd-arm64@0.28.2/5-Go-vendor-x-net-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_netbsd-arm64@0.28.2/6-Go-vendor-x-text-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_netbsd-x64@0.28.2/0-esbuild-MIT.txt",
+      "bytes": 1069,
+      "sha256": "b40ec5baec7bb34fa5b1c09521fa3cd52d5fad7adafed74932a2010d3612a681"
+    },
+    {
+      "path": "licenses/texts/_esbuild_netbsd-x64@0.28.2/1-xxhash-MIT.txt",
+      "bytes": 1068,
+      "sha256": "f566a9f97bacdaf00d9f21dd991e81dc11201c4e016c86b470799429a1c9a79c"
+    },
+    {
+      "path": "licenses/texts/_esbuild_netbsd-x64@0.28.2/2-golang-x-sys-BSD3.txt",
+      "bytes": 1479,
+      "sha256": "2d36597f7117c38b006835ae7f537487207d8ec407aa9d9980794b2030cbc067"
+    },
+    {
+      "path": "licenses/texts/_esbuild_netbsd-x64@0.28.2/3-Go-runtime-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_netbsd-x64@0.28.2/4-Go-vendor-x-crypto-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_netbsd-x64@0.28.2/5-Go-vendor-x-net-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_netbsd-x64@0.28.2/6-Go-vendor-x-text-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_openbsd-arm64@0.28.2/0-esbuild-MIT.txt",
+      "bytes": 1069,
+      "sha256": "b40ec5baec7bb34fa5b1c09521fa3cd52d5fad7adafed74932a2010d3612a681"
+    },
+    {
+      "path": "licenses/texts/_esbuild_openbsd-arm64@0.28.2/1-xxhash-MIT.txt",
+      "bytes": 1068,
+      "sha256": "f566a9f97bacdaf00d9f21dd991e81dc11201c4e016c86b470799429a1c9a79c"
+    },
+    {
+      "path": "licenses/texts/_esbuild_openbsd-arm64@0.28.2/2-golang-x-sys-BSD3.txt",
+      "bytes": 1479,
+      "sha256": "2d36597f7117c38b006835ae7f537487207d8ec407aa9d9980794b2030cbc067"
+    },
+    {
+      "path": "licenses/texts/_esbuild_openbsd-arm64@0.28.2/3-Go-runtime-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_openbsd-arm64@0.28.2/4-Go-vendor-x-crypto-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_openbsd-arm64@0.28.2/5-Go-vendor-x-net-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_openbsd-arm64@0.28.2/6-Go-vendor-x-text-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_openbsd-x64@0.28.2/0-esbuild-MIT.txt",
+      "bytes": 1069,
+      "sha256": "b40ec5baec7bb34fa5b1c09521fa3cd52d5fad7adafed74932a2010d3612a681"
+    },
+    {
+      "path": "licenses/texts/_esbuild_openbsd-x64@0.28.2/1-xxhash-MIT.txt",
+      "bytes": 1068,
+      "sha256": "f566a9f97bacdaf00d9f21dd991e81dc11201c4e016c86b470799429a1c9a79c"
+    },
+    {
+      "path": "licenses/texts/_esbuild_openbsd-x64@0.28.2/2-golang-x-sys-BSD3.txt",
+      "bytes": 1479,
+      "sha256": "2d36597f7117c38b006835ae7f537487207d8ec407aa9d9980794b2030cbc067"
+    },
+    {
+      "path": "licenses/texts/_esbuild_openbsd-x64@0.28.2/3-Go-runtime-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_openbsd-x64@0.28.2/4-Go-vendor-x-crypto-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_openbsd-x64@0.28.2/5-Go-vendor-x-net-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_openbsd-x64@0.28.2/6-Go-vendor-x-text-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_openharmony-arm64@0.28.2/0-esbuild-MIT.txt",
+      "bytes": 1069,
+      "sha256": "b40ec5baec7bb34fa5b1c09521fa3cd52d5fad7adafed74932a2010d3612a681"
+    },
+    {
+      "path": "licenses/texts/_esbuild_openharmony-arm64@0.28.2/1-xxhash-MIT.txt",
+      "bytes": 1068,
+      "sha256": "f566a9f97bacdaf00d9f21dd991e81dc11201c4e016c86b470799429a1c9a79c"
+    },
+    {
+      "path": "licenses/texts/_esbuild_openharmony-arm64@0.28.2/2-golang-x-sys-BSD3.txt",
+      "bytes": 1479,
+      "sha256": "2d36597f7117c38b006835ae7f537487207d8ec407aa9d9980794b2030cbc067"
+    },
+    {
+      "path": "licenses/texts/_esbuild_openharmony-arm64@0.28.2/3-Go-runtime-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_openharmony-arm64@0.28.2/4-Go-vendor-x-crypto-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_openharmony-arm64@0.28.2/5-Go-vendor-x-net-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_openharmony-arm64@0.28.2/6-Go-vendor-x-text-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_sunos-x64@0.28.2/0-esbuild-MIT.txt",
+      "bytes": 1069,
+      "sha256": "b40ec5baec7bb34fa5b1c09521fa3cd52d5fad7adafed74932a2010d3612a681"
+    },
+    {
+      "path": "licenses/texts/_esbuild_sunos-x64@0.28.2/1-xxhash-MIT.txt",
+      "bytes": 1068,
+      "sha256": "f566a9f97bacdaf00d9f21dd991e81dc11201c4e016c86b470799429a1c9a79c"
+    },
+    {
+      "path": "licenses/texts/_esbuild_sunos-x64@0.28.2/2-golang-x-sys-BSD3.txt",
+      "bytes": 1479,
+      "sha256": "2d36597f7117c38b006835ae7f537487207d8ec407aa9d9980794b2030cbc067"
+    },
+    {
+      "path": "licenses/texts/_esbuild_sunos-x64@0.28.2/3-Go-runtime-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_sunos-x64@0.28.2/4-Go-vendor-x-crypto-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_sunos-x64@0.28.2/5-Go-vendor-x-net-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_sunos-x64@0.28.2/6-Go-vendor-x-text-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_win32-arm64@0.28.2/0-esbuild-MIT.txt",
+      "bytes": 1069,
+      "sha256": "b40ec5baec7bb34fa5b1c09521fa3cd52d5fad7adafed74932a2010d3612a681"
+    },
+    {
+      "path": "licenses/texts/_esbuild_win32-arm64@0.28.2/1-xxhash-MIT.txt",
+      "bytes": 1068,
+      "sha256": "f566a9f97bacdaf00d9f21dd991e81dc11201c4e016c86b470799429a1c9a79c"
+    },
+    {
+      "path": "licenses/texts/_esbuild_win32-arm64@0.28.2/2-golang-x-sys-BSD3.txt",
+      "bytes": 1479,
+      "sha256": "2d36597f7117c38b006835ae7f537487207d8ec407aa9d9980794b2030cbc067"
+    },
+    {
+      "path": "licenses/texts/_esbuild_win32-arm64@0.28.2/3-Go-runtime-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_win32-arm64@0.28.2/4-Go-vendor-x-crypto-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_win32-arm64@0.28.2/5-Go-vendor-x-net-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_win32-arm64@0.28.2/6-Go-vendor-x-text-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_win32-ia32@0.28.2/0-esbuild-MIT.txt",
+      "bytes": 1069,
+      "sha256": "b40ec5baec7bb34fa5b1c09521fa3cd52d5fad7adafed74932a2010d3612a681"
+    },
+    {
+      "path": "licenses/texts/_esbuild_win32-ia32@0.28.2/1-xxhash-MIT.txt",
+      "bytes": 1068,
+      "sha256": "f566a9f97bacdaf00d9f21dd991e81dc11201c4e016c86b470799429a1c9a79c"
+    },
+    {
+      "path": "licenses/texts/_esbuild_win32-ia32@0.28.2/2-golang-x-sys-BSD3.txt",
+      "bytes": 1479,
+      "sha256": "2d36597f7117c38b006835ae7f537487207d8ec407aa9d9980794b2030cbc067"
+    },
+    {
+      "path": "licenses/texts/_esbuild_win32-ia32@0.28.2/3-Go-runtime-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_win32-ia32@0.28.2/4-Go-vendor-x-crypto-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_win32-ia32@0.28.2/5-Go-vendor-x-net-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_win32-ia32@0.28.2/6-Go-vendor-x-text-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_win32-x64@0.28.2/0-esbuild-MIT.txt",
+      "bytes": 1069,
+      "sha256": "b40ec5baec7bb34fa5b1c09521fa3cd52d5fad7adafed74932a2010d3612a681"
+    },
+    {
+      "path": "licenses/texts/_esbuild_win32-x64@0.28.2/1-xxhash-MIT.txt",
+      "bytes": 1068,
+      "sha256": "f566a9f97bacdaf00d9f21dd991e81dc11201c4e016c86b470799429a1c9a79c"
+    },
+    {
+      "path": "licenses/texts/_esbuild_win32-x64@0.28.2/2-golang-x-sys-BSD3.txt",
+      "bytes": 1479,
+      "sha256": "2d36597f7117c38b006835ae7f537487207d8ec407aa9d9980794b2030cbc067"
+    },
+    {
+      "path": "licenses/texts/_esbuild_win32-x64@0.28.2/3-Go-runtime-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_win32-x64@0.28.2/4-Go-vendor-x-crypto-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_win32-x64@0.28.2/5-Go-vendor-x-net-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_esbuild_win32-x64@0.28.2/6-Go-vendor-x-text-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/_floating-ui_core@1.8.0/0-LICENSE",
+      "bytes": 1089,
+      "sha256": "0e4c9a9b6c71019cbbea3bdc20b01223110a9035700f9c960c8fcbf78c2325ce"
+    },
+    {
+      "path": "licenses/texts/_floating-ui_dom@1.8.0/0-LICENSE",
+      "bytes": 1089,
+      "sha256": "0e4c9a9b6c71019cbbea3bdc20b01223110a9035700f9c960c8fcbf78c2325ce"
+    },
+    {
+      "path": "licenses/texts/_floating-ui_utils@0.2.12/0-LICENSE",
+      "bytes": 1089,
+      "sha256": "0e4c9a9b6c71019cbbea3bdc20b01223110a9035700f9c960c8fcbf78c2325ce"
+    },
+    {
+      "path": "licenses/texts/_formulajs_formulajs@2.9.3/0-LICENSE",
+      "bytes": 3320,
+      "sha256": "174950f43de64be376a36ce6f81c9da6242f59f86c5aad6371bff0fa30469a7b"
+    },
+    {
+      "path": "licenses/texts/_fortune-sheet_core@1.0.4/0-FortuneSheet-MIT.txt",
+      "bytes": 1091,
+      "sha256": "5fec1b755e7753254cb63ca9400ef0159ebf6bcf05357b72f3e42e0c462a29f9"
+    },
+    {
+      "path": "licenses/texts/_fortune-sheet_formula-parser@0.2.13/0-LICENSE",
+      "bytes": 1104,
+      "sha256": "1ae5035080114d8b00c41b8f0441dab4ecd157fcb4b540c7409830a4606db6ee"
+    },
+    {
+      "path": "licenses/texts/_fortune-sheet_react@1.0.4/0-INLINE-NOTICES.txt",
+      "bytes": 978,
+      "sha256": "17abd06b76b5988c1709dd70dc88f76643918c694db206517d2d76803b775abd"
+    },
+    {
+      "path": "licenses/texts/_fortune-sheet_react@1.0.4/1-FortuneSheet-MIT.txt",
+      "bytes": 1091,
+      "sha256": "5fec1b755e7753254cb63ca9400ef0159ebf6bcf05357b72f3e42e0c462a29f9"
+    },
+    {
+      "path": "licenses/texts/_nodable_entities@3.1.0/0-nodable-MIT.txt",
+      "bytes": 1064,
+      "sha256": "750cb3fb6362804957ef52caaf9b5c824015be44d494637330d7cd8834d31d40"
+    },
+    {
+      "path": "licenses/texts/_tiptap_core@3.31.4/0-LICENSE.md",
+      "bytes": 1069,
+      "sha256": "c96e5ecb55ac593157ad1d21d1f44a611187f494a0f04c235a1ae692c88d6ba9"
+    },
+    {
+      "path": "licenses/texts/_tiptap_extension-blockquote@3.31.4/0-LICENSE.md",
+      "bytes": 1069,
+      "sha256": "c96e5ecb55ac593157ad1d21d1f44a611187f494a0f04c235a1ae692c88d6ba9"
+    },
+    {
+      "path": "licenses/texts/_tiptap_extension-bold@3.31.4/0-LICENSE.md",
+      "bytes": 1069,
+      "sha256": "c96e5ecb55ac593157ad1d21d1f44a611187f494a0f04c235a1ae692c88d6ba9"
+    },
+    {
+      "path": "licenses/texts/_tiptap_extension-bubble-menu@3.31.4/0-LICENSE.md",
+      "bytes": 1069,
+      "sha256": "c96e5ecb55ac593157ad1d21d1f44a611187f494a0f04c235a1ae692c88d6ba9"
+    },
+    {
+      "path": "licenses/texts/_tiptap_extension-bullet-list@3.31.4/0-LICENSE.md",
+      "bytes": 1069,
+      "sha256": "c96e5ecb55ac593157ad1d21d1f44a611187f494a0f04c235a1ae692c88d6ba9"
+    },
+    {
+      "path": "licenses/texts/_tiptap_extension-code-block@3.31.4/0-LICENSE.md",
+      "bytes": 1069,
+      "sha256": "c96e5ecb55ac593157ad1d21d1f44a611187f494a0f04c235a1ae692c88d6ba9"
+    },
+    {
+      "path": "licenses/texts/_tiptap_extension-code@3.31.4/0-LICENSE.md",
+      "bytes": 1069,
+      "sha256": "c96e5ecb55ac593157ad1d21d1f44a611187f494a0f04c235a1ae692c88d6ba9"
+    },
+    {
+      "path": "licenses/texts/_tiptap_extension-document@3.31.4/0-LICENSE.md",
+      "bytes": 1069,
+      "sha256": "c96e5ecb55ac593157ad1d21d1f44a611187f494a0f04c235a1ae692c88d6ba9"
+    },
+    {
+      "path": "licenses/texts/_tiptap_extension-dropcursor@3.31.4/0-LICENSE.md",
+      "bytes": 1069,
+      "sha256": "c96e5ecb55ac593157ad1d21d1f44a611187f494a0f04c235a1ae692c88d6ba9"
+    },
+    {
+      "path": "licenses/texts/_tiptap_extension-floating-menu@3.31.4/0-LICENSE.md",
+      "bytes": 1069,
+      "sha256": "c96e5ecb55ac593157ad1d21d1f44a611187f494a0f04c235a1ae692c88d6ba9"
+    },
+    {
+      "path": "licenses/texts/_tiptap_extension-gapcursor@3.31.4/0-LICENSE.md",
+      "bytes": 1069,
+      "sha256": "c96e5ecb55ac593157ad1d21d1f44a611187f494a0f04c235a1ae692c88d6ba9"
+    },
+    {
+      "path": "licenses/texts/_tiptap_extension-hard-break@3.31.4/0-LICENSE.md",
+      "bytes": 1069,
+      "sha256": "c96e5ecb55ac593157ad1d21d1f44a611187f494a0f04c235a1ae692c88d6ba9"
+    },
+    {
+      "path": "licenses/texts/_tiptap_extension-heading@3.31.4/0-LICENSE.md",
+      "bytes": 1069,
+      "sha256": "c96e5ecb55ac593157ad1d21d1f44a611187f494a0f04c235a1ae692c88d6ba9"
+    },
+    {
+      "path": "licenses/texts/_tiptap_extension-horizontal-rule@3.31.4/0-LICENSE.md",
+      "bytes": 1069,
+      "sha256": "c96e5ecb55ac593157ad1d21d1f44a611187f494a0f04c235a1ae692c88d6ba9"
+    },
+    {
+      "path": "licenses/texts/_tiptap_extension-image@3.31.4/0-LICENSE.md",
+      "bytes": 1069,
+      "sha256": "c96e5ecb55ac593157ad1d21d1f44a611187f494a0f04c235a1ae692c88d6ba9"
+    },
+    {
+      "path": "licenses/texts/_tiptap_extension-italic@3.31.4/0-LICENSE.md",
+      "bytes": 1069,
+      "sha256": "c96e5ecb55ac593157ad1d21d1f44a611187f494a0f04c235a1ae692c88d6ba9"
+    },
+    {
+      "path": "licenses/texts/_tiptap_extension-link@3.31.4/0-LICENSE.md",
+      "bytes": 1069,
+      "sha256": "c96e5ecb55ac593157ad1d21d1f44a611187f494a0f04c235a1ae692c88d6ba9"
+    },
+    {
+      "path": "licenses/texts/_tiptap_extension-list-item@3.31.4/0-LICENSE.md",
+      "bytes": 1069,
+      "sha256": "c96e5ecb55ac593157ad1d21d1f44a611187f494a0f04c235a1ae692c88d6ba9"
+    },
+    {
+      "path": "licenses/texts/_tiptap_extension-list-keymap@3.31.4/0-LICENSE.md",
+      "bytes": 1069,
+      "sha256": "c96e5ecb55ac593157ad1d21d1f44a611187f494a0f04c235a1ae692c88d6ba9"
+    },
+    {
+      "path": "licenses/texts/_tiptap_extension-list@3.31.4/0-LICENSE.md",
+      "bytes": 1069,
+      "sha256": "c96e5ecb55ac593157ad1d21d1f44a611187f494a0f04c235a1ae692c88d6ba9"
+    },
+    {
+      "path": "licenses/texts/_tiptap_extension-ordered-list@3.31.4/0-LICENSE.md",
+      "bytes": 1069,
+      "sha256": "c96e5ecb55ac593157ad1d21d1f44a611187f494a0f04c235a1ae692c88d6ba9"
+    },
+    {
+      "path": "licenses/texts/_tiptap_extension-paragraph@3.31.4/0-LICENSE.md",
+      "bytes": 1069,
+      "sha256": "c96e5ecb55ac593157ad1d21d1f44a611187f494a0f04c235a1ae692c88d6ba9"
+    },
+    {
+      "path": "licenses/texts/_tiptap_extension-strike@3.31.4/0-LICENSE.md",
+      "bytes": 1069,
+      "sha256": "c96e5ecb55ac593157ad1d21d1f44a611187f494a0f04c235a1ae692c88d6ba9"
+    },
+    {
+      "path": "licenses/texts/_tiptap_extension-table@3.31.4/0-LICENSE.md",
+      "bytes": 1069,
+      "sha256": "c96e5ecb55ac593157ad1d21d1f44a611187f494a0f04c235a1ae692c88d6ba9"
+    },
+    {
+      "path": "licenses/texts/_tiptap_extension-text-align@3.31.4/0-LICENSE.md",
+      "bytes": 1069,
+      "sha256": "c96e5ecb55ac593157ad1d21d1f44a611187f494a0f04c235a1ae692c88d6ba9"
+    },
+    {
+      "path": "licenses/texts/_tiptap_extension-text-style@3.31.4/0-LICENSE.md",
+      "bytes": 1069,
+      "sha256": "c96e5ecb55ac593157ad1d21d1f44a611187f494a0f04c235a1ae692c88d6ba9"
+    },
+    {
+      "path": "licenses/texts/_tiptap_extension-text@3.31.4/0-LICENSE.md",
+      "bytes": 1069,
+      "sha256": "c96e5ecb55ac593157ad1d21d1f44a611187f494a0f04c235a1ae692c88d6ba9"
+    },
+    {
+      "path": "licenses/texts/_tiptap_extension-underline@3.31.4/0-LICENSE.md",
+      "bytes": 1069,
+      "sha256": "c96e5ecb55ac593157ad1d21d1f44a611187f494a0f04c235a1ae692c88d6ba9"
+    },
+    {
+      "path": "licenses/texts/_tiptap_extensions@3.31.4/0-LICENSE.md",
+      "bytes": 1069,
+      "sha256": "c96e5ecb55ac593157ad1d21d1f44a611187f494a0f04c235a1ae692c88d6ba9"
+    },
+    {
+      "path": "licenses/texts/_tiptap_pm@3.31.4/0-LICENSE",
+      "bytes": 1069,
+      "sha256": "c96e5ecb55ac593157ad1d21d1f44a611187f494a0f04c235a1ae692c88d6ba9"
+    },
+    {
+      "path": "licenses/texts/_tiptap_pm@3.31.4/1-THIRD_PARTY_LICENSES.md",
+      "bytes": 1817,
+      "sha256": "eabc218716e37c2439772ed9133ac7ac1e593b6a5c60370dc1295282c93c9b09"
+    },
+    {
+      "path": "licenses/texts/_tiptap_react@3.31.4/0-LICENSE.md",
+      "bytes": 1069,
+      "sha256": "c96e5ecb55ac593157ad1d21d1f44a611187f494a0f04c235a1ae692c88d6ba9"
+    },
+    {
+      "path": "licenses/texts/_tiptap_starter-kit@3.31.4/0-LICENSE.md",
+      "bytes": 1069,
+      "sha256": "c96e5ecb55ac593157ad1d21d1f44a611187f494a0f04c235a1ae692c88d6ba9"
+    },
+    {
+      "path": "licenses/texts/_types_node@22.18.6/0-LICENSE",
+      "bytes": 1141,
+      "sha256": "c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383"
+    },
+    {
+      "path": "licenses/texts/_types_react-dom@19.3.0/0-LICENSE",
+      "bytes": 1141,
+      "sha256": "c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383"
+    },
+    {
+      "path": "licenses/texts/_types_react@19.3.0/0-LICENSE",
+      "bytes": 1141,
+      "sha256": "c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383"
+    },
+    {
+      "path": "licenses/texts/_types_regenerator-runtime@0.13.8/0-LICENSE",
+      "bytes": 1141,
+      "sha256": "c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383"
+    },
+    {
+      "path": "licenses/texts/_types_use-sync-external-store@0.0.6/0-LICENSE",
+      "bytes": 1141,
+      "sha256": "c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383"
+    },
+    {
+      "path": "licenses/texts/anynum@1.0.1/0-LICENSE",
+      "bytes": 1077,
+      "sha256": "8e75fc0e776c62ccadb8178ece8d3daa9ba7601fb0a49b2dfb0ea9a7a5c0aa07"
+    },
+    {
+      "path": "licenses/texts/bessel@1.0.2/0-LICENSE",
+      "bytes": 589,
+      "sha256": "83954c3a13a34578887622094871f90a219e250cda5aa0c8fc443cfe5c1b935e"
+    },
+    {
+      "path": "licenses/texts/bessel@1.0.2/1-Apache2-full-text.txt",
+      "bytes": 11358,
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "path": "licenses/texts/csstype@3.2.3/0-LICENSE",
+      "bytes": 1062,
+      "sha256": "11d55bd4541c75ee7879547ac49089c489163dae49551389713c3d026cab383e"
+    },
+    {
+      "path": "licenses/texts/dayjs@1.11.23/0-LICENSE",
+      "bytes": 1072,
+      "sha256": "5faab7526d055651be3aab769d58897be6bd91f3d39d137f25f12dba1b31d5dc"
+    },
+    {
+      "path": "licenses/texts/deepmerge@4.3.1/0-license.txt",
+      "bytes": 1116,
+      "sha256": "6cfc4687cb2f2d86f4a77e6b526290d3878e5e512f3fec2f4cb36a9cb36f798b"
+    },
+    {
+      "path": "licenses/texts/dom-serializer@3.1.1/0-LICENSE",
+      "bytes": 1075,
+      "sha256": "fd495b1bdd024995c6b3bd612584a4e37513250317bb5a6586f62c7756f9aff1"
+    },
+    {
+      "path": "licenses/texts/domelementtype@3.0.0/0-LICENSE",
+      "bytes": 1260,
+      "sha256": "cb992345949ccd6e8394b2cd6c465f7b897c864f845937dbf64e8997f389e164"
+    },
+    {
+      "path": "licenses/texts/domhandler@6.0.1/0-LICENSE",
+      "bytes": 1260,
+      "sha256": "cb992345949ccd6e8394b2cd6c465f7b897c864f845937dbf64e8997f389e164"
+    },
+    {
+      "path": "licenses/texts/domutils@4.0.2/0-LICENSE",
+      "bytes": 1260,
+      "sha256": "cb992345949ccd6e8394b2cd6c465f7b897c864f845937dbf64e8997f389e164"
+    },
+    {
+      "path": "licenses/texts/entities@8.1.0/0-LICENSE",
+      "bytes": 1260,
+      "sha256": "cb992345949ccd6e8394b2cd6c465f7b897c864f845937dbf64e8997f389e164"
+    },
+    {
+      "path": "licenses/texts/esbuild@0.28.2/0-LICENSE.md",
+      "bytes": 1069,
+      "sha256": "b40ec5baec7bb34fa5b1c09521fa3cd52d5fad7adafed74932a2010d3612a681"
+    },
+    {
+      "path": "licenses/texts/esbuild@0.28.2/1-esbuild-MIT.txt",
+      "bytes": 1069,
+      "sha256": "b40ec5baec7bb34fa5b1c09521fa3cd52d5fad7adafed74932a2010d3612a681"
+    },
+    {
+      "path": "licenses/texts/esbuild@0.28.2/2-xxhash-MIT.txt",
+      "bytes": 1068,
+      "sha256": "f566a9f97bacdaf00d9f21dd991e81dc11201c4e016c86b470799429a1c9a79c"
+    },
+    {
+      "path": "licenses/texts/esbuild@0.28.2/3-golang-x-sys-BSD3.txt",
+      "bytes": 1479,
+      "sha256": "2d36597f7117c38b006835ae7f537487207d8ec407aa9d9980794b2030cbc067"
+    },
+    {
+      "path": "licenses/texts/esbuild@0.28.2/4-Go-runtime-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/esbuild@0.28.2/5-Go-vendor-x-crypto-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/esbuild@0.28.2/6-Go-vendor-x-net-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/esbuild@0.28.2/7-Go-vendor-x-text-BSD3.txt",
+      "bytes": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "path": "licenses/texts/escape-string-regexp@4.0.0/0-license",
+      "bytes": 1117,
+      "sha256": "5c932d88256b4ab958f64a856fa48e8bd1f55bc1d96b8149c65689e0c61789d3"
+    },
+    {
+      "path": "licenses/texts/fast-equals@5.4.4/0-LICENSE",
+      "bytes": 1069,
+      "sha256": "c0af1c3e74a891b408dc4365897482cc8c284365808e3837c56ea3c337ed7a2c"
+    },
+    {
+      "path": "licenses/texts/fast-xml-builder@1.3.1/0-LICENSE",
+      "bytes": 1077,
+      "sha256": "8e75fc0e776c62ccadb8178ece8d3daa9ba7601fb0a49b2dfb0ea9a7a5c0aa07"
+    },
+    {
+      "path": "licenses/texts/fast-xml-parser@5.11.2/0-LICENSE",
+      "bytes": 1073,
+      "sha256": "7883225d5e84a6bbb9b170c3d891b4bf6d6259cee869c86bd86381a927071745"
+    },
+    {
+      "path": "licenses/texts/fflate@0.8.3/0-LICENSE",
+      "bytes": 1069,
+      "sha256": "0a1df3a083d0c010560aa342e87959c8c1070e6fd54545741f083f22d0c8b551"
+    },
+    {
+      "path": "licenses/texts/htmlparser2@12.0.0/0-LICENSE",
+      "bytes": 1104,
+      "sha256": "204cfa747341660e4da64cd23e8c876c6b20279d247f48564993d3fc4a2eab47"
+    },
+    {
+      "path": "licenses/texts/immer@9.0.21/0-LICENSE",
+      "bytes": 1074,
+      "sha256": "99cf22f6960a6fe228ec84ea9aefb0d75b27999ece83a3a9801e1c2081fa270b"
+    },
+    {
+      "path": "licenses/texts/is-plain-object@5.1.0/0-LICENSE",
+      "bytes": 1088,
+      "sha256": "4cd903859549d4b20b571041f96dfae1136ed079c476126268f9d7cc1b611150"
+    },
+    {
+      "path": "licenses/texts/is-plain-object@5.1.0/1-INLINE-NOTICES.txt",
+      "bytes": 385,
+      "sha256": "3c2d2eef8277684de1c7d5b17ff0248055d113abf4b1495a773afb612f5e0c67"
+    },
+    {
+      "path": "licenses/texts/is-unsafe@2.0.2/0-LICENSE",
+      "bytes": 1077,
+      "sha256": "8e75fc0e776c62ccadb8178ece8d3daa9ba7601fb0a49b2dfb0ea9a7a5c0aa07"
+    },
+    {
+      "path": "licenses/texts/jstat@1.9.6/0-LICENSE",
+      "bytes": 1049,
+      "sha256": "854847b5c4375f52fbe73364fd13ba138e59a52c88938ed0bab7f940dd8dd800"
+    },
+    {
+      "path": "licenses/texts/jstat@1.9.6/1-INLINE-NOTICES.txt",
+      "bytes": 183,
+      "sha256": "2ff277e9b6ec6c91eee95b82dcaf0eafbfac549a622deab3c93ea10daa59f244"
+    },
+    {
+      "path": "licenses/texts/launder@1.7.2/0-LICENSE.md",
+      "bytes": 1073,
+      "sha256": "04023acc083d1f83f526f7f7f73c33f4e863df9fb80b300b758324a9e9244a93"
+    },
+    {
+      "path": "licenses/texts/linkifyjs@4.3.3/0-LICENSE",
+      "bytes": 1056,
+      "sha256": "58e6f3677452cca096ce5328ebf7de37a1406bbeeb2f263c1b2ededc8c7d0228"
+    },
+    {
+      "path": "licenses/texts/lodash@4.18.1/0-LICENSE",
+      "bytes": 1952,
+      "sha256": "f71e8ed126b46346494aad5486874cd8f0aafe95092ed67d2e3cb6110f939abc"
+    },
+    {
+      "path": "licenses/texts/lodash@4.18.1/1-INLINE-NOTICES.txt",
+      "bytes": 1102,
+      "sha256": "cbb75515607ed5d3d20a5a38b1979c20067c4da430020ca1c768e03ed0099548"
+    },
+    {
+      "path": "licenses/texts/nanoid@3.3.20/0-LICENSE",
+      "bytes": 1095,
+      "sha256": "da4db1480d9beea3483a2eda5c53b22238d0827d57da162b48f122e04d2d9987"
+    },
+    {
+      "path": "licenses/texts/numeral@2.0.6/0-LICENSE",
+      "bytes": 1055,
+      "sha256": "036926dbd26f6493cf15a4ee737e4554cf738adc9bc5b89a4c05d4e1baf62f25"
+    },
+    {
+      "path": "licenses/texts/numeral@2.0.6/1-README.md",
+      "bytes": 8412,
+      "sha256": "ca0c9b2bbf5d7f842d1ab8143a00c92a31ac77f800d7158b82b437d926ed4c8b"
+    },
+    {
+      "path": "licenses/texts/orderedmap@2.1.1/0-LICENSE",
+      "bytes": 1100,
+      "sha256": "869c30f368eb08735e779027b9f4bc9fea2f39624351856aebe42741f0bc0884"
+    },
+    {
+      "path": "licenses/texts/parse-srcset@1.0.2/0-LICENSE",
+      "bytes": 1077,
+      "sha256": "240b6a23478dc1b044a457f1e9260c725d50b66b2502f7c3240f54f79c13ab58"
+    },
+    {
+      "path": "licenses/texts/path-expression-matcher@1.6.2/0-LICENSE",
+      "bytes": 1056,
+      "sha256": "75486ea0af9309140ca6e2c401d7e67bea8f4892344e5707f6394dc5e83dfc44"
+    },
+    {
+      "path": "licenses/texts/picocolors@1.1.1/0-LICENSE",
+      "bytes": 787,
+      "sha256": "6582629e2979466878f6014313dcc2f3756c9616148682227ce3063dde310750"
+    },
+    {
+      "path": "licenses/texts/postcss@8.5.29/0-LICENSE",
+      "bytes": 1095,
+      "sha256": "5be1f3465bba68a626777f984878814aaf35e7ef8e9fd314d469bcf887050fb8"
+    },
+    {
+      "path": "licenses/texts/prosemirror-changeset@2.4.4/0-LICENSE",
+      "bytes": 1100,
+      "sha256": "7543dfe82fa61d5bb2478c78cbd9dfb2cbd500b6ac2893b24ed925773b67fb70"
+    },
+    {
+      "path": "licenses/texts/prosemirror-commands@1.7.2/0-LICENSE",
+      "bytes": 1105,
+      "sha256": "ef0b452ced6304db2ce78ca66de1fc7b97bab05bc1750c95df359ed3fe1d65c8"
+    },
+    {
+      "path": "licenses/texts/prosemirror-dropcursor@1.8.4/0-LICENSE",
+      "bytes": 1105,
+      "sha256": "ef0b452ced6304db2ce78ca66de1fc7b97bab05bc1750c95df359ed3fe1d65c8"
+    },
+    {
+      "path": "licenses/texts/prosemirror-gapcursor@1.4.1/0-LICENSE",
+      "bytes": 1105,
+      "sha256": "ef0b452ced6304db2ce78ca66de1fc7b97bab05bc1750c95df359ed3fe1d65c8"
+    },
+    {
+      "path": "licenses/texts/prosemirror-history@1.5.1/0-LICENSE",
+      "bytes": 1105,
+      "sha256": "ef0b452ced6304db2ce78ca66de1fc7b97bab05bc1750c95df359ed3fe1d65c8"
+    },
+    {
+      "path": "licenses/texts/prosemirror-inputrules@1.5.1/0-LICENSE",
+      "bytes": 1105,
+      "sha256": "ef0b452ced6304db2ce78ca66de1fc7b97bab05bc1750c95df359ed3fe1d65c8"
+    },
+    {
+      "path": "licenses/texts/prosemirror-keymap@1.2.3/0-LICENSE",
+      "bytes": 1105,
+      "sha256": "ef0b452ced6304db2ce78ca66de1fc7b97bab05bc1750c95df359ed3fe1d65c8"
+    },
+    {
+      "path": "licenses/texts/prosemirror-model@1.25.12/0-LICENSE",
+      "bytes": 1105,
+      "sha256": "ef0b452ced6304db2ce78ca66de1fc7b97bab05bc1750c95df359ed3fe1d65c8"
+    },
+    {
+      "path": "licenses/texts/prosemirror-schema-list@1.5.1/0-LICENSE",
+      "bytes": 1105,
+      "sha256": "ef0b452ced6304db2ce78ca66de1fc7b97bab05bc1750c95df359ed3fe1d65c8"
+    },
+    {
+      "path": "licenses/texts/prosemirror-state@1.4.4/0-LICENSE",
+      "bytes": 1105,
+      "sha256": "ef0b452ced6304db2ce78ca66de1fc7b97bab05bc1750c95df359ed3fe1d65c8"
+    },
+    {
+      "path": "licenses/texts/prosemirror-tables@1.8.5/0-LICENSE",
+      "bytes": 1099,
+      "sha256": "d1d2046ebbe6362f9ad8fd4d62e9074f2553f289c0e1de895a650f10ba5f4239"
+    },
+    {
+      "path": "licenses/texts/prosemirror-transform@1.12.2/0-LICENSE",
+      "bytes": 1105,
+      "sha256": "ef0b452ced6304db2ce78ca66de1fc7b97bab05bc1750c95df359ed3fe1d65c8"
+    },
+    {
+      "path": "licenses/texts/prosemirror-view@1.42.6/0-LICENSE",
+      "bytes": 1105,
+      "sha256": "ef0b452ced6304db2ce78ca66de1fc7b97bab05bc1750c95df359ed3fe1d65c8"
+    },
+    {
+      "path": "licenses/texts/react-dom@19.2.4/0-LICENSE",
+      "bytes": 1088,
+      "sha256": "da6d3703ed11cbe42bd212c725957c98da23cbff1998c05fa4b3d976d1a58e93"
+    },
+    {
+      "path": "licenses/texts/react-dom@19.2.4/1-INLINE-NOTICES.txt",
+      "bytes": 16173,
+      "sha256": "5a36b6592191c1d3fd62ab008b23e0f9b0f2df1da7f97ffa42bca2d12101e8f4"
+    },
+    {
+      "path": "licenses/texts/react@19.2.4/0-LICENSE",
+      "bytes": 1088,
+      "sha256": "da6d3703ed11cbe42bd212c725957c98da23cbff1998c05fa4b3d976d1a58e93"
+    },
+    {
+      "path": "licenses/texts/react@19.2.4/1-INLINE-NOTICES.txt",
+      "bytes": 5320,
+      "sha256": "279da7714ca5f20ef819fcdcf08a41bf2acd3900e6ddcf2a6b71ef26500c7cde"
+    },
+    {
+      "path": "licenses/texts/regenerator-runtime@0.14.1/0-LICENSE",
+      "bytes": 1080,
+      "sha256": "51887a3d47051ac2fce1210562e5b9fe0830a8a8fabeb272c2d586eeb18a05fd"
+    },
+    {
+      "path": "licenses/texts/regenerator-runtime@0.14.1/1-INLINE-NOTICES.txt",
+      "bytes": 401,
+      "sha256": "c62371b09dd87750b1de4605ad379f09ada0bbb0b101559fec932f3f521d4d56"
+    },
+    {
+      "path": "licenses/texts/rope-sequence@1.3.4/0-LICENSE",
+      "bytes": 1089,
+      "sha256": "530424aebdd0e73f53238d1f89df250057bc8d8ce090cf5954197fadce5bf226"
+    },
+    {
+      "path": "licenses/texts/sanitize-html@2.18.0/0-LICENSE",
+      "bytes": 1072,
+      "sha256": "24526b61784870909780321dac50fcd3a33ff0bdfd507549dd63163899237bd1"
+    },
+    {
+      "path": "licenses/texts/scheduler@0.27.0/0-LICENSE",
+      "bytes": 1088,
+      "sha256": "da6d3703ed11cbe42bd212c725957c98da23cbff1998c05fa4b3d976d1a58e93"
+    },
+    {
+      "path": "licenses/texts/scheduler@0.27.0/1-INLINE-NOTICES.txt",
+      "bytes": 2374,
+      "sha256": "022288859a9a56b34ea971ff0c2924e22bd9a7258df7a7e1805d2d0cfa36610e"
+    },
+    {
+      "path": "licenses/texts/source-map-js@1.2.2/0-LICENSE",
+      "bytes": 1526,
+      "sha256": "6cb0631f71c7749763fd3dd1d5bee52dd1070ec17f2edc1710079ad070bd2fbd"
+    },
+    {
+      "path": "licenses/texts/source-map-js@1.2.2/1-INLINE-NOTICES.txt",
+      "bytes": 3869,
+      "sha256": "f91cf860689dd234f97df6111545b228bd9ea4dee582203fdc0ecfd3c9ada0a9"
+    },
+    {
+      "path": "licenses/texts/strnum@2.5.1/0-LICENSE",
+      "bytes": 1077,
+      "sha256": "2aa16be0f4fad003a352a955a43314e9d1d8deef7034060a82ac9c49f32b81e2"
+    },
+    {
+      "path": "licenses/texts/tiny-emitter@2.1.0/0-LICENSE",
+      "bytes": 1080,
+      "sha256": "aada4c7da6a5be46beadf9d4f40d7dba9e222e57180d46289b2bb9112e65daae"
+    },
+    {
+      "path": "licenses/texts/undici-types@6.21.0/0-LICENSE",
+      "bytes": 1090,
+      "sha256": "a6db8096b2707bc0102d256917d4d33f298ba36d8c3f25de067a2b5bb379db27"
+    },
+    {
+      "path": "licenses/texts/use-sync-external-store@1.7.0/0-LICENSE",
+      "bytes": 1088,
+      "sha256": "da6d3703ed11cbe42bd212c725957c98da23cbff1998c05fa4b3d976d1a58e93"
+    },
+    {
+      "path": "licenses/texts/use-sync-external-store@1.7.0/1-INLINE-NOTICES.txt",
+      "bytes": 3248,
+      "sha256": "bc54c511bb8e0a5cf0dada94d40cc5ec243500c8d48de3a7b62884ca7c9cbc75"
+    },
+    {
+      "path": "licenses/texts/uuid@8.3.2/0-LICENSE.md",
+      "bytes": 1109,
+      "sha256": "beaa6b04fb82e41dd2ad679e19e27953afb5999b1abbb455b6564e78ebfeb332"
+    },
+    {
+      "path": "licenses/texts/uuid@8.3.2/1-INLINE-NOTICES.txt",
+      "bytes": 1280,
+      "sha256": "73170682ae48859d4ccaa97b5e4599acd41d03c63d4c2ff09a7deb9623de467b"
+    },
+    {
+      "path": "licenses/texts/w3c-keyname@2.2.8/0-LICENSE",
+      "bytes": 1100,
+      "sha256": "869c30f368eb08735e779027b9f4bc9fea2f39624351856aebe42741f0bc0884"
+    },
+    {
+      "path": "licenses/texts/xml-naming@0.3.0/0-LICENSE",
+      "bytes": 1077,
+      "sha256": "8e75fc0e776c62ccadb8178ece8d3daa9ba7601fb0a49b2dfb0ea9a7a5c0aa07"
+    },
+    {
+      "path": "package-lock.json",
+      "bytes": 65836,
+      "sha256": "68bfa4ba772ed4e6a695a4467a3aa2f853b50aeb7351bb67019ecd84f1760fb7"
+    },
+    {
+      "path": "package.json",
+      "bytes": 1909,
+      "sha256": "d542bf7500a8ab74a6c04a9cb1e09a4a93da5cfb96eeb9664a0b6405be0a6a13"
+    },
+    {
+      "path": "sbom.cdx.json",
+      "bytes": 147528,
+      "sha256": "503dfc23b2d89ce0ad6be9c1690787400d9a7f698edf0ae26890a21c114dbd04"
+    },
+    {
+      "path": "scripts/browser-react-peer.mjs",
+      "bytes": 1638,
+      "sha256": "c75203ff79aa52503431e979f050d2e0e4c3a2330e3e29c9a3fe75070a4a8163"
+    },
+    {
+      "path": "scripts/build.mjs",
+      "bytes": 2347,
+      "sha256": "77e146c3e89dfb551d7dff1c50cf360395ae0090caa4c65d4e958ab5ce58d7e6"
+    },
+    {
+      "path": "scripts/check-host-office.mjs",
+      "bytes": 8255,
+      "sha256": "cbfeb1b86981bf95b39b98fc00dab8b0cf4d9a06e807da19dc6f0261fac4d5df"
+    },
+    {
+      "path": "scripts/check-office-assets.mjs",
+      "bytes": 2456,
+      "sha256": "698fa38157a8149ec99c0b43fc39a6604d6a7b2f73133a1e656c4629c2cc2ab0"
+    },
+    {
+      "path": "scripts/check-source-provenance.mjs",
+      "bytes": 3986,
+      "sha256": "52c1c5dafe2a6a5e0e8b627529b7fb876ac110749726165097b7747eae84e720"
+    },
+    {
+      "path": "scripts/demo-build.mjs",
+      "bytes": 543,
+      "sha256": "02c722031343b2e48b8135d3d3d6b95e161af82247fc53b7916e3678d672163f"
+    },
+    {
+      "path": "scripts/finalize-normalized-evidence.mjs",
+      "bytes": 14806,
+      "sha256": "b6e0c7cb5925659aea0e208d4217ad75b1cf2e08f6704fd4a7247f3afe6816c1"
+    },
+    {
+      "path": "scripts/fortune-safe-transform.mjs",
+      "bytes": 3621,
+      "sha256": "e88449dd0ab0710895e2d586c2d8585e07e880a6be5f441184a97ce631915ed6"
+    },
+    {
+      "path": "scripts/generate-fixtures.mjs",
+      "bytes": 1732,
+      "sha256": "db4f968b51727cd589808f0caa34040df4cc1a23276d75a843a45e97a87a8d58"
+    },
+    {
+      "path": "scripts/licenses.mjs",
+      "bytes": 22894,
+      "sha256": "0a6fc9f25edc9c0d1ce99b52287f1062f557e93b9e4d0ce48326e3388ad2755a"
+    },
+    {
+      "path": "scripts/native-print-demo.mjs",
+      "bytes": 3875,
+      "sha256": "82046c23566105be668ba12f1e42adb7fbdb9e6dd3482f73c8ac5c83250baa8a"
+    },
+    {
+      "path": "scripts/native-print-fixture.mjs",
+      "bytes": 4977,
+      "sha256": "dbca78818ff2e0ff631e3408a568912b0da1daf08973f4501076703e16fedf49"
+    },
+    {
+      "path": "scripts/package-integrations.mjs",
+      "bytes": 3428,
+      "sha256": "668c7f3cdd16d3efe18bb82b71b7c2589205f381b873b3404004f02ee2f70d24"
+    },
+    {
+      "path": "scripts/package-source.mjs",
+      "bytes": 9586,
+      "sha256": "b504a040b972eed438b3354b785dc4ae8ecdbfc01f506040eca71484733c899d"
+    },
+    {
+      "path": "scripts/pdf-demo.mjs",
+      "bytes": 2734,
+      "sha256": "0014e70db17b1782911bfe27e4620b5f10f5f98d350841e33259b067d737b002"
+    },
+    {
+      "path": "scripts/prepare-pdf-font.mjs",
+      "bytes": 2667,
+      "sha256": "a51366905529d824937d3ed4e38225ef45f31e4f489cdb969c8a5b79d914c214"
+    },
+    {
+      "path": "scripts/public-staging-chunks.mjs",
+      "bytes": 2891,
+      "sha256": "69aa1b81dcb93bf3272ecade4516595e6d229b641ea9e0fe30877b004ba2eb79"
+    },
+    {
+      "path": "scripts/public-staging-package.mjs",
+      "bytes": 3278,
+      "sha256": "3cd93f1a65631cd89464a1edbd04366bf630b93122c6d6028d88e6aca000d3f4"
+    },
+    {
+      "path": "scripts/public-staging-source-policy.mjs",
+      "bytes": 6099,
+      "sha256": "5a83c9df6881713c90eabbc0da908a7b96e31a51d228079a3ffdd37700274ee1"
+    },
+    {
+      "path": "scripts/smoke-demo.mjs",
+      "bytes": 3811,
+      "sha256": "825762fd80316dc60b339e0be0b872bbd1157283ae8dd48d3afee74806f6da50"
+    },
+    {
+      "path": "scripts/staging-auth-provision.mjs",
+      "bytes": 5282,
+      "sha256": "3bdae91fd85838a28fbdb7a19a0c59e6fe17d1702577262b8e4de24c99d8b173"
+    },
+    {
+      "path": "scripts/staging-capacity-resume.mjs",
+      "bytes": 9545,
+      "sha256": "2c592043b52a2853b8d9022b3a183fe59a795ed68472d95500ff5401ddbf67bd"
+    },
+    {
+      "path": "scripts/staging-checkpoint.mjs",
+      "bytes": 3699,
+      "sha256": "aa0b25d2aea5114bd130f7b52c42cb2ac4b3fa664a86d04a7199df656f5f6c17"
+    },
+    {
+      "path": "scripts/staging-controls.mjs",
+      "bytes": 4924,
+      "sha256": "2e4b0230dd35ca7a59cbf2a5adedc3ed786bac720e16c82d8042aafe0ca9dc05"
+    },
+    {
+      "path": "scripts/staging-diriqo-edges.mjs",
+      "bytes": 4072,
+      "sha256": "f9a4f86b72fb26431b22dbf9776cbf2ce0a6716627c3cfc8e6e90a8f71f42800"
+    },
+    {
+      "path": "scripts/staging-diriqo-host-session.mjs",
+      "bytes": 6920,
+      "sha256": "bf088809c5768af61b4313936f29dafacb27c044919e4a3303cceae7e40e22b6"
+    },
+    {
+      "path": "scripts/staging-dual-provision.mjs",
+      "bytes": 2644,
+      "sha256": "baa8e8ee5f46ea6ad792bcb21fdd3105c30bbf6e3e48bb1a5416b64473969413"
+    },
+    {
+      "path": "scripts/staging-host-edges.mjs",
+      "bytes": 5196,
+      "sha256": "a520b34e41b5fdeac485d505bad2c4d49752d084df249c76bfc5de9c232fa258"
+    },
+    {
+      "path": "scripts/staging-host-http.mjs",
+      "bytes": 10340,
+      "sha256": "111fad2c8b07fe528d80311b937b0736e54e8d856166028e35273ddd8541f8ab"
+    },
+    {
+      "path": "scripts/staging-host.mjs",
+      "bytes": 2684,
+      "sha256": "b9d15b25245f9f614d4bf9f37d2998ea05eeca3cd699ebb0d919b1f03fbcc4ba"
+    },
+    {
+      "path": "scripts/staging-hub-host-session.mjs",
+      "bytes": 9712,
+      "sha256": "b94c4033b0b5c4c659d42b9036b43c26e8f0e8bdf726b57afe9ddc579cffc7f6"
+    },
+    {
+      "path": "scripts/staging-hub-labels.mjs",
+      "bytes": 5274,
+      "sha256": "2641a2cc6dfc0203f69eec334038ea9e67c30224da13b205cd932d6726d5a121"
+    },
+    {
+      "path": "scripts/staging-inflight.mjs",
+      "bytes": 13923,
+      "sha256": "e0b8bd0862e3031dc3cc4d7ee29e105484ec7a9ffabc7031d9fac43c507adaae"
+    },
+    {
+      "path": "scripts/staging-isolation.mjs",
+      "bytes": 17409,
+      "sha256": "e03dec0797af0bc04cc87f9e44b84e4afe0ac4df2c919ecc388a06ebc286e9b4"
+    },
+    {
+      "path": "scripts/staging-lock-proof.mjs",
+      "bytes": 4324,
+      "sha256": "3f1487a414622d7a6a7483044019e534ccbd0646f92c78b2ce868ecdd204dc5c"
+    },
+    {
+      "path": "scripts/staging-normalized-capacity.mjs",
+      "bytes": 9292,
+      "sha256": "330effa880c0d42ed1ca864279aea014368f0217cafee3b5f0eb1674d8dd0ec4"
+    },
+    {
+      "path": "scripts/staging-normalized-lock-proof.mjs",
+      "bytes": 7713,
+      "sha256": "95fda0332cba0249e361325d22078086c2328e05442e48424de98991d5729063"
+    },
+    {
+      "path": "scripts/staging-preflight.sql",
+      "bytes": 11440,
+      "sha256": "bef6ddf4e735ddd4eabfc57dc2368ec7cb4cda28aed51b71e55e89e3a4f5f7dc"
+    },
+    {
+      "path": "scripts/staging-public-target.mjs",
+      "bytes": 7026,
+      "sha256": "5df74de73bc1414cd2c41b32017e198e0e099c58b2b4133a2504b6e3e65ffabf"
+    },
+    {
+      "path": "scripts/staging-races.mjs",
+      "bytes": 10150,
+      "sha256": "b7cbd2ed76ee7ed1acf68298e0a57a67ac83ebd30392c20de7dbd3338f8c2b95"
+    },
+    {
+      "path": "scripts/staging-run.mjs",
+      "bytes": 8845,
+      "sha256": "cb0f5e4c626a39ee44fe33fb30b41d418f15516a532fe44622dd58bbbc34c53e"
+    },
+    {
+      "path": "scripts/staging-seed-prepare.mjs",
+      "bytes": 3192,
+      "sha256": "aea419f78e618727e9f75bae29b5b9ae9891b9b45c19d3b2cf9e0d727e980ae6"
+    },
+    {
+      "path": "scripts/staging-target.mjs",
+      "bytes": 4300,
+      "sha256": "af12df59aa002a5fcf464854ba29039d772e953a561ffe4cf6ccff52226abadf"
+    },
+    {
+      "path": "scripts/staging-transport.mjs",
+      "bytes": 11609,
+      "sha256": "8f8df39e00c63076edf23422630485d864c752785de39b2b6a2cde53bb59ef80"
+    },
+    {
+      "path": "scripts/test-hosts.mjs",
+      "bytes": 3821,
+      "sha256": "3caf407e214fce91a014b8bc6b1c359bd7d37f3868451e1c0e95636fa29ae29b"
+    },
+    {
+      "path": "scripts/typecheck.mjs",
+      "bytes": 421,
+      "sha256": "e5272babbc6ea75592701ba53d7f1645bf88dab64dafff2c60e721dc32b0bf41"
+    },
+    {
+      "path": "scripts/verify-host-build.mjs",
+      "bytes": 4506,
+      "sha256": "256267fe55eac4482ffbd619cd60a50e9765cc704acceec5f60da7e5ab060334"
+    },
+    {
+      "path": "scripts/verify-host-transport.mjs",
+      "bytes": 1776,
+      "sha256": "6a19fef8352a4e3b610eec0293b2dc00f394f430a036453350179cc2d0ad7039"
+    },
+    {
+      "path": "scripts/verify-native-print.py",
+      "bytes": 5219,
+      "sha256": "f5bde497cf59df9501b8f4b1ae94dc0a1c0947c963584e353c11aa1883602356"
+    },
+    {
+      "path": "scripts/verify-pdf.py",
+      "bytes": 2826,
+      "sha256": "1591ade18bf57e71c2b7bc721648e17bf6ad9dc1b72e24540916234a928ba06b"
+    },
+    {
+      "path": "scripts/verify-public-restored-pdf.mjs",
+      "bytes": 7303,
+      "sha256": "558f1bc5fd2622ed4cf4a0f71d1a7a28147981d5561608fbb976843f21da28fc"
+    },
+    {
+      "path": "scripts/verify-public-restored-pdf.py",
+      "bytes": 3761,
+      "sha256": "6a4b82541b9ef38c7bd071817a2d67970693d015d1f6a7fc5c82c951ac6a5b1a"
+    },
+    {
+      "path": "src/client/DocumentEditor.tsx",
+      "bytes": 15377,
+      "sha256": "e32e38f54ed4655998dc6b09e996216b2cb98a3eede8c4f3ffdd4d9b57cf6d88"
+    },
+    {
+      "path": "src/client/OfficeWorkspace.tsx",
+      "bytes": 33698,
+      "sha256": "06164bb36fc9de51fa40f2a3776b4b7fcd10c99c0273f7e0a5a147221d81ae8a"
+    },
+    {
+      "path": "src/client/SpreadsheetEditor.tsx",
+      "bytes": 15096,
+      "sha256": "854442a83e6d81fa13bfbaf3b221bc6b2b38f30fa6659a48c32d26b2e7709b6e"
+    },
+    {
+      "path": "src/client/index.ts",
+      "bytes": 374,
+      "sha256": "94cd5d0010b541098d3b05c4101b3b248fe1a1bb4adedbfcd7009764649ae421"
+    },
+    {
+      "path": "src/client/locales.ts",
+      "bytes": 21577,
+      "sha256": "b50e14f17237164179af7b3b19d0d912cc7260b6f179830c2a6e83cf51d04e5b"
+    },
+    {
+      "path": "src/client/office.css",
+      "bytes": 18473,
+      "sha256": "cdba6bc8991e5ead55ffa8122cb716c13244407a44b712d82f87273638a457e4"
+    },
+    {
+      "path": "src/core/formula-graph.ts",
+      "bytes": 15508,
+      "sha256": "53b58cdd312ae01022b1496b7608e46cc58de4bb6716abc7145e8c6211329306"
+    },
+    {
+      "path": "src/core/formula-policy.ts",
+      "bytes": 777,
+      "sha256": "0bc527a0dcaabc4e477317304f74586f7707a3461d700c7eee93e497fbcf8043"
+    },
+    {
+      "path": "src/core/fortune-adapter.ts",
+      "bytes": 16767,
+      "sha256": "0c31cdf8249ad2ada21b4e73f6426ecbd16a2fa4e59434172c2760b0b680d8f7"
+    },
+    {
+      "path": "src/core/fortune-formula-guard.ts",
+      "bytes": 2611,
+      "sha256": "f5e64e5fcba6d00f1ceb365e24498a02652ecad1af04926e92cea8092da23475"
+    },
+    {
+      "path": "src/core/templates.ts",
+      "bytes": 5909,
+      "sha256": "dfc997f7c52730b45e20f8cb9e1e0c0f92c6998c865dd8dd05fee901d9ca3524"
+    },
+    {
+      "path": "src/core/types.ts",
+      "bytes": 4221,
+      "sha256": "0f181922a3a09e9b0b2e1af9a370242454f8e776fc059c63dd664d5ddaeb648a"
+    },
+    {
+      "path": "src/core/validation.ts",
+      "bytes": 11853,
+      "sha256": "b119d405cbb1a749945bf57535c33b5cdc0b48d34204b2197b61e8033aeb07f7"
+    },
+    {
+      "path": "src/server/ai-adapter.ts",
+      "bytes": 13134,
+      "sha256": "da860713ad6af011bd3a82d82a951247fb43c11a89380259ffdfe75f5ce17dfe"
+    },
+    {
+      "path": "src/server/bounded-import.ts",
+      "bytes": 1512,
+      "sha256": "035e76c3e3f544eaff90e4dd9501a88be354707acedcbed2af08d767b40708cd"
+    },
+    {
+      "path": "src/server/formats.ts",
+      "bytes": 40508,
+      "sha256": "a7926af2b3ea82a25a4ca6a9605f4f34f99e7dcc3b5aeac9ebcba6eb6b2490eb"
+    },
+    {
+      "path": "src/server/import-worker.ts",
+      "bytes": 363,
+      "sha256": "08d78e967a3f31e6a06aaf3b501a4b4cfe6529a9f185d809593aaf127cffa099"
+    },
+    {
+      "path": "src/server/index.ts",
+      "bytes": 309,
+      "sha256": "562fec99f73624db606262b012e1ff24344cdbd3bff75188d015611e9302ab46"
+    },
+    {
+      "path": "src/server/multipart.ts",
+      "bytes": 956,
+      "sha256": "fc0f27a8c0fd4290738e96e909433aec173033d2d18c66fceca1e983ac7a7435"
+    },
+    {
+      "path": "src/server/origin.ts",
+      "bytes": 1559,
+      "sha256": "41b29a12edb828cca650e3ca8cf70e6273cad5c4a2e7109b51792688c4814ed3"
+    },
+    {
+      "path": "src/server/pdf-font-data.ts",
+      "bytes": 174158,
+      "sha256": "0ff267e447c616aad36680881f362ba9f353e73c177305cdaebe2ad413d6a443"
+    },
+    {
+      "path": "src/server/pdf-font.ts",
+      "bytes": 3191,
+      "sha256": "d78b7565eeb389d12d86179fe7035dd815dc1fe4743dd3d4bbd2e269c9df5840"
+    },
+    {
+      "path": "src/server/pdf.ts",
+      "bytes": 18502,
+      "sha256": "22b62a4e124b71f1ee56ecdc14a3743d9336fef9a5b8a2d710dc27ba50b887e0"
+    },
+    {
+      "path": "src/server/service.ts",
+      "bytes": 14638,
+      "sha256": "008ef43964fe147cd29428a74cc9eaa933d1a2bec44e0124393481f1a00b8659"
+    },
+    {
+      "path": "src/server/store.ts",
+      "bytes": 4162,
+      "sha256": "e2bca088d75d51ba6f6a63f852334980a1175a2c16057bea74044939bcbf9da0"
+    },
+    {
+      "path": "src/server/supabase-service.ts",
+      "bytes": 2957,
+      "sha256": "409d07dc51877a38d732217619522ecbb69d89a629af258b491bdaaba967bbfa"
+    },
+    {
+      "path": "src/vendor.d.ts",
+      "bytes": 129,
+      "sha256": "c4bfe207b44da29e5dfd839adfde1c16c4258e8a815d412b7e985646ecbfad15"
+    },
+    {
+      "path": "tests/ai.test.mjs",
+      "bytes": 5150,
+      "sha256": "f76f5b70b8c4a834a3dd4e476021cc2d88ee7bba0fcdb38f80ce611cf880d8b9"
+    },
+    {
+      "path": "tests/browser-react-peer.test.mjs",
+      "bytes": 3072,
+      "sha256": "58085409b2c175d5ca5dcf52d3808210849e26539e0c224bb6f49770be73c83b"
+    },
+    {
+      "path": "tests/database-fixture.sql",
+      "bytes": 8229,
+      "sha256": "b7f8ecd5da3ae30e1f712e2993f078d8eaf76a680446ffd3e2b8a0ca7ba16518"
+    },
+    {
+      "path": "tests/database-hub-labels.sql",
+      "bytes": 5254,
+      "sha256": "6ee0a6dfcad38ce44316aecd8765fc6e4231bf55c89c467670ae449635a1133b"
+    },
+    {
+      "path": "tests/database-normalized-runner.mjs",
+      "bytes": 14325,
+      "sha256": "a3ff1d12f63dfe15dc8d4253db8f25a2b7ff0ac0d6e60eec10945cbaa4f9439c"
+    },
+    {
+      "path": "tests/database-normalized-security.sql",
+      "bytes": 24389,
+      "sha256": "85c497763f63bc692a4b7ba8ad72d2eff9985f7dd07a89b2782c5f21f3b06a34"
+    },
+    {
+      "path": "tests/database-office.sql",
+      "bytes": 28458,
+      "sha256": "5850d63ce6daadad20fd761adf18f6de901003eec34172636d3e64c83f67ed7d"
+    },
+    {
+      "path": "tests/database-private-catalog-runner.mjs",
+      "bytes": 6574,
+      "sha256": "eba10b0eb8af6653a70b992545925839d1e3c7496ee89d5522028fbe70ce0fdd"
+    },
+    {
+      "path": "tests/database-receipt-commit-runner.mjs",
+      "bytes": 10980,
+      "sha256": "7d01a31ae6fb12c70ed5d3e38158934261d12d177b0da7d6ce531b6dfb237c85"
+    },
+    {
+      "path": "tests/database-runner.mjs",
+      "bytes": 6256,
+      "sha256": "c166cfbb466b3fcd3c194b2ce89a82a95cec0b8bf8f88819f40d476e3fa770b5"
+    },
+    {
+      "path": "tests/document-schema.test.mjs",
+      "bytes": 1235,
+      "sha256": "3a5e52cbb22ac09e395cfcd8675ec7a941a40ef09ceb66388a846ab6bee9b57b"
+    },
+    {
+      "path": "tests/formats.test.mjs",
+      "bytes": 7730,
+      "sha256": "c9ea4696287b44bb04295b848fe9363db0145c796f33aa48d983e87bc140e878"
+    },
+    {
+      "path": "tests/formula-engine.test.mjs",
+      "bytes": 2002,
+      "sha256": "ee6c9bca9daaf786de0b6690f981984339da43d0483ff76e52a822bc4e145337"
+    },
+    {
+      "path": "tests/formula-graph.test.mjs",
+      "bytes": 4725,
+      "sha256": "45378be2baedbafd2bec6594afaca3292bd5c7a081d3eb2390251235e5a9916d"
+    },
+    {
+      "path": "tests/fortune-adapter.test.mjs",
+      "bytes": 3110,
+      "sha256": "21d10f3d51ed7da44b886c8830fdfec7c82ba933f904218858dd933d7fe128ed"
+    },
+    {
+      "path": "tests/fortune-calculation-boundary.test.mjs",
+      "bytes": 3363,
+      "sha256": "300c5f0522bffbc5f06c55f5f6e55d90dc5575565edea1b3fef47a0e66d5eef6"
+    },
+    {
+      "path": "tests/fortune-numeric-roundtrip.test.mjs",
+      "bytes": 4773,
+      "sha256": "8015d451a18e95997cd1c529c7f69e629d2bf09f1f2ab4990d58d7c49edef875"
+    },
+    {
+      "path": "tests/host-package-assets.test.mjs",
+      "bytes": 6795,
+      "sha256": "db0ad3fdfe26fabc0ec4f7c5948830c0d0385bbed62cc3b96658a879a9dd0207"
+    },
+    {
+      "path": "tests/host-test-runner.test.mjs",
+      "bytes": 1945,
+      "sha256": "fe708e415f2b2890f172bb2a884811f185a09bb7e1419d142a8826d4fd17fb0e"
+    },
+    {
+      "path": "tests/host/diriqo-logout.test.mjs",
+      "bytes": 8417,
+      "sha256": "39c21cde40e1231f76aedcc9a618e92c44b9f5235d541919eded019660965f89"
+    },
+    {
+      "path": "tests/host/diriqo-office-company.test.mjs",
+      "bytes": 6747,
+      "sha256": "e1a2a526de5f134cbd7952dbb74b94e67b2d7e6c4d5260e0d6da92aba3f2b3ea"
+    },
+    {
+      "path": "tests/host/diriqo-release-settings.test.mjs",
+      "bytes": 5297,
+      "sha256": "7281f22896aea4ef9054d4bb84f6a38dbc0073b10094db308f8d715b763ae769"
+    },
+    {
+      "path": "tests/host/hub-office-company-labels.test.mjs",
+      "bytes": 4867,
+      "sha256": "f108454dbb0d2bf1418557bd4ce7010c5398d37f07c876f6c5a3656b99183581"
+    },
+    {
+      "path": "tests/host/hub-office-reader.test.mjs",
+      "bytes": 9654,
+      "sha256": "abdf696c21037c6ace1256e701863305ffeb3bb290ce23f09f881bf974b91ee6"
+    },
+    {
+      "path": "tests/host/hub-release-menu.test.mjs",
+      "bytes": 5929,
+      "sha256": "378737547265747b3e29c739d4be3550da11c7b6ee19cc946c3bc48debe01f2a"
+    },
+    {
+      "path": "tests/host/office-context-switch.test.mjs",
+      "bytes": 18347,
+      "sha256": "ac3298972ae31598fbc12f36b114ee03ec966506bfa6b5f64025c2f0014fc39b"
+    },
+    {
+      "path": "tests/host/office-http-limits.test.mjs",
+      "bytes": 13375,
+      "sha256": "1d40744da3ece6981c1f6eb530ebe6ec43cd467e99bcc26f7d28ed29276dc36f"
+    },
+    {
+      "path": "tests/host/office-menu-availability.test.mjs",
+      "bytes": 4434,
+      "sha256": "ebac52a12130e2b3693ae60a95e8e0c39089fea0699e98b74cdc49e749fc97c4"
+    },
+    {
+      "path": "tests/host/staging-proxy.test.mjs",
+      "bytes": 10830,
+      "sha256": "a6c8c81639eec8c3cf90869ac0c357e34afe42bea5d0c9a548e5e6e1d29b8972"
+    },
+    {
+      "path": "tests/host/staging-sign-in.test.mjs",
+      "bytes": 3129,
+      "sha256": "6e84739adcf445ddccb0a1a91b101de9a822c62d6f57a48c0337ce4daa38f109"
+    },
+    {
+      "path": "tests/import-idempotency.test.mjs",
+      "bytes": 5273,
+      "sha256": "e8edaa710d1f80920180f98b7f7c40d69c812bdc45b3ef786f76958e7396440d"
+    },
+    {
+      "path": "tests/import-service.test.mjs",
+      "bytes": 1468,
+      "sha256": "2c6fc083b31b160848f3852dd5b0c0414a45faa5835d24cb608ac4e5db9553fb"
+    },
+    {
+      "path": "tests/license-guard.test.mjs",
+      "bytes": 2104,
+      "sha256": "7e79a1bc32caaa881b2fedbadb41011fc0d07b459953ad444a135a8823dcedac"
+    },
+    {
+      "path": "tests/native-print.test.mjs",
+      "bytes": 1779,
+      "sha256": "28d3f099c3529a066c5a9628860a494c16be2e00acced0be3e95816e45553593"
+    },
+    {
+      "path": "tests/origin.test.mjs",
+      "bytes": 4222,
+      "sha256": "1c274c7d162248d9a52bdada3374434b633655e06a55fcfff19cff8aa027853e"
+    },
+    {
+      "path": "tests/pagination.test.mjs",
+      "bytes": 6008,
+      "sha256": "aa7c9bdde8ba593f28504c6401994e2b4e9c266d7f261e8e8f8d07dcd99349f8"
+    },
+    {
+      "path": "tests/pdf.test.mjs",
+      "bytes": 4835,
+      "sha256": "c814ead265784112ab8af27261db2ba8e1f5396120369f97afeec1195530ef66"
+    },
+    {
+      "path": "tests/public-staging-package.test.mjs",
+      "bytes": 7941,
+      "sha256": "fa3d18c518734e42895c439a63379e7ea1e04ac6aed407b8e9017c0a9971ab27"
+    },
+    {
+      "path": "tests/restore-dialog.test.mjs",
+      "bytes": 18498,
+      "sha256": "08339fee663ad64866a7fbd5d8fefad89274f30d3580dc2f28606ca0a888ddcc"
+    },
+    {
+      "path": "tests/service.test.mjs",
+      "bytes": 7479,
+      "sha256": "199c066b1f391435f0415cbd250a221b800a7248d2a4196906a139716ac8743a"
+    },
+    {
+      "path": "tests/staging-capacity-resume.test.mjs",
+      "bytes": 10806,
+      "sha256": "175ee240105cadfe513393d806919fdfcac212ee4e72373bf10fbff0aa2aa262"
+    },
+    {
+      "path": "tests/staging-inflight.test.mjs",
+      "bytes": 4439,
+      "sha256": "7231a6bedbd4ac5e8a0e43521262f248ab637914c7e3b62a065f66e57e7147f3"
+    },
+    {
+      "path": "tests/staging-isolation.test.mjs",
+      "bytes": 4743,
+      "sha256": "d6d28b31bae77708b61ec92599aec80f48cc781248e06990f4d5f4e1032680f6"
+    },
+    {
+      "path": "tests/staging-normalized-probes-cleanup.sql",
+      "bytes": 239,
+      "sha256": "f071a447eff820fd6b5405fbcf4251c70c397cf9709926593abe93d00998c44a"
+    },
+    {
+      "path": "tests/staging-normalized-probes.sql",
+      "bytes": 2211,
+      "sha256": "5408d45e4b8c575bc74f6d5f10facc2c9306c6d07b3beafe92b48bba95b6ec92"
+    },
+    {
+      "path": "tests/staging-preflight-local.mjs",
+      "bytes": 3058,
+      "sha256": "63ed75612179447c52898c7b6143c60dcf24a28ab02a9175ce2bf3611eae9401"
+    },
+    {
+      "path": "tests/staging-public-target.test.mjs",
+      "bytes": 13825,
+      "sha256": "7f6aa8b4dbfab2e44814dd621bce717d419b3d05eb54d92f57db568f7127e18c"
+    },
+    {
+      "path": "tests/staging-races.test.mjs",
+      "bytes": 6472,
+      "sha256": "243f4d164d2c9c10811e8b56762c85e30c7e5dbaecc855d6b1e3bcbda262fa79"
+    },
+    {
+      "path": "tests/staging-run.test.mjs",
+      "bytes": 3783,
+      "sha256": "88d60aca924e640cc1be4c2627ca8fc2f069e38aa83551494618db4a9f18272b"
+    },
+    {
+      "path": "tests/staging-target.test.mjs",
+      "bytes": 6410,
+      "sha256": "3bdaa18c999d9543ff1a4c0d9e06310d2ad10eb7baa7949bd68dc2f87319ab57"
+    },
+    {
+      "path": "tests/staging-transport.test.mjs",
+      "bytes": 11684,
+      "sha256": "9a6c80ac72501988f7d26ad7c9fc4be7d8079646edac3e288633f828d42cb8d2"
+    },
+    {
+      "path": "tests/templates.test.mjs",
+      "bytes": 3566,
+      "sha256": "5eca32a384be3174a71d1e928c6b8756f9acc279eb36de74d42ddb5ebd78d0c3"
+    },
+    {
+      "path": "tsconfig.json",
+      "bytes": 321,
+      "sha256": "d81bf1f69c2533807c330336fd3ff50d7805ade21033379cbcde9e6f7ae7594d"
+    },
+    {
+      "path": "types/client/DocumentEditor.d.ts",
+      "bytes": 561,
+      "sha256": "81a59c6101d63c8afd8985e61a456f00ec9d4fc579ce9245e7846aaa56b6fff6"
+    },
+    {
+      "path": "types/client/OfficeWorkspace.d.ts",
+      "bytes": 488,
+      "sha256": "876f09d13f0c0cb8904d15fa3a9b488be4b1fbed06afe7a052f30fcc78bab1dc"
+    },
+    {
+      "path": "types/client/SpreadsheetEditor.d.ts",
+      "bytes": 472,
+      "sha256": "1a210e046fdb930a78dcc8dbe92d6a36ebd0babdb319c31e3d342c968a038a98"
+    },
+    {
+      "path": "types/client/index.d.ts",
+      "bytes": 364,
+      "sha256": "3b3c5dea34afedcf4ad03c8afc99b4c6e6ea464ca84d6a062b518f37124ca1cb"
+    },
+    {
+      "path": "types/client/locales.d.ts",
+      "bytes": 25195,
+      "sha256": "bfa9b176604a08cb9743ced5aab0e968890eab0f1766ec77caac4febc28c4e25"
+    },
+    {
+      "path": "types/core/formula-graph.d.ts",
+      "bytes": 2294,
+      "sha256": "b77124bf8d3fed061fa7c0145ea64e1828e2ac365c2be5f3e286b5828fddc084"
+    },
+    {
+      "path": "types/core/formula-policy.d.ts",
+      "bytes": 156,
+      "sha256": "3fea4f610341d08ada6a1bae80a93f477091c69cf50b2ada67b0c958ad9d99f2"
+    },
+    {
+      "path": "types/core/fortune-adapter.d.ts",
+      "bytes": 465,
+      "sha256": "9d2a4521a6100333cb1778d01e031535f8fef6ee02388743a546228b8ace6c63"
+    },
+    {
+      "path": "types/core/fortune-formula-guard.d.ts",
+      "bytes": 140,
+      "sha256": "19da38eb3ed5cfed6829f7b2f7a1cae27227fa4e2726517717a94a2dcb5cce08"
+    },
+    {
+      "path": "types/core/templates.d.ts",
+      "bytes": 1074,
+      "sha256": "05fbc6c0d2f346ceb477d87a2cdd20954e44b2602fbe3ba53591b2179dc9c39d"
+    },
+    {
+      "path": "types/core/types.d.ts",
+      "bytes": 4975,
+      "sha256": "aabea3abc84cde9e305174abd0081ef876443658b7a3bb7ffcdde48d7441c3c5"
+    },
+    {
+      "path": "types/core/validation.d.ts",
+      "bytes": 860,
+      "sha256": "869d58b3509219b92855a91d9d567c0982e944de870cb16a9fd4ec35cf461e62"
+    },
+    {
+      "path": "types/server/ai-adapter.d.ts",
+      "bytes": 6485,
+      "sha256": "89883971ca4a4c2d09bd15abd9446625410d220946156ea4e0fe5dfdc2729aa5"
+    },
+    {
+      "path": "types/server/bounded-import.d.ts",
+      "bytes": 288,
+      "sha256": "e384d3e95da4d8b3504eea6f432a6d9086d1dba1f2ab21a71eaa7f7d2bac3963"
+    },
+    {
+      "path": "types/server/formats.d.ts",
+      "bytes": 2050,
+      "sha256": "0caa281dc0415ba9e5ce7e0e9e694ffdbb0baf8746b1be3be4904f38f7cae52c"
+    },
+    {
+      "path": "types/server/import-worker.d.ts",
+      "bytes": 11,
+      "sha256": "8e609bb71c20b858c77f0e9f90bb1319db8477b13f9f965f1a1e18524bf50881"
+    },
+    {
+      "path": "types/server/index.d.ts",
+      "bytes": 311,
+      "sha256": "2fd019bc6251a613b4fdef93868549ed9a0a268563dbe55420baee1a5feeaf3a"
+    },
+    {
+      "path": "types/server/multipart.d.ts",
+      "bytes": 205,
+      "sha256": "b07c75dec77e7868c6cf2bf22c6a6c66461899cd61b87675e6048045a75957d4"
+    },
+    {
+      "path": "types/server/origin.d.ts",
+      "bytes": 331,
+      "sha256": "cce012bf05b6cfbcdc4ef799ec35676795c01af2f86744d7542aaa1ed0877e54"
+    },
+    {
+      "path": "types/server/pdf-font-data.d.ts",
+      "bytes": 174182,
+      "sha256": "361a132c0c02e20f856fb300203329a8d882e77f86e819e3d220b56d002b4c0b"
+    },
+    {
+      "path": "types/server/pdf-font.d.ts",
+      "bytes": 399,
+      "sha256": "97bf98d1d5fbdae2532dc0eac5a1b6581a919c9505955d2aecc3262c1a22d127"
+    },
+    {
+      "path": "types/server/pdf.d.ts",
+      "bytes": 331,
+      "sha256": "0c7a7209833632ae4c545e2ff6e20e8ad8a61041b720c2132d331487245076fe"
+    },
+    {
+      "path": "types/server/service.d.ts",
+      "bytes": 1233,
+      "sha256": "7852c73fc13d8a11e52239eca653edb9d0863cb6d532d31e19e9a211738dffc6"
+    },
+    {
+      "path": "types/server/store.d.ts",
+      "bytes": 1468,
+      "sha256": "3d5b738d16219cad8c220ef8b424600924fa866461609fe4df2f82496f86491b"
+    },
+    {
+      "path": "types/server/supabase-service.d.ts",
+      "bytes": 922,
+      "sha256": "058ae50318acf5fdcbf910727c6f8f4e0bdc18b619601c40a4820d8eb1691c1f"
+    }
+  ]
+}

@@ -1,3 +1,4 @@
+import { officeStagingDecision } from '@/lib/office/staging-guard'
 import { NextResponse, type NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { hasAnyHubAccessRole, hasCompanyMemberRole } from '@/lib/hub-access'
@@ -13,6 +14,8 @@ import {
 } from '@/lib/i18n/config'
 
 const PROTECTED_MATCHERS = [
+  '/office',
+  '/api/office',
   '/',
   '/absences',
   '/advance-requests',
@@ -98,6 +101,14 @@ type CookieOptions = {
 }
 
 export async function proxy(request: NextRequest) {
+  const staging = process.env.OFFICE_STAGING_ONLY !== undefined
+    ? officeStagingDecision('diriqo', { url: request.url, method: request.method, origin: request.headers.get('origin') }, process.env)
+    : null
+  if (staging?.kind === 'deny') return NextResponse.json({ error: staging.code }, { status: staging.status, headers: { 'Cache-Control': 'private, no-store' } })
+  if (staging?.kind === 'redirect') return NextResponse.redirect(new URL(staging.location, request.url))
+  if (staging?.kind === 'allow' && staging.staticAsset) return NextResponse.next()
+  if (!staging && !isLegacyProxyPath(request.nextUrl.pathname)) return NextResponse.next()
+
   const detectedCountry =
     request.headers.get('x-vercel-ip-country') ??
     request.headers.get('cf-ipcountry')
@@ -225,6 +236,10 @@ export async function proxy(request: NextRequest) {
     return ensureLocaleCookie(NextResponse.redirect(loginUrl))
   }
 
+  // Any authenticated account may end its own session, including workers and
+  // accounts whose company membership has just been removed. No child routes.
+  if (pathname === '/logout') return ensureLocaleCookie(response)
+
   if (portalPath) {
     const portalUserId = await getPortalUserId()
 
@@ -305,6 +320,10 @@ export async function proxy(request: NextRequest) {
 
   const hasHubAccess = hasAnyHubAccessRole(memberships.map((item) => item.role))
   const hasCompanyAccess = memberships.some((item) => hasCompanyMemberRole(item.role))
+  // Office performs active-company, role and feature checks at its server boundary.
+  if (hasCompanyAccess && (pathname === '/office' || pathname.startsWith('/office/') || pathname.startsWith('/api/office/'))) {
+    return ensureLocaleCookie(response)
+  }
   // Domain handlers enforce their own role, tenant and licence checks.
   if ((isMemberWorkspacePath(pathname) || isModuleWorkspacePath(pathname)) && hasCompanyAccess) {
     return ensureLocaleCookie(response)
@@ -329,8 +348,9 @@ export async function proxy(request: NextRequest) {
   return ensureLocaleCookie(response)
 }
 
-export const config = {
-  matcher: [
+const LEGACY_PROXY_MATCHERS = [
+    '/office/:path*',
+    '/api/office/:path*',
     '/',
     '/login',
     '/sign-in',
@@ -386,5 +406,18 @@ export const config = {
     '/api/mail/send',
     '/portal',
     '/portal/:path*',
-  ],
+  ]
+
+// Catch-all staging coverage must not change normal unmatched-route behavior.
+function isLegacyProxyPath(pathname: string) {
+  const path = pathname.replace(/^\/_next\/data\/[^/]+/, '')
+  return LEGACY_PROXY_MATCHERS.some(pattern => {
+    if (pattern === '/') return path === '/' || /^\/index(?:\.json)?\/?$/.test(path)
+    const nested = pattern.endsWith('/:path*')
+    // The preserved host patterns contain literal route segments and :path* only.
+    const base = nested ? pattern.slice(0, -7) : pattern
+    return new RegExp('^' + base + (nested ? '(?:/[^?#]+)?' : '') + '(?:\\.json)?/?$').test(path)
+  })
 }
+
+export const config = { matcher: ['/:path*'] }

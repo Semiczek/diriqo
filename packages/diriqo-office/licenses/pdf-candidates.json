@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "scope": "Read-only pre-install candidate triage. No candidate package was installed or copied into Office. This is not a successful complete dependency graph audit.",
+  "selected": "Original bounded project PDF serializer using public PDF/OpenType specifications and one separately audited unmodified OFL font. Existing Office npm graph unchanged.",
+  "candidates": [
+    {
+      "name": "pdf-lib", "version": "1.17.1", "license": "MIT", "status": "REJECTED",
+      "tarball": "https://registry.npmjs.org/pdf-lib/-/pdf-lib-1.17.1.tgz",
+      "tarballSha256": "a7cc1eaf12e41e612a7be581162a63b18118aefc01e90f6a1f35347b1f324a1c", "sriVerified": true,
+      "blockingPath": ["pdf-lib@1.17.1", "pako@1.0.11"],
+      "reason": "pako1.0.11 declares MIT AND Zlib. Its actual tarball also preserves the zlib grant. Zlib is outside this task's strict allowlist. @pdf-lib/standard-fonts1.0.0 and @pdf-lib/upng1.0.1 also require pako1."
+    },
+    {
+      "name": "@pdf-lib/fontkit", "version": "1.1.1", "license": "MIT", "status": "REJECTED",
+      "tarball": "https://registry.npmjs.org/@pdf-lib/fontkit/-/fontkit-1.1.1.tgz",
+      "tarballSha256": "6dd0ae9209fce419b2ed76c97166863167b4df56d75fbe3c7f1d1e6e49c85867", "sriVerified": true,
+      "blockingPath": ["@pdf-lib/fontkit@1.1.1", "pako@1.0.11"],
+      "reason": "Its pako^1.0.6 range resolves to the excluded MIT AND Zlib package. Top-level MIT does not override that dependency."
+    },
+    {
+      "name": "pako", "version": "1.0.11", "license": "(MIT AND Zlib)", "status": "REJECTED",
+      "tarball": "https://registry.npmjs.org/pako/-/pako-1.0.11.tgz",
+      "tarballSha256": "0d4028dc0352a740c30cbfd772917f2744986d42bfa0b06ec7642bffe7ad3941", "sriVerified": true,
+      "reason": "Published LICENSE contains the MIT grant; source zlib notices additionally preserve Jean-loup Gailly and Mark Adler copyright and the zlib restrictions. Both license branches must be allowed."
+    },
+    {
+      "name": "jspdf", "version": "4.2.1", "license": "MIT", "status": "REJECTED_AT_METADATA_GATE",
+      "source": "https://registry.npmjs.org/jspdf/4.2.1",
+      "blockingPath": ["jspdf@4.2.1", "fast-png@6.2.0", "pako@2.1.0"],
+      "reason": "pako2.1.0 declares MIT AND Zlib. Review stopped on this disallowed runtime path; no successful complete graph audit is claimed."
+    },
+    {
+      "name": "pdfkit", "version": "0.20.2", "license": "MIT", "status": "NOT_SELECTED_FULL_GRAPH_NOT_APPROVED",
+      "source": "https://registry.npmjs.org/pdfkit/0.20.2",
+      "reason": "Additional alternative considered. Its legacy unicode-trie2 dependency uses pako0.2.9, whose actual metadata and LICENSE are MIT, unlike pako1/2. png-js2.0.0 lacks license metadata but contains full MIT LICENSE. Neither is represented here as a proven prohibited license. Full runtime/transitive artifact audit was not completed, no installation approved, and the already selected bounded original serializer avoids expanding the package graph.",
+      "reviewedArtifacts": [
+        {"name":"pako","version":"0.2.9","license":"MIT","tarballSha256":"4a9319f1b7d155022ae088ff67d4bb739f81d29c8f82b7e6bde6bce461c3cd9f","sriVerified":true},
+        {"name":"png-js","version":"2.0.0","license":"MIT (LICENSE artifact; metadata absent)","tarballSha256":"a5e7cd8278d15fd1f7da9c22794913bad288997fd567abde8fdba0478563452d","sriVerified":true}
+      ]
+    }
+  ],
+  "specifications": [
+    "https://opensource.adobe.com/dc-acrobat-sdk-docs/standards/pdfstandards/pdf/PDF32000_2008.pdf",
+    "https://learn.microsoft.com/en-us/typography/opentype/spec/cmap",
+    "https://learn.microsoft.com/en-us/typography/opentype/spec/hmtx"
+  ]
+}

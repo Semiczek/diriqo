@@ -1,0 +1,175 @@
+{
+  "schemaVersion": 1,
+  "kind": "spreadsheet",
+  "workbook": {
+    "id": "49a52f9c-ded6-408a-a3fc-d749f714ae94",
+    "name": "Sešit",
+    "locale": "enUS",
+    "appVersion": "1.0.4",
+    "sheetOrder": [
+      "sheet-1"
+    ],
+    "styles": {},
+    "sheets": {
+      "sheet-1": {
+        "id": "sheet-1",
+        "name": "Docházková tabulka",
+        "rowCount": 200,
+        "columnCount": 26,
+        "cellData": {
+          "0": {
+            "0": {
+              "v": "Docházková tabulka",
+              "t": 1,
+              "s": {
+                "bl": 1,
+                "bg": {
+                  "rgb": "#E9EFF9"
+                }
+              }
+            },
+            "1": {
+              "v": "Ukázková firma Alfa (DEMO)",
+              "t": 1,
+              "s": {
+                "bl": 1,
+                "bg": {
+                  "rgb": "#E9EFF9"
+                }
+              }
+            }
+          },
+          "1": {
+            "0": {
+              "v": "Zakázka",
+              "t": 1
+            },
+            "1": {
+              "v": "Ukázková zakázka (DEMO)",
+              "t": 1
+            }
+          },
+          "2": {
+            "0": {
+              "v": "Datum",
+              "t": 1
+            },
+            "1": {
+              "v": "2026-10-11",
+              "t": 1
+            }
+          },
+          "4": {
+            "0": {
+              "v": "Jméno",
+              "t": 1,
+              "s": {
+                "bl": 1,
+                "bg": {
+                  "rgb": "#E9EFF9"
+                }
+              }
+            },
+            "1": {
+              "v": "Datum",
+              "t": 1,
+              "s": {
+                "bl": 1,
+                "bg": {
+                  "rgb": "#E9EFF9"
+                }
+              }
+            },
+            "2": {
+              "v": "Příchod",
+              "t": 1,
+              "s": {
+                "bl": 1,
+                "bg": {
+                  "rgb": "#E9EFF9"
+                }
+              }
+            },
+            "3": {
+              "v": "Odchod",
+              "t": 1,
+              "s": {
+                "bl": 1,
+                "bg": {
+                  "rgb": "#E9EFF9"
+                }
+              }
+            },
+            "4": {
+              "v": "Přestávka (h)",
+              "t": 1,
+              "s": {
+                "bl": 1,
+                "bg": {
+                  "rgb": "#E9EFF9"
+                }
+              }
+            },
+            "5": {
+              "v": "Hodiny",
+              "t": 1,
+              "s": {
+                "bl": 1,
+                "bg": {
+                  "rgb": "#E9EFF9"
+                }
+              }
+            }
+          },
+          "5": {
+            "0": {
+              "v": "",
+              "t": 1
+            },
+            "1": {
+              "v": "2026-10-11",
+              "t": 1
+            },
+            "2": {
+              "v": "08:00",
+              "t": 1
+            },
+            "3": {
+              "v": "16:00",
+              "t": 1
+            },
+            "4": {
+              "v": 0.5,
+              "t": 2
+            },
+            "5": {
+              "f": "=(TIMEVALUE(D6)-TIMEVALUE(C6))*24-E6"
+            }
+          }
+        },
+        "rowData": {},
+        "columnData": {
+          "0": {
+            "w": 240
+          },
+          "1": {
+            "w": 170
+          },
+          "2": {
+            "w": 160
+          },
+          "3": {
+            "w": 160
+          },
+          "4": {
+            "w": 150
+          },
+          "5": {
+            "w": 130
+          }
+        },
+        "mergeData": []
+      }
+    }
+  }
+}

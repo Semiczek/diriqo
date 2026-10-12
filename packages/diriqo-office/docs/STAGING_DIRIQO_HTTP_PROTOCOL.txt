@@ -1,0 +1,51 @@
+DIRIQO HOST HTTP STAGING — návrh, dosud nespouštěný
+
+Předpoklady:
+1. Root ověří staging manifest/project ref i backend URL a nastaví pro isolated clone process NEXT_PUBLIC_SUPABASE_URL=https://<verified-ref>.supabase.co, NEXT_PUBLIC_SUPABASE_ANON_KEY=<staging publishable/anon key>, DIRIQO_MODULE_BILLING_MODE=test. Žádné produkční env nebo service-role klíče nejsou pro tyto Office routy potřeba.
+2. NEXT_PUBLIC_* jsou build-time hodnoty pro browser: původní build s validačními/dummy URL nelze vydávat za staging build. Rebuild pouze integrační klon a pak next start se stejnými hodnotami; bind 127.0.0.1 na vybraný volný port. Tato pomůcka výslovně nepovoluje vzdálený web origin.
+3. Skutečné staging users/profiles/membership + office_settings + Diriqo capability jsou již připravené a samostatně ověřené. Žádný seed/migrace v HTTP pomocníku. Žádné spuštění při importu modulu.
+4. Node runtime musí poskytovat fetch, FormData, Blob a Headers.getSetCookie. Není třeba instalace @supabase/ssr nebo cookie-jar knihovny.
+
+Přihlášení a cookies:
+- POST /auth/sign-in, Content-Type: application/json, body {email,password}.
+- Skutečná host routa volá signInWithPassword a getUser; úspěch200 JSON {ok:true,redirectTo}. Přesměrování /onboarding je u nového účtu očekávané, nepřidávat automaticky fake onboarding/consent rows.
+- Zachovat VŠECHNY odpovědní Set-Cookie a při dalších požadavcích posílat jejich Cookie. Nikdy nespojovat Set-Cookie čárkou: Expires obsahuje čárku. Fetch redirect:'manual', žádné následování na produkci či jiné originy.
+- @supabase/ssr instalovaný0.10.0: base64url session, základní cookie sb-<ref>-auth-token, volitelné .0,.1,... chunky, MAX_CHUNK_SIZE3180. Tyto detaily slouží k ověření původu, ne k ručnímu sestavování session.
+- Host /api/office nepoužívá Bearer k nahrazení SSR cookies. Čerstvou session posíláme přes skutečný host login.
+- /api/active-company GET/POST nyní podporuje company_admin/super_admin; vracícompanyId a POST sets active_company_id Path=/ SameSite=Lax Max-Age31536000. Manager/worker proxy přesměruje na /moje-prace. Není to selhání Office autorizace: /office a /api/office/* mají vlastní explicitní výjimku. U jednočlenných editor/reader účtů se aktivní firma načte z ověřeného členství bez nutnosti tohoto přepínače. Nedeklarovat manager/reader company-switch API jako otestované funkční.
+
+Doporučený skutečný HTTP průchod:
+A. Anonymní jar: GET /api/office/files?id=<known-ID>&format=original →307 /sign-in, nikdy JSON/base64.
+B. Samostatný jar pro ownerA/editorA/readerA/ownerB. login pro každého; ownerA/ownerB selectCompany a GET /api/active-company musí potvrdit svou firmu a officeEnabled=true. GET /office s každou session musí být200 text/html; u owner/editor má až browser hydratace prokázat skutečný editor.
+C. OwnerA nahraje fixtures/letter.docx a fixtures/formula-demo.xlsx přes POST /api/office/files. Hlavičky Origin přesně loopback app origin, X-Office-Tenant=A, Sec-Fetch-Site=same-origin. Multipart položky file + idempotencyKey, parentId volitelný. Neměnit ručně Content-Type/boundary. Očekávat200 JSON {file,warnings}; uchovat file.id. Maximální soubor12MiB.
+D. Stejný upload se stejnými byty/name/idempotencyKey musí vrátit stejné file.id; kolizi klíče s jinými byty odmítnout. Zkontrolovat stav/verze/receipt přes existující skutečný RPC runner, pokud potřeba pro důkaz absence dalších verzí.
+E. GET /api/office/files?id=<id>&format=original s X-Office-Tenant=A →200 JSON {name,mime,base64,warnings}; decoded bytes SHA256 shodné s přesně nahraným fixture. Formáty docx/xlsx jsou rovněž JSON base64, nikoli přímo attachment stream; zkontrolovat validní ZIP a obsah pomocí existujících konverzních testů. TXT export dokumentu může prokázat očekávaný text. GET export/read zapisuje audit, není databázově read-only.
+F. ReaderA export známého A dokumentu →200; readerA upload →400 OFFICE_FORBIDDEN. OwnerB export ID z A →ne200 bez base64. OwnerA X-Office-Tenant=B →400 OFFICE_TENANT_CHANGED. Owner/editor upload se špatným Origin nebo Sec-Fetch-Site=cross-site →400 OFFICE_FORBIDDEN. Export nepodporovaného formátu →400.
+G. Odděleně otestovat vypnutí modulu běžným oprávněným operator RPC a následný host požadavek odmítnout; konfiguraci neobcházet. Obnovení případně stejným oprávněným RPC. Nevolat server actions ručně odhadnutými Next-Action IDs; HTTP helper ověřuje skutečné stabilní souborové routy, ostatní akce řeší Chrome UI.
+H. Report obsahuje pouze case/status/expectedCode/hash/ID/varování + cílový ref a build source hashes. Nepersistovat jar, cookies, auth response, hesla, tokeny ani plné provider errors.
+
+Následný Chrome:
+- Otevřít stejný loopback /sign-in v oddělené staging browser session. Vyplnit pouze syntetický staging účet a přihlásit se běžným formulářem; ten používá totožný POST /auth/sign-in. Žádné injektované JWT či storageState.
+- Po legitimním post-login přesměrování přejít /office; ověřit skutečnou pracovní plochu, otevření dokumentu nahraného HTTP, jeho text/formule, editaci a autosave, reload a zachování uložených dat.
+- Owner otevře company switch pro svůj kontext; editor/reader má pro minimálnífixture pouze jedinou firmu. Pro druhýtenantscenario nová browser session nebo skutečné odhlášení/přihlášení, nikoli přepsání authcookie.
+- Ověřit import přes UI file picker a download/export, dále viewer readOnly pro reader. U PDF zaznamenat reálný print preview/print to PDF, nikoli zaměnit HTML200 za PDFdůkaz.
+
+Konkrétní blokace/rizika:
+- middleware proxy.ts:143–156 a158–171 používá deprecated set/remove. Každá cookie resetuje response=createResponse(), takže při token refresh s více změněnými/chunkovanými cookies může v odpovědi zůstat jen poslední Set-Cookie. requestHeaders byly vytvořeny před změnami cookies. Čerstvý login route používá správné getAll/setAll; úspěšnýfreshlogin nepokrývárefresh. Samostatný refresh test nebo oprava s regresnímtestem; zatím statickýnález, neprovedenýruntime.
+- Handler /api/office/files vrací obecně400 pro své Office chyby; proxy předtím může vrátit307. Runner musí vyhodnotit Content-Type+status a nesmí automaticky následovatloginHTML.
+- Modul defaultoff, chybějící přímá profile.auth_user_id vazba, rozpor user_id, chybějící core.files.upload testgrant nebo nesoulad billingmode mohou oprávněně blokovat zápis.
+- Worker závisí na process.cwd() integračního Next projektu, node_modules/@diriqo/office/dist/import-worker.js a výstupním trasování next.config.ts. Samotný GET200 neprokazuje běh importworkeru.
+- Host HTTP testy samy neprokazují Chrome UI, tisk, skutečné server action save ani refresh; výsledky musí mít oddělený rozsah.
+
+Zdrojové body:
+app/auth/sign-in/route.ts:35–59
+lib/supabase-server.ts:7–23
+app/sign-in/SignInForm.tsx:45–76
+proxy.ts:135–175,203–215,277–314
+app/api/active-company/route.ts:32–76
+lib/hub-access.ts:1–11
+lib/active-company.ts:108–168
+lib/office/context.ts:7–35
+app/api/office/files/route.ts:12–39
+app/office/OfficeClient.tsx:13–52
+node_modules/@supabase/ssr/dist/main/utils/chunker.js:8,23–63

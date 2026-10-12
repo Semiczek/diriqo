@@ -43,6 +43,8 @@ const eslintConfig = defineConfig([
     "build/**",
     ".tmp-chrome*/**",
     "next-env.d.ts",
+    // Shared Office source has its own build, typecheck and license/test CI.
+    "packages/diriqo-office/**",
   ]),
 ]);
 

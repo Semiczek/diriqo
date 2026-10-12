@@ -5,6 +5,7 @@ import { ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 import { supabase } from '@/lib/supabase'
+import { notifyOfficeContextChanged } from '@/lib/office/client-context'
 import AdminAuthGuard from './AdminAuthGuard'
 import DashboardSidebar from './DashboardSidebar'
 import AppIcon from './ui/AppIcon'
@@ -50,6 +51,7 @@ type CompanyMembership = {
 }
 
 type ActiveCompanyPayload = {
+  officeEnabled?: boolean
   companyId: string
   companyName: string | null
   profileId?: string | null
@@ -159,6 +161,7 @@ export default function DashboardShell({
             profileEmail: payload.activeCompany.profileEmail?.trim() || null,
             role: payload.activeCompany.role ?? null,
             companyMemberships: payload.activeCompany.companyMemberships ?? [],
+            officeEnabled: payload.activeCompany.officeEnabled === true,
           })
           setCompanyModules(payload.modules)
           setAvailableProducts(payload.availableProducts)
@@ -226,6 +229,7 @@ export default function DashboardShell({
       return
     }
 
+    notifyOfficeContextChanged()
     router.replace('/sign-in')
   }
 
@@ -258,6 +262,7 @@ export default function DashboardShell({
       setCompanyMenuOpen(false)
       setUserMenuOpen(false)
       dashboardContextCache = null
+      notifyOfficeContextChanged()
       // Reload the workspace so client state and server data use the same company.
       window.location.assign('/')
     } catch {
@@ -281,7 +286,7 @@ export default function DashboardShell({
         <a href="#workspace-content" className="dq-skip-link">{shellText.skip}</a>
         <div className="dashboard-layout">
           {mobileMenuOpen ? <button type="button" className="dashboard-sidebar-backdrop" aria-label={dictionary.common.closeMenu} onClick={closeMobileMenu} /> : null}
-          <DashboardSidebar activeItem={activeItem} enabledModules={companyModules} availableProducts={availableProducts} showModuleCatalog={canManageModules} showCoreNavigation={canManageModules}
+          <DashboardSidebar officeEnabled={activeCompany?.officeEnabled === true} activeItem={activeItem} enabledModules={companyModules} availableProducts={availableProducts} showModuleCatalog={canManageModules} showCoreNavigation={canManageModules}
             mobileOpen={mobileMenuOpen} onNavigate={closeMobileMenu} />
           <div className="dashboard-main" inert={mobileMenuOpen}>
             <header className="dashboard-topbar" ref={topbarRef}>
