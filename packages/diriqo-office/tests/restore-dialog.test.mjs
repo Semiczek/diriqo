@@ -42,6 +42,8 @@ async function workspace(options={}){
    case 'readProposal':return {proposal:{id:'40000000-0000-4000-8000-000000000001',fileId:serverFile.id,baseRevision:3,status:'pending',summary:'Reviewed change',content:content('Approved proposal'),createdAt:serverFile.updatedAt}};
    case 'approve':assert.equal(body.expectedRevision,serverFile.revision);serverFile={...serverFile,content:content('Approved proposal'),revision:serverFile.revision+1};return {file:structuredClone(serverFile)};
    case 'save':assert.equal(body.expectedRevision,serverFile.revision);serverFile={...serverFile,content:structuredClone(body.content),revision:serverFile.revision+1};return {file:structuredClone(serverFile)};
+   case 'rename':assert.equal(body.expectedRevision,serverFile.revision);serverFile={...serverFile,title:body.title,revision:serverFile.revision+1};return {file:structuredClone(serverFile)};
+   case 'create':assert.equal(body.kind,'folder');serverFile={...serverFile,id:randomUUID(),title:body.title,kind:'folder',content:null,revision:1};return {file:structuredClone(serverFile)};
    case 'restore':return restoreHook?restoreHook(body,applyRestore):applyRestore(body);
    default:throw Error('Unexpected RPC '+body.op);
   }
@@ -189,6 +191,72 @@ test('a delayed folder-picker response cannot replace a newer modal folder page'
  old.resolve({files:[{id:'old-folder',kind:'folder',title:'STALE FOLDER'}],nextCursor:'old-cursor'});await app.settle();
  assert.match(text(app.tree),/CURRENT FOLDER/);assert.doesNotMatch(text(app.tree),/STALE FOLDER/);
  assert.equal(app.find(n=>n.type==='button'&&text(n)==='Load more').length,0);
+});
+
+for(const action of ['＋ New folder','Rename']) test(`${action}: dragging a name selection outside the dialog keeps the draft available for typing and saving`,async()=>{
+ const app=await workspace({startInList:true,file:{kind:'folder',content:null,title:'Původní složka'}});
+ await app.click(app.button(action));
+ const editableDialog=()=>app.find(n=>n.type==='dialog'||n.props.role==='dialog')[0];
+ const nameInput=()=>app.find(n=>n.type==='input'&&n.props.required&&n.props.maxLength===200,editableDialog())[0];
+ const input=nameInput();assert.ok(input);
+ // Browser selection can start inside the input and release on the backdrop.
+ // Its click is targeted at the common ancestor, rather than the original input.
+ const surface=app.find(n=>n.props.className==='office-modal-backdrop')[0]??editableDialog();
+ input.props.onPointerDown?.({button:0,target:input,currentTarget:input});
+ input.props.onMouseDown?.({button:0,target:input,currentTarget:input});
+ surface.props.onPointerUp?.({button:0,target:surface,currentTarget:surface});
+ surface.props.onMouseUp?.({button:0,target:surface,currentTarget:surface});
+ surface.props.onClick?.({button:0,target:surface,currentTarget:surface});
+ await app.settle();
+ assert.ok(editableDialog(),'selection release must not discard the name dialog');
+ assert.equal(nameInput().props.value,input.props.value,'unfinished name stays intact');
+ nameInput().props.onChange({target:{value:'Objednávky 2026'}});await app.settle();
+ await app.submit(app.find(n=>n.type==='form',editableDialog())[0]);
+ assert.equal(editableDialog(),undefined);
+ const request=app.trace.filter(n=>n.op===(action==='Rename'?'rename':'create'));
+ assert.equal(request.length,1);assert.equal(request[0].title,'Objednávky 2026');
+ assert.equal(app.file.title,'Objednávky 2026');
+});
+
+test('folder dialog opens modally, focuses the name, and explicit Cancel or Escape restores focus without writing',async()=>{
+ for(const method of ['button','escape']){
+  const app=await workspace({startInList:true});await app.click(app.button('＋ New folder'));
+  const dialog=app.dialog(),input=app.find(n=>n.type==='input'&&n.props.required,dialog)[0];
+  assert.equal(dialog.props.ref.current.open,true);assert.equal(app.focused,input.props.ref.current);
+  assert.ok(app.find(n=>n.props.id===dialog.props['aria-labelledby'],dialog).length);
+  input.props.onChange({target:{value:'Unsubmitted folder'}});await app.settle();
+  if(method==='button')await app.click(app.button('Cancel',app.dialog()));
+  else {let prevented=false;app.dialog().props.onCancel({preventDefault(){prevented=true;}});await app.settle();assert.equal(prevented,true);}
+  assert.equal(app.dialog(),undefined);assert.equal(app.focused,app.opener);
+  assert.equal(app.trace.some(n=>['create','rename'].includes(n.op)),false);
+ }
+});
+
+test('Escape and a retained Cancel handler cannot dismiss a folder save that is already in flight',async()=>{
+ const pending=deferred();let saveBody;
+ const app=await workspace({startInList:true,requestHook(body,respond){if(body.op==='create'){saveBody=body;return pending.promise;}return respond(body);}});
+ await app.click(app.button('＋ New folder'));const cancel=app.button('Cancel',app.dialog()).props.onClick;
+ const form=app.find(n=>n.type==='form',app.dialog())[0];form.props.onSubmit({preventDefault(){}});
+ // Exercise the interval before React has rendered disabled controls as well.
+ cancel();app.dialog().props.onCancel({preventDefault(){}});await app.settle();
+ assert.ok(app.dialog());assert.equal(app.button('Cancel',app.dialog()).props.disabled,true);
+ assert.equal(saveBody.kind,'folder');
+ app.dialog().props.onCancel({preventDefault(){}});await app.settle();assert.ok(app.dialog());
+ pending.resolve({file:{...app.file,id:'saved-folder',kind:'folder',content:null,title:saveBody.title,revision:1}});await app.settle();
+ assert.equal(app.dialog(),undefined);assert.equal(app.trace.filter(n=>n.op==='create').length,1);
+});
+
+test('host can hide the Office topbar while tenant warnings, recovery controls and file creation remain available',async()=>{
+ let recovered=false;
+ const recovery={type:'button',props:{onClick(){recovered=true;}},children:['Restore access']};
+ const app=await workspace({startInList:true,props:{title:'Host Office',headerSecondary:['Company context changed',recovery]}});
+ assert.equal(app.find(n=>n.props.className==='office-topbar').length,1);assert.match(text(app.tree),/Company context changed/);
+ await app.update({hideHeader:true});
+ assert.equal(app.find(n=>n.props.className==='office-topbar').length,0);assert.equal(app.find(n=>n.props.className==='office-header-secondary').length,1);
+ assert.match(text(app.tree),/Company context changed/);assert.equal(app.find(n=>n.props.className==='office-file-workspace').length,1);
+ await app.click(app.button('Restore access'));assert.equal(recovered,true);
+ await app.click(app.button('＋ New folder'));assert.ok(app.dialog());await app.click(app.button('Cancel',app.dialog()));
+ await app.update({hideHeader:false});assert.equal(app.find(n=>n.props.className==='office-topbar').length,1);assert.match(text(app.tree),/Company context changed/);
 });
 
 test('late load-more results do not append files into a changed search',async()=>{

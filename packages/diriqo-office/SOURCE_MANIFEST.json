@@ -3,12 +3,12 @@
   "repository": "https://github.com/Semiczek/diriqo",
   "sourceDirectory": "packages/diriqo-office",
   "ownership": "One canonical source; both hosts consume the identical reviewed vendor runtime.",
-  "sourceSha256": "6b00d47659e05232806186eb0e9cca0dad51211ebd966e01fe6f094811ebdeef",
+  "sourceSha256": "bee02ef8523e946c22cfee9c21f4337f80e8e4a1b1a48fac122d96898cf677db",
   "runtime": {
     "name": "@diriqo/office",
-    "version": "0.3.0",
-    "archive": "vendor/diriqo-office-0.3.0.tgz",
-    "sha256": "ed5ee7ed83b80632dc72086191667b0062cdd5f06dc04731414862015afd58af"
+    "version": "0.3.1",
+    "archive": "vendor/diriqo-office-0.3.1.tgz",
+    "sha256": "873b3bdf91a961e03bf46ef04ba411a9eb3d5dd31ef8c95151f006662e65f65c"
   },
   "files": [
     {
@@ -29,7 +29,7 @@
     {
       "path": "LICENSE_AUDIT.md",
       "bytes": 4001,
-      "sha256": "5108df34a7be36ae25fae00555021c604c65b441e08411ef9027543be9dba34b"
+      "sha256": "f4d3a3ec185bee6ba6a00c3e5f19db90a248e9127e63c3ef1b3ce56e09bf5e96"
     },
     {
       "path": "README.md",
@@ -294,7 +294,7 @@
     {
       "path": "licenses/evidence.json",
       "bytes": 213329,
-      "sha256": "1cc56f2b3999d10df72b24662934eb528620c173e5876bca164cef04cf1903c1"
+      "sha256": "8baa0d453821dff3aa384db0c4cfa33b025473ef90eb211c751d9c035545dd12"
     },
     {
       "path": "licenses/pdf-candidates.json",
@@ -1844,17 +1844,17 @@
     {
       "path": "package-lock.json",
       "bytes": 66315,
-      "sha256": "f2a2c5421778b374c9742da00551cd138a85ae59806e2ed0edc98b7d7e17335a"
+      "sha256": "b919351811b415f40f73252dcab8e4e70bc32ba72d55f3d3a6a8bd22b5b4de70"
     },
     {
       "path": "package.json",
       "bytes": 1976,
-      "sha256": "5b35fd44c456aa18a0f4ac5cd6da8b231b7e98c6a85f0d658bdfa37a7fc08d9b"
+      "sha256": "3ad1195a23ca231cb557e9cc8126193434968600025893f69266cd2fa4258674"
     },
     {
       "path": "sbom.cdx.json",
       "bytes": 148533,
-      "sha256": "6b811b72fc72d009e107fa686b23667838eeba9dababc7f5faf59916711257b3"
+      "sha256": "54af0e50a44fe0a779e80256ba3a2a7bb7eb098398e53c89a08ca54c03b4de6c"
     },
     {
       "path": "scripts/browser-react-peer.mjs",
@@ -2123,8 +2123,8 @@
     },
     {
       "path": "src/client/OfficeWorkspace.tsx",
-      "bytes": 35968,
-      "sha256": "3cd7b6d09e42e626752313fb334c557c0fa158627d89d50ba83f4626063786fa"
+      "bytes": 36469,
+      "sha256": "96182eab25849527b7fa67fe36bc82f9c3b407d1bfa855ab7fbb050f77952165"
     },
     {
       "path": "src/client/SharingDialog.tsx",
@@ -2148,8 +2148,8 @@
     },
     {
       "path": "src/client/office.css",
-      "bytes": 20717,
-      "sha256": "5ac1202a287b01b82ea1da2e2ee5ea2fcb699e2a89918e9cbc5a2443fc43e027"
+      "bytes": 20930,
+      "sha256": "46c7e69033f5d88deac7c5f97e650fddeb544a430448d0e9829279fe5b58273d"
     },
     {
       "path": "src/core/formats.ts",
@@ -2538,8 +2538,8 @@
     },
     {
       "path": "tests/restore-dialog.test.mjs",
-      "bytes": 23816,
-      "sha256": "131dd0480a239d142420d55b013386bad8a0babfa507dc1bc99eee6576955a48"
+      "bytes": 29357,
+      "sha256": "faea6c998a53d4ee110673583b1758741e3b54f6b9eb0c9ddcd846623e4e95f8"
     },
     {
       "path": "tests/service.test.mjs",
@@ -2623,8 +2623,8 @@
     },
     {
       "path": "types/client/OfficeWorkspace.d.ts",
-      "bytes": 580,
-      "sha256": "7f0c1ad6f97a718fc6d096f6499f60f3eef1d66194bca7b786db1b30dcf10a44"
+      "bytes": 618,
+      "sha256": "bab6454f25be39e9ca4c0dd61351c4c714645d6bf30d2695082a4d01e5454a31"
     },
     {
       "path": "types/client/SharingDialog.d.ts",

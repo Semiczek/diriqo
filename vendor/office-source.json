@@ -3,6 +3,6 @@
   "sourceRepository": "https://github.com/Semiczek/diriqo",
   "sourceBranch": "codex/office-formats-library",
   "sourceDirectory": "packages/diriqo-office",
-  "sourceContentSha256": "6b00d47659e05232806186eb0e9cca0dad51211ebd966e01fe6f094811ebdeef",
-  "runtimeArchiveSha256": "ed5ee7ed83b80632dc72086191667b0062cdd5f06dc04731414862015afd58af"
+  "sourceContentSha256": "bee02ef8523e946c22cfee9c21f4337f80e8e4a1b1a48fac122d96898cf677db",
+  "runtimeArchiveSha256": "873b3bdf91a961e03bf46ef04ba411a9eb3d5dd31ef8c95151f006662e65f65c"
 }

@@ -1,6 +1,6 @@
 # License audit
 
-PASS for exact shared Diriqo Office lockfile SHA-256 f2a2c5421778b374c9742da00551cd138a85ae59806e2ed0edc98b7d7e17335a. 130 packages inspected. This is technical license evidence checking, not legal advice or legal immunity.
+PASS for exact shared Diriqo Office lockfile SHA-256 b919351811b415f40f73252dcab8e4e70bc32ba72d55f3d3a6a8bd22b5b4de70. 130 packages inspected. This is technical license evidence checking, not legal advice or legal immunity.
 
 Every artifact SRI, identity, declared license and preserved LICENSE/COPYING/NOTICE was checked. Third-party notice files and inline copyright blocks were also preserved and screened for known excluded terms. Pinned official upstream evidence is used only for exact reviewed packages that omit full license text in npm artifacts; content hashes and source URLs are retained. jstat1.9.6 uses its exact archived legacy licenses array and MIT LICENSE because npm omits the modern license field. esbuild0.28.2 platform binaries contain Go1.26.5; Go runtime/vendor BSD and xxhash MIT notices are included. Allowed identifiers: MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, 0BSD, CC0-1.0, OFL-1.1. OR selects an allowed branch; AND requires every branch. Unknown or missing evidence fails closed.
 
