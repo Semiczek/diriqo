@@ -34,7 +34,7 @@ export default async function OfficeSettings() {
           <p><button type="submit">Uložit nastavení</button></p>
         </form>
       )}
-      <p>Přepínač zachovává kontrolu oprávnění k modulům Diriqo. Po změně obnovte pracovní plochu. Vypnutí modulu ponechá uložená data.</p>
+      <p>Office je základní součást Diriqo bez placeného doplňku. Přístup nadále určují členství a role v aktivní firmě. Po změně obnovte pracovní plochu. Vypnutí modulu ponechá uložená data.</p>
       {data?.enabled ? (
         // Enter Office with a fresh document, isolated from the host's loaded styles.
         // eslint-disable-next-line @next/next/no-html-link-for-pages

@@ -77,7 +77,7 @@ export function officeStagingDecision(
     '/api/active-company': host === 'hub' ? ['GET', 'HEAD', 'PATCH'] : ['GET', 'HEAD', 'POST'],
     '/logout': ['GET', 'HEAD', 'POST'],
     ...(host === 'hub'
-      ? { '/login': ['GET', 'HEAD'], '/api/active-company/switch': ['POST'] }
+      ? { '/login': ['GET', 'HEAD'], '/api/active-company/switch': ['POST'], '/office/select-company': ['GET', 'HEAD'] }
       : { '/sign-in': ['GET', 'HEAD'], '/auth/sign-in': ['POST'], '/api/office/company': ['POST'] }),
   }
   if (!Object.hasOwn(routes, path)) return deny(404, 'OFFICE_STAGING_ROUTE')

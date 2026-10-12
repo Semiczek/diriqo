@@ -1,7 +1,6 @@
 import 'server-only'
 import { getActiveCompanyContext } from '@/lib/active-company'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
-import { requirePaidCompanyCapability } from '@/lib/platform/module-operation-access'
 import type { OfficeActor } from '@diriqo/office/core'
 
 export async function requireOfficeContext(write = false) {
@@ -28,9 +27,7 @@ export async function requireOfficeContext(write = false) {
   const { data, error } = await supabase.from('office_settings').select('enabled').eq('company_id', active.companyId).maybeSingle()
   if (error || data?.enabled !== true) throw new Error('OFFICE_DISABLED')
   const actor: OfficeActor = { tenantId: active.companyId, actorId: active.profileId, role: ['super_admin', 'company_admin'].includes(role) ? 'owner' : role === 'manager' ? 'editor' : 'reader', enabled: true, principal: 'human' }
-  if (write) {
-    if (actor.role === 'reader') throw new Error('OFFICE_FORBIDDEN')
-    await requirePaidCompanyCapability({ companyId: active.companyId, supabase }, 'core.files.upload')
-  }
+  // Office is a base feature. Membership, role and the company kill switch still apply.
+  if (write && actor.role === 'reader') throw new Error('OFFICE_FORBIDDEN')
   return { supabase, actor, active }
 }

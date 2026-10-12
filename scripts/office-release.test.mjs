@@ -11,7 +11,8 @@ const ts = createRequire(new URL('package.json', root))('typescript');
 const A = '00000000-0000-4000-8000-000000000001', B = '00000000-0000-4000-8000-000000000002';
 async function authored(file, bindings, expression) {
   let source = await readFile(new URL(file, root), 'utf8');
-  source = source.replace(/^import[\s\S]*?from ['"][^'"]+['"]\r?\n/gm, '')
+  source = source.replace(/^import ['"]server-only['"]\r?\n/gm, '')
+    .replace(/^import[\s\S]*?from ['"][^'"]+['"]\r?\n/gm, '')
     .replace(/^export default /gm, '')
     .replace(/^export /gm, '');
   const js = ts.transpileModule(source, { compilerOptions: {
@@ -24,6 +25,98 @@ async function authored(file, bindings, expression) {
 }
 const flatten = value => value && typeof value === 'object'
   ? [value, ...((value.children ?? []).flat(Infinity).flatMap(flatten))] : [];
+
+async function officeContextFixture(overrides = {}) {
+  const options = {
+    active: { companyId: A, profileId: 'profile-A', role: 'company_admin' },
+    user: { id: 'auth-A' }, authError: null,
+    identity: { id: 'profile-A', auth_user_id: 'auth-A', user_id: 'auth-A' }, identityError: null,
+    settings: { enabled: true }, settingsError: null, ...overrides,
+  };
+  const filters = [], tables = [], roleChecks = [];
+  let authChecks = 0;
+  const client = {
+    auth: { getUser: async () => { authChecks++; return { data: { user: options.user }, error: options.authError }; } },
+    from(table) {
+      tables.push(table);
+      assert.ok(['profiles', 'office_settings'].includes(table));
+      return {
+        select() { return this; },
+        eq(column, value) { filters.push([table, column, value]); return this; },
+        maybeSingle: async () => table === 'profiles'
+          ? { data: options.identity, error: options.identityError }
+          : { data: options.settings, error: options.settingsError },
+      };
+    },
+    rpc: async () => { throw new Error('Office must not request a purchased capability'); },
+  };
+  const context = await authored('lib/office/context.ts', {
+    getActiveCompanyContext: async selectionOptions => { roleChecks.push(selectionOptions.allowedRoles); return options.active; },
+    createSupabaseServerClient: async () => client,
+    requirePaidCompanyCapability: async () => { throw new Error('Office must not depend on a paid add-on'); },
+  }, 'requireOfficeContext');
+  return { context, filters, tables, roleChecks, authChecks: () => authChecks, client };
+}
+
+test('Office base access uses the authenticated company and role without a purchased capability', async () => {
+  for (const companyId of [A, B]) {
+    for (const [hostRole, officeRole] of [['super_admin', 'owner'], ['company_admin', 'owner'], ['manager', 'editor'], ['worker', 'reader']]) {
+      const fixture = await officeContextFixture({ active: { companyId, profileId: 'profile-A', role: hostRole } });
+      const read = await fixture.context();
+      assert.equal(read.supabase, fixture.client);
+      assert.equal(read.actor.tenantId, companyId);
+      assert.equal(read.actor.actorId, 'profile-A');
+      assert.equal(read.actor.role, officeRole);
+      if (officeRole === 'reader') await assert.rejects(fixture.context(true), /OFFICE_FORBIDDEN/);
+      else assert.equal((await fixture.context(true)).actor.tenantId, companyId);
+      assert.equal(fixture.authChecks(), 2, 'Each read/write revalidates the user');
+      assert.ok(fixture.filters.some(([table, column, value]) => table === 'profiles' && column === 'id' && value === 'profile-A'));
+      assert.ok(fixture.filters.some(([table, column, value]) => table === 'profiles' && column === 'auth_user_id' && value === 'auth-A'));
+      assert.ok(fixture.filters.some(([table, column, value]) => table === 'office_settings' && column === 'company_id' && value === companyId));
+      assert.ok(fixture.filters.filter(([table]) => table === 'office_settings').every(([, column, value]) => column === 'company_id' && value === companyId));
+      assert.deepEqual(JSON.parse(JSON.stringify(fixture.roleChecks)), Array(2).fill(['super_admin', 'company_admin', 'manager', 'worker']));
+    }
+  }
+});
+
+test('Office base access still rejects missing membership, unauthenticated or conflicting identities and disabled companies', async () => {
+  const cases = [
+    [{ active: null }, 'OFFICE_FORBIDDEN'],
+    [{ user: null }, 'OFFICE_UNAUTHENTICATED'],
+    [{ authError: { message: 'expired' } }, 'OFFICE_UNAUTHENTICATED'],
+    [{ identity: null }, 'OFFICE_IDENTITY_MISMATCH'],
+    [{ identityError: { message: 'not available' } }, 'OFFICE_IDENTITY_MISMATCH'],
+    [{ identity: { id: 'profile-A', auth_user_id: 'auth-B', user_id: 'auth-B' } }, 'OFFICE_IDENTITY_MISMATCH'],
+    [{ identity: { id: 'profile-A', auth_user_id: 'auth-A', user_id: 'auth-B' } }, 'OFFICE_IDENTITY_MISMATCH'],
+    [{ active: { companyId: A, profileId: 'profile-A', role: 'customer' } }, 'OFFICE_FORBIDDEN'],
+    [{ settings: { enabled: false } }, 'OFFICE_DISABLED'],
+    [{ settings: null }, 'OFFICE_DISABLED'],
+    [{ settingsError: { code: '42P01' } }, 'OFFICE_DISABLED'],
+  ];
+  for (const [overrides, error] of cases) for (const write of [false, true]) {
+    const fixture = await officeContextFixture(overrides);
+    await assert.rejects(fixture.context(write), new RegExp(error));
+    if (['OFFICE_FORBIDDEN', 'OFFICE_UNAUTHENTICATED', 'OFFICE_IDENTITY_MISMATCH'].includes(error)) {
+      assert.equal(fixture.tables.includes('office_settings'), false, 'Invalid identity cannot inspect company Office settings');
+    }
+  }
+});
+
+test('Office base entitlement does not bypass the existing paid gates of other company operations', async () => {
+  const requirePaid = await authored('lib/platform/module-operation-access.ts', { readModuleBillingMode: () => false }, 'requirePaidCompanyCapability');
+  for (const capability of ['core.files.upload', 'inventory.receipt.post']) {
+    const calls = [];
+    const client = {
+      auth: { getUser: async () => ({ data: { user: { id: 'auth-A' } }, error: null }) },
+      rpc: async (name, args) => {
+        calls.push([name, args]);
+        return { data: { company_id: A, capability, enforced: true, allowed: false, reason: 'module_required', livemode: false }, error: null };
+      },
+    };
+    await assert.rejects(requirePaid({ companyId: A, supabase: client }, capability), /aktivní placený modul/);
+    assert.deepEqual(JSON.parse(JSON.stringify(calls)), [['get_company_capability_access', { target_company_id: A, target_capability: capability }]]);
+  }
+});
 
 test('Diriqo Office visibility does not grant, hide or alter POS/product/core navigation', async () => {
   const sidebar = await authored('components/DashboardSidebar.tsx', {
