@@ -29,7 +29,7 @@ test('Hub menu cache preserves enabled Office and clears it for a disabled or un
 test('Hub company switching returns the target company Office flag after membership validation',async()=>{
  const calls=[],members=[{id:'member-a',companyId:A,companyName:'A',role:'manager'},{id:'member-b',companyId:B,companyName:'B',role:'manager'}];
  const build=await authored('integrations/hub/lib/active-company-switch.ts',{
-  getActiveCompanyContext:async()=>({profileId:'profile',companyId:A,companyMemberships:members}),
+  getCompanyMembershipContext:async()=>({profile:{id:'profile',full_name:'Name',email:'test@example.invalid'},memberships:members.map(member=>({id:member.id,company_id:member.companyId,companies:{name:member.companyName},role:member.role,is_active:true}))}),
   createSupabaseServerClient:async()=>({}),loadCompanyActiveModules:async()=>['gastro'],loadCompanyMenuItemVisibility:async()=>null,
   getDefaultMenuPath:()=> '/',readOfficeAvailability:async id=>{calls.push(id);return id===A;},
  },'buildActiveCompanySwitchPayload');

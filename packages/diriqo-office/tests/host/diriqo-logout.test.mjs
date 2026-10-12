@@ -22,8 +22,9 @@ async function proxyHarness({user={id:'auth-user'},authError=null,role='worker',
     then(resolve,reject){return Promise.resolve({data,error:null}).then(resolve,reject);}};
   }};
  const roleFns=await moduleFrom('integrations/diriqo/lib/hub-access.ts',{},'({hasAnyHubAccessRole,hasCompanyMemberRole})');
+ const mobileFns=await moduleFrom('integrations/diriqo/lib/mobile-access.ts',{},'({isMemberWorkspacePath,MOBILE_ENTRY_COOKIE,mobileEntryPath})');
  const proxy=await moduleFrom('integrations/diriqo/proxy.ts',{
-  ...roleFns,createServerClient:()=>supabase,
+  ...roleFns,...mobileFns,createServerClient:()=>supabase,
   NextResponse:{next:()=>reply('next'),redirect:url=>reply('redirect',String(url))},
   hasPlatformAdminAccess:async()=>{adminChecks.push(true);return false;},
   LOCALE_COOKIE_NAME:'locale',LOCALE_HEADER_NAME:'locale',LOCALE_COUNTRY_HEADER_NAME:'country',
@@ -50,6 +51,21 @@ test('logout remains authenticated and the exception excludes child paths and pr
  assert.equal((await p.run('/logout/child')).kind,'next');
  assert.match((await p.run('/admin')).url,/\/sign-in\?error=no-hub-access$/);
  assert.equal(p.adminChecks.length,1);
+});
+
+test('normal Diriqo POS, product and mobile routes retain authenticated membership access',async()=>{
+ for(const role of ['worker','manager','company_admin']) {
+  const p=await proxyHarness({role});
+  for(const path of ['/pos','/pos/register','/inventory','/mobile/my','/mobile/manager']) {
+   assert.equal((await p.run(path)).kind,'next',role+' '+path);
+  }
+ }
+ for(const config of [{user:null},{authError:{message:'expired'}}]) {
+  const p=await proxyHarness(config);
+  for(const path of ['/pos','/mobile/my']) assert.equal((await p.run(path)).url,'https://diriqo.invalid/sign-in');
+ }
+ const removed=await proxyHarness({membership:false});
+ for(const path of ['/pos','/mobile/my']) assert.equal((await removed.run(path)).url,'https://diriqo.invalid/onboarding/company');
 });
 
 async function logoutHarness({providerError=false,host='diriqo'}={}){

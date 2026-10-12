@@ -13,6 +13,9 @@ async function load(host,file,bindings,result){
 }
 const TestDate=class extends Date {static now(){return Date.parse('2026-10-11T12:00:00Z');}};
 const guard={};for(const host of Object.keys(refs))guard[host]=await load(host,'lib/office/staging-guard.ts',{Date:TestDate},'officeStagingDecision');
+const diriqoMobile=await load('diriqo','lib/mobile-access.ts',{},'({isMemberWorkspacePath,MOBILE_ENTRY_COOKIE,mobileEntryPath})');
+const hubRoles=await load('hub','lib/hub-access.ts',{},'({hasHubAccessRole})');
+const resolveActiveCompanyMembership=await load('hub','lib/active-company-selection.ts',hubRoles,'resolveActiveCompanyMembership');
 const envFor=host=>({OFFICE_STAGING_ONLY:'1',OFFICE_STAGING_EXPIRES_AT:'2026-10-12T17:00:00Z',OFFICE_STAGING_PROJECT_REF:refs[host],NEXT_PUBLIC_SUPABASE_URL:'https://'+refs[host]+'.supabase.co',OFFICE_PUBLIC_ORIGIN:origin});
 const request=(path,method='GET',requestOrigin)=>({url:origin+path,method,origin:requestOrigin});
 
@@ -40,6 +43,11 @@ for(const host of Object.keys(refs)){
   if(host==='diriqo')writes.push(['/api/office/company','POST']);
   for(const [path,method]of writes){assert.equal(run(path,method,origin).kind,'allow',path);for(const bad of [undefined,'null','https://other.vercel.app','http://office-preview.vercel.app'])assert.equal(run(path,method,bad).status,403,path);}
   assert.equal(run('/api/office/context','POST',origin).status,405);
+  if(host==='hub'){
+   assert.equal(run('/office/select-company').kind,'allow');assert.equal(run('/office/select-company','HEAD').kind,'allow');
+   assert.equal(run('/office/select-company','POST',origin).status,405);
+  }else assert.equal(run('/office/select-company').status,404);
+  assert.equal(run('/office/select-company/child').status,404);
   for(const path of ['/sign-up','/sign-up/child','/register','/onboarding','/jobs','/admin','/api/jobs','/api/office/private','/api/office/files/child','/office-other','/office/anything','/logout/child','/auth/callback','/settings.png','/api/jobs.png','//office','/off%69ce','/api%2foffice/files','/_next/data/build/jobs.json','/_next/webpack-hmr'])assert.equal(run(path).kind,'deny',path);
  });
 
@@ -66,7 +74,7 @@ async function proxyHarness(host,env={},user={id:'auth-user'}){
  let authCalls=0;const queries=[];
  const reply=(kind,url)=>({kind,url,headers:new Headers(),cookies:{set(){}}});
  const supabase={auth:{async getUser(){authCalls++;return {data:{user},error:null};}},from(table){queries.push(table);const rows=table==='profiles'?[{id:'profile',auth_user_id:'auth-user'}]:table==='company_members'?[{id:'member',company_id:'company',role:'company_admin',is_active:true}]:[];return {select(){return this;},eq(){return this;},or(){return this;},limit(){return this;},async maybeSingle(){return {data:rows[0]??null,error:null};},then(resolve,reject){return Promise.resolve({data:rows,error:null}).then(resolve,reject);}};}};
- const bindings={officeStagingDecision:guard[host],process:{env},Headers,URL,createServerClient:()=>supabase,
+ const bindings={...diriqoMobile,resolveActiveCompanyMembership,officeStagingDecision:guard[host],process:{env},Headers,URL,createServerClient:()=>supabase,
   NextResponse:{next:()=>reply('next'),redirect:url=>reply('redirect',String(url)),json:(body,init)=>({...reply('json'),body,status:init.status})},
   hasAnyHubAccessRole:()=>true,hasCompanyMemberRole:()=>true,hasPlatformAdminAccess:async()=>false,
   LOCALE_COOKIE_NAME:'locale',LOCALE_HEADER_NAME:'locale',LOCALE_COUNTRY_HEADER_NAME:'country',normalizeLocale:()=>null,getPreferredLocaleFromHeader:()=> 'cs',getFallbackLocaleFromCountry:()=> 'cs',

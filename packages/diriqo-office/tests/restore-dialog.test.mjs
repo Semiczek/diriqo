@@ -23,6 +23,7 @@ async function workspace(options={}){
  window.confirm=()=>{throw Error('A native confirm must not be used for restore');};
  const historical=content('Original version');
  let serverFile={id:'10000000-0000-4000-8000-000000000001',tenantId:'20000000-0000-4000-8000-000000000001',ownerId:'30000000-0000-4000-8000-000000000001',title:'Office restore example',kind:'document',revision:3,content:content('Current version'),parentId:null,updatedAt:'2026-10-11T10:00:00Z',createdAt:'2026-10-11T09:00:00Z'};
+ serverFile={...serverFile,...options.file};
  const responses=new Map();
  async function applyRestore(body){
   if(responses.has(body.idempotencyKey))return structuredClone(responses.get(body.idempotencyKey));
@@ -34,7 +35,7 @@ async function workspace(options={}){
   switch(body.op){
    case 'listFiles':return {files:[structuredClone(serverFile)],nextCursor:null};
    case 'read':return {file:structuredClone(serverFile)};
-   case 'permissions':return {permissions:{role:'owner',ownerId:serverFile.ownerId,canWrite:true,canDelete:true}};
+   case 'permissions':return {permissions:options.permissions??{role:'owner',ownerId:serverFile.ownerId,canWrite:true,canDelete:true}};
    case 'listVersions':return {versionSummaries:[1,2,3].map(revision=>({revision,createdAt:'2026-10-11T09:00:00Z'}))};
    case 'listProposals':return {proposalSummaries:[{id:'40000000-0000-4000-8000-000000000001',fileId:serverFile.id,baseRevision:3,status:'pending',summary:'Reviewed change',createdAt:serverFile.updatedAt}]};
    case 'readProposal':return {proposal:{id:'40000000-0000-4000-8000-000000000001',fileId:serverFile.id,baseRevision:3,status:'pending',summary:'Reviewed change',content:content('Approved proposal'),createdAt:serverFile.updatedAt}};
@@ -45,7 +46,7 @@ async function workspace(options={}){
   }
  }
  const transport={async request(body){trace.push(structuredClone(body));return options.requestHook?options.requestHook(body,respond):respond(body);}};
- let props={transport,locale:'en'};
+ let props={transport,locale:'en',...options.props};
  const React={
   createElement(type,attributes,...children){return {type,props:attributes??{},children};},Fragment:Symbol('Fragment'),Suspense:Symbol('Suspense'),lazy:()=>Symbol('Editor'),
   useState(initial){const index=cursor++;if(!slots[index])slots[index]={value:typeof initial==='function'?initial():initial};return [slots[index].value,value=>{const next=typeof value==='function'?value(slots[index].value):value;if(!Object.is(next,slots[index].value)){slots[index].value=next;dirty=true;}}];},
@@ -54,7 +55,7 @@ async function workspace(options={}){
   useEffect(effect,deps){const index=cursor++,previous=slots[index];if(!previous||deps.some((dep,i)=>!Object.is(dep,previous.deps[i]))){slots[index]={deps,cleanup:previous?.cleanup};effects.push(()=>{slots[index].cleanup?.();slots[index].cleanup=effect();});}}
  };
  const module={exports:{}};
- runInNewContext(code,{module,exports:module.exports,require(name){if(name==='react')return React;if(name==='./locales')return {getOfficeMessages};if(name==='../core/templates')return {OFFICE_TEMPLATES:[]};throw Error('Unexpected dependency '+name);},structuredClone,crypto:{randomUUID},document,window,navigator:{onLine:true},Event,Intl,Date,console,
+ runInNewContext(code,{module,exports:module.exports,require(name){if(name==='react')return React;if(name==='./locales')return {getOfficeMessages};if(name==='./SharingDialog')return {SharingDialog:Symbol('SharingDialog')};if(name==='../core/templates')return {OFFICE_TEMPLATES:[]};throw Error('Unexpected dependency '+name);},structuredClone,crypto:{randomUUID},document,window,navigator:{onLine:true},Event,Intl,Date,console,
   requestAnimationFrame:fn=>queueMicrotask(fn),setTimeout(fn,delay){const id=++timerId;timers.set(id,{fn,delay});return id;},clearTimeout:id=>timers.delete(id)});
  function render(){
   if(!dirty)return;dirty=false;cursor=0;tree=module.exports.OfficeWorkspace(props);
@@ -209,4 +210,41 @@ test('loading a second history page makes that older version available for revie
 test('context errors display the localized explanation supplied by the host',async()=>{
  const app=await workspace({startInList:true,requestHook(){throw Object.assign(Error('OFFICE_TENANT_CHANGED'),{userMessage:'Aktivní firma se změnila. Obsah zůstává v původní firmě.'});}});
  assert.match(text(app.tree),/Aktivní firma se změnila/);assert.doesNotMatch(text(app.tree),/OFFICE_TENANT_CHANGED/);
+});
+
+test('a shared editor may save its document without gaining create, copy, upload or delete access',async()=>{
+ const app=await workspace({startInList:true,props:{canCreate:false},file:{access:{canWrite:true,canDelete:false,canShare:false}},permissions:{role:'editor',ownerId:'other-author',canWrite:true,canDelete:false}});
+ const tiles=app.find(node=>node.props.className==='office-create-grid')[0];
+ assert.equal(app.find(node=>node.type==='button',tiles).every(node=>node.props.disabled),true);
+ assert.equal(app.button('＋ New folder').props.disabled,true);
+ assert.equal(app.find(node=>node.type==='button'&&text(node)===getOfficeMessages('en').copy).length,0);
+ assert.equal(app.find(node=>node.type==='button'&&text(node)==='Delete').length,0);
+ assert.equal(app.button('Rename').props.disabled,false);
+ await app.click(app.find(node=>node.props.className==='office-file-name')[0]);
+ assert.equal(app.editor().props.readOnly,false);assert.equal(app.button(getOfficeMessages('en').copy).props.disabled,true);
+ app.editor().props.onChange(content('Shared editor work'));await app.settle();await app.click(app.button('Save'));
+ assert.equal(app.file.revision,4);assert.match(JSON.stringify(app.file.content),/Shared editor work/);
+ assert.deepEqual(app.writes().map(item=>item.op),['save']);
+});
+
+test('a file shared as reader keeps editing controls disabled even when creation is separately allowed',async()=>{
+ const app=await workspace({startInList:true,props:{canCreate:true},file:{access:{canWrite:false,canDelete:false,canShare:false}},permissions:{role:'reader',ownerId:'other-author',canWrite:false,canDelete:false}});
+ assert.equal(app.button('＋ New folder').props.disabled,false);
+ for(const label of ['Rename','Move','Delete'])assert.equal(app.find(node=>node.type==='button'&&text(node)===label).length,0,label);
+ await app.click(app.find(node=>node.props.className==='office-file-name')[0]);
+ assert.equal(app.editor().props.readOnly,true);assert.equal(app.button('Save').props.disabled,true);assert.equal(app.button('Rename').props.disabled,true);assert.equal(app.writes().length,0);
+});
+
+test('global read-only overrides a create capability and per-file editor permission',async()=>{
+ const app=await workspace({startInList:true,props:{readOnly:true,canCreate:true},file:{access:{canWrite:true,canDelete:true,canShare:false}}});
+ assert.equal(app.button('＋ New folder').props.disabled,true);
+ await app.click(app.find(node=>node.props.className==='office-file-name')[0]);
+ assert.equal(app.editor().props.readOnly,true);assert.equal(app.button('Save').props.disabled,true);assert.equal(app.button(getOfficeMessages('en').copy).props.disabled,true);assert.equal(app.writes().length,0);
+});
+
+test('save error recovery does not expose copying to a shared editor without create access',async()=>{
+ const app=await workspace({props:{canCreate:false},permissions:{role:'editor',ownerId:'other-author',canWrite:true,canDelete:false},requestHook(body,respond){if(body.op==='save')throw Error('network');return respond(body);}});
+ app.editor().props.onChange(content('Keep local work'));await app.settle();await app.click(app.button('Save'));
+ const copies=app.find(node=>node.type==='button'&&text(node)===getOfficeMessages('en').copy);assert.equal(copies.length,2);assert.equal(copies.every(node=>node.props.disabled),true);
+ assert.match(JSON.stringify(app.editor().props.content),/Keep local work/);assert.equal(app.file.revision,3);
 });

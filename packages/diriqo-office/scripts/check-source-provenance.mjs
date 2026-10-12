@@ -22,8 +22,10 @@ async function visit(directory){
  }
 }
 await visit(root);files.sort((a,b)=>a.path<b.path?-1:a.path>b.path?1:0);
-const archive=resolve(root,'../../vendor/diriqo-office-0.1.0.tgz'),archiveBytes=await readFile(archive);
-const manifest={schemaVersion:1,repository:'https://github.com/Semiczek/diriqo',sourceDirectory:'packages/diriqo-office',ownership:'One canonical source; both hosts consume the identical reviewed vendor runtime.',sourceSha256:hash(JSON.stringify(files)),runtime:{name:'@diriqo/office',version:'0.1.0',archive:'vendor/diriqo-office-0.1.0.tgz',sha256:hash(archiveBytes)},files};
+const packageVersion=JSON.parse(await readFile(resolve(root,'package.json'),'utf8')).version;
+assert(/^\d+\.\d+\.\d+$/.test(packageVersion),'Invalid shared version');
+const archive=resolve(root,'../../vendor/diriqo-office-'+packageVersion+'.tgz'),archiveBytes=await readFile(archive);
+const manifest={schemaVersion:1,repository:'https://github.com/Semiczek/diriqo',sourceDirectory:'packages/diriqo-office',ownership:'One canonical source; both hosts consume the identical reviewed vendor runtime.',sourceSha256:hash(JSON.stringify(files)),runtime:{name:'@diriqo/office',version:packageVersion,archive:'vendor/diriqo-office-'+packageVersion+'.tgz',sha256:hash(archiveBytes)},files};
 const manifestPath=resolve(root,'SOURCE_MANIFEST.json');
 if(flags.includes('--write')){
  await writeFile(manifestPath,JSON.stringify(manifest,null,2)+'\n');
@@ -31,7 +33,7 @@ if(flags.includes('--write')){
 }
 assert.deepEqual(JSON.parse(await readFile(manifestPath,'utf8')),manifest,'Canonical source or runtime differs from the reviewed manifest');
 const sourceProvenance=JSON.parse(await readFile(resolve(root,'../../vendor/office-source.json'),'utf8'));
-assert.deepEqual(sourceProvenance,{schemaVersion:1,sourceRepository:manifest.repository,sourceBranch:'codex/office-menu-release',sourceDirectory:manifest.sourceDirectory,sourceContentSha256:manifest.sourceSha256,runtimeArchiveSha256:manifest.runtime.sha256},'Host source provenance differs from the canonical source snapshot');
+assert.deepEqual(sourceProvenance,{schemaVersion:1,sourceRepository:manifest.repository,sourceBranch:'codex/office-sharing-library',sourceDirectory:manifest.sourceDirectory,sourceContentSha256:manifest.sourceSha256,runtimeArchiveSha256:manifest.runtime.sha256},'Host source provenance differs from the canonical source snapshot');
 if(flags.includes('--runtime')){
  const tar=gunzipSync(archiveBytes,{maxOutputLength:128*1024*1024});let compared=0;
  for(let offset=0;offset+512<=tar.length;){

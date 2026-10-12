@@ -4,8 +4,10 @@ export type OfficeWorkspaceProps = {
     transport: OfficeTransport;
     locale?: OfficeLocale;
     readOnly?: boolean;
+    canCreate?: boolean;
     title?: string;
+    headerSecondary?: React.ReactNode;
 };
 /** Host must guard a tenant switch against unsaved edits, then remount with key={tenantId}. */
-export declare function OfficeWorkspace({ transport, locale, readOnly, title }: OfficeWorkspaceProps): React.JSX.Element;
+export declare function OfficeWorkspace({ transport, locale, readOnly, canCreate, title, headerSecondary }: OfficeWorkspaceProps): React.JSX.Element;
 export default OfficeWorkspace;

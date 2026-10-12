@@ -3,12 +3,12 @@
   "repository": "https://github.com/Semiczek/diriqo",
   "sourceDirectory": "packages/diriqo-office",
   "ownership": "One canonical source; both hosts consume the identical reviewed vendor runtime.",
-  "sourceSha256": "d844f69bb86553869de0b0ede504c11910c63fb72e2cc7105dd4ecaf7d274769",
+  "sourceSha256": "584ef3fc65802ed8b1c96ef2694485354e1ccc5a2340687cf06910bff4ff4a92",
   "runtime": {
     "name": "@diriqo/office",
-    "version": "0.1.0",
-    "archive": "vendor/diriqo-office-0.1.0.tgz",
-    "sha256": "fc8b602dc57267f504bbd4d02788b8dc349f4cb03d282fe62008e9d0538e5c5a"
+    "version": "0.2.0",
+    "archive": "vendor/diriqo-office-0.2.0.tgz",
+    "sha256": "ec8526e98ccab338c4598dc52d4a2da1ad9574cf7dc0eafece442e0da68bee2c"
   },
   "files": [
     {
@@ -29,7 +29,7 @@
     {
       "path": "LICENSE_AUDIT.md",
       "bytes": 3422,
-      "sha256": "fcd027b0e8a5daf7fb9589d199f109368101d111c1a554f84bd44dbb47c9cf17"
+      "sha256": "a3847ac1a84aefd4b3a413911ba034bc323277c810f1be58693486de935552f3"
     },
     {
       "path": "README.md",
@@ -244,7 +244,7 @@
     {
       "path": "licenses/evidence.json",
       "bytes": 212152,
-      "sha256": "263c8cba0cc1aa86ee5bdce86bf657adfb779c5d4e4354bed4d6e9a85d145277"
+      "sha256": "3b7e6efa0b6c0d67cc83c8a9e7ba91d10582105794784a46a183b296720ba1ef"
     },
     {
       "path": "licenses/pdf-candidates.json",
@@ -1784,17 +1784,17 @@
     {
       "path": "package-lock.json",
       "bytes": 65836,
-      "sha256": "68bfa4ba772ed4e6a695a4467a3aa2f853b50aeb7351bb67019ecd84f1760fb7"
+      "sha256": "5a3b96142c313089ade439edcd185b5b7394cfa3b2ae30e99a5fc1729692ecbb"
     },
     {
       "path": "package.json",
       "bytes": 1909,
-      "sha256": "d542bf7500a8ab74a6c04a9cb1e09a4a93da5cfb96eeb9664a0b6405be0a6a13"
+      "sha256": "ecae88087b16fad4187fed981c11f95f07279bbdca2ce39841d14d224de2672e"
     },
     {
       "path": "sbom.cdx.json",
       "bytes": 147528,
-      "sha256": "503dfc23b2d89ce0ad6be9c1690787400d9a7f698edf0ae26890a21c114dbd04"
+      "sha256": "1b1b0905c92c353b300dedf144a8246e9c8a58cea4b793b6f3b3e0b22826ba83"
     },
     {
       "path": "scripts/browser-react-peer.mjs",
@@ -1808,8 +1808,8 @@
     },
     {
       "path": "scripts/check-host-office.mjs",
-      "bytes": 8255,
-      "sha256": "cbfeb1b86981bf95b39b98fc00dab8b0cf4d9a06e807da19dc6f0261fac4d5df"
+      "bytes": 8297,
+      "sha256": "883ec9d6fb21efc598dadbe55b7b4c55e3f1f9f3c555c6ee57a95a02cb665ca0"
     },
     {
       "path": "scripts/check-office-assets.mjs",
@@ -1818,8 +1818,8 @@
     },
     {
       "path": "scripts/check-source-provenance.mjs",
-      "bytes": 3986,
-      "sha256": "52c1c5dafe2a6a5e0e8b627529b7fb876ac110749726165097b7747eae84e720"
+      "bytes": 4189,
+      "sha256": "10c669bdd174e2f38dc02bd74b2c6ea18b0e141d9250e2e841d238a52bc10554"
     },
     {
       "path": "scripts/demo-build.mjs",
@@ -2063,8 +2063,13 @@
     },
     {
       "path": "src/client/OfficeWorkspace.tsx",
-      "bytes": 33698,
-      "sha256": "06164bb36fc9de51fa40f2a3776b4b7fcd10c99c0273f7e0a5a147221d81ae8a"
+      "bytes": 35415,
+      "sha256": "164ead331969769fbc63c696ab844757a264565f71e15dbae2a2a935bfb58130"
+    },
+    {
+      "path": "src/client/SharingDialog.tsx",
+      "bytes": 6551,
+      "sha256": "302975d67bf8654cee2c50f5dc8691316e36e17ff3139b648765fb43ba69eb8f"
     },
     {
       "path": "src/client/SpreadsheetEditor.tsx",
@@ -2078,13 +2083,13 @@
     },
     {
       "path": "src/client/locales.ts",
-      "bytes": 21577,
-      "sha256": "b50e14f17237164179af7b3b19d0d912cc7260b6f179830c2a6e83cf51d04e5b"
+      "bytes": 26266,
+      "sha256": "e5d3736b744226f64de758758960ce2bff5ac2b7f8ebcd4730b304ce7774461c"
     },
     {
       "path": "src/client/office.css",
-      "bytes": 18473,
-      "sha256": "cdba6bc8991e5ead55ffa8122cb716c13244407a44b712d82f87273638a457e4"
+      "bytes": 20717,
+      "sha256": "5ac1202a287b01b82ea1da2e2ee5ea2fcb699e2a89918e9cbc5a2443fc43e027"
     },
     {
       "path": "src/core/formula-graph.ts",
@@ -2113,8 +2118,8 @@
     },
     {
       "path": "src/core/types.ts",
-      "bytes": 4221,
-      "sha256": "0f181922a3a09e9b0b2e1af9a370242454f8e776fc059c63dd664d5ddaeb648a"
+      "bytes": 4964,
+      "sha256": "5c06ca49a00efa3b9595964cd2c9915dd807a0815fcaf8e06c40461d8399b59e"
     },
     {
       "path": "src/core/validation.ts",
@@ -2200,6 +2205,11 @@
       "path": "tests/browser-react-peer.test.mjs",
       "bytes": 3072,
       "sha256": "58085409b2c175d5ca5dcf52d3808210849e26539e0c224bb6f49770be73c83b"
+    },
+    {
+      "path": "tests/database-base-access-runner.mjs",
+      "bytes": 24040,
+      "sha256": "df75f3700ee2f12d25ff460401d994bfe789440c5b336725a576d2f583de2473"
     },
     {
       "path": "tests/database-fixture.sql",
@@ -2288,13 +2298,18 @@
     },
     {
       "path": "tests/host/diriqo-logout.test.mjs",
-      "bytes": 8417,
-      "sha256": "39c21cde40e1231f76aedcc9a618e92c44b9f5235d541919eded019660965f89"
+      "bytes": 9355,
+      "sha256": "0672f0d34e79da8aa0265ddaa14848afaab139b6253d4dd56d0e97b6dc96504b"
     },
     {
       "path": "tests/host/diriqo-office-company.test.mjs",
       "bytes": 6747,
       "sha256": "e1a2a526de5f134cbd7952dbb74b94e67b2d7e6c4d5260e0d6da92aba3f2b3ea"
+    },
+    {
+      "path": "tests/host/diriqo-release-menu.test.mjs",
+      "bytes": 4553,
+      "sha256": "38fb2cbda76a9ffaa25ad8ce438b201e6f033cc74984a44e05b817db4fd863d2"
     },
     {
       "path": "tests/host/diriqo-release-settings.test.mjs",
@@ -2308,18 +2323,18 @@
     },
     {
       "path": "tests/host/hub-office-reader.test.mjs",
-      "bytes": 9654,
-      "sha256": "abdf696c21037c6ace1256e701863305ffeb3bb290ce23f09f881bf974b91ee6"
+      "bytes": 9703,
+      "sha256": "9e775889ed6f9e8e9ec6b851eb8188c96d5fc9464614a3a70137ae109286165c"
     },
     {
       "path": "tests/host/hub-release-menu.test.mjs",
-      "bytes": 5929,
-      "sha256": "378737547265747b3e29c739d4be3550da11c7b6ee19cc946c3bc48debe01f2a"
+      "bytes": 8227,
+      "sha256": "68ac95688850b57975bf116b14a1fbcead3dc2d7f44e6579b8b3921ae60fcd87"
     },
     {
       "path": "tests/host/office-context-switch.test.mjs",
-      "bytes": 18347,
-      "sha256": "ac3298972ae31598fbc12f36b114ee03ec966506bfa6b5f64025c2f0014fc39b"
+      "bytes": 19025,
+      "sha256": "c02d17efbf4ea80fe889f5e8e5de32bdbbd784e50dc1594762eee27d6790dda5"
     },
     {
       "path": "tests/host/office-http-limits.test.mjs",
@@ -2328,13 +2343,13 @@
     },
     {
       "path": "tests/host/office-menu-availability.test.mjs",
-      "bytes": 4434,
-      "sha256": "ebac52a12130e2b3693ae60a95e8e0c39089fea0699e98b74cdc49e749fc97c4"
+      "bytes": 4594,
+      "sha256": "48156c7c67eb6685c16a9b3269aed86d7656bae419b99bf24e7dcef1db0c269f"
     },
     {
       "path": "tests/host/staging-proxy.test.mjs",
-      "bytes": 10830,
-      "sha256": "a6c8c81639eec8c3cf90869ac0c357e34afe42bea5d0c9a548e5e6e1d29b8972"
+      "bytes": 11566,
+      "sha256": "65c60d665ae41b43a6f145300b4997f059960ce42a9c9a056b5e0d92b7d165f7"
     },
     {
       "path": "tests/host/staging-sign-in.test.mjs",
@@ -2383,13 +2398,18 @@
     },
     {
       "path": "tests/restore-dialog.test.mjs",
-      "bytes": 18498,
-      "sha256": "08339fee663ad64866a7fbd5d8fefad89274f30d3580dc2f28606ca0a888ddcc"
+      "bytes": 22114,
+      "sha256": "c0abb662a1860a42cd3b7453e03fcdb7c4f51006597af7e357a6a5d708bde052"
     },
     {
       "path": "tests/service.test.mjs",
       "bytes": 7479,
       "sha256": "199c066b1f391435f0415cbd250a221b800a7248d2a4196906a139716ac8743a"
+    },
+    {
+      "path": "tests/sharing-dialog.test.mjs",
+      "bytes": 14805,
+      "sha256": "68e8a1dfac93b1498ae23af1e1edfd4cb1bc8d175fdfb8f1ef2e8141a975610d"
     },
     {
       "path": "tests/staging-capacity-resume.test.mjs",
@@ -2463,8 +2483,13 @@
     },
     {
       "path": "types/client/OfficeWorkspace.d.ts",
-      "bytes": 488,
-      "sha256": "876f09d13f0c0cb8904d15fa3a9b488be4b1fbed06afe7a052f30fcc78bab1dc"
+      "bytes": 580,
+      "sha256": "7f0c1ad6f97a718fc6d096f6499f60f3eef1d66194bca7b786db1b30dcf10a44"
+    },
+    {
+      "path": "types/client/SharingDialog.d.ts",
+      "bytes": 374,
+      "sha256": "48cc0f3d8d7beaa7c2e37d1f12825179abc22d3a85149f37101666a2d830c5f2"
     },
     {
       "path": "types/client/SpreadsheetEditor.d.ts",
@@ -2478,8 +2503,8 @@
     },
     {
       "path": "types/client/locales.d.ts",
-      "bytes": 25195,
-      "sha256": "bfa9b176604a08cb9743ced5aab0e968890eab0f1766ec77caac4febc28c4e25"
+      "bytes": 30432,
+      "sha256": "01a7a34aeb9856b6ace7e22134b4df56d65b30916faa43dbe57eed4d8cb95960"
     },
     {
       "path": "types/core/formula-graph.d.ts",
@@ -2508,8 +2533,8 @@
     },
     {
       "path": "types/core/types.d.ts",
-      "bytes": 4975,
-      "sha256": "aabea3abc84cde9e305174abd0081ef876443658b7a3bb7ffcdde48d7441c3c5"
+      "bytes": 5839,
+      "sha256": "4e437761c2a6d7107ccd7e64d5b28293dfe45db0508f921df74f42303ff81ad6"
     },
     {
       "path": "types/core/validation.d.ts",
