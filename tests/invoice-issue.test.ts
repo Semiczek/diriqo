@@ -133,6 +133,19 @@ describe('both application entrypoints', () => {
     expect(mocks.revalidate).not.toHaveBeenCalled()
   })
 
+  it('maps the number constraint conflict without retry, child writes or success revalidation', async () => {
+    mocks.rpc.mockResolvedValue({ data: null, error: {
+      code: '23505',
+      message: 'duplicate key value violates unique constraint "invoices_company_number_uidx"',
+      details: 'Key (company_id, invoice_number)=(private-company, PRIVATE-CONFLICT-VALUE) already exists.',
+      hint: '',
+    } })
+    await expect(actionIssue(form())).rejects.toThrow('Toto číslo faktury už v aktivní firmě existuje.')
+    expect(mocks.rpc).toHaveBeenCalledTimes(1)
+    expect(mocks.from).not.toHaveBeenCalled()
+    expect(mocks.revalidate).not.toHaveBeenCalled()
+  })
+
   it('requires the current company guard before executing the form', async () => {
     mocks.company.mockRejectedValue(new Error('company access denied'))
     await expect(actionIssue(form())).rejects.toThrow('company access denied')
