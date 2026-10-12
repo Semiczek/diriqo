@@ -43,7 +43,7 @@ Finální živé SQL ověření a návazné existující regresní sady:
 
 Celkem **163 kontrol + 17 kontrol úklidu PASS**; všechny tři fixtures byly rollback. Regrese zahrnují základní fakturaci u placeného POS, historické dokončení/export po expiraci, retry číslování a rollback. Závěrečná kontrola: `invoice_count = 0`, `work_shift_count = 5`, `residual_fixture_companies = 0`, migrační verze `20261011195912`. Tyto běhy proběhly v jednotlivých relacích a neprokazují současné fakturační transakce.
 
-Souhrn Supabase advisors před/po se nezměnil: 39 INFO k soukromým tabulkám s [RLS bez policy](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy); WARN pro 1 funkci s proměnným search path, 12 anon-executable a 36 authenticated-executable SECURITY DEFINER funkcí a 1 vypnutou ochranu proti uniklým heslům. Souhrn nepřidal nové varování; stávající nálezy zůstávají k posouzení a nejsou automaticky označené za potvrzené zranitelnosti.
+Souhrn Supabase advisors před/po se nezměnil: 39 INFO k tabulkám s [RLS bez policy](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy), z toho 20 v private a 19 v public; WARN pro 1 funkci s proměnným search path, 12 anon-executable a 36 authenticated-executable SECURITY DEFINER funkcí a 1 vypnutou ochranu proti uniklým heslům. Souhrn nepřidal nové varování; stávající nálezy zůstávají k posouzení a nejsou automaticky označené za potvrzené zranitelnosti.
 
 ## Návrat a zbývající ověření
 

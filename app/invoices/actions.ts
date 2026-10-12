@@ -17,7 +17,7 @@ import {
 import { sendTransactionalEmail } from '@/lib/email/sendTransactionalEmail'
 import { buildInvoicePdf, type InvoicePdfItemRow, type InvoicePdfRow } from '@/lib/invoice-pdf-safe'
 import { requireHubAccess } from '@/lib/require-hub-access'
-import { issueInvoiceAtomic, deleteInvoiceDraftAtomic } from '@/lib/dal/invoices'
+import { issueInvoiceAtomic, deleteInvoiceDraftAtomic, invoiceNumberConflictError } from '@/lib/dal/invoices'
 import { createInvoiceFromJobsAtomic, InvoiceDraftError, invoiceDraftWriteError } from '@/lib/dal/invoice-drafts'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 
@@ -460,7 +460,8 @@ export async function updateDraftInvoice(formData: FormData) {
     .eq('status', 'draft')
 
   if (invoiceResponse.error) {
-    throw new Error(invoiceResponse.error.message)
+    throw invoiceNumberConflictError(invoiceResponse.error)
+      ?? new Error('Uložení konceptu faktury se nepodařilo potvrdit. Obnovte stránku před opakováním akce.')
   }
 
   for (const item of itemPayloads) {
