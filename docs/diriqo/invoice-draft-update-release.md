@@ -23,7 +23,8 @@ Migrace `20261012102910_atomic_invoice_draft_updates.sql` je aplikovaná v testo
 | Nové skutečné SQL testy `invoice-draft-updates.sql` | 77 kontrol + 9 kontrol úklidu PASS |
 | Dosavadní skutečné SQL: tvorba, vystavení, vydaný obsah, mazání historie, unikátnost čísla | 223 kontrol + 35 kontrol úklidu PASS |
 | Celkem skutečné SQL se zapnutými asercemi | **300 + 44 PASS**, všechny fixtures rollback |
-| Aplikační unit testy na původním základu před integrací nového Office | **1075/1075 PASS**, 43 souborů |
+| Aplikační unit testy včetně integrace aktuálního Office | **1075/1075 PASS**, 43 souborů |
+| Kompatibilita Office | 11/11 release kontraktů a kontrola integrity balíčku PASS |
 | Platformní kontrakty | 18/18 PASS |
 | TypeScript a lint | PASS; po poslední změně dvou formulářových TSX znovu cílený lint a TypeScript PASS |
 | Izolovaný PGlite smoke | 16/16 PASS; lokální stuby nenahrazují skutečné RLS |
@@ -35,7 +36,13 @@ Skript `scripts/test-invoice-draft-update-concurrency.mjs` provedl dvě skutečn
 
 Obě úspěšně testované Auth relace byly odhlášené. Syntetické řádky a účet jsou odstraněné, včetně výchozího Office nastavení a jeho technické události přidaných mezitím paralelním rolloutem do této testovací firmy. Žádný Office řádek jiné firmy se neměnil. Po úklidu: 0 faktur, 0 položek, pět původních směn; soukromý soubor s heslem neexistuje. Důkazy jsou ve spravované kolekci `artifacts/invoice-draft/`.
 
-Při tomto checkpointu ještě čeká přesné PR/CI, nasazení a přihlášený průchod nového UI. Souběh editace a vystavení je zatím doložen pořadovými databázovými testy, nikoli dvěma současnými HTTP spojeními v obou pořadích. Advisors před a po změně neobsahují nový nález pro tyto funkce; starší systémová varování a souběžný rollout Office nejsou tímto fakturačním zásahem plošně auditovány.
+PR #18 je sloučený jako `561513311d9bd59f9227d9d5ce084038f17065be`. Na přesném merge prošlo CI `38238290076` i Office kontrola `38238290062`. Vercel `dpl_6tcoKvAapBf9UUYSdHeYDfpjdFg8` je READY a při ověření obsluhoval `app.diriqo.com` z tohoto commitu.
+
+Přihlášený průchod v Diriqo Demo s.r.o. ověřil dvě současně otevřené karty syntetického konceptu. Karta A uložila poznámku a dvě položky s výsledkem 200,24 Kč bez DPH, 42,05 Kč DPH a 242,29 Kč celkem. Karta B byla odmítnutá jako zastaralá, zachovala vlastní poznámku i rozepsanou cenu 999,99 a nabídla porovnání/načtení aktuální faktury. Databázové čtení potvrdilo kompletní obsah A. Obnova dodavatele zachovala poznámku i součty; nové načtení stránky potvrdilo trvalé uložení. Během uložení i obnovy dodavatele byla společně zakázaná tlačítka uložení, obnovy dodavatele a vystavení. Test nic nevystavil, neexportoval ani neodeslal. Snímek a důkaz jsou ve spravované kolekci `artifacts/invoice-draft/atomic-deployed-ui-20261012.json`.
+
+Tento průchod odhalil navazující chybu: neaktivní návrh e-mailu při obnovení serverového obsahu ponechával starou částku. Oprava obnovuje neaktivní e-mailový formulář podle revize. Po povolení editace e-mailu používá stabilní identitu, aby další obnovení stránky nepřepsalo ručně rozepsanou zprávu. Ověření tohoto následného nasazení má samostatný release důkaz.
+
+Souběh editace a vystavení je zatím doložen pořadovými databázovými testy, nikoli dvěma současnými HTTP spojeními v obou pořadích. Advisors před a po změně neobsahují nový nález pro tyto funkce; starší systémová varování a souběžný rollout Office nejsou tímto fakturačním zásahem plošně auditovány.
 
 ## Hranice a návrat
 

@@ -470,7 +470,12 @@ export default async function InvoiceDetailPage({ params, searchParams }: PagePr
             </p>
           </div>
 
-          <form action={sendInvoiceByEmail} style={{ display: 'grid', gap: '12px' }}>
+          {/* Refresh the disabled generated preview by revision; keep editable drafts across revalidation. */}
+          <form
+            key={canSendEmail ? `mail-editable-${invoice.id}` : `mail-disabled-${invoice.id}-${snapshot.revision}`}
+            action={sendInvoiceByEmail}
+            style={{ display: 'grid', gap: '12px' }}
+          >
             <input type="hidden" name="invoiceId" value={invoice.id} />
 
             <label style={labelStyle}>
