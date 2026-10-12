@@ -3,11 +3,24 @@ import { describe, expect, it } from 'vitest'
 import {
   buildJobEconomicsSummary,
   getDirectCostTotal,
+  getInvoiceNetAmount,
   roundEconomicsMoney,
   toEconomicsNumber,
 } from '../lib/economics'
 
 describe('economics pure functions', () => {
+  it('keeps an edited canonical zero instead of reviving stale invoice aliases', () => {
+    expect(getInvoiceNetAmount({ total_without_vat: '0.00', total_price: 150, total_with_vat: 0 })).toBe(0)
+    expect(getInvoiceNetAmount({ subtotal_without_vat: 0, total_without_vat: 100, total_amount: 121 })).toBe(0)
+    expect(getInvoiceNetAmount({ subtotal_without_vat: '200.00', total_without_vat: 100, total_amount: 121 })).toBe(200)
+  })
+
+  it('uses legacy invoice amounts only when canonical amounts are absent', () => {
+    expect(getInvoiceNetAmount({ total_without_vat: null, total_price: '75.50' })).toBe(75.5)
+    expect(getInvoiceNetAmount({ total_amount: 100 })).toBe(100)
+    expect(getInvoiceNetAmount({ total_without_vat: 'invalid', total_price: 150 })).toBe(0)
+  })
+
   it('normalizes invalid numbers and rounds money values', () => {
     expect(toEconomicsNumber(null)).toBe(0)
     expect(toEconomicsNumber('not-a-number')).toBe(0)
