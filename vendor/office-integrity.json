@@ -1,0 +1,8 @@
+{
+  "name": "@diriqo/office",
+  "version": "0.1.0",
+  "archive": "diriqo-office-0.1.0.tgz",
+  "sha256": "fc8b602dc57267f504bbd4d02788b8dc349f4cb03d282fe62008e9d0538e5c5a",
+  "integrity": "sha512-dVDyLaPM2J6ONDyE66tTTYIYKgZatt9+hwrMdaHZj3DkTxHHGTiT8p9JDsvxGJikbJJf609A5iG4soPmZRPgPA==",
+  "licenseEvidence": "68bfa4ba772ed4e6a695a4467a3aa2f853b50aeb7351bb67019ecd84f1760fb7"
+}

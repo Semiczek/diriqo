@@ -1,0 +1,87 @@
+package/cjs/scheduler-unstable_mock.development.js
+/**
+ * @license React
+ * scheduler-unstable_mock.development.js
+ *
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
+package/cjs/scheduler-unstable_mock.production.js
+/**
+ * @license React
+ * scheduler-unstable_mock.production.js
+ *
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
+package/cjs/scheduler-unstable_post_task.development.js
+/**
+ * @license React
+ * scheduler-unstable_post_task.development.js
+ *
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
+package/cjs/scheduler-unstable_post_task.production.js
+/**
+ * @license React
+ * scheduler-unstable_post_task.production.js
+ *
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
+package/cjs/scheduler.development.js
+/**
+ * @license React
+ * scheduler.development.js
+ *
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
+package/cjs/scheduler.native.development.js
+/**
+ * @license React
+ * scheduler.native.development.js
+ *
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
+package/cjs/scheduler.native.production.js
+/**
+ * @license React
+ * scheduler.native.production.js
+ *
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
+package/cjs/scheduler.production.js
+/**
+ * @license React
+ * scheduler.production.js
+ *
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */

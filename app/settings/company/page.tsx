@@ -7,6 +7,7 @@ import {
 import { requireHubAccess } from '@/lib/require-hub-access'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 import { getCompanySubscription } from '@/lib/subscription'
+import { hasPlatformAdminAccess } from '@/lib/platform/platform-admin'
 import CompanySettingsClient from './CompanySettingsClient'
 
 type CompanyRow = {
@@ -102,6 +103,7 @@ export default async function CompanySettingsPage() {
     subscription,
     membersResponse,
     workerPaymentResponse,
+    canConfigureOffice,
   ] =
     await Promise.all([
       supabase
@@ -124,6 +126,7 @@ export default async function CompanySettingsPage() {
           'profile_id, worker_type, pay_type_override, payday_day_override, payday_weekday_override, hourly_rate, fixed_rate_per_job, advances_enabled_override, advance_limit_amount_override, contractor_company_name, contractor_registration_no, contractor_vat_no, contractor_invoice_required'
         )
         .eq('company_id', activeCompany.companyId),
+      hasPlatformAdminAccess(supabase),
     ])
 
   const company = ((companyResponse.data ?? null) as CompanyRow | null) ?? {
@@ -154,6 +157,13 @@ export default async function CompanySettingsPage() {
 
   return (
     <DashboardShell activeItem="companySettings">
+      {canConfigureOffice ? (
+        <section style={cardStyle}>
+          {/* A full navigation keeps the module menu fresh after configuration. */}
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+          <a href="/office/settings">Diriqo Office →</a>
+        </section>
+      ) : null}
       <CompanySettingsClient
         company={company}
         companySettings={companySettings}

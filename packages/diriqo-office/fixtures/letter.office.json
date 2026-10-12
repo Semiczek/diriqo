@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 1,
+  "kind": "document",
+  "doc": {
+    "type": "doc",
+    "content": [
+      {
+        "type": "heading",
+        "attrs": {
+          "level": 1
+        },
+        "content": [
+          {
+            "type": "text",
+            "text": "Jednoduchý dopis"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "2026-10-11"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Ukázkový zákazník (DEMO)"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Věc:"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Vážení,"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": []
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "S pozdravem"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          {
+            "type": "text",
+            "text": "Ukázková firma Alfa (DEMO)"
+          }
+        ]
+      }
+    ]
+  },
+  "page": {
+    "marginMm": 20,
+    "header": "Ukázková firma Alfa (DEMO)",
+    "footer": ""
+  }
+}

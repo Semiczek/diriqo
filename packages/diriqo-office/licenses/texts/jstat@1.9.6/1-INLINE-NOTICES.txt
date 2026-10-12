@@ -1,0 +1,6 @@
+package/doc/assets/sh_main.js
+/*
+SHJS - Syntax Highlighting in JavaScript
+Copyright (C) 2007, 2008 gnombat@users.sourceforge.net
+License: http://shjs.sourceforge.net/doc/gplv3.html
+*/

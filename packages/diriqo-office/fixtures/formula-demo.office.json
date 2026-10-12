@@ -1,0 +1,85 @@
+{
+  "schemaVersion": 1,
+  "kind": "spreadsheet",
+  "workbook": {
+    "id": "64261596-6f31-4019-9d0b-a50272e1f08f",
+    "name": "Vzorce a více listů",
+    "locale": "enUS",
+    "appVersion": "1.0.4",
+    "sheetOrder": [
+      "sheet-1",
+      "rates"
+    ],
+    "styles": {},
+    "sheets": {
+      "sheet-1": {
+        "id": "sheet-1",
+        "name": "Výpočty",
+        "rowCount": 200,
+        "columnCount": 26,
+        "cellData": {
+          "0": {
+            "0": {
+              "v": 10,
+              "t": 2
+            },
+            "1": {
+              "v": 20,
+              "t": 2
+            },
+            "2": {
+              "f": "=SUM(A1:B1)",
+              "t": 2
+            }
+          },
+          "1": {
+            "0": {
+              "f": "=AVERAGE(A1:B1)",
+              "t": 2
+            },
+            "1": {
+              "f": "=IF(C1=30,\"ANO\",\"NE\")",
+              "t": 1
+            }
+          },
+          "2": {
+            "0": {
+              "f": "=ROUND(12.345,2)",
+              "t": 2
+            },
+            "1": {
+              "f": "=COUNTIF(A1:B1,\">10\")",
+              "t": 2
+            }
+          },
+          "3": {
+            "0": {
+              "f": "='Sazby'!$A$1*A1",
+              "t": 2
+            }
+          }
+        },
+        "rowData": {},
+        "columnData": {},
+        "mergeData": []
+      },
+      "rates": {
+        "id": "rates",
+        "name": "Sazby",
+        "rowCount": 200,
+        "columnCount": 26,
+        "cellData": {
+          "0": {
+            "0": {
+              "v": 250,
+              "t": 2
+            }
+          }
+        },
+        "rowData": {},
+        "columnData": {},
+        "mergeData": []
+      }
+    }
+  }
+}

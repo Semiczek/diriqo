@@ -1,0 +1,3 @@
+Kód;Popis;Cena
+00123;"Řádek s čárkou, uvnitř";125,50
+00124;"=HYPERLINK(""https://example.invalid"")";0

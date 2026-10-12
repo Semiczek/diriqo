@@ -1,0 +1,68 @@
+{
+  "name": "@diriqo/office",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "UNLICENSED",
+  "scripts": {
+    "license:preflight": "node scripts/licenses.mjs --verify-tarballs",
+    "license:check": "node scripts/licenses.mjs --check",
+    "build": "node scripts/build.mjs",
+    "typecheck": "node scripts/typecheck.mjs",
+    "test": "node --experimental-strip-types --test tests/*.test.mjs",
+    "test:hosts": "node scripts/test-hosts.mjs",
+    "test:hosts:check": "node scripts/test-hosts.mjs --check",
+    "demo:build": "node scripts/demo-build.mjs",
+    "demo": "node demo/server.mjs"
+  },
+  "devDependencies": {
+    "@tiptap/core": "3.31.4",
+    "@tiptap/react": "3.31.4",
+    "@tiptap/pm": "3.31.4",
+    "@tiptap/starter-kit": "3.31.4",
+    "@tiptap/extension-text-style": "3.31.4",
+    "@tiptap/extension-text-align": "3.31.4",
+    "@tiptap/extension-table": "3.31.4",
+    "@tiptap/extension-image": "3.31.4",
+    "fflate": "0.8.3",
+    "sanitize-html": "2.18.0",
+    "esbuild": "0.28.2",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@types/node": "22.18.6",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "fast-xml-parser": "5.11.2",
+    "htmlparser2": "12.0.0",
+    "@fortune-sheet/core": "1.0.4",
+    "@fortune-sheet/react": "1.0.4"
+  },
+  "peerDependencies": {
+    "react": "19.2.4",
+    "react-dom": "19.2.4"
+  },
+  "exports": {
+    "./client": {
+      "types": "./dist/client/index.d.ts",
+      "default": "./dist/client.js"
+    },
+    "./server": {
+      "types": "./dist/server/index.d.ts",
+      "default": "./dist/server.js"
+    },
+    "./core": {
+      "types": "./dist/core/types.d.ts",
+      "default": "./dist/core.js"
+    },
+    "./styles.css": "./dist/client.css"
+  },
+  "files": [
+    "dist",
+    "licenses",
+    "THIRD_PARTY_LICENSES.md",
+    "LICENSE_AUDIT.md",
+    "sbom.cdx.json",
+    "ASSET_LICENSES.md",
+    "docs"
+  ]
+}

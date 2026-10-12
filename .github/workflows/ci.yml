@@ -21,6 +21,9 @@ jobs:
           cache: npm
 
       - name: Install
+        run: node scripts/check-office-package.mjs
+
+      - name: Install reviewed dependencies
         run: npm ci
 
       - name: Lint
@@ -31,6 +34,9 @@ jobs:
 
       - name: Test
         run: npm run test
+
+      - name: Office company menu and POS regression contracts
+        run: node --test scripts/office-release.test.mjs
 
       - name: Build
         run: npm run build

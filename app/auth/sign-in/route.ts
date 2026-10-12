@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
   return NextResponse.json(
     {
       ok: true,
-      redirectTo: await getPostLoginRedirect(user.id),
+      redirectTo: process.env.OFFICE_STAGING_ONLY === '1' ? '/office' : await getPostLoginRedirect(user.id),
     },
     { headers: noStoreHeaders }
   )

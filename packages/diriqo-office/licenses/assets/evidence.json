@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "assets": [
+    {
+      "name": "Geist Regular",
+      "version": "1.800",
+      "license": "OFL-1.1",
+      "copyright": "Copyright 2024 The Geist Project Authors (https://github.com/vercel/geist-font.git)",
+      "authors": "Basement.studio, Vercel, Andrés Briganti, Guido Ferreyra, Mateo Zaragoza",
+      "path": "licenses/assets/Geist-Regular.ttf",
+      "sha256": "bde046ddd9f20be35b0bd56cc79eb752b967fb6661a3fe76cb067bb09f871d76",
+      "source": "https://raw.githubusercontent.com/vercel/next.js/v16.2.0/packages/next/src/compiled/@vercel/og/Geist-Regular.ttf",
+      "sourceVerifiedByteForByte": true,
+      "licensePath": "licenses/assets/Geist-OFL.txt",
+      "licenseSha256": "1781d2806a07d91c4edf4740b88449fab7d0eadad53f7c351b94cd4d4eb8c00f",
+      "licenseSource": "https://raw.githubusercontent.com/vercel/geist-font/4d655731f83507f0258ce5541c297b6553d5d081/OFL.txt",
+      "modified": false,
+      "distribution": "Unmodified font embedded in server bundle and PDF files; complete OFL and copyright retained. Not sold separately.",
+      "reservedFontNames": "None specified in the retained OFL notice; font remains unmodified."
+    }
+  ]
+}

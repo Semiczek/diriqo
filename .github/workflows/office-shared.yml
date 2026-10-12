@@ -1,0 +1,52 @@
+name: Office shared source and license checks
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  office-shared:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: packages/diriqo-office
+    steps:
+      - name: Fetch immutable revision with preinstalled Git
+        working-directory: .
+        env:
+          CI_TOKEN: ${{ github.token }}
+          CI_SERVER: ${{ github.server_url }}
+          CI_REPOSITORY: ${{ github.repository }}
+          CI_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git init .
+          git remote add origin "$CI_SERVER/$CI_REPOSITORY.git"
+          AUTH=$(printf 'x-access-token:%s' "$CI_TOKEN" | base64 -w0)
+          git -c http.extraheader="AUTHORIZATION: basic $AUTH" fetch --depth=1 origin "$CI_SHA"
+          unset AUTH
+          git checkout --detach FETCH_HEAD
+      - name: Select a supported preinstalled Node without installing tools
+        run: |
+          set -euo pipefail
+          for node_dir in "$RUNNER_TOOL_CACHE"/node/*/x64/bin; do
+            if [ -x "$node_dir/node" ] && "$node_dir/node" -e "const [m,n]=process.versions.node.split('.').map(Number);process.exit(m>=24||(m===22&&n>=18)?0:1)"; then
+              "$node_dir/node" --version
+              printf '%s\n' "$node_dir" >> "$GITHUB_PATH"
+              exit 0
+            fi
+          done
+          node -e "const [m,n]=process.versions.node.split('.').map(Number);if(!(m>=24||(m===22&&n>=18)))throw Error('A preinstalled Node 22.18+ or 24+ is required')"
+          node --version
+      - name: Verify canonical source and the archived runtime
+        run: node scripts/check-source-provenance.mjs
+      - name: Reject unreviewed or forbidden dependencies before installation
+        run: node scripts/licenses.mjs --check
+      - name: Install the reviewed lockfile without lifecycle scripts
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Run all shared tests
+        run: npm test
+      - name: Build shared client, server and import worker
+        run: npm run build
+      - name: Verify the rebuilt runtime matches the archive used by both hosts
+        run: node scripts/check-source-provenance.mjs --runtime
+      - name: Recheck license evidence after the build
+        run: node scripts/licenses.mjs --check
