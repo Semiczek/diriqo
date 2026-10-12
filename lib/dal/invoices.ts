@@ -18,8 +18,22 @@ export type InvoiceIssueResult = {
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
+type InvoiceDatabaseError = { message?: string; code?: string }
+
+/** PostgREST exposes the constraint name in message; details may contain private values. */
+export function invoiceNumberConflictError(error: InvoiceDatabaseError | null): Error | null {
+  if (error?.message === 'INVOICE_NUMBER_CONFLICT'
+    || (error?.code === '23505'
+      && error.message === 'duplicate key value violates unique constraint "invoices_company_number_uidx"')) {
+    return new Error('Toto číslo faktury už v aktivní firmě existuje.')
+  }
+  return null
+}
+
 /** Keep private database details out of the user-facing action error. */
-export function invoiceWriteError(error: { message?: string } | null): Error {
+export function invoiceWriteError(error: InvoiceDatabaseError | null): Error {
+  const numberConflict = invoiceNumberConflictError(error)
+  if (numberConflict) return numberConflict
   switch (error?.message) {
     case 'INVOICE_MODULE_REQUIRED':
       return new Error('Pro vytvoření a vystavení faktury je potřeba aktivní modul Fakturace a základ Diriqo nebo DiriPOS.')
@@ -33,8 +47,6 @@ export function invoiceWriteError(error: { message?: string } | null): Error {
       return new Error('Faktura obsahuje neplatnou vazbu na zákazníka nebo zakázku.')
     case 'INVOICE_LINK_CONFLICT':
       return new Error('Některá zakázka už je propojená s jinou fakturou. Obnovte stránku.')
-    case 'INVOICE_NUMBER_CONFLICT':
-      return new Error('Toto číslo faktury už v aktivní firmě existuje.')
     default:
       return new Error('Vystavení faktury se nepodařilo potvrdit. Obnovte stránku před opakováním akce.')
   }
