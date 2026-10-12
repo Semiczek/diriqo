@@ -4,6 +4,7 @@ import type { DalContext } from '@/lib/dal/auth'
 import {
   buildJobEconomicsSummary,
   getDirectCostTotal,
+  getInvoiceNetAmount,
   toEconomicsNumber,
   type JobEconomicsSummary,
 } from '@/lib/economics'
@@ -84,6 +85,7 @@ type InvoiceItemRow = {
 type InvoiceRow = {
   job_id?: string | null
   status?: string | null
+  subtotal_without_vat?: number | string | null
   total_without_vat?: number | string | null
   total_amount?: number | string | null
   total_with_vat?: number | string | null
@@ -102,19 +104,6 @@ function getProfileHourlyRate(profile: ProfileRelation | null, fallback?: number
 function addToMap(map: Map<string, number>, key: string | null | undefined, value: number) {
   if (!key) return
   map.set(key, (map.get(key) ?? 0) + value)
-}
-
-function getInvoiceNetAmount(row: InvoiceItemRow | InvoiceRow) {
-  const totalWithoutVat = toEconomicsNumber(row.total_without_vat)
-  if (totalWithoutVat > 0) return totalWithoutVat
-
-  const totalPrice = 'total_price' in row ? toEconomicsNumber(row.total_price) : 0
-  if (totalPrice > 0) return totalPrice
-
-  const totalAmount = 'total_amount' in row ? toEconomicsNumber(row.total_amount) : 0
-  if (totalAmount > 0) return totalAmount
-
-  return toEconomicsNumber(row.total_with_vat)
 }
 
 function isRevenueInvoiceStatus(status: string | null | undefined) {
@@ -364,7 +353,7 @@ async function getInvoiceRevenueByJobId(
 
   const invoicesResponse = await ctx.supabase
     .from('invoices')
-    .select('job_id, status, total_without_vat, total_amount, total_with_vat')
+    .select('job_id, status, subtotal_without_vat, total_without_vat, total_amount, total_with_vat')
     .eq('company_id', ctx.companyId)
     .in('job_id', jobIds)
 

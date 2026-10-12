@@ -3,22 +3,12 @@
 import { revalidatePath } from 'next/cache'
 import { redirect, unstable_rethrow } from 'next/navigation'
 
-import {
-  DEFAULT_INVOICE_DUE_DAYS,
-  DEFAULT_INVOICE_VAT_RATE,
-  NON_VAT_PAYER_NOTE,
-  addDaysToDate,
-  buildSupplierSnapshot,
-  buildVariableSymbol,
-  calculateInvoiceItem,
-  sumInvoiceTotals,
-  toDateInputValue,
-} from '@/lib/invoices'
+import { DEFAULT_INVOICE_VAT_RATE } from '@/lib/invoices'
 import { sendTransactionalEmail } from '@/lib/email/sendTransactionalEmail'
 import { buildInvoicePdf, type InvoicePdfItemRow, type InvoicePdfRow } from '@/lib/invoice-pdf-safe'
 import { requireHubAccess } from '@/lib/require-hub-access'
-import { issueInvoiceAtomic, deleteInvoiceDraftAtomic, invoiceNumberConflictError } from '@/lib/dal/invoices'
-import { createInvoiceFromJobsAtomic, InvoiceDraftError, invoiceDraftWriteError } from '@/lib/dal/invoice-drafts'
+import { deleteInvoiceDraftAtomic } from '@/lib/dal/invoices'
+import { createInvoiceFromJobsAtomic, InvoiceDraftError, invoiceDraftWriteError, InvoiceDraftEditError, invoiceDraftEditError, updateInvoiceDraftAtomic, refreshInvoiceSupplierAtomic, issueInvoiceRevisionAtomic } from '@/lib/dal/invoice-drafts'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 
 type InvoiceRow = {
@@ -90,27 +80,9 @@ function getFormIds(formData: FormData, key: string) {
   )
 }
 
-function parseVatRate(value: string) {
-  const parsed = Number(value.replace(',', '.'))
-  if (!Number.isFinite(parsed)) return DEFAULT_INVOICE_VAT_RATE
-  return Math.max(0, Math.min(100, parsed))
-}
-
-function parseMoneyInput(value: string) {
-  const parsed = Number(value.replace(/\s/g, '').replace(',', '.'))
-  if (!Number.isFinite(parsed)) return 0
-  return parsed
-}
-
 function getOptionalFormString(formData: FormData, key: string) {
   const value = getFormString(formData, key)
   return value || null
-}
-
-function parseDateInput(value: string, fallback: Date) {
-  if (!value) return fallback
-  const parsed = new Date(`${value}T00:00:00`)
-  return Number.isNaN(parsed.getTime()) ? fallback : parsed
 }
 
 function escapeXml(value: unknown) {
@@ -276,220 +248,95 @@ async function getInvoiceForAction(invoiceId: string) {
   }
 }
 
-export async function issueInvoice(formData: FormData) {
-  const invoiceId = getFormString(formData, 'invoiceId')
+async function getInvoiceEditContext(formData: FormData) {
   const activeCompany = await requireHubAccess()
+  if (getFormString(formData, 'companyId').toLowerCase() !== activeCompany.companyId.toLowerCase()) {
+    throw new InvoiceDraftEditError('Aktivní firma se změnila. Načtěte fakturu v požadované firmě.', true)
+  }
   const supabase = await createSupabaseServerClient()
-  const result = await issueInvoiceAtomic({ supabase, companyId: activeCompany.companyId }, invoiceId)
+  return { supabase, companyId: activeCompany.companyId }
+}
 
+function getInvoiceEditIdentity(formData: FormData) {
+  return {
+    invoiceId: getFormString(formData, 'invoiceId'),
+    expectedRevision: getFormString(formData, 'revision'),
+    // Do not deduplicate or remove empty IDs: malformed sets must fail closed.
+    expectedItemIds: formData.getAll('itemIds').map(value => String(value).trim()),
+  }
+}
+
+export async function issueInvoice(formData: FormData) {
+  const ctx = await getInvoiceEditContext(formData)
+  const result = await issueInvoiceRevisionAtomic(ctx, getInvoiceEditIdentity(formData))
   revalidatePath('/invoices')
   revalidatePath(`/invoices/${result.invoiceId}`)
   revalidatePath('/jobs')
 }
+
 export async function refreshDraftInvoiceSupplierSnapshot(formData: FormData) {
-  const invoiceId = getFormString(formData, 'invoiceId')
-  const { activeCompany, supabase, invoice } = await getInvoiceForAction(invoiceId)
-
-  if (invoice.status !== 'draft') {
-    throw new Error('Údaje dodavatele lze obnovit jen u konceptu faktury.')
-  }
-
-  const companyResponse = await supabase
-    .from('companies')
-    .select(
-      'id, name, billing_name, company_number, vat_number, billing_street, billing_city, billing_postal_code, billing_country, bank_account_number, bank_code, iban, swift_bic, logo_url'
-    )
-    .eq('id', activeCompany.companyId)
-    .maybeSingle()
-
-  if (companyResponse.error || !companyResponse.data) {
-    throw new Error(companyResponse.error?.message ?? 'Nepodařilo se načíst údaje firmy z Můj účet.')
-  }
-
-  const supplierSnapshot = buildSupplierSnapshot(companyResponse.data)
-  const response = await supabase
-    .from('invoices')
-    .update({
-      supplier_snapshot: supplierSnapshot,
-      is_vat_payer: supplierSnapshot.isVatPayer,
-      vat_note: supplierSnapshot.vatNote,
-      note: supplierSnapshot.isVatPayer ? null : NON_VAT_PAYER_NOTE,
-    })
-    .eq('id', invoice.id)
-    .eq('company_id', activeCompany.companyId)
-    .eq('status', 'draft')
-
-  if (response.error) {
-    throw new Error(response.error.message)
-  }
-
-  revalidatePath(`/invoices/${invoice.id}`)
+  const ctx = await getInvoiceEditContext(formData)
+  const result = await refreshInvoiceSupplierAtomic(ctx, getInvoiceEditIdentity(formData))
+  revalidatePath(`/invoices/${result.invoiceId}`)
+  revalidatePath('/invoices')
 }
 
 export async function updateDraftInvoice(formData: FormData) {
-  const invoiceId = getFormString(formData, 'invoiceId')
-  const { activeCompany, supabase, invoice } = await getInvoiceForAction(invoiceId)
-
-  if (invoice.status !== 'draft') {
-    throw new Error('Upravovat lze jen koncept faktury.')
-  }
-
-  const supplierVatNumber = getOptionalFormString(formData, 'supplierVatNumber')
-  const isVatPayer = Boolean(supplierVatNumber)
-  const vatNote = isVatPayer ? null : NON_VAT_PAYER_NOTE
-  const invoiceNumber = getOptionalFormString(formData, 'invoiceNumber')
-  const variableSymbolInput = getOptionalFormString(formData, 'variableSymbol')
-  const variableSymbol = variableSymbolInput || (invoiceNumber ? buildVariableSymbol(invoiceNumber) : null)
-
-  if (invoiceNumber) {
-    const duplicateResponse = await supabase
-      .from('invoices')
-      .select('id')
-      .eq('company_id', activeCompany.companyId)
-      .eq('invoice_number', invoiceNumber)
-      .neq('id', invoice.id)
-      .limit(1)
-
-    if (duplicateResponse.error) {
-      throw new Error(duplicateResponse.error.message)
-    }
-
-    if ((duplicateResponse.data ?? []).length > 0) {
-    throw new Error('Toto číslo faktury už v aktivní firmě existuje.')
-    }
-  }
-
-  const supplierSnapshot = {
-    id: activeCompany.companyId,
-    name: getOptionalFormString(formData, 'supplierName'),
-    billingName: getOptionalFormString(formData, 'supplierBillingName') ?? getOptionalFormString(formData, 'supplierName'),
-    companyNumber: getOptionalFormString(formData, 'supplierCompanyNumber'),
-    vatNumber: supplierVatNumber,
-    billingStreet: getOptionalFormString(formData, 'supplierBillingStreet'),
-    billingCity: getOptionalFormString(formData, 'supplierBillingCity'),
-    billingPostalCode: getOptionalFormString(formData, 'supplierBillingPostalCode'),
-    billingCountry: getOptionalFormString(formData, 'supplierBillingCountry'),
-    bankAccountNumber: getOptionalFormString(formData, 'supplierBankAccountNumber'),
-    bankCode: getOptionalFormString(formData, 'supplierBankCode'),
-    iban: getOptionalFormString(formData, 'supplierIban'),
-    swiftBic: getOptionalFormString(formData, 'supplierSwiftBic'),
-    isVatPayer,
-    vatNote,
-  }
-  const customerSnapshot = {
-    id: invoice.customer_id,
-    name: getOptionalFormString(formData, 'customerName'),
-    email: getOptionalFormString(formData, 'customerEmail'),
-    phone: getOptionalFormString(formData, 'customerPhone'),
-    billingName: getOptionalFormString(formData, 'customerBillingName') ?? getOptionalFormString(formData, 'customerName'),
-    billingStreet: getOptionalFormString(formData, 'customerBillingStreet'),
-    billingCity: getOptionalFormString(formData, 'customerBillingCity'),
-    billingPostalCode: getOptionalFormString(formData, 'customerBillingPostalCode'),
-    billingCountry: getOptionalFormString(formData, 'customerBillingCountry'),
-    companyNumber: getOptionalFormString(formData, 'customerCompanyNumber'),
-    vatNumber: getOptionalFormString(formData, 'customerVatNumber'),
-  }
-
-  const itemIds = getFormIds(formData, 'itemIds')
-  if (itemIds.length === 0) {
-    throw new Error('Faktura musí mít alespoň jednu položku.')
-  }
-
-  const itemPayloads = itemIds.map((itemId, index) => {
-    const itemName = getFormString(formData, `itemName_${itemId}`)
-    if (!itemName) {
-      throw new Error('Každá položka musí mít název.')
-    }
-
-    const quantity = parseMoneyInput(getFormString(formData, `itemQuantity_${itemId}`)) || 1
-    const unitPriceWithoutVat = parseMoneyInput(getFormString(formData, `itemPrice_${itemId}`))
-    const vatRate = isVatPayer ? parseVatRate(getFormString(formData, `itemVatRate_${itemId}`)) : 0
-    const calculation = calculateInvoiceItem(unitPriceWithoutVat * quantity, vatRate)
-
-    return {
-      id: itemId,
-      sort_order: index + 1,
-      item_name: itemName,
-      description: getOptionalFormString(formData, `itemDescription_${itemId}`),
-      quantity,
-      unit: getOptionalFormString(formData, `itemUnit_${itemId}`) ?? 'ks',
-      unit_price_without_vat: unitPriceWithoutVat,
-      vat_rate: calculation.vatRate,
-      vat_amount: calculation.vatTotal,
-      total_without_vat: calculation.subtotalWithoutVat,
-      total_with_vat: calculation.totalWithVat,
-    }
+  const ctx = await getInvoiceEditContext(formData)
+  const identity = getInvoiceEditIdentity(formData)
+  const snapshot = (prefix: string, keys: string[]) => Object.fromEntries(keys.map(key => [
+    key, getOptionalFormString(formData, `${prefix}${key[0].toUpperCase()}${key.slice(1)}`),
+  ]))
+  const common = ['name', 'billingName', 'companyNumber', 'vatNumber', 'billingStreet', 'billingCity', 'billingPostalCode', 'billingCountry']
+  const decimal = (name: string) => getFormString(formData, name).replace(',', '.')
+  const result = await updateInvoiceDraftAtomic(ctx, {
+    ...identity,
+    header: {
+      invoiceNumber: getOptionalFormString(formData, 'invoiceNumber'),
+      variableSymbol: getOptionalFormString(formData, 'variableSymbol'),
+      issueDate: getFormString(formData, 'issueDate'),
+      taxableSupplyDate: getFormString(formData, 'taxableSupplyDate'),
+      dueDate: getFormString(formData, 'dueDate'),
+      note: getOptionalFormString(formData, 'note'),
+      supplier: snapshot('supplier', [...common, 'bankAccountNumber', 'bankCode', 'iban', 'swiftBic']),
+      customer: snapshot('customer', [...common, 'email', 'phone']),
+    },
+    items: identity.expectedItemIds.map(id => ({
+      id, itemName: getFormString(formData, `itemName_${id}`),
+      description: getOptionalFormString(formData, `itemDescription_${id}`),
+      quantity: decimal(`itemQuantity_${id}`), unit: getOptionalFormString(formData, `itemUnit_${id}`),
+      unitPriceWithoutVat: decimal(`itemPrice_${id}`), vatRate: decimal(`itemVatRate_${id}`),
+    })),
   })
-  const totals = sumInvoiceTotals(
-    itemPayloads.map((item) => ({
-      subtotalWithoutVat: item.total_without_vat,
-      vatTotal: item.vat_amount,
-      totalWithVat: item.total_with_vat,
-    }))
-  )
-  const now = new Date()
-  const issueDate = parseDateInput(getFormString(formData, 'issueDate'), now)
-  const taxableSupplyDate = parseDateInput(getFormString(formData, 'taxableSupplyDate'), issueDate)
-  const dueDate = parseDateInput(
-    getFormString(formData, 'dueDate'),
-    addDaysToDate(issueDate, DEFAULT_INVOICE_DUE_DAYS)
-  )
-  const noteInput = getOptionalFormString(formData, 'note')
-  const note = [noteInput, vatNote].filter((value): value is string => Boolean(value)).join('\n') || null
-
-  const invoiceResponse = await supabase
-    .from('invoices')
-    .update({
-      invoice_number: invoiceNumber,
-      variable_symbol: variableSymbol,
-      invoice_year: issueDate.getFullYear(),
-      issue_date: toDateInputValue(issueDate),
-      taxable_supply_date: toDateInputValue(taxableSupplyDate),
-      due_date: toDateInputValue(dueDate),
-      is_vat_payer: isVatPayer,
-      vat_note: vatNote,
-      supplier_snapshot: supplierSnapshot,
-      customer_snapshot: customerSnapshot,
-      subtotal_without_vat: totals.subtotalWithoutVat,
-      vat_total: totals.vatTotal,
-      total_with_vat: totals.totalWithVat,
-      note,
-    })
-    .eq('id', invoice.id)
-    .eq('company_id', activeCompany.companyId)
-    .eq('status', 'draft')
-
-  if (invoiceResponse.error) {
-    throw invoiceNumberConflictError(invoiceResponse.error)
-      ?? new Error('Uložení konceptu faktury se nepodařilo potvrdit. Obnovte stránku před opakováním akce.')
-  }
-
-  for (const item of itemPayloads) {
-    const response = await supabase
-      .from('invoice_items')
-      .update({
-        sort_order: item.sort_order,
-        item_name: item.item_name,
-        description: item.description,
-        quantity: item.quantity,
-        unit: item.unit,
-        unit_price_without_vat: item.unit_price_without_vat,
-        vat_rate: item.vat_rate,
-        vat_amount: item.vat_amount,
-        total_without_vat: item.total_without_vat,
-        total_with_vat: item.total_with_vat,
-      })
-      .eq('id', item.id)
-      .eq('invoice_id', invoice.id)
-
-    if (response.error) {
-      throw new Error(response.error.message)
-    }
-  }
-
-  revalidatePath(`/invoices/${invoice.id}`)
+  revalidatePath(`/invoices/${result.invoiceId}`)
   revalidatePath('/invoices')
 }
+
+export type InvoiceDraftActionState = { error: string | null; reloadRequired: boolean }
+
+async function runInvoiceDraftAction(action: (data: FormData) => Promise<void>, formData: FormData): Promise<InvoiceDraftActionState> {
+  try {
+    await action(formData)
+    return { error: null, reloadRequired: false }
+  } catch (error) {
+    unstable_rethrow(error)
+    const safe = error instanceof InvoiceDraftEditError ? error : invoiceDraftEditError(null)
+    return { error: safe.message, reloadRequired: safe.reloadRequired }
+  }
+}
+
+export async function updateInvoiceDraftAction(_state: InvoiceDraftActionState, formData: FormData) {
+  return runInvoiceDraftAction(updateDraftInvoice, formData)
+}
+
+export async function refreshInvoiceSupplierAction(_state: InvoiceDraftActionState, formData: FormData) {
+  return runInvoiceDraftAction(refreshDraftInvoiceSupplierSnapshot, formData)
+}
+
+export async function issueInvoiceRevisionAction(_state: InvoiceDraftActionState, formData: FormData) {
+  return runInvoiceDraftAction(issueInvoice, formData)
+}
+
 
 export async function markInvoiceSent(formData: FormData) {
   const invoiceId = getFormString(formData, 'invoiceId')

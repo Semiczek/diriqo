@@ -6,14 +6,16 @@ import {
   cancelInvoice,
   deleteInvoicePermanently,
   exportInvoicesToPohoda,
-  issueInvoice,
+  issueInvoiceRevisionAction,
   markInvoicePaid,
   markInvoiceSent,
-  refreshDraftInvoiceSupplierSnapshot,
+  refreshInvoiceSupplierAction,
   sendInvoiceByEmail,
-  updateDraftInvoice,
+  updateInvoiceDraftAction,
 } from '@/app/invoices/actions'
 import DashboardShell from '@/components/DashboardShell'
+import { getInvoiceEditSnapshot } from '@/lib/dal/invoice-drafts'
+import InvoiceDraftForm, { InvoiceDraftActionsProvider } from './InvoiceDraftForm'
 import {
   buildQrPaymentPayload,
   formatCurrency,
@@ -212,39 +214,11 @@ export default async function InvoiceDetailPage({ params, searchParams }: PagePr
   const resolvedSearchParams = (await searchParams) ?? {}
   const supabase = await createSupabaseServerClient()
 
-  const [invoiceResponse, itemsResponse] = await Promise.all([
-    supabase
-      .from('invoices')
-      .select(
-        'id, customer_id, invoice_number, variable_symbol, status, currency, issue_date, taxable_supply_date, due_date, payment_method, is_vat_payer, vat_note, subtotal_without_vat, vat_total, total_with_vat, customer_snapshot, supplier_snapshot, note, issued_at, sent_at, paid_at, cancelled_at, pohoda_export_status, pohoda_exported_at, pohoda_last_error, pohoda_last_export_id'
-      )
-      .eq('id', invoiceId)
-      .eq('company_id', activeCompany.companyId)
-      .maybeSingle(),
-    supabase
-      .from('invoice_items')
-      .select(
-        'id, source_job_id, item_name, description, quantity, unit, unit_price_without_vat, vat_rate, vat_amount, total_without_vat, total_with_vat'
-      )
-      .eq('invoice_id', invoiceId)
-      .order('sort_order', { ascending: true })
-      .order('created_at', { ascending: true }),
-  ])
-
-  if (invoiceResponse.error) {
-    throw new Error(invoiceResponse.error.message)
-  }
-
-  if (!invoiceResponse.data) {
-    notFound()
-  }
-
-  if (itemsResponse.error) {
-    throw new Error(itemsResponse.error.message)
-  }
-
-  const invoice = invoiceResponse.data as InvoiceRow
-  const items = (itemsResponse.data ?? []) as InvoiceItemRow[]
+  const snapshot = await getInvoiceEditSnapshot({ supabase, companyId: activeCompany.companyId }, invoiceId)
+  if (!snapshot) notFound()
+  const invoice = snapshot.invoice as unknown as InvoiceRow
+  const items = snapshot.items as unknown as InvoiceItemRow[]
+  const editFormIdentity = { companyId: activeCompany.companyId, invoiceId: invoice.id, revision: snapshot.revision, itemIds: items.map(item => item.id) }
   const customer = invoice.customer_snapshot ?? {}
   const supplier = invoice.supplier_snapshot ?? {}
   const qrPaymentPayload = buildQrPaymentPayload({
@@ -276,6 +250,7 @@ export default async function InvoiceDetailPage({ params, searchParams }: PagePr
 
   return (
     <DashboardShell activeItem="invoices">
+      <InvoiceDraftActionsProvider>
       <main style={{ display: 'grid', gap: '20px', color: '#111827' }}>
         <div>
           <Link href="/invoices" style={{ color: '#2563eb', textDecoration: 'none', fontWeight: 800 }}>
@@ -304,14 +279,9 @@ export default async function InvoiceDetailPage({ params, searchParams }: PagePr
           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
             {invoice.status === 'draft' ? (
               <>
-                <form action={refreshDraftInvoiceSupplierSnapshot}>
-                  <input type="hidden" name="invoiceId" value={invoice.id} />
-                  <ActionButton>Načíst dodavatele z Můj účet</ActionButton>
-                </form>
-                <form action={issueInvoice}>
-                  <input type="hidden" name="invoiceId" value={invoice.id} />
-                  <ActionButton>Vystavit fakturu</ActionButton>
-                </form>
+                <p style={{ width: '100%', margin: 0, color: '#6b7280', fontSize: '13px' }}>Nejdříve uložte rozepsané změny. Načtení dodavatele nebo vystavení obnoví formulář podle uložené faktury.</p>
+                <InvoiceDraftForm key={`refresh-${snapshot.revision}`} {...editFormIdentity} action={refreshInvoiceSupplierAction} label="Načíst dodavatele z Můj účet" pendingLabel="Načítám dodavatele…" />
+                <InvoiceDraftForm key={`issue-${snapshot.revision}`} {...editFormIdentity} action={issueInvoiceRevisionAction} label="Vystavit fakturu" pendingLabel="Vystavuji fakturu…" />
               </>
             ) : null}
 
@@ -562,8 +532,12 @@ export default async function InvoiceDetailPage({ params, searchParams }: PagePr
         </section>
 
         {invoice.status === 'draft' ? (
-          <form
-            action={updateDraftInvoice}
+          <InvoiceDraftForm
+            key={snapshot.revision}
+            {...editFormIdentity}
+            action={updateInvoiceDraftAction}
+            label="Uložit úpravy konceptu"
+            pendingLabel="Ukládám úpravy…"
             style={{
               border: '1px solid #e5e7eb',
               borderRadius: '8px',
@@ -573,7 +547,6 @@ export default async function InvoiceDetailPage({ params, searchParams }: PagePr
               gap: '18px',
             }}
           >
-            <input type="hidden" name="invoiceId" value={invoice.id} />
             <div>
               <h2 style={{ margin: '0 0 6px 0', fontSize: '22px' }}>Upravit koncept</h2>
               <p style={{ margin: 0, color: '#6b7280', lineHeight: 1.5 }}>
@@ -731,26 +704,25 @@ export default async function InvoiceDetailPage({ params, searchParams }: PagePr
                   {items.map((item) => (
                     <tr key={item.id} style={{ borderTop: '1px solid #e5e7eb' }}>
                       <td style={{ padding: '10px', minWidth: '260px' }}>
-                        <input type="hidden" name="itemIds" value={item.id} />
-                        <input name={`itemName_${item.id}`} defaultValue={item.item_name} style={inputStyle} />
+                        <input name={`itemName_${item.id}`} aria-label={`Název položky: ${item.item_name}`} defaultValue={item.item_name} style={inputStyle} />
                         <textarea
-                          name={`itemDescription_${item.id}`}
+                          name={`itemDescription_${item.id}`} aria-label={`Popis položky: ${item.item_name}`}
                           defaultValue={item.description ?? ''}
                           rows={2}
                           style={{ ...inputStyle, height: 'auto', padding: '8px 10px', marginTop: '8px' }}
                         />
                       </td>
                       <td style={{ padding: '10px' }}>
-                        <input name={`itemQuantity_${item.id}`} type="number" step="0.01" min="0.01" defaultValue={item.quantity ?? 1} style={inputStyle} />
+                        <input name={`itemQuantity_${item.id}`} aria-label={`Množství: ${item.item_name}`} type="number" step="0.01" min="0.01" defaultValue={item.quantity ?? 1} style={inputStyle} />
                       </td>
                       <td style={{ padding: '10px' }}>
-                        <input name={`itemUnit_${item.id}`} defaultValue={item.unit ?? 'ks'} style={inputStyle} />
+                        <input name={`itemUnit_${item.id}`} aria-label={`Jednotka: ${item.item_name}`} defaultValue={item.unit ?? 'ks'} style={inputStyle} />
                       </td>
                       <td style={{ padding: '10px' }}>
-                        <input name={`itemPrice_${item.id}`} type="number" step="0.01" min="0" defaultValue={item.unit_price_without_vat ?? 0} style={inputStyle} />
+                        <input name={`itemPrice_${item.id}`} aria-label={`Cena bez DPH za jednotku: ${item.item_name}`} type="number" step="0.01" min="0" defaultValue={item.unit_price_without_vat ?? 0} style={inputStyle} />
                       </td>
                       <td style={{ padding: '10px' }}>
-                        <input name={`itemVatRate_${item.id}`} type="number" step="0.01" min="0" max="100" defaultValue={item.vat_rate ?? 0} style={inputStyle} />
+                        <input name={`itemVatRate_${item.id}`} aria-label={`Sazba DPH: ${item.item_name}`} type="number" step="0.01" min="0" max="100" defaultValue={item.vat_rate ?? 0} style={inputStyle} />
                       </td>
                     </tr>
                   ))}
@@ -763,27 +735,12 @@ export default async function InvoiceDetailPage({ params, searchParams }: PagePr
               <textarea
                 name="note"
                 rows={3}
-                defaultValue={(invoice.note ?? '').replace(invoice.vat_note ?? '', '').trim()}
+                defaultValue={invoice.note ?? ''}
                 style={{ borderRadius: '8px', border: '1px solid #d1d5db', padding: '10px', resize: 'vertical' }}
               />
             </label>
 
-            <button
-              type="submit"
-              style={{
-                justifySelf: 'start',
-                borderRadius: '8px',
-                border: 'none',
-                backgroundColor: '#111827',
-                color: '#ffffff',
-                padding: '12px 16px',
-                fontWeight: 900,
-                cursor: 'pointer',
-              }}
-            >
-              Uložit úpravy konceptu
-            </button>
-          </form>
+          </InvoiceDraftForm>
         ) : null}
 
         <section
@@ -987,6 +944,7 @@ export default async function InvoiceDetailPage({ params, searchParams }: PagePr
           </section>
         ) : null}
       </main>
+      </InvoiceDraftActionsProvider>
     </DashboardShell>
   )
 }
