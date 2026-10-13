@@ -3,12 +3,12 @@
   "repository": "https://github.com/Semiczek/diriqo",
   "sourceDirectory": "packages/diriqo-office",
   "ownership": "One canonical source; both hosts consume the identical reviewed vendor runtime.",
-  "sourceSha256": "bee02ef8523e946c22cfee9c21f4337f80e8e4a1b1a48fac122d96898cf677db",
+  "sourceSha256": "283a72ddd3a070533985c46a75ddb3971fcfe8c45690238b7e83f3fbda565731",
   "runtime": {
     "name": "@diriqo/office",
-    "version": "0.3.1",
-    "archive": "vendor/diriqo-office-0.3.1.tgz",
-    "sha256": "873b3bdf91a961e03bf46ef04ba411a9eb3d5dd31ef8c95151f006662e65f65c"
+    "version": "0.3.2",
+    "archive": "vendor/diriqo-office-0.3.2.tgz",
+    "sha256": "5f524a3a2c3b25608e927ed5e3720389141449728def0cc451d9b375dbdd53cb"
   },
   "files": [
     {
@@ -29,7 +29,7 @@
     {
       "path": "LICENSE_AUDIT.md",
       "bytes": 4001,
-      "sha256": "f4d3a3ec185bee6ba6a00c3e5f19db90a248e9127e63c3ef1b3ce56e09bf5e96"
+      "sha256": "7c72a06842f7d14629d62fc56869e479a6d507329da565c322274d5fab42a601"
     },
     {
       "path": "README.md",
@@ -294,7 +294,7 @@
     {
       "path": "licenses/evidence.json",
       "bytes": 213329,
-      "sha256": "8baa0d453821dff3aa384db0c4cfa33b025473ef90eb211c751d9c035545dd12"
+      "sha256": "401f28eeddbec69186649ce858998224fb68ef96d6e11f6e1d5b147b910c67b0"
     },
     {
       "path": "licenses/pdf-candidates.json",
@@ -1844,17 +1844,17 @@
     {
       "path": "package-lock.json",
       "bytes": 66315,
-      "sha256": "b919351811b415f40f73252dcab8e4e70bc32ba72d55f3d3a6a8bd22b5b4de70"
+      "sha256": "fb76056a8bbe6cb0cd63a3f47912063a25bd967b96201b03aad140176907e09e"
     },
     {
       "path": "package.json",
       "bytes": 1976,
-      "sha256": "3ad1195a23ca231cb557e9cc8126193434968600025893f69266cd2fa4258674"
+      "sha256": "bcc72ee0538514d338e6c244877de420e60419790485c87ec08537f41c102bda"
     },
     {
       "path": "sbom.cdx.json",
       "bytes": 148533,
-      "sha256": "54af0e50a44fe0a779e80256ba3a2a7bb7eb098398e53c89a08ca54c03b4de6c"
+      "sha256": "caa5a4aab539f55bd547d0867a6cd843e649cd12c64baa19a223d1e31d3ae216"
     },
     {
       "path": "scripts/browser-react-peer.mjs",
@@ -2213,8 +2213,8 @@
     },
     {
       "path": "src/server/container-safety.ts",
-      "bytes": 8908,
-      "sha256": "58b580d24a43b15d7276be3b81985ecf1c81ad57227d52ad0ea2e4fdecffa803"
+      "bytes": 10878,
+      "sha256": "c862bb81ffa512ee60cb140d9ebb38786916e4b329914aeec90eb5856c94092f"
     },
     {
       "path": "src/server/formats.ts",
@@ -2248,8 +2248,8 @@
     },
     {
       "path": "src/server/opendocument-text.ts",
-      "bytes": 22380,
-      "sha256": "021c93121670548afbac418a531b6f6b4a051165080493c5cb6964833b27a770"
+      "bytes": 23291,
+      "sha256": "368145bb8715ced3e9a614f27eef3abec265b135eda06b97e44081ebc84b2671"
     },
     {
       "path": "src/server/origin.ts",
@@ -2513,8 +2513,8 @@
     },
     {
       "path": "tests/opendocument-text.test.mjs",
-      "bytes": 15000,
-      "sha256": "72e73f68671d98127b4a0d0508fe918fc5a60098da8c72fd449526cfb27a3e19"
+      "bytes": 19779,
+      "sha256": "e93aa7e97c1b17853cb5dc5aa554a6249bc83380e869712b483c025979fe2a5e"
     },
     {
       "path": "tests/origin.test.mjs",

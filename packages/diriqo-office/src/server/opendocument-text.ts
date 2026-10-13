@@ -9,6 +9,7 @@ import type {DocumentContent} from '../core/types.ts';
 export const ODT_MIME='application/vnd.oasis.opendocument.text';
 const LIMIT={xml:12*1024*1024,depth:64,nodes:100000,text:4*1024*1024,cells:10000,rows:1000,repeat:1000,styles:4096};
 const NS:Record<string,string>={office:'urn:oasis:names:tc:opendocument:xmlns:office:1.0',text:'urn:oasis:names:tc:opendocument:xmlns:text:1.0',style:'urn:oasis:names:tc:opendocument:xmlns:style:1.0',table:'urn:oasis:names:tc:opendocument:xmlns:table:1.0',fo:'urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0',xlink:'http://www.w3.org/1999/xlink',manifest:'urn:oasis:names:tc:opendocument:xmlns:manifest:1.0',draw:'urn:oasis:names:tc:opendocument:xmlns:drawing:1.0',script:'urn:oasis:names:tc:opendocument:xmlns:script:1.0',form:'urn:oasis:names:tc:opendocument:xmlns:form:1.0'};
+NS.meta='urn:oasis:names:tc:opendocument:xmlns:meta:1.0';
 type X={name:string;attrs:Record<string,string>;children:Array<X|string>};
 type Mark={type:string;attrs?:Record<string,unknown>};
 type Node={type:string;text?:string;attrs?:Record<string,unknown>;marks?:Mark[];content?:Node[]};
@@ -43,35 +44,40 @@ function boundedXml(data:Uint8Array|undefined):X[]{
   if(item['#text']!==undefined)return [String(item['#text'])];
   return Object.keys(item).filter(name=>name!==':@'&&!name.startsWith('?')&&!name.startsWith('#')).map(name=>{
    const attrs=item[':@']??{},scope={...inherited};for(const [key,value]of Object.entries(attrs))if(key==='xmlns')scope['']=String(value);else if(key.startsWith('xmlns:'))scope[key.slice(6)]=String(value);
-   const canonical=(key:string,attribute=false)=>{const parts=key.split(':'),prefix=parts.length>1?parts[0]:'',local=parts.at(-1)!;const uri=(!attribute||prefix)?scope[prefix]:undefined;const known=Object.keys(NS).find(p=>NS[p]===uri);return known?known+':'+local:uri?'unknown:'+local:key;};
+   const canonical=(key:string,attribute=false)=>{const parts=key.split(':'),prefix=parts.length>1?parts[0]:'',local=parts.at(-1)!;const uri=(!attribute||prefix)?scope[prefix]:undefined;const known=Object.keys(NS).find(p=>NS[p]===uri);return known?known+':'+local:uri||prefix?'unknown:'+local:key;};
    return {name:canonical(name),attrs:Object.fromEntries(Object.entries(attrs).filter(([key])=>!key.startsWith('xmlns')).map(([key,value])=>[canonical(key,true),String(value)])),children:normalize(item[name]??[],scope)};
   });
  });}
  return elements(normalize(parsed!,{}));
 }
 
-function inspect(items:X[]):void{
+function inspect(items:X[],partName:string,path:string[]=[],metadata={template:false}):void{
  for(const item of items){
-  if(/^(script:|form:)|^office:(?:script|forms|event-listeners)$|^draw:(?:object|object-ole|plugin|applet)$|dde/i.test(item.name)||item.name==='manifest:encryption-data'||item.name==='office:scripts'&&item.children.some(child=>typeof child!=='string'||child.trim()))fail('ODT macros, forms, embedded active objects and encrypted files are disabled');
+  const empty=item.children.every(child=>typeof child==='string'&&!child.trim());
+  const emptyForms=item.name==='office:forms'&&empty&&Object.entries(item.attrs).every(([key,value])=>['form:automatic-focus','form:apply-design-mode'].includes(key)&&/^(?:true|false|0|1)$/.test(value));
+  const template=partName==='meta.xml'&&item.name==='meta:template'&&empty&&path.join('/')==='office:document-meta/office:meta'&&Object.keys(item.attrs).every(key=>['meta:date','xlink:href','xlink:type','xlink:actuate','xlink:title'].includes(key));
+  if((/^(script:|form:)|^office:(?:script|forms|event-listeners)$|^draw:(?:object|object-ole|plugin|applet)$|dde/i.test(item.name)&&!emptyForms)||item.name==='manifest:encryption-data'||item.name==='office:scripts'&&!empty)fail('ODT macros, forms, embedded active objects and encrypted files are disabled');
   for(const [name,value]of Object.entries(item.attrs)){
    if(name.startsWith('script:'))fail('ODT event handlers are disabled');
-   if(name==='xlink:href'&&item.name!=='text:a'&&(/^(?:[a-z][a-z0-9+.-]*:|\/|\\)/i.test(value)||value.split('/').includes('..')))fail('ODT external resources are disabled');
+   if(name==='xlink:href'&&item.name!=='text:a'&&!template&&(/^(?:[a-z][a-z0-9+.-]*:|\/|\\)/i.test(value)||value.split('/').includes('..')))fail('ODT external resources are disabled');
   }
-  inspect(elements(item.children));
+  if(template&&item.attrs['xlink:href']!==undefined)metadata.template=true;
+  inspect(elements(item.children),partName,[...path,item.name],metadata);
  }
 }
 
 export function importOdt(zip:Record<string,Uint8Array>):{content:DocumentContent;warnings:string[]}{
  if(!zip.mimetype||new TextDecoder().decode(zip.mimetype)!==ODT_MIME||!zip['content.xml']||!zip['META-INF/manifest.xml'])fail('File is not an ODT package');
- const parts=new Map<string,X[]>();
+ const parts=new Map<string,X[]>(),metadata={template:false};
  for(const [name,data]of Object.entries(zip)){
   if(/^(?:Basic|Scripts)\//i.test(name))fail('ODT macros are disabled');
-  if(/\.xml$/i.test(name)){const parsed=boundedXml(data);inspect(parsed);parts.set(name,parsed);}
+  if(/\.xml$/i.test(name)){const parsed=boundedXml(data);inspect(parsed,name,[],metadata);parts.set(name,parsed);}
  }
  const main=parts.get('content.xml')!,stylesPart=parts.get('styles.xml')??[],manifest=parts.get('META-INF/manifest.xml')!;
  if(!all(manifest,'manifest:file-entry').some(item=>item.attrs['manifest:full-path']==='/'&&item.attrs['manifest:media-type']===ODT_MIME))fail('Invalid ODT manifest');
  const body=child(all(main,'office:body')[0],'office:text');if(!body)fail('Missing ODT text body');
  const warnings=new Set(['ODT subset: text, headings, lists, basic styles and tables. Advanced layout, images, fields, comments and tracked changes are not preserved; the original file is retained.']);
+ if(metadata.template)warnings.add('ODT template provenance metadata was omitted; its referenced template was not loaded.');
  const warn=(message:string)=>warnings.add(message);
  const styleNodes=[...all(stylesPart,'style:style'),...all(main,'style:style')];if(styleNodes.length>LIMIT.styles)fail('ODT style limit exceeded');
  const styles=new Map(styleNodes.map(item=>[item.attrs['style:name'],item]));

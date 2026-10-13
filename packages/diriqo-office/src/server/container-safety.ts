@@ -42,12 +42,12 @@ export function readSafeZip(input: Uint8Array, kind: 'ooxml' | 'odf' = 'ooxml'):
     if (Object.keys(result).some(name => /^(?:(?:Basic|Scripts)(?:\/|$)|Object(?:Replacements)?(?:\s|\d|\/))/i.test(name))) fail('OpenDocument active objects are not accepted');
   }
   for (const [name, data] of Object.entries(result)) if (/\.(xml|rels)$/i.test(name) && /<!DOCTYPE|<!ENTITY|\bDDEAUTO\b|\bDDE\s|macroEnabled/i.test(data.toString('utf8'))) fail('Active XML content is not accepted');
-  if (kind === 'odf') for (const [name, data] of Object.entries(result)) if (/\.xml$/i.test(name)) inspectOdfXml(data);
+  if (kind === 'odf') for (const [name, data] of Object.entries(result)) if (/\.xml$/i.test(name)) inspectOdfXml(data, name);
   return result;
 }
 
 /** Validate syntax and bound parser recursion before any ODF codec sees the XML. */
-export function inspectOdfXml(data: Uint8Array): string {
+export function inspectOdfXml(data: Uint8Array, partName?: string): string {
   if (data.byteLength > FORMAT_LIMITS.entryBytes) fail('OpenDocument XML size limit exceeded');
   let value: string;
   try { value = new TextDecoder('utf-8', { fatal: true }).decode(data); } catch { fail('OpenDocument XML must use UTF-8'); }
@@ -72,20 +72,34 @@ export function inspectOdfXml(data: Uint8Array): string {
   if (depth !== 0 || XMLValidator.validate(value) !== true) fail('Malformed OpenDocument XML');
   // In this pinned parser, numeric XML references require htmlEntities:true.
   const parsed = new XMLParser({ preserveOrder: true, ignoreAttributes: false, attributeNamePrefix: '', parseTagValue: false, parseAttributeValue: false, processEntities: true, htmlEntities: true }).parse(value);
-  const pending: any[] = [...parsed];
+  const odfNs: Record<string, string> = { office: 'urn:oasis:names:tc:opendocument:xmlns:office:1.0', meta: 'urn:oasis:names:tc:opendocument:xmlns:meta:1.0', form: 'urn:oasis:names:tc:opendocument:xmlns:form:1.0', xlink: 'http://www.w3.org/1999/xlink' };
+  const pending = parsed.map((item: any) => ({ item, scope: {} as Record<string, string>, path: [] as string[] }));
   const active = new Set(['script', 'event-listener', 'event-listeners', 'form', 'forms', 'dde-link', 'dde-source', 'dde-connection', 'table-source', 'source-service', 'object', 'object-ole', 'applet', 'plugin', 'encryption-data', 'include']);
   while (pending.length) {
-    const item = pending.pop();
+    const { item, scope: inherited, path } = pending.pop()!;
+    const scope = { ...inherited };
+    for (const [key, value] of Object.entries(item[':@'] ?? {})) if (key === 'xmlns') scope[''] = String(value); else if (key.startsWith('xmlns:')) scope[key.slice(6)] = String(value);
+    const canonical = (name: string, attribute = false) => {
+      const parts = name.split(':'), prefix = parts.length > 1 ? parts[0] : '', local = parts.at(-1)!;
+      const uri = !attribute || prefix ? scope[prefix] : undefined;
+      const known = Object.keys(odfNs).find(key => odfNs[key] === uri);
+      return known ? `${known}:${local}` : `unknown:${local}`;
+    };
     for (const [name, children] of Object.entries(item)) {
       if (name === ':@' || name.startsWith('#') || name.startsWith('?')) continue;
       const local = name.split(':').at(-1)!.toLowerCase();
-      if (active.has(local) || local === 'scripts' && Array.isArray(children) && children.some(child => Object.keys(child).some(key => key !== '#text' || String(child[key]).trim()))) fail('Active or encrypted OpenDocument content is not accepted');
+      const identity = canonical(name), empty = Array.isArray(children) && children.every(child => Object.keys(child).every(key => key === '#text' && !String(child[key]).trim()));
+      // LibreOffice emits this empty, inert container even in ordinary text files.
+      const emptyForms = identity === 'office:forms' && empty && Object.entries(item[':@'] ?? {}).every(([key, value]) => key === 'xmlns' || key.startsWith('xmlns:') || ['form:automatic-focus', 'form:apply-design-mode'].includes(canonical(key, true)) && /^(?:true|false|0|1)$/.test(String(value)));
+      // Historical template provenance is metadata, never a resource to fetch.
+      const template = partName === 'meta.xml' && identity === 'meta:template' && empty && path.join('/') === 'office:document-meta/office:meta' && Object.keys(item[':@'] ?? {}).every(key => key === 'xmlns' || key.startsWith('xmlns:') || ['meta:date', 'xlink:href', 'xlink:type', 'xlink:actuate', 'xlink:title'].includes(canonical(key, true)));
+      if (active.has(local) && !emptyForms || local === 'scripts' && !empty) fail('Active or encrypted OpenDocument content is not accepted');
       for (const [attribute, raw] of Object.entries(item[':@'] ?? {})) {
         const attr = attribute.split(':').at(-1)!.toLowerCase(), data = String(raw);
         if (['macro-name', 'event-name', 'language'].includes(attr) && attribute.startsWith('script:')) fail('OpenDocument script attributes are disabled');
-        if (attr === 'href' && local !== 'a' && (/^(?:[a-z][a-z0-9+.-]*:|\/|\\)/i.test(data) || data.split('/').includes('..'))) fail('OpenDocument external resources are disabled');
+        if (attr === 'href' && local !== 'a' && !(template && canonical(attribute, true) === 'xlink:href') && (/^(?:[a-z][a-z0-9+.-]*:|\/|\\)/i.test(data) || data.split('/').includes('..'))) fail('OpenDocument external resources are disabled');
       }
-      if (Array.isArray(children)) for (const child of children) pending.push(child);
+      if (Array.isArray(children)) for (const child of children) pending.push({ item: child, scope, path: [...path, identity] });
     }
   }
   return value;

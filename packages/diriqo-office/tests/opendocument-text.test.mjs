@@ -3,6 +3,9 @@ import assert from 'node:assert/strict';
 import {strToU8,unzipSync,zipSync} from 'fflate';
 import {importOdt,exportOdt,ODT_MIME} from '../src/server/opendocument-text.ts';
 import {readSafeZip,inspectOdfXml,FORMAT_LIMITS} from '../src/server/container-safety.ts';
+import {importOfficeFile} from '../src/server/formats.ts';
+import {validateContent} from '../src/core/validation.ts';
+import {createHash} from 'node:crypto';
 
 const namespaces={office:'urn:oasis:names:tc:opendocument:xmlns:office:1.0',text:'urn:oasis:names:tc:opendocument:xmlns:text:1.0',style:'urn:oasis:names:tc:opendocument:xmlns:style:1.0',table:'urn:oasis:names:tc:opendocument:xmlns:table:1.0',fo:'urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0',draw:'urn:oasis:names:tc:opendocument:xmlns:drawing:1.0',xlink:'http://www.w3.org/1999/xlink',script:'urn:oasis:names:tc:opendocument:xmlns:script:1.0',manifest:'urn:oasis:names:tc:opendocument:xmlns:manifest:1.0'};
 const ns=Object.entries(namespaces).map(([name,value])=>`xmlns:${name}="${value}"`).join(' ');
@@ -11,6 +14,66 @@ function fixture(body,{automatic='',styles='',parts={}}={}){return {mimetype:str
 const flat=node=>[node,...(node.content??[]).flatMap(flat)];
 const text=node=>node.type==='text'?node.text:node.type==='hardBreak'?'\n':(node.content??[]).map(text).join('');
 const paragraph=value=>({type:'paragraph',content:[{type:'text',text:value}]});
+const pack=parts=>{const {mimetype,...rest}=parts;return zipSync({mimetype:[mimetype,{level:0}],...rest});};
+const metaNs='urn:oasis:names:tc:opendocument:xmlns:meta:1.0';
+const formNs='urn:oasis:names:tc:opendocument:xmlns:form:1.0';
+const metadataXml=body=>`<office:document-meta ${ns} xmlns:meta="${metaNs}"><office:meta>${body}</office:meta></office:document-meta>`;
+
+test('ODT imports an ordinary writer document with an empty forms container, including namespace aliases',async()=>{
+ for(const forms of [
+  `<office:forms xmlns:form="${formNs}" form:automatic-focus="false" form:apply-design-mode="false"/>`,
+  `<o:forms xmlns:o="${namespaces.office}" xmlns:f="${formNs}" f:automatic-focus="false" f:apply-design-mode="false"> \n<!-- no controls --> </o:forms>`,
+ ]){
+  const bytes=pack(fixture(`${forms}<text:h text:outline-level="1">Nabídka</text:h><text:p>Běžný dokument</text:p>`));
+  const before=Buffer.from(bytes),result=await importOfficeFile('writer.odt',bytes);
+  assert.equal(text(result.content.doc),'NabídkaBěžný dokument');assert.equal(result.content.doc.content[0].type,'heading');
+  validateContent(result.content);assert.deepEqual(Buffer.from(bytes),before);assert.equal(result.original.sha256,createHash('sha256').update(before).digest('hex'));
+ }
+});
+
+test('ODT empty forms exception never permits controls, text, handlers or a substituted namespace',async()=>{
+ const forms=[
+  `<office:forms xmlns:form="${formNs}"><form:form/></office:forms>`,
+  '<office:forms>active</office:forms>',
+  '<office:forms><office:scripts/></office:forms>',
+  '<office:forms script:macro-name="payload"/>',
+  `<office:forms xmlns:form="urn:untrusted" form:automatic-focus="false"/>`,
+  '<office:forms xmlns:office="urn:untrusted"/>',
+  '<forms/>',
+ ];
+ for(const body of forms)await assert.rejects(()=>importOfficeFile('writer.odt',pack(fixture(body+'<text:p>Content</text:p>'))),/OFFICE_FORMAT:.*(?:not accepted|disabled)/,body);
+});
+
+test('ODT ignores only historical template metadata, warns, retains original and performs no fetch',async t=>{
+ const fetch=t.mock.method(globalThis,'fetch',()=>{throw Error('Import must not fetch templates');});
+ for(const link of ['file:///templates/letter.ott','http://127.0.0.1/private.ott','../templates/letter.ott']){
+  const meta=metadataXml(`<m:template xmlns:m="${metaNs}" xmlns:l="${namespaces.xlink}" l:href="${link}" l:type="simple" l:actuate="onRequest" l:title="Letter" m:date="2026-10-13T12:00:00"/>`);
+  const bytes=pack(fixture('<text:p>Original content</text:p>',{parts:{'meta.xml':strToU8(meta)}})),before=Buffer.from(bytes);
+  const result=await importOfficeFile('template-based.odt',bytes);
+  assert.equal(text(result.content.doc),'Original content');assert.match(result.warnings.join(' '),/template provenance metadata was omitted.*not loaded/);
+  assert.ok(!JSON.stringify(result.content).includes(link));validateContent(result.content);assert.deepEqual(Buffer.from(bytes),before);assert.equal(result.original.sha256,createHash('sha256').update(before).digest('hex'));
+ }
+ assert.equal(fetch.mock.callCount(),0);
+});
+
+test('ODT template metadata exception is restricted to its exact part, namespace, path and inert element',async()=>{
+ const template='<meta:template xlink:href="http://127.0.0.1/private"/>';
+ const base=metadataXml(template);
+ const cases=[
+  ['styles.xml',base],['nested/meta.xml',base],['META.XML',base],
+  ['meta.xml',base.replace(metaNs,'urn:untrusted')],
+  ['meta.xml',base.replace(`xmlns:meta="${metaNs}"`,'')],
+  ['meta.xml',base.replace(namespaces.office,'urn:untrusted')],
+  ['meta.xml',metadataXml('<text:p>'+template+'</text:p>')],
+  ['meta.xml',metadataXml('<meta:template xlink:href="http://127.0.0.1/private"><text:p>Content</text:p></meta:template>')],
+  ['meta.xml',metadataXml('<meta:template xlink:href="http://127.0.0.1/private" script:macro-name="payload"/>')],
+  ['meta.xml',metadataXml('<meta:template xmlns:fake="urn:untrusted" fake:href="http://127.0.0.1/private"/>')],
+  ['meta.xml',metadataXml('<draw:image xlink:href="http://127.0.0.1/private"/>')],
+ ];
+ for(const [part,xml] of cases)await assert.rejects(()=>importOfficeFile('rejected.odt',pack(fixture('<text:p>Content</text:p>',{parts:{[part]:strToU8(xml)}}))),/OFFICE_FORMAT:.*(?:disabled|not accepted)/,part+': '+xml);
+ const inline=fixture(template+'<text:p>Content</text:p>');inline['content.xml']=strToU8(Buffer.from(inline['content.xml']).toString().replace('office:version="1.3"',`xmlns:meta="${metaNs}" office:version="1.3"`));
+ await assert.rejects(()=>importOfficeFile('rejected.odt',pack(inline)),/external resources are disabled/);
+});
 
 test('ODT imports headings, inherited inline styles, explicit whitespace, links and ordered lists',()=>{
  const result=importOdt(fixture('<text:h text:outline-level="2">Nabídka</text:h><text:p text:style-name="Centered"><text:span text:style-name="Emphasis">Příliš</text:span><text:s text:c="2"/>žluťoučký<text:tab/>kůň<text:line-break/><text:a xlink:href="https://jspd.cz">JSPD</text:a></text:p><text:list text:style-name="Numbers"><text:list-item text:start-value="3"><text:p>První</text:p></text:list-item><text:list-item><text:p>Druhý</text:p></text:list-item></text:list>',{automatic:'<style:style style:name="Strong" style:family="text"><style:text-properties fo:font-weight="bold"/></style:style><style:style style:name="Emphasis" style:family="text" style:parent-style-name="Strong"><style:text-properties fo:font-style="italic" fo:color="#123456"/></style:style><style:style style:name="Centered" style:family="paragraph"><style:paragraph-properties fo:text-align="center"/></style:style><text:list-style style:name="Numbers"><text:list-level-style-number text:level="1" style:num-format="1"/></text:list-style>'}));
