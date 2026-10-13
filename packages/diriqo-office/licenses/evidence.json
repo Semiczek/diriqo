@@ -1,12 +1,12 @@
 {
   "policyVersion": 1,
   "assetEvidenceSha256": "8b9dfa3f707c206aa311bd67278cb38bdfc02b09cbc12ac97838a0b7b3afe52d",
-  "lockSha256": "fb76056a8bbe6cb0cd63a3f47912063a25bd967b96201b03aad140176907e09e",
-  "declarationSha256": "5395cd97c66d3b1663a5e69f7072aa4d6946a09055ef434257560ee14cd96c9b",
+  "lockSha256": "91b2e66518240a568a67b5507c7d031f5c1f8241d8ad39a11696cdd412947e1f",
+  "declarationSha256": "e7055e14ac0a095a18b5662ea8dbfd771b42208a1a40ac97c06f6d50996e9af1",
   "generatedHashes": {
     "THIRD_PARTY_LICENSES.md": "07628390dabffeaeb84806a9d1c8ece61073717942de907ad9a083585f5c186c",
-    "LICENSE_AUDIT.md": "7c72a06842f7d14629d62fc56869e479a6d507329da565c322274d5fab42a601",
-    "sbom.cdx.json": "caa5a4aab539f55bd547d0867a6cd843e649cd12c64baa19a223d1e31d3ae216"
+    "LICENSE_AUDIT.md": "ed2a72fb51de12b829aa2c5ec201b2ca31773ea16ff96c57e2ff8f0b561e8bb9",
+    "sbom.cdx.json": "0a8041da984ffefb64d688180179dc8cf4ce0d91aa0dffccecf858c0d1f84d65"
   },
   "packages": [
     {

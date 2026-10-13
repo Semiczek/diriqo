@@ -169,7 +169,23 @@ export function importXlsx(input: Uint8Array): { content: SpreadsheetContent; wa
     const path = target.startsWith('/') ? target.slice(1) : posix.normalize(posix.join('xl', target)); if (!path.startsWith('xl/') || !zip[path]) fail('Invalid worksheet path');
     const id = `${bookId}-sheet-${order.length + 1}`, s = sheet(id, source.attrs.name); order.push(id); sheets[id] = s;
     const sheetXml = xml(zip[path]);
-    for (const row of descendants(sheetXml, 'row')) { const ri = Number(row.attrs.r) - 1; if (row.attrs.ht && ri >= 0 && ri < FORMAT_LIMITS.rows) s.rowData[ri] = { h: Number(row.attrs.ht) * 4 / 3 }; }
+    for (const row of descendants(sheetXml, 'row')) {
+      const ri = Number(row.attrs.r) - 1;
+      if (!Number.isInteger(ri) || ri < 0 || ri >= FORMAT_LIMITS.rows) continue;
+      const hidden = row.attrs.hidden === '1' || row.attrs.hidden === 'true';
+      if (row.attrs.ht || hidden) s.rowData[ri] = { ...(row.attrs.ht ? { h: Number(row.attrs.ht) * 4 / 3 } : {}), ...(hidden ? { hd: 1 } : {}) };
+    }
+    const autoFilter = descendants(sheetXml, 'autoFilter')[0];
+    if (autoFilter) {
+      const refs = (autoFilter.attrs.ref ?? '').split(':');
+      if (refs.length < 1 || refs.length > 2) fail('Invalid filter range');
+      const start = address(refs[0]), end = address(refs[1] ?? refs[0]);
+      if (end.row < start.row || end.col < start.col) fail('Invalid filter range');
+      // Preserve visibility metadata before formula validation; the engine cannot
+      // correctly evaluate SUBTOTAL over filtered or hidden rows.
+      s.officeFilter = { range: { startRow: start.row, endRow: end.row, startColumn: start.col, endColumn: end.col }, columns: [] };
+      warnings.push('XLSX filter range and hidden rows are retained; filter criteria are not preserved.');
+    }
     for (const col of descendants(sheetXml, 'col')) { const min = Number(col.attrs.min) - 1, max = Number(col.attrs.max) - 1; if (min < 0 || max >= FORMAT_LIMITS.columns || max - min > 4096) fail('Oversized column range'); for (let c = min; c <= max; c++) s.columnData[c] = { w: Math.max(10, Number(col.attrs.width) * 7 + 5) }; }
     for (const c of descendants(sheetXml, 'c')) {
       if (++cells > FORMAT_LIMITS.cells) fail('Too many populated cells'); const { row, col } = address(c.attrs.r); const type = c.attrs.t; const value = textOf(child(c, 'v')?.children ?? []); let v: any = value;

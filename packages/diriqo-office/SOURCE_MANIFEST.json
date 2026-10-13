@@ -3,12 +3,12 @@
   "repository": "https://github.com/Semiczek/diriqo",
   "sourceDirectory": "packages/diriqo-office",
   "ownership": "One canonical source; both hosts consume the identical reviewed vendor runtime.",
-  "sourceSha256": "283a72ddd3a070533985c46a75ddb3971fcfe8c45690238b7e83f3fbda565731",
+  "sourceSha256": "d5b1cafffd2b2046d5a9b34a526ef46d245305dd14ca085f2c92694f20484d60",
   "runtime": {
     "name": "@diriqo/office",
-    "version": "0.3.2",
-    "archive": "vendor/diriqo-office-0.3.2.tgz",
-    "sha256": "5f524a3a2c3b25608e927ed5e3720389141449728def0cc451d9b375dbdd53cb"
+    "version": "0.3.4",
+    "archive": "vendor/diriqo-office-0.3.4.tgz",
+    "sha256": "f293524d6fa5f9382a06f8e685d04f79898932d9c85cce0fedcc8df29961d9c0"
   },
   "files": [
     {
@@ -29,7 +29,7 @@
     {
       "path": "LICENSE_AUDIT.md",
       "bytes": 4001,
-      "sha256": "7c72a06842f7d14629d62fc56869e479a6d507329da565c322274d5fab42a601"
+      "sha256": "ed2a72fb51de12b829aa2c5ec201b2ca31773ea16ff96c57e2ff8f0b561e8bb9"
     },
     {
       "path": "README.md",
@@ -98,8 +98,8 @@
     },
     {
       "path": "docs/LIMITATIONS.md",
-      "bytes": 9875,
-      "sha256": "27effe885874d2767b46c98b0b94d76b88f0af0e36be81a872cb1b4b9aa2601c"
+      "bytes": 10388,
+      "sha256": "14944a578ad40e668972cab6eedfdb1fcb2fa98843dab73fe85a89bb5cabf458"
     },
     {
       "path": "docs/NATIVE_PRINT_VALIDATION.md",
@@ -294,7 +294,7 @@
     {
       "path": "licenses/evidence.json",
       "bytes": 213329,
-      "sha256": "401f28eeddbec69186649ce858998224fb68ef96d6e11f6e1d5b147b910c67b0"
+      "sha256": "71c789e760112a1c2ed6b3f2d6b834a70ef7629698c534d3657267185d41dda4"
     },
     {
       "path": "licenses/pdf-candidates.json",
@@ -1844,17 +1844,17 @@
     {
       "path": "package-lock.json",
       "bytes": 66315,
-      "sha256": "fb76056a8bbe6cb0cd63a3f47912063a25bd967b96201b03aad140176907e09e"
+      "sha256": "91b2e66518240a568a67b5507c7d031f5c1f8241d8ad39a11696cdd412947e1f"
     },
     {
       "path": "package.json",
       "bytes": 1976,
-      "sha256": "bcc72ee0538514d338e6c244877de420e60419790485c87ec08537f41c102bda"
+      "sha256": "31fd522f00866e32d1956bd75a0382d576c68f4451e83d5b23a7d37d37d417b0"
     },
     {
       "path": "sbom.cdx.json",
       "bytes": 148533,
-      "sha256": "caa5a4aab539f55bd547d0867a6cd843e649cd12c64baa19a223d1e31d3ae216"
+      "sha256": "0a8041da984ffefb64d688180179dc8cf4ce0d91aa0dffccecf858c0d1f84d65"
     },
     {
       "path": "scripts/browser-react-peer.mjs",
@@ -2158,8 +2158,8 @@
     },
     {
       "path": "src/core/formula-graph.ts",
-      "bytes": 15508,
-      "sha256": "53b58cdd312ae01022b1496b7608e46cc58de4bb6716abc7145e8c6211329306"
+      "bytes": 17832,
+      "sha256": "e7ba91ffc69dec3894171f3b9dc11e86b9ed0ba944f1860b26fb2f51a5393bc7"
     },
     {
       "path": "src/core/formula-policy.ts",
@@ -2173,8 +2173,8 @@
     },
     {
       "path": "src/core/fortune-formula-guard.ts",
-      "bytes": 2611,
-      "sha256": "f5e64e5fcba6d00f1ceb365e24498a02652ecad1af04926e92cea8092da23475"
+      "bytes": 3433,
+      "sha256": "eed7219b68ad4e2ef7a0c1b5fa86325f8e8ab20b310196efb3cb4efdcc76aa63"
     },
     {
       "path": "src/core/templates.ts",
@@ -2218,8 +2218,8 @@
     },
     {
       "path": "src/server/formats.ts",
-      "bytes": 37930,
-      "sha256": "5a82050bf51a225729670df036d56035550d85421569ddb7f95589f286c1fefa"
+      "bytes": 38910,
+      "sha256": "1e27ec99224892e6f77c1d0cd14bc58cc8f4e93d46483fe38564e6cd0d2a2d2c"
     },
     {
       "path": "src/server/import-worker.ts",
@@ -2393,8 +2393,13 @@
     },
     {
       "path": "tests/formula-graph.test.mjs",
-      "bytes": 4725,
-      "sha256": "45378be2baedbafd2bec6594afaca3292bd5c7a081d3eb2390251235e5a9916d"
+      "bytes": 5832,
+      "sha256": "85a72226b4b65b2180140ba882d5019bbbe376ad2d58566e70645f7ef133e054"
+    },
+    {
+      "path": "tests/formula-subtotal.test.mjs",
+      "bytes": 5817,
+      "sha256": "6fc5f3c6874fd8f66eb83b39051a9e3d04ce120074e6c023e98fcd562eeba1b1"
     },
     {
       "path": "tests/fortune-adapter.test.mjs",
@@ -2403,8 +2408,8 @@
     },
     {
       "path": "tests/fortune-calculation-boundary.test.mjs",
-      "bytes": 3363,
-      "sha256": "300c5f0522bffbc5f06c55f5f6e55d90dc5575565edea1b3fef47a0e66d5eef6"
+      "bytes": 5315,
+      "sha256": "9bdf011f865bc5d2a4742dd70120dc131baea5e34303a74054a431157f206366"
     },
     {
       "path": "tests/fortune-numeric-roundtrip.test.mjs",
@@ -2612,6 +2617,11 @@
       "sha256": "5eca32a384be3174a71d1e928c6b8756f9acc279eb36de74d42ddb5ebd78d0c3"
     },
     {
+      "path": "tests/xlsx-visibility.test.mjs",
+      "bytes": 4073,
+      "sha256": "3c7154239dfdbac7dd8ca388a36b9a16aa00335e5973e7fadf58da9183cc12e4"
+    },
+    {
       "path": "tsconfig.json",
       "bytes": 321,
       "sha256": "d81bf1f69c2533807c330336fd3ff50d7805ade21033379cbcde9e6f7ae7594d"
@@ -2653,8 +2663,8 @@
     },
     {
       "path": "types/core/formula-graph.d.ts",
-      "bytes": 2294,
-      "sha256": "b77124bf8d3fed061fa7c0145ea64e1828e2ac365c2be5f3e286b5828fddc084"
+      "bytes": 2351,
+      "sha256": "8acdf02287bfe30502d9f43b834d83150410d213695c99217dcb7a4e5bd25d15"
     },
     {
       "path": "types/core/formula-policy.d.ts",
