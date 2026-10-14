@@ -120,7 +120,6 @@ export default function DashboardSidebar({
     { href: '/inventory', label: 'Sklad', key: 'modules', icon: 'modules', product: 'inventory' },
     { href: '/smart-quotes', label: 'Chytré nabídky', key: 'modules', icon: 'quotes', product: 'smart_quotes' },
     { href: '/fleet', label: 'Vozidla', key: 'modules', icon: 'calendar', product: 'fleet' },
-    { href: '/diriqent', label: 'Diriqent', key: 'modules', icon: 'guide', product: 'ai_assistant' },
     { href: '/pos', label: 'DiriPOS', key: 'modules', icon: 'costs', product: 'pos' },
   ]
   const visibleProducts = productItems.filter(item => availableProducts.includes(item.product))
@@ -165,6 +164,7 @@ export default function DashboardSidebar({
         <div className="dq-nav-section">
           <p className="dq-nav-label">{workspaceLabel}</p>
           {showCoreNavigation ? primaryItems.filter(isAvailable).map(renderItem) : renderItem({href: '/moje-prace', label: {cs:'Moje práce',en:'My work',de:'Meine Arbeit'}[locale], key:'dashboard',icon:'jobs'})}
+          {renderItem({ href: '/diriqent', label: 'Diriqent', key: 'modules', icon: 'guide' })}
           {officeEnabled ? (
             // A new document prevents Office's global CSS/print rules from leaking to the host.
             // eslint-disable-next-line @next/next/no-html-link-for-pages

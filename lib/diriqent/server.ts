@@ -5,10 +5,12 @@ import {createSupabaseAdminClient} from '@/lib/supabase-admin'
 import {quoteError} from '@/lib/smart-quotes/server'
 import {detectDocumentType,imageDimensions,isAiKind,MAX_FILE_BYTES,MAX_PROMPT,parseChatResult,parseOcrResult,type AiKind,type ChatResult,type OcrResult,type JobDraft} from './domain'
 import {createResponse,providerConfigured,ProviderRejectedError,requestBody,responseText,responseUsage,retrieveResponse,type ProviderResponse} from './provider'
+import { assertDiriqentPolicy, assertDiriqentRecords, diriqentScope, type DiriqentScope } from './access'
+import { parseWorkResult, type WorkMode, type WorkSpec, type WorkResult } from './work'
 
-export type Operation={id:string;company_id:string;profile_id:string;conversation_id:string|null;kind:AiKind;prompt:string;state:'reserved'|'running'|'unknown'|'completed'|'failed';reserved_units:number;charged_units:number;result:ChatResult|OcrResult|null;source_name:string|null;source_path:string|null;source_mime:string|null;created_at:string;error_code:string|null;context_snapshot:{scope?:string;asOf?:string;jobs?:{id:string;title:string}[];customers?:{id:string;name:string}[]}|null;providerResponseId?:string;providerAttemptId?:string}
+export type Operation={id:string;company_id:string;profile_id:string;conversation_id:string|null;kind:AiKind;prompt:string;state:'reserved'|'running'|'unknown'|'completed'|'failed';reserved_units:number;charged_units:number;result:ChatResult|OcrResult|WorkResult|null;source_name:string|null;source_path:string|null;source_mime:string|null;created_at:string;error_code:string|null;access_scope:DiriqentScope;work_mode?:'basic'|WorkMode;work_spec?:WorkSpec;work_quote_id?:string;rate_version?:string;context_snapshot:{scope?:string;asOf?:string;jobs?:{id:string;title:string}[];customers?:{id:string;name:string}[];metrics?:Record<string,unknown>;coverage?:Record<string,unknown>;warnings?:string[]}|null;providerResponseId?:string;providerAttemptId?:string}
 export type Proposal={operation_id:string;payload:JobDraft&{customerName?:string|null};payload_hash:string;expires_at:string;job_id:string|null}
-export type AiWorkspace={companyId:string;profileId:string;roleScope:string|null;canRun:boolean;canCreateJobs:boolean;availableUnits:number;rateVersion:string;conversations:{id:string;title:string}[];operations:Operation[];proposals:Proposal[]}
+export type AiWorkspace={companyId:string;profileId:string;roleScope:string|null;canRun:boolean;canCreateJobs:boolean;availableUnits:number;rateVersion:string;conversations:{id:string;title:string;work_mode?:'basic'|WorkMode}[];operations:Operation[];proposals:Proposal[]}
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
 export async function aiContext(expectedCompanyId?:string) {
@@ -32,12 +34,16 @@ export async function aiWorkspace(kind:AiKind='chat'):Promise<AiWorkspace> {
   const ctx=await aiContext()
   const {data,error}=await ctx.supabase.rpc('diriqent_read',{c:ctx.companyId,k:kind})
   if(error)throw new Error(error.message)
+  assertDiriqentPolicy(data)
+  for (const collection of ['conversations', 'operations', 'proposals']) assertDiriqentRecords(ctx.role, data[collection])
   return {...data,roleScope:ctx.role,canCreateJobs:['super_admin','company_admin'].includes(ctx.role??'')} as AiWorkspace
 }
 async function ownOperation(ctx:Awaited<ReturnType<typeof aiContext>>,id:string):Promise<Operation> {
   if(!UUID.test(id))throw new Error('Neplatný požadavek.')
   const {data,error}=await ctx.supabase.rpc('diriqent_operation',{c:ctx.companyId,operation:id})
   if(error||!data)throw new Error(error?.message??'Požadavek není dostupný.')
+  assertDiriqentPolicy(data)
+  assertDiriqentRecords(ctx.role, [data])
   return data as Operation
 }
 export async function readOwnAiOperation(companyId:string,id:string) {
@@ -46,11 +52,13 @@ export async function readOwnAiOperation(companyId:string,id:string) {
 async function settle(operation:Operation,attemptId:string,response:ProviderResponse) {
   const usage=responseUsage(response)
   if(!usage)return // Unknown actual usage stays reserved for reconciliation; never invent zero cost.
-  let result:ChatResult|OcrResult|null=null
+  let result:ChatResult|OcrResult|WorkResult|null=null
   let errorCode:string|null=null
   try {
     if(response.status!=='completed')throw new Error('provider_incomplete')
-    result=operation.kind.endsWith('.ocr')?parseOcrResult(responseText(response)):parseChatResult(responseText(response))
+    result=operation.work_mode==='analytics'||operation.work_mode==='plan'
+      ?parseWorkResult(responseText(response),operation.context_snapshot,operation.work_mode)
+      :operation.kind.endsWith('.ocr')?parseOcrResult(responseText(response)):parseChatResult(responseText(response))
   } catch {errorCode='unusable_result'}
   const {error}=await createSupabaseAdminClient().rpc('diriqent_settle',{operation:operation.id,attempt:attemptId,result,success:result!==null,input_tokens:usage.inputTokens,output_tokens:usage.outputTokens,cached_tokens:usage.cachedTokens,error_code:errorCode})
   if(error)throw new Error('Výsledek je připravený, ale vypořádání se ještě nepodařilo ověřit. Použijte Ověřit výsledek.')
@@ -58,8 +66,13 @@ async function settle(operation:Operation,attemptId:string,response:ProviderResp
 export type StartInput={companyId:string;requestId:string;kind:AiKind;prompt:string;conversationId:string|null;maxUnits:number}
 export async function startAi(input:StartInput,file?:File):Promise<Operation> {
   const ctx=await aiContext(input.companyId)
+  // Authorization is independent of pricing. A larger budget cannot grant a role.
+  if(input.kind==='proposal' && diriqentScope(ctx.role)!=='company_admin')throw new Error('Návrh nové zakázky připravuje správce firmy.')
+  const policy=await ctx.supabase.rpc('diriqent_access_policy',{c:ctx.companyId})
+  if(policy.error)throw new Error('Práce s daty čeká na aktualizaci ochrany oprávnění. Podpora bez kreditu zůstává dostupná.')
+  assertDiriqentPolicy(policy.data)
+  if(policy.data.companyId!==ctx.companyId || policy.data.profileId!==ctx.profileId || policy.data.scope!==diriqentScope(ctx.role))throw new Error('Firma nebo oprávnění se změnily. Obnovte stránku.')
   if(!providerConfigured())throw new Error('AI služba zatím nemá nastavený serverový klíč.')
-  const admin=createSupabaseAdminClient()
   if(!isAiKind(input.kind)||!UUID.test(input.requestId)||typeof input.prompt!=='string'||!input.prompt.trim()||input.prompt.length>MAX_PROMPT||!Number.isSafeInteger(input.maxUnits)||input.maxUnits<100||input.maxUnits>5000)throw new Error('Zkontrolujte zadání a limit od 1 do 50 Kč.')
   if(input.conversationId&&!UUID.test(input.conversationId))throw new Error('Neplatný rozhovor.')
   const ocr=input.kind.endsWith('.ocr')
@@ -75,6 +88,11 @@ export async function startAi(input:StartInput,file?:File):Promise<Operation> {
   const {data:reserved,error:reserveError}=await ctx.supabase.rpc('diriqent_reserve',{c:ctx.companyId,request_id:input.requestId,k:input.kind,conversation:input.conversationId,prompt:input.prompt.trim(),fingerprint,max_units:input.maxUnits,source_name:file?.name.slice(0,160)??null})
   if(reserveError)throw new Error(reserveError.message)
   const operation=reserved as Operation
+  return executeReservedAi(ctx,operation,bytes,mime)
+}
+/** Executes only a server-reserved operation; the DB claim rechecks current authority. */
+export async function executeReservedAi(ctx:Awaited<ReturnType<typeof aiContext>>,operation:Operation,bytes?:Buffer,mime?:string):Promise<Operation> {
+  const admin=createSupabaseAdminClient()
   const {data:claim,error:claimError}=await admin.rpc('diriqent_provider_claim',{operation:operation.id,c:ctx.companyId,p:ctx.profileId})
   if(claimError){await ctx.supabase.rpc('diriqent_cancel_unstarted',{c:ctx.companyId,operation:operation.id});throw new Error(claimError.message)}
   if(!claim.claimed)return publicOperation(await ownOperation(ctx,operation.id))
@@ -88,13 +106,14 @@ export async function startAi(input:StartInput,file?:File):Promise<Operation> {
       const upload=await admin.storage.from('diriqent-documents').upload(sourcePath,bytes,{contentType:mime,upsert:false})
       if(upload.error)throw new Error('Podklad se nepodařilo bezpečně uložit.')
     }
-    const body=requestBody(input.kind,input.prompt.trim(),claim.context,claim.history,bytes&&mime?{mime,base64:bytes.toString('base64')}:undefined)
+    const mode=operation.work_mode==='analytics'||operation.work_mode==='plan'?operation.work_mode:undefined
+    const body=requestBody(operation.kind,operation.prompt.trim(),claim.context,claim.history,bytes&&mime?{mime,base64:bytes.toString('base64')}:undefined,mode)
     externalStarted=true
     const response=await createResponse(operation.id,body)
     if(!/^resp_[a-zA-Z0-9_-]+$/.test(response.id))throw new Error('Poskytovatel nevrátil ověřitelnou referenci.')
     const record=await admin.rpc('diriqent_provider_record',{operation:operation.id,attempt:attemptId,response_id:response.id,source_path:sourcePath,source_mime:mime??null})
     if(record.error)throw new Error('Nepodařilo se uložit referenci výsledku.')
-    if(['completed','failed','cancelled','incomplete'].includes(response.status))await settle(operation,attemptId,response)
+    if(['completed','failed','cancelled','incomplete'].includes(response.status))await settle({...operation,context_snapshot:claim.context},attemptId,response)
   } catch(error) {
     if(!externalStarted||error instanceof ProviderRejectedError) {
       const failed=await admin.rpc('diriqent_settle',{operation:operation.id,attempt:attemptId,result:null,success:false,input_tokens:0,output_tokens:0,cached_tokens:0,error_code:externalStarted?'provider_rejected':'source_upload_failed'})

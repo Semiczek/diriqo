@@ -419,6 +419,9 @@ export default function FloatingHelpWidget({ activeItem }: FloatingHelpWidgetPro
             <Link href="/help" style={secondaryButtonStyle} onClick={() => setPanelOpen(false)}>
               {helpUi.openFullHelp}
             </Link>
+            <Link href="/diriqent" style={secondaryButtonStyle} onClick={() => setPanelOpen(false)}>
+              {{ cs: 'Diriqent · podpora bez kreditu', en: 'Diriqent · support without AI credits', de: 'Diriqent · Hilfe ohne KI-Guthaben' }[locale]}
+            </Link>
           </div>
 
           <button type="button" onClick={closePanel} style={textButtonStyle} disabled={isPending}>

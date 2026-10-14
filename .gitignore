@@ -34,6 +34,7 @@ yarn-error.log*
 lint-report*.json
 
 # local audit/dev artifacts
+/work/validation-deps/
 .tmp-*
 audit-click-*.json
 audit-screenshots*/

@@ -4,9 +4,23 @@ import {aiContext,aiError,pollAi,readOwnAiOperation,startAi,type Operation,type 
 import {validateJobDraft} from '@/lib/diriqent/domain'
 import {validateDraft} from '@/lib/smart-quotes/domain'
 import {runQuoteCommand} from '@/app/smart-quotes/actions'
+import {answerSupport,type SupportAnswer} from '@/lib/diriqent/support'
+import {advancedWorkMode,type WorkMode} from '@/lib/diriqent/work'
 type Result<T>={ok:true;value:T}|{ok:false;error:string}
-export async function startChat(input:StartInput):Promise<Result<Operation>> {
-  try {if(input.kind!=='chat'&&input.kind!=='proposal')throw new Error('Použijte formulář OCR.');const value=await startAi(input);revalidatePath('/diriqent');return {ok:true,value}}catch(error){return {ok:false,error:aiError(error)}}
+export async function startChat(input:StartInput):Promise<Result<Operation>|{ok:true;support:SupportAnswer}|{ok:true;advanced:WorkMode}> {
+  try {
+    if(!input || (input.kind!=='chat'&&input.kind!=='proposal'))throw new Error('Použijte formulář OCR.')
+    if(typeof input.prompt!=='string'||!input.prompt.trim()||input.prompt.length>4000)throw new Error('Vyplňte zadání do 4 000 znaků.')
+    const context=await aiContext(input.companyId)
+    const guide=answerSupport(input.prompt,context.role)
+    // Even in the paid workspace, a known how-to must not spend a credit reservation.
+    if(guide.kind!=='needs_data')return {ok:true,support:guide}
+    const advanced=advancedWorkMode(input.prompt)
+    if(advanced)return {ok:true,advanced}
+    const value=await startAi(input)
+    revalidatePath('/diriqent')
+    return {ok:true,value}
+  }catch(error){return {ok:false,error:aiError(error)}}
 }
 export async function checkAiOperation(companyId:string,id:string):Promise<Result<Operation>> {
   try{return {ok:true,value:await pollAi(companyId,id)}}catch(error){return {ok:false,error:aiError(error)}}

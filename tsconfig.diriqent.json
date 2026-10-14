@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "incremental": false },
+  "include": [
+    "next-env.d.ts",
+    "app/diriqent/**/*.ts", "app/diriqent/**/*.tsx",
+    "app/api/diriqent/**/*.ts", "lib/diriqent/*.ts",
+    "components/DashboardSidebar.tsx", "components/FloatingHelpWidget.tsx",
+    "tests/diriqent-*.test.ts"
+  ],
+  "exclude": ["node_modules", "work", "packages/diriqo-office"]
+}
