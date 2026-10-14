@@ -78,7 +78,7 @@ try {
      ('55555555-5555-4555-8555-555555555555','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','33333333-3333-4333-8333-333333333333','chat','Preserve admin original','legacy',true,'completed',100,'{"answer":"Preserve private result"}'),
      ('66666666-6666-4666-8666-666666666666','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','44444444-4444-4444-8444-444444444444','chat','Preserve worker original','legacy',false,'completed',100,'{"answer":"Preserve worker result"}');
   `)
-  await db.exec(await sql('supabase/migrations/20261013185010_diriqent_role_scopes.sql'))
+  await db.exec(await sql('supabase/migrations/20261014045422_diriqent_role_scopes.sql'))
   const legacy = await db.query('select requires_manager,access_scope,prompt,result from public.diriqent_operations order by requires_manager desc')
   assert.equal(legacy.rows[0].access_scope, 'company_admin')
   assert.equal(legacy.rows[1].access_scope, 'worker')
@@ -89,7 +89,7 @@ try {
   assert.equal(legacyTitles.rows[1].title, 'Legacy worker title')
   console.log('PASS: 6 legacy backfill/data-preservation assertions')
 
-  await db.exec(await sql('supabase/migrations/20261014041318_diriqent_work_quotes.sql'))
+  await db.exec(await sql('supabase/migrations/20261014045428_diriqent_work_quotes.sql'))
   for (const file of ['tests/diriqent-integration.sql', 'tests/diriqent-role-scope.sql', 'tests/diriqent-work-quotes.sql']) {
     const results = await db.exec(await sql(file))
     console.log(`PASS: ${file}`, JSON.stringify(results.at(-1).rows[0].result))

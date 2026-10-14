@@ -1,5 +1,7 @@
 # Diriqent 2.0 — druhá etapa: analytika a plány
 
+Poznámka k vydání 14. 10. 2026: následující text zachycuje původní lokální ověření. Při schváleném nasazení byly obě migrace úspěšně aplikovány do `diriqo-prod` přes Supabase MCP. Soubory používají skutečné evidované verze `20261014045422` a `20261014045428`; SQL se nezměnilo. Postflight potvrdil RLS, soukromou tabulku potvrzení, odebraná oprávnění interních RPC, marker nové verze a zachování obou původních operací. Žádná původní operace nebyla rozpracovaná. Po spojení s aktuálním main (Office 0.3.4) prošlo všech 418 aplikačních testů a 142 lokálních SQL asercí.
+
 Stav k 14. 10. 2026: implementováno a ověřeno lokálně v repozitáři **Diriqo**, větev `codex/diriqent-2.0`. JSPD Hub se nemění. Tato etapa navazuje na [první etapu](./diriqent-2.0-stage-1.md). Není nasazená a migrace nebyly aplikované na živou databázi.
 
 ## Oddělené režimy a cena
@@ -56,6 +58,6 @@ node --max-old-space-size=512 node_modules/typescript/bin/tsc --project tsconfig
 
 ## Nasazení a další rozsah
 
-Před zpřístupněním je potřeba ve schváleném prostředí aplikovat postupně `20261013185010_diriqent_role_scopes.sql` a `20261014041318_diriqent_work_quotes.sql`, nasadit aplikaci a ověřit role i skutečný průchod v prohlížeči. Bez markeru nové migrace analytika odmítne spuštění; bezplatná podpora funguje dál.
+Před zpřístupněním je potřeba ve schváleném prostředí aplikovat postupně `20261014045422_diriqent_role_scopes.sql` a `20261014045428_diriqent_work_quotes.sql`, nasadit aplikaci a ověřit role i skutečný průchod v prohlížeči. Bez markeru nové migrace analytika odmítne spuštění; bezplatná podpora funguje dál.
 
 Tato etapa pokrývá analytiku dostupných zakázek/vlastní docházky a návrhy práce nad nimi. Automatické provádění vícekrokových úloh napříč moduly, úplná finanční analytika, nové Office AI nástroje a napojení kontextu aktuální stránky jsou navazující rozsah.

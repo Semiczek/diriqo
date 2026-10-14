@@ -1,5 +1,7 @@
 # Diriqent 2.0 — první etapa
 
+Poznámka k vydání 14. 10. 2026: následující text zachycuje původní lokální ověření. Při schváleném nasazení byla migrace úspěšně aplikována do `diriqo-prod` přes Supabase MCP; její soubor nyní používá skutečnou evidovanou verzi `20261014045422`.
+
 Stav k 14. 10. 2026: lokální implementace na větvi `codex/diriqent-2.0`, výchozí commit `ac07949`. Změny nejsou nasazené ani aplikované na živou databázi. Původní checkout s rozpracovanou fakturací zůstává oddělený.
 
 ## Dostupné chování
@@ -37,4 +39,4 @@ Závislost SQL runneru je pouze v ignorovaném `work/validation-deps`; instalač
 
 Celoprojektový TypeScript překročil záměrný limit 640 MB; limit nebyl zvýšen. Omezená kontrola upravené části včetně jejích importů prošla s limitem 512 MB. ESLint upravených souborů prošel. Plný build a přihlášený browser test nebyly kvůli vysokému využití RAM spuštěny.
 
-Před nasazením je nutné aplikovat `20261013185010_diriqent_role_scopes.sql` ve schváleném prostředí a otestovat přihlášené role nad skutečnými politikami. Dále následují nástroje napříč moduly, Office AIAdapter, kontext aktuální stránky a samostatné sazby složitější analytiky. První etapa tyto nové analytické funkce ani jejich ceny nezavádí.
+Před nasazením je nutné aplikovat `20261014045422_diriqent_role_scopes.sql` ve schváleném prostředí a otestovat přihlášené role nad skutečnými politikami. Dále následují nástroje napříč moduly, Office AIAdapter, kontext aktuální stránky a samostatné sazby složitější analytiky. První etapa tyto nové analytické funkce ani jejich ceny nezavádí.
