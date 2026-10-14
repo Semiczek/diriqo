@@ -3,7 +3,9 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { useState, type ReactNode } from 'react'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
+import FloatingDiriqent from '@/components/diriqent/FloatingDiriqent'
+import { notifyOfficeContextChanged } from '@/lib/office/client-context'
 import type { publicMobileContext } from './data'
 import styles from './mobile.module.css'
 import { signOutMobileAction } from './actions'
@@ -12,6 +14,7 @@ type Props = { app: 'my' | 'manager'; context?: ReturnType<typeof publicMobileCo
 
 export default function MobileShell({ app, context, children }: Props) {
   const router = useRouter()
+  const pathname = usePathname()
   const [switching, setSwitching] = useState(false)
   const [error, setError] = useState<string | null>(null)
   async function switchCompany(companyId: string) {
@@ -19,6 +22,7 @@ export default function MobileShell({ app, context, children }: Props) {
     try {
       const response = await fetch('/api/active-company', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ companyId }) })
       if (!response.ok) throw new Error('Firmu se nepodařilo změnit.')
+      notifyOfficeContextChanged()
       router.refresh()
     } catch { setError('Firmu se nepodařilo změnit. Zkuste to znovu.') }
     finally { setSwitching(false) }
@@ -39,5 +43,6 @@ export default function MobileShell({ app, context, children }: Props) {
       {children}
       <p className={styles.onlineNote}>Změny se ukládají při připojení k internetu. Před zavřením vždy vyčkejte na potvrzení.</p>
     </main>
+    {context && <FloatingDiriqent key={`${pathname}:${context.companyId}:${context.role}`} />}
   </div>
 }
