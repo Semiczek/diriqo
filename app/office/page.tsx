@@ -1,6 +1,7 @@
 import { getRequestLocale } from '@/lib/i18n/server'
 import { requireOfficeContext } from '@/lib/office/context'
 import OfficeClient from './OfficeClient'
+import FloatingDiriqent from '@/components/diriqent/FloatingDiriqent'
 
 export default async function OfficePage() {
   const { actor, active } = await requireOfficeContext()
@@ -17,6 +18,7 @@ export default async function OfficePage() {
       </nav>
       <OfficeClient tenantId={actor.tenantId} actorId={actor.actorId} readOnly={actor.role === 'reader'}
         companyName={active.companyName} companies={companies} locale={locale} />
+      <FloatingDiriqent key={`${actor.tenantId}:${actor.actorId}:${actor.role}`} keepWorkspaceOpen />
     </main>
   )
 }

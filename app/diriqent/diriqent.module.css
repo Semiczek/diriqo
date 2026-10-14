@@ -27,4 +27,5 @@
 .table th,.table td{text-align:left;padding:12px 8px;border-bottom:1px solid #e5e8ee}
 .table th{font-weight:500;color:#717684}
 .badge{padding:4px 8px;background:#f1eefb;border-radius:7px;color:#665789;font-size:12px}
+.compact {gap:12px}.compact h2 {font-size:16px;line-height:1.4;margin:0 0 8px;font-weight:600}.compact .muted {font-size:13px;margin:0 0 10px}.compact .card,.compact .message {padding:12px}.compact .secondary {font-size:12px;padding:8px 10px}.compact .field textarea {min-height:80px}.compact .answer {font-size:14px}
 @media(max-width:640px){.grid{grid-template-columns:1fr}.card{padding:16px}.message{padding:14px}.page h1{font-size:26px}}
