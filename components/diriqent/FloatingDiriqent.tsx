@@ -31,7 +31,7 @@ export default function FloatingDiriqent({ launcherRef, guideActive = false, onT
       title="Diriqent – váš pomocník v Diriqu"
       onClick={() => guideActive && onToggleGuide ? onToggleGuide() : setOpen(true)}>
       {/* Original shared Diriqent artwork, byte-identical to JSPD Hub's fallback asset. */}
-      <Image className={styles.character} src="/diriqent/diriqent-web-v001.png"
+      <Image className={styles.character} src="/assets/diriqent-web-v001.png"
         width={76} height={76} sizes="(max-width: 640px) 64px, 76px" alt="" draggable={false} />
       <span>Diriqent</span>
     </button>
