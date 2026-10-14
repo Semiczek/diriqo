@@ -10,7 +10,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const root = new URL('../', import.meta.url);
-const migrationPath = 'supabase/migrations/20261012170616_office_alternative_export_formats.sql';
+const migrationPath = 'supabase/migrations/20261014033100_office_alternative_export_formats.sql';
 const originalFormats = "('docx','xlsx','csv','txt','html','pdf','print')";
 const expandedFormats = "('docx','xlsx','csv','txt','html','pdf','print','odt','ods','xls','tsv')";
 const oldClause = `if coalesce(p_request->>'format','') not in ${originalFormats} then perform office_private.fail('UNSUPPORTED_FORMAT','Unsupported format.');end if;`;

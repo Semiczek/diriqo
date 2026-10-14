@@ -13,9 +13,11 @@ Aktuální hostitelská větev je `codex/office-import-release`, vychází z Dir
 
 ## Nasazení Diriqo
 
-Před nasazením aplikace aplikujte `supabase/migrations/20261012170616_office_alternative_export_formats.sql` do ověřeného Diriqo prostředí. Migrace mění pouze jediný známý exportní seznam ve stávající funkci `public.office_request(uuid,jsonb,text)`. Neočekávanou definici odmítne a při opakování nic nemění; zachovává ACL, vlastníka, SECURITY DEFINER, search_path i veškeré firemní kontroly. Nespouští migrace ostatních modulů. Návrat aplikace nevyžaduje mazání dat ani odebrání nových formátů.
+Při obnově prostředí před nasazením aplikace aplikujte `supabase/migrations/20261014033100_office_alternative_export_formats.sql` do ověřeného Diriqo prostředí. Migrace mění pouze jediný známý exportní seznam ve stávající funkci `public.office_request(uuid,jsonb,text)`. Neočekávanou definici odmítne a při opakování nic nemění; zachovává ACL, vlastníka, SECURITY DEFINER, search_path i veškeré firemní kontroly. Nespouští migrace ostatních modulů. Návrat aplikace nevyžaduje mazání dat ani odebrání nových formátů.
 
 Hostitelská oprávnění Diriqo se nemění. Sdílené volitelné UI pro sdílení nedoplňuje do Diriqo automaticky Hub organizační model. Rozšíření nemění kód pokladny, její API, zásoby ani platební operace.
+
+Produkční Diriqo přijalo tuto migraci 14. 10. 2026 v 03:31 UTC pod verzí `20261014033100`. Verze souboru odpovídá záznamu Supabase. Kontrola technického schématu potvrdila pouze změnu exportního seznamu: MD5 definice před změnou `202ce9f3729341822236ceb5bf493043`, po změně `9c5eb26a12dff50a4148999cb22af8e0`; po normalizaci seznamu je otisk totožný s původním. OID 24332, vlastník, ACL, SECURITY DEFINER a search_path zůstaly stejné. Firemní záznamy nebyly pro tuto kontrolu čteny ani upraveny.
 
 ## Doložené ověření
 
@@ -24,7 +26,7 @@ Hostitelská oprávnění Diriqo se nemění. Sdílené volitelné UI pro sdíle
 - Databázová migrace: 2/2 testy, včetně skutečného izolovaného PostgreSQL/PGlite s testovacími uživateli dvou firem, změnou identity, vypnutým modulem, exportním auditem, zachováním obsahu a oprávnění, idempotencí a odmítnutím neočekávaného schématu. Bez připojení k produkci.
 - Kontrola hostitelského balíčku, licencí, fontů, SBOM a nezměněných závislostí úspěšná. Kontrola stylu změněných TypeScript souborů úspěšná.
 - Čtyři uživatelem dodané XLSX prošly místním importem i průchodem editorovým adaptérem beze změny originálů. Soubory a jejich obsah nejsou součástí Gitu. Konkrétní uživatelský ODT nebyl dodán; ODT pokrývají syntetické testy.
-- Úplná kontrola typů, build a opakování sad běží v CI. Místní úplná kontrola typů byla ukončena paměťovým stropem 512 MiB; kvůli požadavku šetřit RAM se lokálně neopakuje.
+- Úplná kontrola typů, build, hostitelské testy a opakování sdílených testů úspěšně proběhly v CI pro commit `dca3592a9fcb7e77f349cc5d5986df6196bb3f20`; CI ověří také konečný commit PR. Místní úplná kontrola typů byla ukončena paměťovým stropem 512 MiB; kvůli požadavku šetřit RAM se lokálně neopakuje.
 - Přihlášený průchod novou produkční verzí v Chrome není ověřen. Úspěšné CI a READY deployment samy nenahrazují tento důkaz.
 
 Přesný výsledný main commit, stav CI a nasazení uvádí PR a předání. Následující oddíl zachovává historický postup prvního zapojení; jeho starší verze archivu a stagingové termíny nejsou aktuálním nasazením.
