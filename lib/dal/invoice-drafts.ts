@@ -1,6 +1,6 @@
 import 'server-only'
 
-import type { InvoiceIssueContext } from '@/lib/dal/invoices'
+import { invoiceNumberConflictError, type InvoiceIssueContext, type InvoiceIssueResult } from '@/lib/dal/invoices'
 
 export type InvoiceDraftInput = {
   customerId: string
@@ -113,4 +113,167 @@ export async function createInvoiceFromJobsAtomic(ctx: InvoiceIssueContext, inpu
     || !['draft', 'issued', 'sent', 'paid', 'overdue', 'cancelled'].includes(data.status)
     || (data.created && data.status !== 'draft')) throw invoiceDraftWriteError(null)
   return { invoiceId: data.invoice_id.toLowerCase(), status: data.status, created: data.created }
+}
+
+export type InvoiceDraftEditIdentity = {
+  invoiceId: string
+  expectedRevision: string
+  expectedItemIds: string[]
+}
+
+export type InvoiceDraftEditInput = InvoiceDraftEditIdentity & {
+  header: {
+    invoiceNumber: string | null
+    variableSymbol: string | null
+    issueDate: string
+    taxableSupplyDate: string
+    dueDate: string
+    note: string | null
+    supplier: Record<string, string | null>
+    customer: Record<string, string | null>
+  }
+  items: Array<{
+    id: string; itemName: string; description: string | null; quantity: string
+    unit: string | null; unitPriceWithoutVat: string; vatRate: string
+  }>
+}
+
+export class InvoiceDraftEditError extends Error {
+  constructor(message: string, public readonly reloadRequired = false) {
+    super(message)
+    this.name = 'InvoiceDraftEditError'
+  }
+}
+
+const revisionPattern = /^[0-9a-f]{64}$/
+const editUnknown = 'Výsledek změny faktury se nepodařilo potvrdit. Před dalším pokusem načtěte aktuální fakturu.'
+
+export function invoiceDraftEditError(error: { message?: string; code?: string } | null): InvoiceDraftEditError {
+  const conflict = invoiceNumberConflictError(error)
+  if (conflict) return new InvoiceDraftEditError(conflict.message)
+  switch (error?.message) {
+    case 'INVOICE_DRAFT_STALE':
+      return new InvoiceDraftEditError('Fakturu mezitím někdo změnil. Vaše rozepsané údaje zůstaly ve formuláři. Načtěte aktuální fakturu a změny porovnejte.', true)
+    case 'INVOICE_DRAFT_FORBIDDEN':
+    case 'INVOICE_ISSUE_FORBIDDEN':
+      return new InvoiceDraftEditError('Ke změně faktury nemáte oprávnění. Ověřte přihlášení a aktivní firmu.', true)
+    case 'INVOICE_NOT_FOUND':
+      return new InvoiceDraftEditError('Faktura nebyla v aktivní firmě nalezena.', true)
+    case 'INVOICE_MODULE_REQUIRED':
+      return new InvoiceDraftEditError('Pro tuto změnu je potřeba aktivní modul Fakturace a základ Diriqo nebo DiriPOS.', true)
+    case 'INVOICE_INVALID_STATE':
+      return new InvoiceDraftEditError('Faktura už není upravitelný koncept. Načtěte její aktuální stav.', true)
+    case 'INVOICE_DRAFT_ITEMS_INVALID':
+      return new InvoiceDraftEditError('Seznam položek neodpovídá načtené faktuře. Načtěte aktuální fakturu.', true)
+    case 'INVOICE_DRAFT_INPUT_INVALID':
+      return new InvoiceDraftEditError('Zkontrolujte data, názvy položek a platné kladné množství. Ceny a DPH musí být nezáporná desetinná čísla.')
+    case 'INVOICE_LINK_SCOPE_INVALID':
+    case 'INVOICE_LINK_CONFLICT':
+      return new InvoiceDraftEditError('Změnila se vazba faktury na zákazníka nebo zakázku. Načtěte aktuální fakturu.', true)
+    default:
+      return new InvoiceDraftEditError(editUnknown, true)
+  }
+}
+
+function assertEditIdentity(ctx: InvoiceIssueContext, input: Pick<InvoiceDraftEditIdentity, 'invoiceId' | 'expectedRevision'>) {
+  if (!uuid.test(ctx.companyId) || !uuid.test(input.invoiceId)) throw invoiceDraftEditError({ message: 'INVOICE_NOT_FOUND' })
+  if (!revisionPattern.test(input.expectedRevision)) throw invoiceDraftEditError({ message: 'INVOICE_DRAFT_STALE' })
+}
+
+function assertEditItems(ids: string[]) {
+  if (!Array.isArray(ids) || ids.length < 1 || ids.length > 200
+    || ids.some((id) => typeof id !== 'string' || !uuid.test(id))
+    || new Set(ids.map((id) => id.toLowerCase())).size !== ids.length) {
+    throw invoiceDraftEditError({ message: 'INVOICE_DRAFT_ITEMS_INVALID' })
+  }
+}
+
+async function editRpc(ctx: InvoiceIssueContext, name: string, args: Record<string, unknown>) {
+  try {
+    const auth = await ctx.supabase.auth.getUser()
+    if (auth.error || !auth.data.user) throw invoiceDraftEditError({ message: 'INVOICE_DRAFT_FORBIDDEN' })
+    const result = await ctx.supabase.rpc(name, args)
+    if (result.error) throw invoiceDraftEditError(result.error)
+    return result.data
+  } catch (error) {
+    if (error instanceof InvoiceDraftEditError) throw error
+    // Transport failures can happen after COMMIT. Never retry or claim success here.
+    throw invoiceDraftEditError(null)
+  }
+}
+
+export async function getInvoiceEditSnapshot(ctx: InvoiceIssueContext, invoiceId: string): Promise<{
+  invoice: Record<string, unknown> & { id: string; company_id: string }
+  items: Array<Record<string, unknown> & { id: string; invoice_id: string; company_id: string }>
+  revision: string
+} | null> {
+  if (!uuid.test(ctx.companyId) || !uuid.test(invoiceId)) return null
+  let data
+  try {
+    data = await editRpc(ctx, 'get_invoice_edit_snapshot', {
+      target_company_id: ctx.companyId.toLowerCase(), target_invoice_id: invoiceId.toLowerCase(),
+    })
+  } catch (error) {
+    if (error instanceof InvoiceDraftEditError && error.message === 'Faktura nebyla v aktivní firmě nalezena.') return null
+    throw error
+  }
+  if (!data || typeof data !== 'object' || Array.isArray(data)
+    || typeof data.revision !== 'string' || !revisionPattern.test(data.revision)
+    || !data.invoice || typeof data.invoice !== 'object' || Array.isArray(data.invoice)
+    || data.invoice.id !== invoiceId.toLowerCase() || data.invoice.company_id !== ctx.companyId.toLowerCase()
+    || !Array.isArray(data.items)
+    || data.items.some((item: Record<string, unknown>) => !item || typeof item !== 'object' || Array.isArray(item)
+      || typeof item.id !== 'string' || !uuid.test(item.id) || item.invoice_id !== invoiceId.toLowerCase()
+      || item.company_id !== ctx.companyId.toLowerCase())
+    || new Set(data.items.map((item: { id: string }) => item.id)).size !== data.items.length) throw invoiceDraftEditError(null)
+  return data
+}
+
+function draftEditResult(data: unknown, invoiceId: string): { invoiceId: string; revision: string } {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) throw invoiceDraftEditError(null)
+  const result = data as Record<string, unknown>
+  if (result.invoice_id !== invoiceId.toLowerCase() || result.status !== 'draft' || result.updated !== true
+    || typeof result.revision !== 'string' || !revisionPattern.test(result.revision)) throw invoiceDraftEditError(null)
+  return { invoiceId: result.invoice_id as string, revision: result.revision }
+}
+
+export async function updateInvoiceDraftAtomic(ctx: InvoiceIssueContext, input: InvoiceDraftEditInput) {
+  assertEditIdentity(ctx, input)
+  assertEditItems(input.expectedItemIds)
+  if (!Array.isArray(input.items) || input.items.length !== input.expectedItemIds.length
+    || input.items.some((item, index) => item.id !== input.expectedItemIds[index]
+      || ![item.quantity, item.unitPriceWithoutVat, item.vatRate].every(value => typeof value === 'string' && /^\d+(?:\.\d+)?$/.test(value)))) {
+    throw invoiceDraftEditError({ message: 'INVOICE_DRAFT_INPUT_INVALID' })
+  }
+  const data = await editRpc(ctx, 'update_invoice_draft_atomic', {
+    target_company_id: ctx.companyId.toLowerCase(), target_invoice_id: input.invoiceId.toLowerCase(),
+    expected_revision: input.expectedRevision, expected_item_ids: input.expectedItemIds,
+    header_input: input.header, item_inputs: input.items,
+  })
+  return draftEditResult(data, input.invoiceId)
+}
+
+export async function refreshInvoiceSupplierAtomic(ctx: InvoiceIssueContext, input: InvoiceDraftEditIdentity) {
+  assertEditIdentity(ctx, input)
+  assertEditItems(input.expectedItemIds)
+  const data = await editRpc(ctx, 'refresh_invoice_supplier_atomic', {
+    target_company_id: ctx.companyId.toLowerCase(), target_invoice_id: input.invoiceId.toLowerCase(),
+    expected_revision: input.expectedRevision, expected_item_ids: input.expectedItemIds,
+  })
+  return draftEditResult(data, input.invoiceId)
+}
+
+export async function issueInvoiceRevisionAtomic(ctx: InvoiceIssueContext, input: Pick<InvoiceDraftEditIdentity, 'invoiceId' | 'expectedRevision'>): Promise<InvoiceIssueResult> {
+  assertEditIdentity(ctx, input)
+  const data = await editRpc(ctx, 'issue_invoice_revision_atomic', {
+    target_company_id: ctx.companyId.toLowerCase(), target_invoice_id: input.invoiceId.toLowerCase(),
+    expected_revision: input.expectedRevision,
+  })
+  if (!data || typeof data !== 'object' || Array.isArray(data)
+    || data.invoice_id !== input.invoiceId.toLowerCase() || typeof data.issued !== 'boolean'
+    || typeof data.invoice_number !== 'string' || !data.invoice_number.trim()
+    || !['issued', 'sent', 'paid', 'overdue'].includes(data.status)
+    || (data.issued && data.status !== 'issued')) throw invoiceDraftEditError(null)
+  return { invoiceId: data.invoice_id, invoiceNumber: data.invoice_number, status: data.status,
+    issued: data.issued, alreadyIssued: !data.issued }
 }

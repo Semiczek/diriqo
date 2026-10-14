@@ -23,6 +23,20 @@ export function roundEconomicsMoney(value: number) {
   return Math.round(value * 100) / 100
 }
 
+/** A saved canonical zero is still an amount; legacy aliases must not revive old revenue. */
+export function getInvoiceNetAmount(row: {
+  subtotal_without_vat?: number | string | null
+  total_without_vat?: number | string | null
+  total_price?: number | string | null
+  total_amount?: number | string | null
+  total_with_vat?: number | string | null
+}) {
+  for (const amount of [row.subtotal_without_vat, row.total_without_vat, row.total_price, row.total_amount, row.total_with_vat]) {
+    if (amount !== null && amount !== undefined && amount !== '') return toEconomicsNumber(amount)
+  }
+  return 0
+}
+
 export function getDirectCostTotal(item: {
   total_price?: number | string | null
   quantity?: number | string | null

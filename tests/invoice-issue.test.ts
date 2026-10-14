@@ -28,7 +28,8 @@ const context = () => ({
 const form = () => {
   const data = new FormData()
   data.set('invoiceId', invoiceId)
-  data.set('companyId', 'c3333333-3333-4333-8333-333333333333')
+  data.set('companyId', companyId)
+  data.set('revision', 'a'.repeat(64))
   data.set('invoiceNumber', 'forged')
   data.set('issued_at', '2000-01-01')
   data.set('entitlementId', 'forged')
@@ -118,10 +119,10 @@ describe('shared invoice issue boundary', () => {
 })
 
 describe('both application entrypoints', () => {
-  it('uses the server company in the form action, ignoring extra client fields', async () => {
+  it('uses the verified company and seen revision, ignoring forged financial fields', async () => {
     await actionIssue(form())
-    expect(mocks.rpc).toHaveBeenCalledExactlyOnceWith('issue_invoice_atomic', {
-      target_company_id: companyId, target_invoice_id: invoiceId,
+    expect(mocks.rpc).toHaveBeenCalledExactlyOnceWith('issue_invoice_revision_atomic', {
+      target_company_id: companyId, target_invoice_id: invoiceId, expected_revision: 'a'.repeat(64),
     })
     expect(mocks.from).not.toHaveBeenCalled()
     expect(mocks.revalidate.mock.calls).toEqual([['/invoices'], [`/invoices/${invoiceId}`], ['/jobs']])
