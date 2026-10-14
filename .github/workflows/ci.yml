@@ -36,7 +36,7 @@ jobs:
         run: npm run test
 
       - name: Office company menu and POS regression contracts
-        run: node --test scripts/office-release.test.mjs
+        run: node --test --test-concurrency=1 scripts/office-*.test.mjs
 
       - name: Build
         run: npm run build

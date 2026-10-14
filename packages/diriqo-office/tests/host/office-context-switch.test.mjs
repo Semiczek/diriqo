@@ -179,7 +179,8 @@ for (const host of ['hub', 'diriqo']) {
       assert.equal((await mod.officeAction(A.tenantId, { op })).error, 'OFFICE_TENANT_CHANGED');
     }
     await assert.rejects(mod.officeTemplateVariables(A.tenantId, { type: 'job', id: 'id' }), /OFFICE_TENANT_CHANGED/);
-    assert.equal(calls, 0); assert.equal(writes[0], false); assert.equal(writes[2], true);
+    assert.equal(calls, 0); assert.equal(writes.length, 8, 'Every operation revalidates the host context before touching the stale tenant');
+    if (host === 'diriqo') { assert.equal(writes[0], false); assert.equal(writes[2], true); }
   });
 
   test(host + ': actual client pins the editor/draft through new props and blocks every transport until original context returns', async () => {
@@ -215,6 +216,7 @@ for (const host of ['hub', 'diriqo']) {
       jsx: (type, props, ...children) => ({ type, props: props ?? {}, children }), Fragment: 'Fragment',
       officeContextMessages: { cs: { checking: 'checking', changed: 'changed', unavailable: 'unavailable', recovery: 'recovery', verify: 'verify', open: 'open' } },
       officeShellMessages: { cs: { company: 'company', switchCompany: 'switch', logout: 'logout', switchHint: 'hint', logoutHint: 'hint', switchFailed: 'failed' } },
+      styles: {},
       window: {
         addEventListener: (name, callback) => events.set(name, callback), removeEventListener: name => events.delete(name),
         setInterval: () => 1, clearInterval() {},
@@ -236,7 +238,7 @@ for (const host of ['hub', 'diriqo']) {
       queued.forEach(run => run());
       return tree;
     };
-    const nodes = tree => Array.isArray(tree) ? tree.flatMap(nodes) : !tree || typeof tree !== 'object' ? [] : [tree, ...(tree.children ?? []).flatMap(nodes)];
+    const nodes = tree => Array.isArray(tree) ? tree.flatMap(nodes) : !tree || typeof tree !== 'object' ? [] : [tree, ...(tree.children ?? []).flatMap(nodes), ...nodes(tree.props?.headerSecondary)];
     const initial = { ...A, companyName: 'Company A', companies: [A, B].map(context => ({ companyId: context.tenantId, companyName: context.tenantId })) };
     const first = nodes(render(initial)).find(node => node.type === 'Workspace'), transport = first.props.transport;
     await tick();
@@ -286,19 +288,28 @@ for (const host of ['hub', 'diriqo']) {
     await assert.rejects(transport.importFile({ get: () => new File([new Uint8Array(3 * 1024 * 1024 + 1)], 'big.txt') }), /OFFICE_HOST_LIMIT/);
     assert.equal(actions.length + requests.length, beforeLimit);
 
-    // The switch inside this panel keeps the same editor and opens no navigation.
-    nodes(render(initial)).find(node => node.type === 'select').props.onChange({ target: { value: B.tenantId } });
-    nodes(render(initial)).find(node => node.type === 'button' && node.children.includes('switch')).props.onClick();
-    await tick();
-    assert.equal(companySwitches.length, 1);
-    assert.equal(companySwitches[0].companyId, B.tenantId);
-    assert.equal(companySwitches[0].companies.length, 2);
-    const afterOwnSwitch = nodes(render(initial));
-    assert.equal(afterOwnSwitch.find(node => node.type === 'Workspace').props.transport, transport);
-    assert.equal(afterOwnSwitch.find(node => node.type === 'Workspace').props.key, A.tenantId);
-    assert.equal(afterOwnSwitch.find(node => node.props['data-office-context']).props['data-office-context'], 'changed');
-    const logout = afterOwnSwitch.find(node => node.type === 'a' && node.props.href === '/logout');
-    assert.equal(logout.props.target, '_blank');
+    if (host === 'hub') {
+      const shell = nodes(render(initial));
+      assert.equal(shell.some(node => node.type === 'select' || node.props.href === '/logout'), false);
+      const back = shell.find(node => node.type === 'a' && node.props.href === '/');
+      assert.ok(back, 'Hub keeps a native return link underneath its Office header');
+      assert.equal(back.props.target, undefined);
+      assert.equal(companySwitches.length, 0);
+    } else {
+      // Diriqo retains its existing switch without remounting the editor.
+      nodes(render(initial)).find(node => node.type === 'select').props.onChange({ target: { value: B.tenantId } });
+      nodes(render(initial)).find(node => node.type === 'button' && node.children.includes('switch')).props.onClick();
+      await tick();
+      assert.equal(companySwitches.length, 1);
+      assert.equal(companySwitches[0].companyId, B.tenantId);
+      assert.equal(companySwitches[0].companies.length, 2);
+      const afterOwnSwitch = nodes(render(initial));
+      assert.equal(afterOwnSwitch.find(node => node.type === 'Workspace').props.transport, transport);
+      assert.equal(afterOwnSwitch.find(node => node.type === 'Workspace').props.key, A.tenantId);
+      assert.equal(afterOwnSwitch.find(node => node.props['data-office-context']).props['data-office-context'], 'changed');
+      const logout = afterOwnSwitch.find(node => node.type === 'a' && node.props.href === '/logout');
+      assert.equal(logout.props.target, '_blank');
+    }
     effects.forEach(effect => effect.cleanup?.());
   });
 }

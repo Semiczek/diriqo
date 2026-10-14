@@ -63,3 +63,18 @@ test('a 2000-cell dependency chain uses iterative graph traversal',()=>{
  put(content,0,1999,0,'=1');
  assert.deepEqual(assertFormulaGraph(content),{formulaCount:2000,expandedReferences:1999,dependencyEdges:1999});
 });
+
+test('unquoted Unicode sheet names resolve without allowing Unicode functions or named references',()=>{
+ const content=book(['Summary','Vícepráce','Montáž']);
+ put(content,0,0,0,'=SUM(Vícepráce!$A$1:$A$3)+Montáž!B2');
+ put(content,1,1,0,'=B2*2');
+ assert.deepEqual(assertFormulaGraph(content),{formulaCount:2,expandedReferences:5,dependencyEdges:1});
+ for(const formula of ['=ſUM(1,2)','=SÚM(1,2)','=SＵM(1,2)'])
+  expectCode(()=>assertFormulaGraph(put(book(),0,0,0,formula)),'FORMULA_UNSUPPORTED_FUNCTION');
+ for(const formula of ['=CenaČistá+1','=Á1+1','=Vícepráce!Á1'])
+  expectCode(()=>assertFormulaGraph(put(book(['Summary','Vícepráce']),0,0,0,formula)),'FORMULA_NAMED_REFERENCE');
+ expectCode(()=>assertFormulaGraph(put(content,0,0,0,'=SUM(Vícepráce!B1:L10000)')),'FORMULA_LIMIT');
+ expectCode(()=>assertFormulaGraph(put(content,0,0,0,'=INDIRECT("Vícepráce!A1")')),'FORMULA_UNSUPPORTED_FUNCTION');
+ const cycle=book(['Vícepráce','Montáž']);put(cycle,0,0,0,'=Montáž!B2');put(cycle,1,1,1,'=Vícepráce!A1');
+ expectCode(()=>assertFormulaGraph(cycle),'FORMULA_CYCLE');
+});

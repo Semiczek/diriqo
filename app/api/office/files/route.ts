@@ -4,6 +4,7 @@ import { requireOfficeContext } from '@/lib/office/context'
 import { OFFICE_HOST_UPLOAD_BYTES, OFFICE_HOST_RESPONSE_BYTES, OFFICE_HOST_MUTATION_BYTES, assertOfficeHostPayload, assertOfficeHostUpload, officePublicOrigin } from '@/lib/office/http-limits'
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { classifyOfficeUploadError } from '@/lib/office/upload-errors'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -17,22 +18,37 @@ const safeError = (error: unknown) => {
 }
 
 export async function POST(request: NextRequest) {
+  let phase: 'authorize' | 'multipart' | 'import' | 'persist' = 'authorize'
   try {
     assertOfficeRequestOrigin(request, officePublicOrigin())
     const { supabase, actor } = await requireOfficeContext(true)
     if (request.headers.get('x-office-tenant') !== actor.tenantId) throw new Error('OFFICE_TENANT_CHANGED')
     const length = Number(request.headers.get('content-length'))
     if (length > MAX_UPLOAD + 65536) throw new Error('OFFICE_HOST_LIMIT')
+    phase = 'multipart'
     const data = await readBoundedOfficeMultipart(request, MAX_UPLOAD + 65536); const file = data.get('file')
     if (!(file instanceof File)) throw new Error('OFFICE_FORMAT: Invalid file')
     assertOfficeHostUpload(file)
-    const bytes = new Uint8Array(await file.arrayBuffer()); const imported = await importOfficeFileBounded(file.name, bytes, pathToFileURL(resolve(process.cwd(), 'node_modules/@diriqo/office/dist/import-worker.js')))
+    const bytes = new Uint8Array(await file.arrayBuffer())
+    phase = 'import'
+    const imported = await importOfficeFileBounded(file.name, bytes, pathToFileURL(resolve(process.cwd(), 'node_modules/@diriqo/office/dist/import-worker.js')))
     const service = new SupabaseOfficeService(supabase)
     assertOfficeHostPayload(imported.content)
     assertOfficeHostPayload({ content: imported.content, warnings: imported.warnings, title: file.name }, OFFICE_HOST_MUTATION_BYTES)
+    phase = 'persist'
     const result = await service.import(actor, { title: file.name, parentId: data.get('parentId')?String(data.get('parentId')):null, content: imported.content, original: { name: file.name, mime: imported.original.mime, bytes }, idempotencyKey: String(data.get('idempotencyKey') || crypto.randomUUID()) })
     return officeJson({ file: result.file, warnings: imported.warnings })
-  } catch (error) { return safeError(error) }
+  } catch (error) {
+    if (phase === 'multipart' || phase === 'import') {
+      const { code, status } = classifyOfficeUploadError(error, phase)
+      // Only a fixed category and generated ID; never file names, content,
+      // credentials, tenant IDs or raw parser/worker exceptions in logs.
+      const requestId = crypto.randomUUID()
+      console.warn('office_upload_rejected', { code, phase, requestId })
+      return NextResponse.json({ error: code, requestId }, { status, headers: { 'Cache-Control': 'no-store' } })
+    }
+    return safeError(error)
+  }
 }
 export async function GET(request: NextRequest) {
   try {

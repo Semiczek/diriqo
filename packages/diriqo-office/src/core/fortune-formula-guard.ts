@@ -19,7 +19,21 @@ export function guardFortuneCalculation(ctx:any,formula:string,row?:number,colum
    // calcChain is maintained by the engine; the candidate is checked before insertion.
    for(const item of file.calcChain??[]){const cell=file.data?.[item.r]?.[item.c]??file.celldata?.find((v:any)=>v.r===item.r&&v.c===item.c)?.v;put(item.r,item.c,cell?.f);}
    if(id===active&&Number.isInteger(row)&&Number.isInteger(column))put(row!,column!,formula);
-   sheets[id]={id,name:file.name,rowCount:file.row??file.data?.length??200,columnCount:file.column??file.data?.[0]?.length??26,cellData:cells};
+   const rowCount=file.row??file.data?.length??200,columnCount=file.column??file.data?.[0]?.length??26;
+   const rowData:Record<string,{hd:number}>=Object.create(null);
+   for(const key of Object.keys(file.config?.rowhidden??{})){
+    if(!/^(0|[1-9][0-9]*)$/.test(key)||Number(key)>=rowCount||Number(key)>=10000)throw Error('Invalid hidden row');
+    rowData[key]={hd:1};
+   }
+   const selected=file.filter_select;let officeFilter;
+   if(selected){
+    const r=selected.row,c=selected.column;
+    if(!Array.isArray(r)||r.length!==2||!Array.isArray(c)||c.length!==2
+     ||![...r,...c].every(Number.isInteger)||r[0]<0||r[1]<r[0]||r[1]>=rowCount||r[1]>=10000
+     ||c[0]<0||c[1]<c[0]||c[1]>=columnCount||c[1]>=256)throw Error('Invalid filter range');
+    officeFilter={range:{startRow:r[0],endRow:r[1],startColumn:c[0],endColumn:c[1]},columns:[]};
+   }
+   sheets[id]={id,name:file.name,rowCount,columnCount,cellData:cells,rowData,...(officeFilter?{officeFilter}:{})};
   }
   if(!Object.hasOwn(sheets,active))return '#REF!';
   // Formula preview calls without coordinates still need the same reference/function limits.

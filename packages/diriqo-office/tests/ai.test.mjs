@@ -64,3 +64,22 @@ test('diff is bounded and AI cannot export without a configured exporter',async(
   const adapter=new OfficeAIAdapter(new OfficeService(new MemoryStore()),actor('tenant-a','ai'));
   await rejects(adapter.export('missing','docx'),'UNSUPPORTED_OPERATION');
 });
+
+test('AI export uses central format capabilities while preserving tenant authorization and export audit',async()=>{
+  const store=new MemoryStore(),service=new OfficeService(store),calls=[];
+  const {file:document}=await service.request(actor(),{op:'create',kind:'document',title:'Letter',content:doc(),idempotencyKey:'export-doc'});
+  const {file:spreadsheet}=await service.request(actor(),{op:'create',kind:'spreadsheet',title:'Budget',content:sheet(),idempotencyKey:'export-sheet'});
+  const options={async exportFile(content,title,format){calls.push({kind:content.kind,title,format});return {name:title+'.'+format,mime:'application/octet-stream',base64:'',warnings:format==='xls'?['Cached values only']:[]};}};
+  const adapter=new OfficeAIAdapter(service,actor('tenant-a','ai'),options),foreign=new OfficeAIAdapter(service,actor('tenant-b','ai'),options);
+  for(const [format,file]of [['odt',document],['ods',spreadsheet],['xls',spreadsheet],['tsv',spreadsheet]]){
+    const result=await adapter.export(file.id,format);
+    assert.equal(result.trust,'untrusted_document_data');assert.equal(result.sourceFileId,file.id);assert.equal(result.sourceRevision,1);
+    assert.equal(result.artifact.name,file.title+'.'+format);if(format==='xls')assert.deepEqual(result.artifact.warnings,['Cached values only']);
+    const before=calls.length;await rejects(foreign.export(file.id,format),'NOT_FOUND');assert.equal(calls.length,before,'Foreign tenant must never reach the exporter');
+  }
+  for(const format of ['doc','original','print','xlsm'])await rejects(adapter.export(document.id,format),'UNSUPPORTED_FORMAT');
+  assert.equal(calls.length,4);
+  const events=await store.transaction('tenant-a',state=>state.audit.filter(event=>event.operation==='export'));
+  assert.deepEqual(events.map(event=>event.details.format),['odt','ods','xls','tsv']);assert.ok(events.every(event=>event.principal==='ai'&&event.actorId==='user-a'));
+  assert.equal((await service.request(actor(),{op:'read',id:document.id})).file.revision,1);
+});

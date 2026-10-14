@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import type { OfficeActor, OfficeContent, OfficeFile, OfficeLink, OfficeRequest, OfficeResponse, OfficeProposal } from '../core/types.ts';
-import { check, id, title, validateContent, validateRequest, OFFICE_LIMITS } from '../core/validation.ts';
+import { check, id, title, validateContent, validateRequest, validateExportAuditFormat, OFFICE_LIMITS } from '../core/validation.ts';
 import type { OfficeStore, TenantState, StoredFile } from './store.ts';
 export type ImportInput = { title: string; content: OfficeContent; original: { name: string; mime: string; bytes: Uint8Array }; idempotencyKey: string; parentId?: string | null };
 export type ServiceOptions = { resolveEntity?: (actor: OfficeActor, entity: { type: 'job' | 'customer'; id: string }) => Promise<{ id: string; label: string }> };
@@ -73,5 +73,5 @@ export class OfficeService {
     return this.store.transaction(actor.tenantId, s => { const memo = receipt(s, actor, input.idempotencyKey, { op: 'import', ...data }); if (memo.response) return memo.response as { file: OfficeFile }; parent(s,actor,data.parentId); check(Object.keys(s.files).length < 10000, 'FILE_LIMIT', 'Company file quota reached.'); const f: OfficeFile = { id: randomUUID(), tenantId: actor.tenantId, ownerId: actor.actorId, title: data.title, kind: content.kind, parentId: data.parentId, revision: 1, content, updatedAt: new Date().toISOString(), link: null, original: data.original }; s.files[f.id] = f; s.originals[f.id] = { name, mime, base64: Buffer.from(bytes).toString('base64') }; snapshot(s, actor, f); audit(s, actor, 'import', f, { originalSha256: sha256 }); const result = { file: f }; s.receipts[memo.key] = { fingerprint: memo.fingerprint, response: structuredClone(result) }; return result; });
   }
   async original(actor: OfficeActor, fileId: string): Promise<{ name: string; mime: string; bytes: Uint8Array }> { guardActor(actor); return this.store.transaction(actor.tenantId, s => { const f = file(s, actor, fileId); const original = s.originals[f.id]; check(original, 'NOT_FOUND', 'Original file is not available.', 404); audit(s, actor, 'original.read', f); return { name: original.name, mime: original.mime, bytes: Buffer.from(original.base64, 'base64') }; }); }
-  async recordExport(actor: OfficeActor, fileId: string, format: string): Promise<void> { guardActor(actor); check(['docx', 'xlsx', 'csv', 'txt', 'html', 'pdf', 'print'].includes(format), 'UNSUPPORTED_FORMAT', 'Unsupported export format.'); await this.store.transaction(actor.tenantId, s => { const f = file(s, actor, fileId); audit(s, actor, 'export', f, { format }); }); }
+  async recordExport(actor: OfficeActor, fileId: string, format: string): Promise<void> { guardActor(actor); validateExportAuditFormat(format); await this.store.transaction(actor.tenantId, s => { const f = file(s, actor, fileId); audit(s, actor, 'export', f, { format }); }); }
 }
