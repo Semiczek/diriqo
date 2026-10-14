@@ -1,8 +1,8 @@
 {
   "name": "@diriqo/office",
-  "version": "0.1.0",
-  "archive": "diriqo-office-0.1.0.tgz",
-  "sha256": "fc8b602dc57267f504bbd4d02788b8dc349f4cb03d282fe62008e9d0538e5c5a",
-  "integrity": "sha512-dVDyLaPM2J6ONDyE66tTTYIYKgZatt9+hwrMdaHZj3DkTxHHGTiT8p9JDsvxGJikbJJf609A5iG4soPmZRPgPA==",
-  "licenseEvidence": "68bfa4ba772ed4e6a695a4467a3aa2f853b50aeb7351bb67019ecd84f1760fb7"
+  "version": "0.3.4",
+  "archive": "diriqo-office-0.3.4.tgz",
+  "sha256": "f293524d6fa5f9382a06f8e685d04f79898932d9c85cce0fedcc8df29961d9c0",
+  "integrity": "sha512-lplEsREp1LcGceTSKk/papVAQqLhqOLyKcBctHG6XqoBci2jW5/r9u+RKtAHeqsvx34YVKpOM7xyKr5nSOjVRA==",
+  "licenseEvidence": "91b2e66518240a568a67b5507c7d031f5c1f8241d8ad39a11696cdd412947e1f"
 }

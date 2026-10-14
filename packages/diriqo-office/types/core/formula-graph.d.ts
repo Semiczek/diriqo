@@ -13,7 +13,7 @@ export declare const FORMULA_GRAPH_LIMITS: Readonly<{
     expandedReferences: 200000;
     scannedCells: 100000;
 }>;
-export declare const OFFICE_FORMULA_FUNCTIONS: readonly ["SUM", "AVERAGE", "MIN", "MAX", "COUNT", "COUNTA", "IF", "AND", "OR", "SUMIF", "COUNTIF", "ROUND", "IFERROR", "NOT", "ABS", "ROUNDUP", "ROUNDDOWN", "VLOOKUP", "HLOOKUP", "MATCH", "INDEX", "TODAY", "DATE", "YEAR", "MONTH", "DAY", "TIMEVALUE"];
+export declare const OFFICE_FORMULA_FUNCTIONS: readonly ["SUM", "SUBTOTAL", "AVERAGE", "MIN", "MAX", "COUNT", "COUNTA", "IF", "AND", "OR", "SUMIF", "COUNTIF", "ROUND", "IFERROR", "NOT", "ABS", "ROUNDUP", "ROUNDDOWN", "VLOOKUP", "HLOOKUP", "MATCH", "INDEX", "TODAY", "DATE", "YEAR", "MONTH", "DAY", "TIMEVALUE"];
 export type FormulaGraphCode = 'FORMULA_WORKBOOK' | 'FORMULA_SYNTAX' | 'FORMULA_UNSUPPORTED_FUNCTION' | 'FORMULA_NAMED_REFERENCE' | 'FORMULA_UNKNOWN_SHEET' | 'FORMULA_REFERENCE_BOUNDS' | 'FORMULA_LIMIT' | 'FORMULA_CYCLE' | 'FORMULA_UNSAFE';
 export declare class FormulaGraphError extends Error {
     readonly code: FormulaGraphCode;
@@ -38,6 +38,7 @@ export type FormulaReference = {
 export type FormulaReferenceResult = {
     references: FormulaReference[];
     expandedReferences: number;
+    subtotalReferences?: FormulaReference[];
 };
 export type FormulaGraphStats = {
     formulaCount: number;

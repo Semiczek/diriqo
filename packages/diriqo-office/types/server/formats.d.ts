@@ -1,16 +1,5 @@
+export { FORMAT_LIMITS, readSafeZip } from './container-safety.ts';
 import type { DocumentContent, OfficeContent, SpreadsheetContent } from '../core/types.ts';
-export declare const FORMAT_LIMITS: {
-    inputBytes: number;
-    expandedBytes: number;
-    entryBytes: number;
-    entries: number;
-    ratio: number;
-    cells: number;
-    rows: number;
-    columns: number;
-    sheets: number;
-};
-export declare function readSafeZip(input: Uint8Array): Record<string, Buffer>;
 export declare function safeLink(url: unknown): string | null;
 export declare function sanitizeOfficeHtml(value: string): string;
 export declare function htmlToDocument(html: string): DocumentContent;
@@ -38,8 +27,8 @@ export declare function exportXlsx(content: SpreadsheetContent): {
     bytes: Buffer;
     warnings: string[];
 };
-export declare function importCsv(value: string): SpreadsheetContent;
-export declare function exportCsv(content: SpreadsheetContent): string;
+export declare function importCsv(value: string, delimiter?: '\t'): SpreadsheetContent;
+export declare function exportCsv(content: SpreadsheetContent, delimiter?: string): string;
 export declare function importOfficeFile(name: string, bytes: Uint8Array): Promise<{
     content: OfficeContent;
     warnings: string[];

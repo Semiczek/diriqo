@@ -1,5 +1,7 @@
 # Diriqo Office – staging a hranice ověření
 
+> **Historický protokol. Aktuální Git release nahrazuje zdejší interpretaci aktuálního stavu:** [GIT_RELEASE.md](GIT_RELEASE.md) a `reports/git-office-release.json` uvádějí nové přesné commity, deploymenty a výsledky. Níže zachované starší testy dokládají pouze původní běhy; automaticky neprokazují nově nasazené přihlášené UI.
+
 Závěrečný protokol 11. 10. 2026: **AUTOMATED_STAGING_PASS_UI_NOT_VERIFIED**. Databázová kapacita, izolace, oba nové webové buildy, skutečné HTTP a PDF kontroly jsou dokončeny. **Nové UI v Chrome není vizuálně ověřené; uživatel výslovně přijal dokončení s tímto omezením.** Produkce, zákaznická data a provozní pokladna se neměnily. Dočasné weby používají samostatné Supabase větve se syntetickými firmami a účty.
 
 Veřejné cíle jsou v `reports/public-staging-targets.json` a [PUBLIC_STAGING.md](PUBLIC_STAGING.md). Přesnou vazbu deploymentu, archivu zdrojů, serverových otisků uploadu a runtime potvrzuje `reports/normalized-deployments.json`; shodu souborů a následné důkazy znovu kontroluje souhrnný skript. Stav READY ani starý browser report se samostatně nepovažují za důkaz aktuálního UI.

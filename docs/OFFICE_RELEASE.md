@@ -1,3 +1,38 @@
+# Diriqo Office – aktuální rozšíření 0.3.4
+
+Aktuální hostitelská větev je `codex/office-import-release`, vychází z Diriqo main `ac07949537852d02fa69654433eb6353db052a1f`. Používá stejné sdílené jádro jako JSPD Hub: `vendor/diriqo-office-0.3.4.tgz`, SHA-256 `f293524d6fa5f9382a06f8e685d04f79898932d9c85cce0fedcc8df29961d9c0`. Kanonické zdroje jsou `packages/diriqo-office`; aktuální doklady původu, licencí a SBOM jsou součástí balíčku.
+
+## Funkce a hranice této verze
+
+- Import DOCX, ODT, DOC, XLSX, ODS, XLS, CSV, TSV, TXT a HTML. DOC převádí pouze text; XLS má omezení vzorců a kompatibility popsaná ve sdílené dokumentaci.
+- Export dokumentů DOCX, ODT, PDF, TXT a HTML; tabulek XLSX, ODS, XLS (pouze hodnoty), CSV a TSV. Tisk zůstává samostatnou operací.
+- ODT přijímá prázdné neaktivní forms a historický odkaz na šablonu v metadatech. Externí zdroje nenačítá; aktivní formuláře, makra a nebezpečné objekty odmítá.
+- XLSX zachovává podporovanou část SUBTOTAL a odkazy na listy s českými názvy. Nepodporované varianty, filtrování a skryté vstupní řádky se nesmějí tiše vypočítat nesprávně; přesná omezení jsou v `packages/diriqo-office/docs/ALTERNATIVE_FORMATS.md` a testech.
+- Návrat z výběru souboru již neruší rozpracovaný import při nezměněné firmě. Skutečná změna firmy nebo identity nadále pozastaví operace.
+- Chyby importu rozlišují formát, nebezpečný obsah, limity a provozní selhání. Uživatelské zprávy jsou oddělené od kódu pro sedm jazyků. Originální soubor se uchovává beze změny.
+
+## Nasazení Diriqo
+
+Při obnově prostředí před nasazením aplikace aplikujte `supabase/migrations/20261014033100_office_alternative_export_formats.sql` do ověřeného Diriqo prostředí. Migrace mění pouze jediný známý exportní seznam ve stávající funkci `public.office_request(uuid,jsonb,text)`. Neočekávanou definici odmítne a při opakování nic nemění; zachovává ACL, vlastníka, SECURITY DEFINER, search_path i veškeré firemní kontroly. Nespouští migrace ostatních modulů. Návrat aplikace nevyžaduje mazání dat ani odebrání nových formátů.
+
+Hostitelská oprávnění Diriqo se nemění. Sdílené volitelné UI pro sdílení nedoplňuje do Diriqo automaticky Hub organizační model. Rozšíření nemění kód pokladny, její API, zásoby ani platební operace.
+
+Produkční Diriqo přijalo tuto migraci 14. 10. 2026 v 03:31 UTC pod verzí `20261014033100`. Verze souboru odpovídá záznamu Supabase. Kontrola technického schématu potvrdila pouze změnu exportního seznamu: MD5 definice před změnou `202ce9f3729341822236ceb5bf493043`, po změně `9c5eb26a12dff50a4148999cb22af8e0`; po normalizaci seznamu je otisk totožný s původním. OID 24332, vlastník, ACL, SECURITY DEFINER a search_path zůstaly stejné. Firemní záznamy nebyly pro tuto kontrolu čteny ani upraveny.
+
+## Doložené ověření
+
+- Sdílené jádro: 281 úspěšných testů před zabalením 0.3.4.
+- Diriqo host: 55 cílených testů importu, chyb, souběhu a firemních hranic; opravené testy pořadí hostitelské autentizace byly znovu úspěšně spuštěny.
+- Databázová migrace: 2/2 testy, včetně skutečného izolovaného PostgreSQL/PGlite s testovacími uživateli dvou firem, změnou identity, vypnutým modulem, exportním auditem, zachováním obsahu a oprávnění, idempotencí a odmítnutím neočekávaného schématu. Bez připojení k produkci.
+- Kontrola hostitelského balíčku, licencí, fontů, SBOM a nezměněných závislostí úspěšná. Kontrola stylu změněných TypeScript souborů úspěšná.
+- Čtyři uživatelem dodané XLSX prošly místním importem i průchodem editorovým adaptérem beze změny originálů. Soubory a jejich obsah nejsou součástí Gitu. Konkrétní uživatelský ODT nebyl dodán; ODT pokrývají syntetické testy.
+- Úplná kontrola typů, build, hostitelské testy a opakování sdílených testů úspěšně proběhly v CI pro commit `dca3592a9fcb7e77f349cc5d5986df6196bb3f20`; CI ověří také konečný commit PR. Místní úplná kontrola typů byla ukončena paměťovým stropem 512 MiB; kvůli požadavku šetřit RAM se lokálně neopakuje.
+- Přihlášený průchod novou produkční verzí v Chrome není ověřen. Úspěšné CI a READY deployment samy nenahrazují tento důkaz.
+
+Přesný výsledný main commit, stav CI a nasazení uvádí PR a předání. Následující oddíl zachovává historický postup prvního zapojení; jeho starší verze archivu a stagingové termíny nejsou aktuálním nasazením.
+
+---
+
 # Diriqo Office – větev pro ověření a nasazení
 
 Office je připravené na větvi `codex/office-menu-release`. Diriqo větev zahrnuje také aktuální hostitelský základ `b411fdab`. Tento dokument ani zelené CI neznamenají zapnutí Office v produkci. Přesný výsledný commit a odkaz na PR zaznamená předání větve.

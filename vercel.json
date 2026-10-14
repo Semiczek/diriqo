@@ -2,7 +2,9 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "git": {
     "deploymentEnabled": {
-      "codex/office-menu-release": false
+      "codex/office-menu-release": false,
+      "codex/office-sharing-library": false,
+      "codex/office-formats-library": false
     }
   }
 }

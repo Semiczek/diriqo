@@ -20,7 +20,7 @@ function load(entry,bindings={}){
   './I18nProvider':{useI18n:()=>({locale:'cs'})},...bindings};
  function read(filename){
   if(cache.has(filename))return cache.get(filename).exports;
-  const module={exports:{}};cache.set(filename,module);
+  const testModule={exports:{}};cache.set(filename,testModule);
   const output=ts.transpileModule(readFileSync(filename,'utf8'),{compilerOptions:{jsx:ts.JsxEmit.ReactJSX,module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText;
   const localRequire=id=>{
    if(Object.hasOwn(mocks,id))return mocks[id];
@@ -29,8 +29,8 @@ function load(entry,bindings={}){
    const file=[base,base+'.ts',base+'.tsx'].find(existsSync);if(!file)throw new Error('Missing '+base);
    return read(file);
   };
-  vm.runInNewContext('(function(require,module,exports){'+output+'\n})',{Error,Set,Map,URL,console},{filename})(localRequire,module,module.exports);
-  return module.exports;
+  vm.runInNewContext('(function(require,module,exports){'+output+'\n})',{Error,Set,Map,URL,console},{filename})(localRequire,testModule,testModule.exports);
+  return testModule.exports;
  }
  return read(resolve(host,entry));
 }
@@ -38,7 +38,9 @@ function nodes(tree){if(!tree||typeof tree!=='object')return[];if(Array.isArray(
 const hrefs=tree=>nodes(tree).filter(n=>n.props?.href).map(n=>n.props.href);
 
 test('Hub superadmin can reach Office configuration with the module disabled; ordinary members cannot',()=>{
- const Sidebar=load('components/DashboardSidebar.tsx').default;
+ const Sidebar=load('components/DashboardSidebar.tsx',{
+  'react':{useMemo:fn=>fn(),useEffect(){},useState:initial=>[typeof initial==='object'?{office:true}:initial,()=>{}]},
+ }).default;
  for(const role of ['super_admin','company_admin','manager','user','worker',null]){
   const disabled=hrefs(Sidebar({role,officeEnabled:false,activeModules:['gastro']}));
   assert.equal(disabled.includes('/office/settings'),role==='super_admin',String(role));
@@ -89,4 +91,33 @@ test('Hub settings rejects stale or forged company, revoked superadmin and missi
  h.setActive({role:'manager',companyId:A,companyName:'A'});
  await assert.rejects(form.props.action(payload),/OFFICE_FORBIDDEN/);
  assert.equal(h.calls.length,0);
+});
+
+test('Hub active company GET adds Office state without overwriting a newer switch cookie',async()=>{
+ const writes=[],reads=[];
+ const {GET}=load('app/api/active-company/route.ts',{
+  'next/server':{NextResponse:{json:(body,options)=>({body,options,cookies:{set:value=>writes.push(value)}})}},
+  '@/lib/active-company':{getActiveCompanyContext:async()=>({companyId:A,role:'manager'}),PermissionConfigurationUnavailableError:class extends Error{}},
+  '@/lib/active-company-switch':{},
+  '@/lib/office/availability':{readOfficeAvailability:async company=>{reads.push(company);return true}},
+ });
+ const response=await GET();assert.equal(response.body.companyId,A);assert.equal(response.body.officeEnabled,true);
+ assert.deepEqual(reads,[A]);assert.deepEqual(writes,[]);assert.equal(response.options.headers['Cache-Control'],'private, no-store');
+});
+
+test('Hub bootstrap and unavailable permissions never guess a company for Office',async()=>{
+ for(const unavailable of [false,true]){
+  const reads=[];class PermissionConfigurationUnavailableError extends Error{}
+  const {GET}=load('app/api/active-company/route.ts',{
+   'next/server':{NextResponse:{json:(body,options)=>({body,options})}},
+   '@/lib/active-company':{PermissionConfigurationUnavailableError,
+    getActiveCompanyContext:async()=>{if(unavailable)throw new PermissionConfigurationUnavailableError('Unavailable');return null},
+    getCompanyMembershipContext:async()=>({profile:{id:'p'},memberships:[{id:'m-a',company_id:A,role:'manager',companies:{name:'A'}},{id:'m-b',company_id:B,role:'manager',companies:{name:'B'}}]})},
+   '@/lib/active-company-switch':{},
+   '@/lib/office/availability':{readOfficeAvailability:async company=>{reads.push(company);return true}},
+  });
+  const response=await GET();assert.deepEqual(reads,[]);assert.equal(response.options.headers['Cache-Control'],'private, no-store');
+  if(unavailable){assert.equal(response.options.status,503);assert.equal(response.body.code,'permission_unavailable')}
+  else {assert.equal(response.body.selectionRequired,true);assert.equal(response.body.companyId,'');assert.equal(response.body.companyMemberships.length,2)}
+ }
 });

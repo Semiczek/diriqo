@@ -7,24 +7,34 @@ import { createOfficeContextGuard, fetchOfficeContext, notifyOfficeContextChange
 import { officeContextMessages, officeShellMessages } from '@/lib/office/context-messages'
 import { assertOfficeHostPayload, assertOfficeHostUpload } from '@/lib/office/http-limits'
 import '@diriqo/office/styles.css'
+import { officeUploadUserMessage } from '@/lib/office/upload-messages'
 
 const OfficeWorkspace = dynamic(() => import('@diriqo/office/client').then(m => m.OfficeWorkspace), {
   ssr: false,
   loading: () => <p>Diriqo Office…</p>,
 })
 
-async function fileResponse<T>(response: Response): Promise<T> {
-  if (response.status === 413) throw new Error('OFFICE_HOST_LIMIT')
+async function fileResponse<T>(response: Response, locale: OfficeLocale = 'cs'): Promise<T> {
+  const limitError = () => Object.assign(new Error('OFFICE_HOST_LIMIT'), { userMessage: officeUploadUserMessage('OFFICE_HOST_LIMIT', locale) })
+  // Platform-level size failures may be HTML instead of our JSON response.
+  if (response.status === 413 && !response.headers.get('content-type')?.includes('json')) {
+    throw limitError()
+  }
   // The host proxy redirects expired sessions to an HTML sign-in page.
   if (response.redirected || response.status === 401) throw new Error('OFFICE_UNAUTHENTICATED')
   if (!/^application\/(?:[\w.+-]+\+)?json(?:\s*;|$)/i.test(response.headers.get('content-type') ?? '')) {
     throw new Error('OFFICE_INVALID_RESPONSE')
   }
   const body: unknown = await response.json().catch(() => null)
-  if (!body || typeof body !== 'object' || Array.isArray(body)) throw new Error('OFFICE_INVALID_RESPONSE')
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    if (response.status === 413) throw limitError()
+    throw new Error('OFFICE_INVALID_RESPONSE')
+  }
   if (!response.ok) {
     const message = 'error' in body && typeof body.error === 'string' ? body.error : ''
-    throw new Error(message.match(/OFFICE_[A-Z_]+(?:: [^\n]{0,180})?/)?.[0] ?? 'OFFICE_REQUEST_FAILED')
+    if (response.status === 413 && message !== 'OFFICE_IMPORT_LIMIT' && message !== 'OFFICE_HOST_LIMIT') throw limitError()
+    const code = message.match(/^OFFICE_[A-Z_]+$/)?.[0] ?? 'OFFICE_REQUEST_FAILED'
+    throw Object.assign(new Error(code), { userMessage: officeUploadUserMessage(code, locale) })
   }
   return body as T
 }
@@ -74,13 +84,15 @@ export default function OfficeClient({ readOnly, tenantId, actorId, companyName,
   }, [pinned, tenantId, actorId, readOnly, guard])
 
   useEffect(() => {
-    const verify = () => { void guard.check(fetchOfficeContext, true) }
+    // Native file dialogs trigger focus; preserve pending replies when the company is unchanged.
+    const verify = () => { void guard.check(fetchOfficeContext) }
+    const invalidate = () => { void guard.check(fetchOfficeContext, true) }
     const visible = () => { if (document.visibilityState === 'visible') verify() }
     const storage = (event: StorageEvent) => {
-      if (event.key === OFFICE_CONTEXT_STORAGE_KEY || event.key === null) verify()
+      if (event.key === OFFICE_CONTEXT_STORAGE_KEY || event.key === null) invalidate()
     }
     const offline = () => guard.pause('unavailable')
-    window.addEventListener(OFFICE_CONTEXT_EVENT, verify)
+    window.addEventListener(OFFICE_CONTEXT_EVENT, invalidate)
     window.addEventListener('storage', storage)
     window.addEventListener('focus', verify)
     window.addEventListener('pageshow', verify)
@@ -95,7 +107,7 @@ export default function OfficeClient({ readOnly, tenantId, actorId, companyName,
     return () => {
       guard.cancelPending()
       window.clearInterval(timer)
-      window.removeEventListener(OFFICE_CONTEXT_EVENT, verify)
+      window.removeEventListener(OFFICE_CONTEXT_EVENT, invalidate)
       window.removeEventListener('storage', storage)
       window.removeEventListener('focus', verify)
       window.removeEventListener('pageshow', verify)
@@ -134,13 +146,13 @@ export default function OfficeClient({ readOnly, tenantId, actorId, companyName,
         const response = await fetch('/api/office/files', {
           method: 'POST', headers: { 'X-Office-Tenant': pinned.tenantId }, body: data,
         })
-        return fileResponse<Awaited<ReturnType<OfficeTransport['importFile']>>>(response)
+        return fileResponse<Awaited<ReturnType<OfficeTransport['importFile']>>>(response, locale)
       }),
       exportFile: (id, format) => perform(async () => {
         const response = await fetch('/api/office/files?id=' + encodeURIComponent(id) + '&format=' + encodeURIComponent(format), {
           headers: { 'X-Office-Tenant': pinned.tenantId },
         })
-        return fileResponse<Awaited<ReturnType<OfficeTransport['exportFile']>>>(response)
+        return fileResponse<Awaited<ReturnType<OfficeTransport['exportFile']>>>(response, locale)
       }),
     }
   }, [guard, pinned, locale])

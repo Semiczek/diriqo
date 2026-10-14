@@ -1,8 +1,13 @@
 import {isOfficeFormulaSafe} from './formula-policy.ts';
 import {assertFormulaGraph,FormulaGraphError} from './formula-graph.ts';
 import type { OfficeContent, OfficeRequest } from './types.ts';
+import {isOfficeExportAuditFormat, type OfficeExportAuditFormat} from './formats.ts';
 export class OfficeError extends Error { code: string; status: number; constructor(code: string, message: string, status = 400) { super(`OFFICE_${code}: ${message}`); this.code = code; this.status = status; } }
 export function check(ok: unknown, code: string, message: string, status = 400): asserts ok { if (!ok) throw new OfficeError(code, message, status); }
+export function validateExportAuditFormat(value: unknown): OfficeExportAuditFormat {
+ check(isOfficeExportAuditFormat(value), 'UNSUPPORTED_FORMAT', 'Unsupported export format. DOC is import-only; export text documents as DOCX or ODT.');
+ return value;
+}
 export function obj(x: unknown): x is Record<string, any> { return !!x && typeof x === 'object' && !Array.isArray(x) && (Object.getPrototypeOf(x) === Object.prototype || Object.getPrototypeOf(x) === null); }
 export function id(x: unknown): string { check(typeof x === 'string' && /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/.test(x) && !['constructor','prototype','__proto__'].includes(x), 'INVALID_ID', 'Invalid identifier.'); return x; }
 export function title(x: unknown, max = 240): string { check(typeof x === 'string' && x.trim().length > 0 && x.length <= max && !/[\u0000-\u001f]/.test(x), 'INVALID_TEXT', 'Invalid text.'); return x.trim(); }
