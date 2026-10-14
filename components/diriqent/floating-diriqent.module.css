@@ -21,5 +21,7 @@
 .footer nav {display:flex;gap:8px;flex-wrap:wrap}
 .footer nav a {display:flex;align-items:center;justify-content:center;flex:1;min-height:44px;padding:7px 10px;border:1px solid #dfd5f1;border-radius:9px;background:#fff;color:#6847a1;text-decoration:none;font-size:12px;font-weight:600;white-space:nowrap}
 .fullPage {display:block;margin-top:10px;color:#78658e;text-align:center;font-size:12px;text-underline-offset:3px}
+.footer .linkHint {margin:10px 0 0;font-size:11px;text-align:center}
 @media(max-width:640px) {.launcher {right:max(12px,env(safe-area-inset-right));bottom:max(12px,env(safe-area-inset-bottom));width:64px;min-height:80px}.character {width:64px;height:68px}.panel {inset:auto max(8px,env(safe-area-inset-right)) max(8px,env(safe-area-inset-bottom)) auto;width:calc(100vw - 16px);max-height:calc(100dvh - 16px);border-radius:18px}.header {padding:12px 16px}.body {padding:14px 16px}.footer {padding:12px 16px}.panel textarea {font-size:16px}}
 @media(prefers-reduced-motion:reduce) {.character {transition:none}.launcher:hover .character {transform:none}}
+@media print {.launcher,.panel {display:none!important}}

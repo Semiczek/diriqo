@@ -7,13 +7,14 @@ import type { SupportAnswer } from '@/lib/diriqent/support'
 import { askDiriqentSupport } from './support-actions'
 import styles from './diriqent.module.css'
 
-export default function SupportClient({ identity, suggestions, compact = false, onNavigate }: { identity: DiriqentIdentity; suggestions: string[]; compact?: boolean; onNavigate?: () => void }) {
+export default function SupportClient({ identity, suggestions, compact = false, onNavigate, openLinksInNewTab = false }: { identity: DiriqentIdentity; suggestions: string[]; compact?: boolean; onNavigate?: () => void; openLinksInNewTab?: boolean }) {
   const [prompt, setPrompt] = useState('')
   const [answer, setAnswer] = useState<SupportAnswer | null>(null)
   const [question, setQuestion] = useState('')
   const [error, setError] = useState('')
   const [pending, startTransition] = useTransition()
   const submitting = useRef(false)
+  const linkTarget = openLinksInNewTab ? { target: '_blank', rel: 'noopener noreferrer' } : {}
   function submit(value: string) {
     if (submitting.current || !value.trim()) return
     submitting.current = true
@@ -40,9 +41,9 @@ export default function SupportClient({ identity, suggestions, compact = false, 
       <p className={styles.question}>{question}</p>
       <h2>{answer.title}</h2>
       <p className={styles.answer}>{answer.answer}</p>
-      <div className={styles.actions}>{answer.links.map(link => <Link key={link.href} href={link.href} className={styles.secondary} prefetch={false} onClick={onNavigate}>{link.label}</Link>)}</div>
+      <div className={styles.actions}>{answer.links.map(link => <Link key={link.href} href={link.href} className={styles.secondary} prefetch={false} onClick={onNavigate} {...linkTarget}>{link.label}</Link>)}</div>
       {answer.kind === 'needs_data' && <p className={styles.muted}>Práce s firemními daty se spouští samostatně s vaším limitem spotřeby. Otevření dalšího režimu nic neúčtuje.</p>}
-      {answer.kind === 'needs_data' && <div className={styles.actions}><Link href="/diriqent?mode=work" className={styles.secondary} prefetch={false} onClick={onNavigate}>Běžná práce a návrhy</Link><Link href="/diriqent?mode=advanced" className={styles.secondary} prefetch={false} onClick={onNavigate}>Analytika a plány s cenovým limitem</Link></div>}
+      {answer.kind === 'needs_data' && <div className={styles.actions}><Link href="/diriqent?mode=work" className={styles.secondary} prefetch={false} onClick={onNavigate} {...linkTarget}>Běžná práce a návrhy</Link><Link href="/diriqent?mode=advanced" className={styles.secondary} prefetch={false} onClick={onNavigate} {...linkTarget}>Analytika a plány s cenovým limitem</Link></div>}
       <small className={styles.muted}>Spotřeba AI kreditu: 0 Kč</small>
     </article>}
     {error && <p className={styles.error} role="alert">{error}</p>}

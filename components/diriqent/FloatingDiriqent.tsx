@@ -12,9 +12,10 @@ type Props = {
   guideActive?: boolean
   onToggleGuide?: () => void
   onOpenGuide?: () => void
+  keepWorkspaceOpen?: boolean
 }
 
-export default function FloatingDiriqent({ launcherRef, guideActive = false, onToggleGuide, onOpenGuide }: Props) {
+export default function FloatingDiriqent({ launcherRef, guideActive = false, onToggleGuide, onOpenGuide, keepWorkspaceOpen = false }: Props) {
   const ownRef = useRef<HTMLButtonElement>(null)
   const buttonRef = launcherRef ?? ownRef
   const [open, setOpen] = useState(false)
@@ -42,6 +43,6 @@ export default function FloatingDiriqent({ launcherRef, guideActive = false, onT
       </svg>
       <span>Diriqent</span>
     </button>
-    {open && <DiriqentPanel onClose={close} onOpenGuide={onOpenGuide ? () => { close(); onOpenGuide() } : undefined} />}
+    {open && <DiriqentPanel onClose={close} keepWorkspaceOpen={keepWorkspaceOpen} onOpenGuide={onOpenGuide ? () => { close(); onOpenGuide() } : undefined} />}
   </>
 }
