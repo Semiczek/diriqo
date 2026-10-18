@@ -18,13 +18,20 @@ export default async function DiriqentPage({ searchParams }: { searchParams: Pro
   const identity = { companyId: context.companyId, profileId: context.profileId, role: context.role ?? '' }
   let content
   if (mode === 'work' || mode === 'advanced') {
+    let workspace: { data: Awaited<ReturnType<typeof aiWorkspace>>; configured: boolean } | null = null
+    let workspaceError = ''
     try {
       const data = await aiWorkspace()
       if (!matchesDiriqentIdentity(identity, { ...data, role: data.roleScope })) throw new Error('Firma nebo oprávnění se změnily. Obnovte stránku.')
-      content = mode === 'advanced' ? <WorkClient data={data} configured={providerConfigured()} /> : <ChatClient data={data} configured={providerConfigured()} />
+      workspace = { data, configured: providerConfigured() }
     } catch (error) {
-      content = <div className={styles.stack}><p className={styles.notice}>{aiError(error)}</p><Link href="/diriqent" className={styles.secondary}>Pokračovat v podpoře bez kreditu</Link></div>
+      workspaceError = aiError(error)
     }
+    content = workspace
+      ? mode === 'advanced'
+        ? <WorkClient data={workspace.data} configured={workspace.configured} />
+        : <ChatClient data={workspace.data} configured={workspace.configured} />
+      : <div className={styles.stack}><p className={styles.notice}>{workspaceError}</p><Link href="/diriqent" className={styles.secondary}>Pokračovat v podpoře bez kreditu</Link></div>
   } else {
     content = <SupportClient identity={identity} suggestions={supportSuggestions(identity.role)} />
   }

@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { FormEvent, useMemo, useState } from 'react'
 import {
   createJobFromQuoteAction,
   deleteQuoteAction,
@@ -201,19 +201,18 @@ export default function QuoteActionsPanel({
     [parsedJobEndAt, parsedJobStartAt],
   )
 
-  useEffect(() => {
+  const [previousJobRange, setPreviousJobRange] = useState<{ start: string; end: string } | null>(null)
+  if (previousJobRange?.start !== jobStartAt || previousJobRange?.end !== jobEndAt) {
+    setPreviousJobRange({ start: jobStartAt, end: jobEndAt })
     if (generatedWorkDays.length === 0) {
       setSelectedWorkDates([])
       setJobCreationMode('single')
-      return
+    } else {
+      const validDateKeys = new Set(generatedWorkDays.map((day) => day.dateKey))
+      const keptDates = selectedWorkDates.filter((dateKey) => validDateKeys.has(dateKey))
+      setSelectedWorkDates(keptDates.length > 0 ? keptDates : generatedWorkDays.map((day) => day.dateKey))
     }
-
-    const validDateKeys = new Set(generatedWorkDays.map((day) => day.dateKey))
-    setSelectedWorkDates((current) => {
-      const keptDates = current.filter((dateKey) => validDateKeys.has(dateKey))
-      return keptDates.length > 0 ? keptDates : generatedWorkDays.map((day) => day.dateKey)
-    })
-  }, [generatedWorkDays])
+  }
 
   const createJobDisabledReason = useMemo(() => {
     if (!companyId) return 'Nabídka nemá dostupné company_id.'

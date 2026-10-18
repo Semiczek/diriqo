@@ -119,9 +119,6 @@ export default function ModuleCatalogClient({ companyId, checkoutReturn }: Props
     request.current?.abort()
     const controller = new AbortController()
     request.current = controller
-    setCatalog({ status: 'loading' })
-    setPurchases({ status: 'loading' })
-    setCheckoutError(null)
     const loadCatalog = async () => {
       try {
         const { response, value } = await fetchJson('/api/billing/modules/catalog', controller.signal, { cache: 'no-store' })
@@ -159,6 +156,13 @@ export default function ModuleCatalogClient({ companyId, checkoutReturn }: Props
       checkoutRequest.current?.abort()
     }
   }, [refresh])
+
+  function handleRefresh() {
+    setCatalog({ status: 'loading' })
+    setPurchases({ status: 'loading' })
+    setCheckoutError(null)
+    void refresh()
+  }
 
   const loading = catalog.status === 'loading' || purchases.status === 'loading'
   const enabled = catalog.status === 'ready' && catalog.data.enabled
@@ -223,7 +227,7 @@ export default function ModuleCatalogClient({ companyId, checkoutReturn }: Props
             : 'Začněte základem. Další funkce si přidáte podle potřeby.'}</p>
           {testCount > 0 && catalog.status === 'ready' && !catalog.data.enabled ? <p className={styles.salesNote}>Nákupy zatím nejsou spuštěné.</p> : null}
         </div>
-        <button type="button" className={styles.secondaryButton} onClick={() => void refresh()} disabled={loading || Boolean(pendingOffer)}>
+        <button type="button" className={styles.secondaryButton} onClick={handleRefresh} disabled={loading || Boolean(pendingOffer)}>
           {loading ? 'Načítání…' : checkoutReturn ? 'Obnovit stav platby' : 'Obnovit stav'}
         </button>
       </section>
