@@ -1,6 +1,6 @@
 # C08: employee advance ledger, implementation and verification
 
-This package is tracked in draft PR #27 on `codex/diriqo-worker-advances-atomic`. Application checkpoint `ae5c232` was integrated with reviewed main `6467d229` in merge `668e3a2`, including Next.js 16.4.2; focused review fixes are in `fd1f8e4`. The release coordinator applied the migration to the approved Diriqo test database and ran the hosted SQL suite as recorded below. Real Auth/HTTP concurrency and authenticated UI verification remain separate release gates.
+PR #27 is merged and live on `app.diriqo.com` from `010a3643b9ad5397b665d2e8a37238ac7f3737f1`. Main and Office CI passed. Application checkpoint `ae5c232` was integrated with reviewed main `6467d229` in merge `668e3a2`, including Next.js 16.4.2; focused review fixes are in `fd1f8e4`. Both test-database migrations, hosted SQL/Auth/HTTP checks, the original C08-01 UI flow and test-access cleanup are complete. The checkpoint below closes only the original C08-01/02 scenarios; C08-03 remains partial.
 
 ## Implemented contract
 
@@ -55,7 +55,7 @@ Preservation checks:
 
 The release coordinator separately rechecked the request fingerprint using only its original columns and excluding the explicitly synthetic fixture tenants. That check is preserved in `artifacts/worker-advances/original-request-preservation-20261018.json`, SHA-256 `7ee6c11c0f70d8a1a188d3ad341d8897965f1f1a5d0babb97777b07367f099a9`. The artifact's full-row post-migration fingerprint differs because four columns were added; that is not evidence of a change to the original request values. Settings and payment fingerprints match directly in the saved before/after metadata. Pre-migration scoped data/schema snapshots are recovery evidence for the affected objects, not a verified full-database restore point.
 
-This hosted SQL pass does **not** itself establish two overlapping HTTP/Auth transactions, lock-wait reauthorization, browser form behavior or device operation. The separate request lock-wait results are recorded below; browser and device behavior remain unverified.
+This hosted SQL pass does **not** itself establish two overlapping HTTP/Auth transactions, lock-wait reauthorization, browser form behavior or device operation. The separate lock-wait and authenticated UI results are recorded below; physical-device behavior remains unverified.
 
 ## Hosted concurrency, reauthorization and repaired failures
 
@@ -89,15 +89,33 @@ The aggregate contains 19 preserved reports: 15 final scenario passes, one recon
 | `artifacts/worker-advances/hosted-concurrency-20261018.json` | `98b8839dd8deed772d8fa0699bbeca3ed2d67a44a18a6b5ca72686d8181b7206` |
 | `artifacts/worker-advances/hosted-http409-sql-20261018.json` | `2dc25206502836a692957146a31696fd6f8d5013959d5001b74a326995939904` |
 
-## Remaining release verification
+## Live release checkpoint, 18 October 2026
+
+Release `010a3643b9ad5397b665d2e8a37238ac7f3737f1` from PR #27 is deployed on `app.diriqo.com`; main CI and Office CI passed. The release owner completed the authenticated worker/admin flow using synthetic records: request 5,000 → approve 3,000 with a reason → record payments 1,000+2,000. The live UI/AX observations and DB ledger confirm the two balances are distinct. Subsequent recorded return 500 and payroll offsets 500+2,000 leave paid 3,000 and outstanding 0. These are records of synthetic evidence, not actual money transfer or payroll deductions.
+
+The configured payday changed 31→25, remained 25 after reload, and both database aliases matched 25. The saved payday screenshot supports the visible setting. The archived ledger screenshot is scrolled below the target request's upper balance cards; it is not presented as visual proof of those hidden balances. The balance proof is the live UI/AX observation plus the DB records.
+
+| Original acceptance scenario | Status and narrow basis |
+| --- | --- |
+| C08-01: request 5,000, approve 3,000, pay in two amounts, show both balances | **HOTOVO**: authenticated UI/AX flow and matching DB ledger; export is outside this original scenario |
+| C08-02: repeat the same payment without an extra movement | **HOTOVO**: actual Auth/HTTP retry and two-session overlap preserve exactly one immutable payment; recovery UX for an uncertain response is a separate boundary |
+| C08-03: no duplicate job cost beside worked-time cost; settlement has evidence | **ČÁSTEČNĚ**: referenced settlements are demonstrated in UI and DB; the concrete job-cost comparison remains unverified |
+
+Cleanup is complete: 18 synthetic companies have 0 active test memberships; 0 active synthetic profiles remain; 3 synthetic Auth accounts are banned and 0 sessions remain. The real user's original active-company context was restored. Synthetic financial evidence is retained.
+
+Managed evidence: `artifacts/worker-advances/live-ui-and-cleanup-20261018.json`, SHA-256 `20f68d9d319dd0c159c81ca21cce853b0a782d87daa499b259802657bcd09a64`. It records the release/CI identities, authenticated UI and DB evidence, payday check and cleanup aggregates. The broader module and product are not declared commercially ready by closing these two original scenarios.
+
+Supporting independent classification: `artifacts/worker-advances/exact-acceptance-classification-20261018.json`, SHA-256 `f4491ff210ba8e572cfbf63d2b3326764c29b615fdde7ad6c29d3d635673a342`. The canonical matrix is **3 HOTOVO / 48 ČÁSTEČNĚ / 11 CHYBÍ / 6 CHYBA / 5 NEOVĚŘENO**, with all 73 original scenario identifiers and texts preserved.
+
+## Remaining verification outside the closed scenarios
 
 A separate mixed-role active-company fallback was observed during UI preparation: a user who is administrator in company A and worker in selected company B can see company B in the header while `/` loads company A dashboard data. `app/(dashboard)/page.tsx` uses `getActiveCompanyContext()` with its default `hasHubAccessRole` filter before resolving the active-company cookie; the worker membership is filtered out and the resolver falls back to an administrator company. C08 uses the correct `requireWorkerAccess` boundary. The global resolver/dashboard issue is open for a separate fix; this release does not close the full tenant audit.
 
 
-For the already migrated test project, deploy the matched application only after the coordinated release gates; old direct-write actions intentionally fail after ACL changes. Authenticated UI request→approval→partial payout→settlement→export, current deployment/CI confirmation and final synthetic access cleanup remain release work. C08-01/02/03 stay **partial**, not fully accepted. The paid-receipt barrier and broader authorization surfaces remain outside the completed test matrix. Preserve synthetic financial evidence and revoke test access afterwards. Before applying to any other environment, rerun read-only preflight, preserve schema/grants/policies and settings snapshots, establish the approved recovery procedure, and review the immutable migration against that environment.
+Deployment, the original C08-01 UI flow and synthetic access cleanup are finished. C08-03 still needs a concrete job-cost comparison against worked time. Payroll XLSX acceptance, uncertain-response recovery UX, the paid-receipt barrier, broader authorization surfaces and physical Android remain separate work; they are not additional completion criteria for the original C08-01/02. Before applying to another environment, rerun read-only preflight, preserve schema/grants/policies and settings snapshots, establish the approved recovery procedure and review both migrations against that environment.
 
 If application or verification fails, stop new advance operations and retain all financial rows. Roll forward with a reviewed repair. Do not re-enable the old direct writes or drop the settlement ledger as a rollback shortcut. An application rollback must keep advance mutations disabled unless it supports this ledger contract; a database restore requires an explicit recovery decision and reconciliation of any evidence written after the snapshot.
 
 ## Explicit remaining scope
 
-This is the agreed minimal C08 slice. Broader draft/cancel flows, delegated separate decision/payment permissions, corrected financial events, automated percent-of-earned limits, actual payroll deductions and bank transfers are not claimed complete. `percent_of_earned` without an explicit supported amount override fails closed. The existing frequency value is retained; this package adds no unapproved interpretation of weekly/shift payout scheduling. Auth/HTTP evidence is limited to the 15 final scenarios and reconciliation above. Paid-receipt barriers, authenticated UI, device and field operation remain open. Deployed SQL role/RLS scenarios have their separate hosted evidence recorded above.
+This is the agreed minimal C08 slice. Broader draft/cancel flows, delegated separate decision/payment permissions, corrected financial events, automated percent-of-earned limits, actual payroll deductions and bank transfers are not claimed complete. `percent_of_earned` without an explicit supported amount override fails closed. The existing frequency value is retained; this package adds no unapproved interpretation of weekly/shift payout scheduling. Auth/HTTP evidence is limited to the 15 final scenarios and reconciliation above. Paid-receipt barriers, broader UI/export recovery paths, device and field operation remain open. The original C08-01 UI flow and C08-02 idempotency invariant are closed. Deployed SQL role/RLS scenarios have their separate hosted evidence recorded above.

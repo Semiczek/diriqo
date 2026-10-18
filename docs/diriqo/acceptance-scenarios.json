@@ -1279,13 +1279,13 @@
   {
     "id": "C08-01",
     "scenario": "Žádost na 5 000 Kč je schválena na 3 000 Kč a vyplacena ve dvou částkách; přehled správně ukazuje obě salda.",
-    "status": "ČÁSTEČNĚ",
+    "status": "HOTOVO",
     "title": "Částečné vyplacení zálohy",
     "reviewedAt": "2026-10-18",
-    "reviewedCommit": "574f8be",
+    "reviewedCommit": "010a3643b9ad5397b665d2e8a37238ac7f3737f1",
     "implementation": {
-      "state": "IMPLEMENTOVÁN MINIMÁLNÍ KONTRAKT; UI AKCEPTACE OTEVŘENÁ",
-      "detail": "Oddělené požadované/schválené/vyplacené částky, atomické dílčí výplaty a neměnný ledger. Hosted SQL ověřuje žádost 5000→schválení 3000→výplaty 1000+2000 i dvě salda; přihlášený UI průchod zatím čeká.",
+      "state": "IMPLEMENTOVÁNO; PŮVODNÍ SCÉNÁŘ OVĚŘEN V NASAZENÉM UI A DB",
+      "detail": "Přihlášený pracovník požádal o 5000, správce schválil 3000 s důvodem, zaznamenal dvě výplaty 1000+2000. Živý přehled/AX rozlišil zbývající schválenou výplatu od vyplacené nevypořádané částky; DB potvrdila požadavek, schválení a právě dva pohyby. Export není součást původního scénáře.",
       "files": [
         "lib/dal/worker-advances.ts",
         "lib/payroll/advances.ts",
@@ -1299,8 +1299,8 @@
       ]
     },
     "functionality": {
-      "fullyVerified": false,
-      "basis": "Minimální SQL/Auth/HTTP kontrakt má živý důkaz; celý původní scénář v přihlášeném UI a širší workflow nejsou uzavřené."
+      "fullyVerified": true,
+      "basis": "Přesný původní C08-01 byl doložen na nasazeném 010a3643 pomocí přihlášeného UI/AX a navazujícího DB ledgeru. Úplný export ani další workflow se k tomuto scénáři nepřidávají."
     },
     "security": {
       "state": "CÍLENÉ SQL/AUTH/HTTP OVĚŘENÍ PASS",
@@ -1330,43 +1330,44 @@
         "reports": [
           "docs/worker-advances-c08-implementation-20261018.md",
           "artifacts/worker-advances/hosted-concurrency-20261018.json",
-          "artifacts/worker-advances/hosted-http409-sql-20261018.json"
+          "artifacts/worker-advances/hosted-http409-sql-20261018.json",
+          "artifacts/worker-advances/live-ui-and-cleanup-20261018.json"
         ],
-        "scope": "81 SQL scénářů+5 cleanup;4 souběhy+4 request reauth+7 payment reauth, samostatně4kroková reconciliace. Tři historické neúspěchy zachovány. Paid receipt/UI/hardware neověřeny.",
+        "scope": "81 SQL scénářů + 5 cleanup; 4 souběhy + 4 request reauth + 7 payment reauth, samostatně 4kroková reconciliace. Tři historické neúspěchy zachovány. UI/AX a DB doložily původní C08-01 a referencované vypořádání; paid-receipt barrier a hardware neověřeny.",
         "executedThisReview": true
       }
     },
     "e2e": {
-      "state": "AUTH/HTTP ČÁST PASS; PŘIHLÁŠENÉ UI ČEKÁ",
-      "executedThisReview": false,
+      "state": "PŮVODNÍ C08-01 OVĚŘEN: PŘIHLÁŠENÉ UI/AX A DB",
+      "executedThisReview": true,
       "partialEvidence": [
-        "15 finálních Auth/PostgREST scénářů s owner waiter PID důkazem; nikoli browser UI.",
-        "Původní40001 timeout→forward PT409 fix→fresh overlap PASS; stejná operation ID reconciliace 4kroky PASS."
+        "artifacts/worker-advances/live-ui-and-cleanup-20261018.json",
+        "docs/worker-advances-c08-implementation-20261018.md"
       ]
     },
     "productionReadiness": {
       "ready": false,
-      "reason": "C08 zůstává ČÁSTEČNĚ do vydání, přihlášené UI akceptace a uzavření zbývajícího rozsahu; přístupy se uklidí po UI."
+      "reason": "Uzavření přesných původních C08-01/02 neznamená schválení celého produktu ke komerčnímu provozu. C08-03 a samostatné širší hranice zůstávají otevřené; vydání a úklid testovacích přístupů jsou dokončené."
     },
     "evidence": [
       "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Žádost má jednu částku a stav paid; schvalování existuje, více samostatných výplat a dvě salda ne.",
-      "2026-10-18: minimální C08+forward PT409 oprava, hosted SQL 81+5 PASS, Auth/HTTP4+4+7 a reconciliace 4kroky PASS. Agregát SHA 98b8839dd8deed772d8fa0699bbeca3ed2d67a44a18a6b5ca72686d8181b7206; hosted SQLfix SHA 2dc25206502836a692957146a31696fd6f8d5013959d5001b74a326995939904. Historický baseline výše není aktuálním stavem opravených funkcí."
+      "2026-10-18: minimální C08+forward PT409 oprava, hosted SQL 81+5 PASS, Auth/HTTP4+4+7 a reconciliace 4kroky PASS. Agregát SHA 98b8839dd8deed772d8fa0699bbeca3ed2d67a44a18a6b5ca72686d8181b7206; hosted SQLfix SHA 2dc25206502836a692957146a31696fd6f8d5013959d5001b74a326995939904. Historický baseline výše není aktuálním stavem opravených funkcí.",
+      "2026-10-18: PR #27 nasazeno z 010a3643b9ad5397b665d2e8a37238ac7f3737f1, main CI a Office CI PASS. Přihlášené UI/AX + DB: worker žádost 5000, admin schválení 3000 s důvodem, platby 1000+2000, oddělená salda; vrácení 500 a zápočty 500+2000 doložené referencemi, nevypořádáno 0. Výplatní den 31→25 zachován po reloadu a oba DB aliasy 25. Přístupy uzavřeny: 18 syntetických firem, 0 aktivních členství, 0 aktivních syntetických profilů, 3 zablokované Auth účty, 0 relací. Důkaz artifacts/worker-advances/live-ui-and-cleanup-20261018.json, SHA-256 20f68d9d319dd0c159c81ca21cce853b0a782d87daa499b259802657bcd09a64. Archivní ledger screenshot sám nezobrazuje horní salda cílové žádosti; důkaz sald pochází z živého UI/AX a DB."
     ],
     "remaining": [
-      "Doložit přihlášené UI žádost 5000→schválení 3000→výplaty 1000+2000, obě salda po reloadu a export.",
-      "Dokončit vydání aplikace, úklid testovacích přístupů a širší požadovaný workflow rozsah."
+      "Žádný chybějící krok pro přesný původní C08-01. Export a širší workflow mají samostatnou akceptaci."
     ]
   },
   {
     "id": "C08-02",
     "scenario": "Opakované potvrzení téže výplaty nevytvoří další pohyb.",
-    "status": "ČÁSTEČNĚ",
+    "status": "HOTOVO",
     "title": "Retry výplaty",
     "reviewedAt": "2026-10-18",
-    "reviewedCommit": "574f8be",
+    "reviewedCommit": "010a3643b9ad5397b665d2e8a37238ac7f3737f1",
     "implementation": {
-      "state": "IMPLEMENTOVÁN MINIMÁLNÍ KONTRAKT; UI AKCEPTACE OTEVŘENÁ",
-      "detail": "Jedna transakce propojí výplatu a revizi žádosti. Stejný operation ID/payload vrací původní pohyb; jiný payload je odmítnut. Business konflikt používá PT409; původní 40001 timeout je zachován jako neúspěšný důkaz před opravou.",
+      "state": "IMPLEMENTOVÁNO; PŮVODNÍ IDEMPOTENTNÍ INVARIANT OVĚŘEN AUTH/HTTP/DB",
+      "detail": "Stejný operation ID a payload přes dva skutečné Auth/HTTP požadavky vytvořil jeden pohyb: jedna odpověď changed=true a druhá changed=false vracejí tentýž neměnný záznam. Pozdější přesný retry a reconciliace zachovaly jediný pohyb. Konflikt revize používá PT409.",
       "files": [
         "lib/dal/worker-advances.ts",
         "lib/payroll/advances.ts",
@@ -1380,8 +1381,8 @@
       ]
     },
     "functionality": {
-      "fullyVerified": false,
-      "basis": "Minimální SQL/Auth/HTTP kontrakt má živý důkaz; celý původní scénář v přihlášeném UI a širší workflow nejsou uzavřené."
+      "fullyVerified": true,
+      "basis": "Původní C08-02 požaduje, aby opakované potvrzení stejné výplaty nepřidalo pohyb. Skutečný Auth/PostgREST souběh a přesný následný retry to prokázaly v DB. Širší UX obnovy po nejisté odpovědi není dodatečnou podmínkou tohoto invariantu."
     },
     "security": {
       "state": "CÍLENÉ SQL/AUTH/HTTP OVĚŘENÍ PASS",
@@ -1411,31 +1412,32 @@
         "reports": [
           "docs/worker-advances-c08-implementation-20261018.md",
           "artifacts/worker-advances/hosted-concurrency-20261018.json",
-          "artifacts/worker-advances/hosted-http409-sql-20261018.json"
+          "artifacts/worker-advances/hosted-http409-sql-20261018.json",
+          "artifacts/worker-advances/live-ui-and-cleanup-20261018.json"
         ],
-        "scope": "81 SQL scénářů+5 cleanup;4 souběhy+4 request reauth+7 payment reauth, samostatně4kroková reconciliace. Tři historické neúspěchy zachovány. Paid receipt/UI/hardware neověřeny.",
+        "scope": "81 SQL scénářů + 5 cleanup; 4 souběhy + 4 request reauth + 7 payment reauth, samostatně 4kroková reconciliace. Tři historické neúspěchy zachovány. UI/AX a DB doložily původní C08-01 a referencované vypořádání; paid-receipt barrier a hardware neověřeny.",
         "executedThisReview": true
       }
     },
     "e2e": {
-      "state": "AUTH/HTTP ČÁST PASS; PŘIHLÁŠENÉ UI ČEKÁ",
-      "executedThisReview": false,
+      "state": "PŮVODNÍ C08-02 OVĚŘEN: SKUTEČNÉ AUTH/HTTP A DB",
+      "executedThisReview": true,
       "partialEvidence": [
-        "15 finálních Auth/PostgREST scénářů s owner waiter PID důkazem; nikoli browser UI.",
-        "Původní40001 timeout→forward PT409 fix→fresh overlap PASS; stejná operation ID reconciliace 4kroky PASS."
+        "artifacts/worker-advances/hosted-concurrency-20261018.json",
+        "artifacts/worker-advances/live-ui-and-cleanup-20261018.json"
       ]
     },
     "productionReadiness": {
       "ready": false,
-      "reason": "C08 zůstává ČÁSTEČNĚ do vydání, přihlášené UI akceptace a uzavření zbývajícího rozsahu; přístupy se uklidí po UI."
+      "reason": "Uzavření přesných původních C08-01/02 neznamená schválení celého produktu ke komerčnímu provozu. C08-03 a samostatné širší hranice zůstávají otevřené; vydání a úklid testovacích přístupů jsou dokončené."
     },
     "evidence": [
       "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Stav žádosti se změní na paid před odděleným upsertem worker_advances; chyba upsertu již nemá opakovatelnou cestu, protože retry vyžaduje approved.",
-      "2026-10-18: minimální C08+forward PT409 oprava, hosted SQL 81+5 PASS, Auth/HTTP4+4+7 a reconciliace 4kroky PASS. Agregát SHA 98b8839dd8deed772d8fa0699bbeca3ed2d67a44a18a6b5ca72686d8181b7206; hosted SQLfix SHA 2dc25206502836a692957146a31696fd6f8d5013959d5001b74a326995939904. Historický baseline výše není aktuálním stavem opravených funkcí."
+      "2026-10-18: minimální C08+forward PT409 oprava, hosted SQL 81+5 PASS, Auth/HTTP4+4+7 a reconciliace 4kroky PASS. Agregát SHA 98b8839dd8deed772d8fa0699bbeca3ed2d67a44a18a6b5ca72686d8181b7206; hosted SQLfix SHA 2dc25206502836a692957146a31696fd6f8d5013959d5001b74a326995939904. Historický baseline výše není aktuálním stavem opravených funkcí.",
+      "2026-10-18: PR #27 nasazeno z 010a3643b9ad5397b665d2e8a37238ac7f3737f1, main CI a Office CI PASS. Přihlášené UI/AX + DB: worker žádost 5000, admin schválení 3000 s důvodem, platby 1000+2000, oddělená salda; vrácení 500 a zápočty 500+2000 doložené referencemi, nevypořádáno 0. Výplatní den 31→25 zachován po reloadu a oba DB aliasy 25. Přístupy uzavřeny: 18 syntetických firem, 0 aktivních členství, 0 aktivních syntetických profilů, 3 zablokované Auth účty, 0 relací. Důkaz artifacts/worker-advances/live-ui-and-cleanup-20261018.json, SHA-256 20f68d9d319dd0c159c81ca21cce853b0a782d87daa499b259802657bcd09a64. Archivní ledger screenshot sám nezobrazuje horní salda cílové žádosti; důkaz sald pochází z živého UI/AX a DB."
     ],
     "remaining": [
-      "Ověřit opakované potvrzení a obnovu nejistého výsledku také v přihlášeném UI po vydání.",
-      "Uzavřít testovací přístupy; neoznačovat širší komerční připravenost za hotovou."
+      "Žádný chybějící krok pro přesný původní invariant C08-02. Obnova nejisté odpovědi v přihlášeném UI se ověřuje jako samostatná širší UX hranice."
     ]
   },
   {
@@ -1444,10 +1446,10 @@
     "status": "ČÁSTEČNĚ",
     "title": "Záloha není druhý náklad",
     "reviewedAt": "2026-10-18",
-    "reviewedCommit": "574f8be",
+    "reviewedCommit": "010a3643b9ad5397b665d2e8a37238ac7f3737f1",
     "implementation": {
-      "state": "IMPLEMENTOVÁN MINIMÁLNÍ KONTRAKT; UI AKCEPTACE OTEVŘENÁ",
-      "detail": "Součty a XLSX používají jediný platební ledger. Vrácení snižuje odečitatelnou zálohu, payroll_offset se neodečítá podruhé; vypořádání ukládá append-only referenci. Mzdové čtečky jsou explicitně firemně omezené a stránkované.",
+      "state": "VYPOŘÁDÁNÍ DOLOŽENO; NÁKLAD KONKRÉTNÍ ZAKÁZKY JEŠTĚ NEOVĚŘEN",
+      "detail": "UI i DB doložily append-only vypořádání s referencemi: vrácení 500 a zápočty 500+2000 k výplatám celkem 3000, nevypořádáno 0. Součty a XLSX používají jediný ledger, vrácení snižuje odečitatelnou zálohu a payroll_offset se neodečítá podruhé. Chybí konkrétní srovnání nákladu zakázky s odpracovaným časem.",
       "files": [
         "lib/dal/worker-advances.ts",
         "lib/payroll/advances.ts",
@@ -1462,7 +1464,7 @@
     },
     "functionality": {
       "fullyVerified": false,
-      "basis": "Minimální SQL/Auth/HTTP kontrakt má živý důkaz; celý původní scénář v přihlášeném UI a širší workflow nejsou uzavřené."
+      "basis": "Druhá část C08-03, doložený záznam vypořádání, prošla přihlášeným UI a DB. První část, nepřičtení zálohy k nákladům konkrétní zakázky podruhé vedle času, není dosud doložena celým průchodem."
     },
     "security": {
       "state": "CÍLENÉ SQL/AUTH/HTTP OVĚŘENÍ PASS",
@@ -1492,31 +1494,32 @@
         "reports": [
           "docs/worker-advances-c08-implementation-20261018.md",
           "artifacts/worker-advances/hosted-concurrency-20261018.json",
-          "artifacts/worker-advances/hosted-http409-sql-20261018.json"
+          "artifacts/worker-advances/hosted-http409-sql-20261018.json",
+          "artifacts/worker-advances/live-ui-and-cleanup-20261018.json"
         ],
-        "scope": "81 SQL scénářů+5 cleanup;4 souběhy+4 request reauth+7 payment reauth, samostatně4kroková reconciliace. Tři historické neúspěchy zachovány. Paid receipt/UI/hardware neověřeny.",
+        "scope": "81 SQL scénářů + 5 cleanup; 4 souběhy + 4 request reauth + 7 payment reauth, samostatně 4kroková reconciliace. Tři historické neúspěchy zachovány. UI/AX a DB doložily původní C08-01 a referencované vypořádání; paid-receipt barrier a hardware neověřeny.",
         "executedThisReview": true
       }
     },
     "e2e": {
-      "state": "AUTH/HTTP ČÁST PASS; PŘIHLÁŠENÉ UI ČEKÁ",
-      "executedThisReview": false,
+      "state": "VYPOŘÁDÁNÍ UI/DB PASS; KONKRÉTNÍ NÁKLAD ZAKÁZKY ČEKÁ",
+      "executedThisReview": true,
       "partialEvidence": [
-        "15 finálních Auth/PostgREST scénářů s owner waiter PID důkazem; nikoli browser UI.",
-        "Původní40001 timeout→forward PT409 fix→fresh overlap PASS; stejná operation ID reconciliace 4kroky PASS."
+        "artifacts/worker-advances/live-ui-and-cleanup-20261018.json",
+        "docs/worker-advances-c08-implementation-20261018.md"
       ]
     },
     "productionReadiness": {
       "ready": false,
-      "reason": "C08 zůstává ČÁSTEČNĚ do vydání, přihlášené UI akceptace a uzavření zbývajícího rozsahu; přístupy se uklidí po UI."
+      "reason": "Uzavření přesných původních C08-01/02 neznamená schválení celého produktu ke komerčnímu provozu. C08-03 a samostatné širší hranice zůstávají otevřené; vydání a úklid testovacích přístupů jsou dokončené."
     },
     "evidence": [
       "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Zaměstnanecké zálohy a pracovní odměny jsou oddělené; úplné vypořádání se zdrojovým dokladem není doložené.",
-      "2026-10-18: minimální C08+forward PT409 oprava, hosted SQL 81+5 PASS, Auth/HTTP4+4+7 a reconciliace 4kroky PASS. Agregát SHA 98b8839dd8deed772d8fa0699bbeca3ed2d67a44a18a6b5ca72686d8181b7206; hosted SQLfix SHA 2dc25206502836a692957146a31696fd6f8d5013959d5001b74a326995939904. Historický baseline výše není aktuálním stavem opravených funkcí."
+      "2026-10-18: minimální C08+forward PT409 oprava, hosted SQL 81+5 PASS, Auth/HTTP4+4+7 a reconciliace 4kroky PASS. Agregát SHA 98b8839dd8deed772d8fa0699bbeca3ed2d67a44a18a6b5ca72686d8181b7206; hosted SQLfix SHA 2dc25206502836a692957146a31696fd6f8d5013959d5001b74a326995939904. Historický baseline výše není aktuálním stavem opravených funkcí.",
+      "2026-10-18: PR #27 nasazeno z 010a3643b9ad5397b665d2e8a37238ac7f3737f1, main CI a Office CI PASS. Přihlášené UI/AX + DB: worker žádost 5000, admin schválení 3000 s důvodem, platby 1000+2000, oddělená salda; vrácení 500 a zápočty 500+2000 doložené referencemi, nevypořádáno 0. Výplatní den 31→25 zachován po reloadu a oba DB aliasy 25. Přístupy uzavřeny: 18 syntetických firem, 0 aktivních členství, 0 aktivních syntetických profilů, 3 zablokované Auth účty, 0 relací. Důkaz artifacts/worker-advances/live-ui-and-cleanup-20261018.json, SHA-256 20f68d9d319dd0c159c81ca21cce853b0a782d87daa499b259802657bcd09a64. Archivní ledger screenshot sám nezobrazuje horní salda cílové žádosti; důkaz sald pochází z živého UI/AX a DB."
     ],
     "remaining": [
-      "Doložit přesný náklad konkrétní zakázky vedle času a záloh v jednom přihlášeném UI/export průchodu.",
-      "Ověřit částečné výplaty, vrácení a payroll_offset s doloženou referencí v UI; skutečné mzdové srážky nejsou implementované."
+      "Ověřit na konkrétní zakázce, že záloha nepřidá druhý náklad vedle odpracovaného času. Doložené vypořádání se znovu nepožaduje."
     ]
   },
   {
