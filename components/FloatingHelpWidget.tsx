@@ -16,6 +16,7 @@ import {
 import { useI18n } from '@/components/I18nProvider'
 import type { Locale } from '@/lib/i18n/config'
 import { dismissHelpPageAction, markTutorialCompletedAction } from '@/app/onboarding/actions'
+import FloatingDiriqent from '@/components/diriqent/FloatingDiriqent'
 
 type FloatingHelpWidgetProps = {
   activeItem?: string
@@ -355,18 +356,8 @@ export default function FloatingHelpWidget({ activeItem }: FloatingHelpWidgetPro
 
   return (
     <>
-      <button
-        ref={buttonRef}
-        type="button"
-        className="floating-help-button"
-        data-tour="floating-help-button"
-        aria-label={helpUi.openHelp}
-        title={helpUi.help}
-        aria-expanded={panelOpen}
-        onClick={() => setPanelOpen((open) => !open)}
-      >
-        ?
-      </button>
+      <FloatingDiriqent key={pathname} launcherRef={buttonRef} guideActive={panelOpen || !!tutorial}
+        onToggleGuide={() => setPanelOpen((open) => !open)} onOpenGuide={() => setPanelOpen(true)} />
 
       {tutorial ? (
         <button
@@ -418,6 +409,9 @@ export default function FloatingHelpWidget({ activeItem }: FloatingHelpWidgetPro
             </button>
             <Link href="/help" style={secondaryButtonStyle} onClick={() => setPanelOpen(false)}>
               {helpUi.openFullHelp}
+            </Link>
+            <Link href="/diriqent" style={secondaryButtonStyle} onClick={() => setPanelOpen(false)}>
+              {{ cs: 'Diriqent · podpora bez kreditu', en: 'Diriqent · support without AI credits', de: 'Diriqent · Hilfe ohne KI-Guthaben' }[locale]}
             </Link>
           </div>
 
@@ -482,10 +476,10 @@ export default function FloatingHelpWidget({ activeItem }: FloatingHelpWidgetPro
 const panelStyle: CSSProperties = {
   position: 'fixed',
   right: 24,
-  bottom: 74,
+  bottom: 126,
   zIndex: 180,
   width: 'min(390px, calc(100vw - 28px))',
-  maxHeight: 'min(680px, calc(100vh - 104px))',
+  maxHeight: 'min(680px, calc(100dvh - 150px))',
   overflow: 'auto',
   borderRadius: 22,
   border: '1px solid rgba(148, 163, 184, 0.28)',
@@ -598,11 +592,11 @@ const textButtonStyle: CSSProperties = {
 
 const tutorialDockStyle: CSSProperties = {
   position: 'fixed',
-  right: 72,
+  right: 112,
   bottom: 23,
   zIndex: 219,
   minHeight: 38,
-  maxWidth: 'min(260px, calc(100vw - 96px))',
+  maxWidth: 'min(260px, calc(100vw - 128px))',
   display: 'inline-flex',
   alignItems: 'center',
   gap: 9,

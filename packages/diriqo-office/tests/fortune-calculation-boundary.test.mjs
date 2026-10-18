@@ -5,6 +5,9 @@ import vm from 'node:vm';
 import {createRequire} from 'node:module';
 import {transformFortuneCore} from '../scripts/fortune-safe-transform.mjs';
 import {guardFortuneCalculation} from '../src/core/fortune-formula-guard.ts';
+import {toFortuneSheets} from '../src/core/fortune-adapter.ts';
+import {validateContent} from '../src/core/validation.ts';
+import {exportXlsx,importXlsx} from '../src/server/formats.ts';
 const require=createRequire(import.meta.url),{Parser}=require('@fortune-sheet/formula-parser');
 const source=transformFortuneCore(await readFile('node_modules/@fortune-sheet/core/dist/index.esm.js','utf8'));
 function engine(){
@@ -44,4 +47,27 @@ test('engine output cannot expand into oversized strings, arrays or nonfinite nu
   const e=engine(),ctx=context([sheet('a','A','=1')]);ctx.formulaCache.parser.parse=()=>({error:null,result});
   assert.equal(e.execfunction(ctx,'=1',0,2,'a')[1],expected);
  }
+});
+
+test('XLSX unquoted Czech sheet references survive roundtrip and calculate through the actual engine boundary',()=>{
+ const content={schemaVersion:1,kind:'spreadsheet',workbook:{id:'unicode-test',name:'Synthetic',sheetOrder:['summary','work','install'],sheets:{
+  summary:{id:'summary',name:'Summary',rowCount:10,columnCount:3,cellData:{0:{0:{f:'=SUM(Vícepráce!$A$1:$A$2)+Montáž!B2',v:999}}}},
+  work:{id:'work',name:'Vícepráce',rowCount:10,columnCount:3,cellData:{0:{0:{v:10,t:2}},1:{0:{v:20,t:2}}}},
+  install:{id:'install',name:'Montáž',rowCount:10,columnCount:3,cellData:{1:{1:{v:5,t:2}}}},
+ }}};
+ const imported=validateContent(importXlsx(exportXlsx(content).bytes).content);
+ const files=toFortuneSheets(imported),ctx=context(files),e=engine();
+ const lookup=(name,row,column)=>files.find(file=>file.name===name).celldata.find(cell=>cell.r===row&&cell.c===column)?.v.v??0;
+ ctx.formulaCache.parser.on('callCellValue',(cell,_options,done)=>done(lookup(cell.sheetName,cell.row.index,cell.column.index)));
+ ctx.formulaCache.parser.on('callRangeValue',(start,end,_options,done)=>{
+  const rows=[];for(let row=start.row.index;row<=end.row.index;row++){
+   const values=[];for(let column=start.column.index;column<=end.column.index;column++)values.push(lookup(start.sheetName,row,column));rows.push(values);
+  }done(rows);
+ });
+ const formula=files[0].celldata.find(cell=>cell.r===0&&cell.c===0).v.f;
+ assert.equal(formula,content.workbook.sheets.summary.cellData[0][0].f);
+ assert.deepEqual(files.map(file=>file.name),['Summary','Vícepráce','Montáž']);
+ assert.equal(e.execfunction(ctx,formula,0,0,files[0].id)[1],35);
+ files[1].celldata.find(cell=>cell.r===1&&cell.c===0).v.v=30;
+ assert.equal(e.execfunction(ctx,formula,0,0,files[0].id)[1],45);
 });

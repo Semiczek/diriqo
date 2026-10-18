@@ -1,4 +1,6 @@
 /** Host-neutral contract. Actor and tenant must originate in an authenticated server guard. */
+import type { OfficeDownloadFormat } from './formats.ts';
+export * from './formats.ts';
 export type OfficeRole = 'owner' | 'editor' | 'reader';
 export type OfficeActor = { tenantId: string; actorId: string; role: OfficeRole; enabled: boolean; principal: 'human' | 'ai' };
 export type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
@@ -6,7 +8,7 @@ export type DocumentContent = { schemaVersion: 1; kind: 'document'; doc: Record<
 export type SpreadsheetContent = { schemaVersion: 1; kind: 'spreadsheet'; workbook: Record<string, any> };
 export type OfficeContent = DocumentContent | SpreadsheetContent;
 export type OfficeLink = { type: 'job' | 'customer'; id: string; label: string };
-export type OfficeFile = { id: string; tenantId: string; ownerId: string; title: string; kind: 'document' | 'spreadsheet' | 'folder'; parentId: string | null; revision: number; content: OfficeContent | null; updatedAt: string; link: OfficeLink | null; original?: { name: string; mime: string; size: number; sha256: string } | null };
+export type OfficeFile = { id: string; tenantId: string; ownerId: string; ownerName?: string; access?: { canWrite: boolean; canDelete: boolean; canShare: boolean }; title: string; kind: 'document' | 'spreadsheet' | 'folder'; parentId: string | null; revision: number; content: OfficeContent | null; updatedAt: string; link: OfficeLink | null; original?: { name: string; mime: string; size: number; sha256: string } | null };
 export type OfficeVersion = { revision: number; createdAt: string; actorId: string; content: OfficeContent | null; title: string };
 export type OfficeProposal = { id: string; fileId: string; baseRevision: number; status: 'pending' | 'applied' | 'rejected'; summary: string; content: OfficeContent; createdBy: string; createdAt: string };
 export type OfficeVersionSummary = Omit<OfficeVersion, 'content'>;
@@ -34,5 +36,8 @@ export type OfficeRequest =
  | { op: 'approve'; id: string; proposalId: string; expectedRevision: number; idempotencyKey: string }
  | { op: 'reject'; id: string; proposalId: string; idempotencyKey: string };
 export type OfficeResponse = { files?: OfficeFile[]; file?: OfficeFile; versions?: OfficeVersion[]; version?: OfficeVersion; versionSummaries?: OfficeVersionSummary[]; proposal?: OfficeProposal; proposals?: OfficeProposal[]; proposalSummaries?: OfficeProposalSummary[]; nextCursor?: string | null; permissions?: { role: OfficeRole; ownerId: string; canWrite: boolean; canDelete: boolean }; deleted?: boolean };
-export type OfficeTransport = { request: (request: OfficeRequest) => Promise<OfficeResponse>; importFile: (data: FormData) => Promise<{ file: OfficeFile; warnings: string[] }>; exportFile: (id: string, format: string) => Promise<{ name: string; mime: string; base64: string; warnings: string[] }>; templateVariables?: (link?: { type: 'job' | 'customer'; id: string }) => Promise<Record<string, string | number>> };
+export type OfficePerson = { id: string; name: string };
+export type OfficeSharingState = { fileId: string; owner: OfficePerson; visibility: 'restricted' | 'private' | 'company'; revision: number; canManage: boolean; members: Array<OfficePerson & { role: 'reader' | 'editor' }>; colleagues: OfficePerson[]; automaticReaders?: OfficePerson[] };
+export type OfficeSharingUpdate = { fileId: string; expectedRevision: number; memberId: string; role: 'reader' | 'editor' | null; idempotencyKey: string };
+export type OfficeTransport = { request: (request: OfficeRequest) => Promise<OfficeResponse>; importFile: (data: FormData) => Promise<{ file: OfficeFile; warnings: string[] }>; exportFile: (id: string, format: OfficeDownloadFormat) => Promise<{ name: string; mime: string; base64: string; warnings: string[] }>; templateVariables?: (link?: { type: 'job' | 'customer'; id: string }) => Promise<Record<string, string | number>>; sharingRead?: (id: string, query?: string) => Promise<OfficeSharingState>; sharingUpdate?: (input: OfficeSharingUpdate) => Promise<OfficeSharingState> };
 export type OfficeLocale = 'cs' | 'sk' | 'en' | 'de' | 'pl' | 'tr' | 'sq';

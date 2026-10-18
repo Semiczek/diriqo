@@ -8,7 +8,7 @@ export const FORMULA_GRAPH_LIMITS = Object.freeze({
  expandedReferences:200_000, scannedCells:100_000,
 });
 export const OFFICE_FORMULA_FUNCTIONS = Object.freeze([
- 'SUM','AVERAGE','MIN','MAX','COUNT','COUNTA','IF','AND','OR','SUMIF','COUNTIF','ROUND',
+ 'SUM','SUBTOTAL','AVERAGE','MIN','MAX','COUNT','COUNTA','IF','AND','OR','SUMIF','COUNTIF','ROUND',
  'IFERROR','NOT','ABS','ROUNDUP','ROUNDDOWN','VLOOKUP','HLOOKUP','MATCH','INDEX',
  'TODAY','DATE','YEAR','MONTH','DAY','TIMEVALUE',
 ] as const);
@@ -24,7 +24,7 @@ export class FormulaGraphError extends Error {
 }
 export type FormulaSheetDescriptor={id:string;name:string;rowCount:number;columnCount:number};
 export type FormulaReference={sheetId:string;startRow:number;endRow:number;startColumn:number;endColumn:number};
-export type FormulaReferenceResult={references:FormulaReference[];expandedReferences:number};
+export type FormulaReferenceResult={references:FormulaReference[];expandedReferences:number;subtotalReferences?:FormulaReference[]};
 export type FormulaGraphStats={formulaCount:number;expandedReferences:number;dependencyEdges:number};
 type Token={kind:'number'|'text'|'name'|'quoted'|'error'|'op'|'eof';value:string;at:number};
 type Environment={byId:Map<string,FormulaSheetDescriptor>;byName:Map<string,FormulaSheetDescriptor>};
@@ -77,8 +77,8 @@ function lex(formula:string,cell?:string):Token[]{
    if(!match||!Number.isFinite(Number(match[0])))fail('FORMULA_SYNTAX','Invalid numeric literal.',cell,{offset:i});
    push('number',match[0],i);i+=match[0].length;continue;
   }
-  if(/[A-Za-z_$]/.test(ch)){
-   const match=/^[A-Za-z_$][A-Za-z0-9_.$]*/.exec(formula.slice(i))!;
+  const match=/^[\p{L}_$][\p{L}\p{N}_.$]*/u.exec(formula.slice(i));
+  if(match){
    push('name',match[0],i);i+=match[0].length;continue;
   }
   const pair=formula.slice(i,i+2);
@@ -91,7 +91,7 @@ function lex(formula:string,cell?:string):Token[]{
 class ReferenceParser {
  private readonly tokens:Token[];private cursor=0;private depth=0;
  private readonly environment:Environment;private readonly sheet:FormulaSheetDescriptor;private readonly cell?:string;
- private readonly references:FormulaReference[]=[];private expanded=0;
+ private readonly references:FormulaReference[]=[];private readonly subtotalReferences:FormulaReference[]=[];private expanded=0;
  constructor(formula:string,sheet:FormulaSheetDescriptor,environment:Environment,cell?:string){this.tokens=lex(formula,cell);this.environment=environment;this.sheet=sheet;this.cell=cell;}
  private peek(){return this.tokens[this.cursor]??this.tokens[this.tokens.length-1];}
  private take(){const token=this.peek();if(this.cursor<this.tokens.length-1)this.cursor++;return token;}
@@ -131,8 +131,19 @@ class ReferenceParser {
   if(token.kind!=='name')fail('FORMULA_SYNTAX','Expected a value, function or A1 reference.',this.cell,{offset:token.at});
   if(this.is('(')){
    const name=token.value.toUpperCase();
-   if(!allowedFunctions.has(name))fail('FORMULA_UNSUPPORTED_FUNCTION','Unsupported function '+token.value+'. Dynamic and potentially explosive functions are disabled.',this.cell,{function:name});
-   this.take();let args=0;
+   if(!/^[A-Za-z][A-Za-z0-9_.]*$/.test(token.value)||!allowedFunctions.has(name))fail('FORMULA_UNSUPPORTED_FUNCTION','Unsupported function '+token.value+'. Dynamic and potentially explosive functions are disabled.',this.cell,{function:name});
+   this.take();
+   if(name==='SUBTOTAL'){
+    // This OSS engine accepts only one reference and does not exclude nested subtotals.
+    const unsupported=()=>fail('FORMULA_UNSUPPORTED_FUNCTION','SUBTOTAL supports only a literal function code (1–11 or 101–111) and one static A1 reference or range.',this.cell,{function:name});
+    const code=this.take();if(code.kind!=='number'||!/^(?:[1-9]|10|11|10[1-9]|110|111)$/.test(code.value)||!this.is(','))unsupported();
+    this.take();const first=this.take();
+    if((first.kind!=='name'&&first.kind!=='quoted')||this.is('('))unsupported();
+    this.reference(first,this.sheet);
+    if(!this.is(')'))unsupported();this.take();
+    this.subtotalReferences.push(this.references[this.references.length-1]);return;
+   }
+   let args=0;
    if(!this.is(')')){for(;;){if(++args>FORMULA_GRAPH_LIMITS.functionArguments)fail('FORMULA_LIMIT','Function argument limit exceeded.',this.cell);this.expression(0);if(!this.is(','))break;this.take();}}
    this.expect(')');return;
   }
@@ -151,7 +162,7 @@ class ReferenceParser {
    }
   }finally{this.depth--;}
  }
- parse():FormulaReferenceResult{this.expression(0);if(this.peek().kind!=='eof')fail('FORMULA_SYNTAX','Unexpected token '+this.peek().value+'.',this.cell,{offset:this.peek().at});return {references:this.references,expandedReferences:this.expanded};}
+ parse():FormulaReferenceResult{this.expression(0);if(this.peek().kind!=='eof')fail('FORMULA_SYNTAX','Unexpected token '+this.peek().value+'.',this.cell,{offset:this.peek().at});return {references:this.references,expandedReferences:this.expanded,...(this.subtotalReferences.length?{subtotalReferences:this.subtotalReferences}:{})};}
 }
 /** Returns bounded rectangles, never a potentially huge materialized coordinate list. */
 export function parseFormulaReferences(formula:string,options:{sheetId:string;sheets:readonly FormulaSheetDescriptor[];cell?:string}):FormulaReferenceResult {
@@ -187,9 +198,10 @@ export function assertFormulaGraph(content:SpreadsheetContent):FormulaGraphStats
    }
   }
  }
- const graph=new Map<string,string[]>();let expandedReferences=0,dependencyEdges=0;
+ const graph=new Map<string,string[]>(),subtotals=new Map<string,FormulaReference[]>();let expandedReferences=0,dependencyEdges=0;
  for(const [key,item] of formulas){
   const parsed=new ReferenceParser(item.formula,item.sheet,environment,item.label).parse();
+  if(parsed.subtotalReferences)subtotals.set(key,parsed.subtotalReferences);
   expandedReferences+=parsed.expandedReferences;
   if(expandedReferences>FORMULA_GRAPH_LIMITS.expandedReferences)fail('FORMULA_LIMIT','Workbook formulas may expand at most 200,000 referenced cells in total.',item.label);
   const targets=new Set<string>();
@@ -213,6 +225,22 @@ export function assertFormulaGraph(content:SpreadsheetContent):FormulaGraphStats
     fail('FORMULA_CYCLE','Cyclic formula reference: '+cycle.slice(0,12).join(' → ')+(cycle.length>12?' …':''),formulas.get(target)!.label,{cycle:cycle.slice(0,100)});
    }
    if(color===0){state.set(target,1);stack.push({key:target,next:0});}
+  }
+ }
+ // Bound this scan by the same already-checked reference budget, and inspect only
+ // actual SUBTOTAL input ranges: another ordinary dependency may contain a subtotal.
+ for(const [key,ranges] of subtotals)for(const range of ranges){
+  const source=content.workbook.sheets[range.sheetId],filter=source.officeFilter?.range;
+  if(record(filter)&&[filter.startRow,filter.endRow,filter.startColumn,filter.endColumn].every(Number.isInteger)
+   &&filter.startRow<=range.endRow&&filter.endRow>=range.startRow)
+   fail('FORMULA_UNSUPPORTED_FUNCTION','SUBTOTAL over filtered ranges is not supported by the spreadsheet engine.',formulas.get(key)!.label,{function:'SUBTOTAL'});
+  for(let row=range.startRow;row<=range.endRow;row++){
+   if(source.rowData?.[row]?.hd===1)
+    fail('FORMULA_UNSUPPORTED_FUNCTION','SUBTOTAL over hidden rows is not supported by the spreadsheet engine.',formulas.get(key)!.label,{function:'SUBTOTAL'});
+   for(let column=range.startColumn;column<=range.endColumn;column++){
+    if(subtotals.has(coordinate(range.sheetId,row,column)))
+     fail('FORMULA_UNSUPPORTED_FUNCTION','Nested SUBTOTAL references are not supported by the spreadsheet engine.',formulas.get(key)!.label,{function:'SUBTOTAL'});
+   }
   }
  }
  return {formulaCount:formulas.size,expandedReferences,dependencyEdges};

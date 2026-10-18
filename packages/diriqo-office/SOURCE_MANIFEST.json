@@ -3,12 +3,12 @@
   "repository": "https://github.com/Semiczek/diriqo",
   "sourceDirectory": "packages/diriqo-office",
   "ownership": "One canonical source; both hosts consume the identical reviewed vendor runtime.",
-  "sourceSha256": "d844f69bb86553869de0b0ede504c11910c63fb72e2cc7105dd4ecaf7d274769",
+  "sourceSha256": "d5b1cafffd2b2046d5a9b34a526ef46d245305dd14ca085f2c92694f20484d60",
   "runtime": {
     "name": "@diriqo/office",
-    "version": "0.1.0",
-    "archive": "vendor/diriqo-office-0.1.0.tgz",
-    "sha256": "fc8b602dc57267f504bbd4d02788b8dc349f4cb03d282fe62008e9d0538e5c5a"
+    "version": "0.3.4",
+    "archive": "vendor/diriqo-office-0.3.4.tgz",
+    "sha256": "f293524d6fa5f9382a06f8e685d04f79898932d9c85cce0fedcc8df29961d9c0"
   },
   "files": [
     {
@@ -28,8 +28,8 @@
     },
     {
       "path": "LICENSE_AUDIT.md",
-      "bytes": 3422,
-      "sha256": "fcd027b0e8a5daf7fb9589d199f109368101d111c1a554f84bd44dbb47c9cf17"
+      "bytes": 4001,
+      "sha256": "ed2a72fb51de12b829aa2c5ec201b2ca31773ea16ff96c57e2ff8f0b561e8bb9"
     },
     {
       "path": "README.md",
@@ -38,8 +38,8 @@
     },
     {
       "path": "THIRD_PARTY_LICENSES.md",
-      "bytes": 45767,
-      "sha256": "95d7ddc21ce1ac3b39f3009a59c19d20f8f97e242110dfd926f52c304c9eaeba"
+      "bytes": 46512,
+      "sha256": "07628390dabffeaeb84806a9d1c8ece61073717942de907ad9a083585f5c186c"
     },
     {
       "path": "database/office-core.sql",
@@ -67,14 +67,19 @@
       "sha256": "bcb96387b58696d25391e6ea828f21c9bf3da323542ddc5da2ee1b3585c4d131"
     },
     {
+      "path": "docs/ALTERNATIVE_FORMATS.md",
+      "bytes": 5814,
+      "sha256": "80d43a054adde1aee95d07f71870271e064648b53219d33d2ebe22fee4675d02"
+    },
+    {
       "path": "docs/ARCHITECTURE.md",
       "bytes": 12416,
       "sha256": "0713a2defb36b673198bf1b50f7078337b7e875bbe06a8238da750228f0e435f"
     },
     {
       "path": "docs/ENABLEMENT.md",
-      "bytes": 15065,
-      "sha256": "ce7038d4bfeb6b546a84439bf57cdc02da69febcd3de12d42f2e52a8422392d3"
+      "bytes": 15425,
+      "sha256": "d6ebb487db00564a13532c6dad85a90cf1cbaf2d37f531cc33633dea7a6782e4"
     },
     {
       "path": "docs/EXTERNAL_STORAGE_NOTES.md",
@@ -82,9 +87,19 @@
       "sha256": "f8cca66ac281afcc1eab59f2d8bda0aac85dde1c09ab8ca840169138b7cb7aec"
     },
     {
+      "path": "docs/GIT_RELEASE.md",
+      "bytes": 7710,
+      "sha256": "0261b579ad830d9a5803cbf8f6e895cf1d60c0b5dec5eed8ea590137b1f8ca8d"
+    },
+    {
+      "path": "docs/LEGACY_FORMAT_NOTES.md",
+      "bytes": 6422,
+      "sha256": "67891971d355862090fba583293eb32844621a853d274b5291e875b9217516a1"
+    },
+    {
       "path": "docs/LIMITATIONS.md",
-      "bytes": 9875,
-      "sha256": "27effe885874d2767b46c98b0b94d76b88f0af0e36be81a872cb1b4b9aa2601c"
+      "bytes": 10388,
+      "sha256": "14944a578ad40e668972cab6eedfdb1fcb2fa98843dab73fe85a89bb5cabf458"
     },
     {
       "path": "docs/NATIVE_PRINT_VALIDATION.md",
@@ -97,14 +112,49 @@
       "sha256": "d6a32e32e65d823d7628d9c3f3150a0c28319ab6e31c5181832fd13a00b6e5dc"
     },
     {
+      "path": "docs/OFFICE_BASE_ACCESS_REVIEW.md",
+      "bytes": 12313,
+      "sha256": "ef9d5487c85a17aa9bf1c44b663ba6cdd85113ba577f443318e6ccb0c36051bc"
+    },
+    {
+      "path": "docs/OFFICE_CSS_ISOLATION_REVIEW.md",
+      "bytes": 5377,
+      "sha256": "e71968f777ba834d5228eb0e43feab376b406b2e6b84421e40793f9f810ea1de"
+    },
+    {
+      "path": "docs/OFFICE_MAIN_RELEASE.md",
+      "bytes": 23960,
+      "sha256": "93a4a5f3858cadc5950b619bae374c6ad5d8079687390a89f27bdf1274400421"
+    },
+    {
+      "path": "docs/OFFICE_MENU_SAVE_FIX.md",
+      "bytes": 5217,
+      "sha256": "d26c3c8fddfe2e59f5fb5ea63da625cad1fd8e4bf17455d7313673b6056b5645"
+    },
+    {
+      "path": "docs/OFFICE_MIGRATION_HISTORY_VERIFICATION.md",
+      "bytes": 4729,
+      "sha256": "4db2741531a81342a62995601a4057c25c077bdad9761a4d4c6158d2b1880e7b"
+    },
+    {
       "path": "docs/OFFICE_ORIGIN.md",
       "bytes": 3279,
       "sha256": "871dfa83a8bb80653aff12ed1bc760676e65f73c48dce40dd3e0611a5b235235"
     },
     {
+      "path": "docs/OFFICE_PRODUCTION_ORIGIN.md",
+      "bytes": 7055,
+      "sha256": "2687536df8517f8b297e925a3c75efbf118eb2db19ed44406e4c1ef897578c0f"
+    },
+    {
       "path": "docs/OFFICE_ROLLOUT_IMPACT.md",
       "bytes": 9610,
       "sha256": "cf994910fd06316a272a609d71d2819a66774387559248d400ec04c40e2fa2e9"
+    },
+    {
+      "path": "docs/OFFICE_SHARING_RELEASE_WORKFLOW.md",
+      "bytes": 5088,
+      "sha256": "3aecc9b9d7b01bd48be0a51554b2159a3009df38ded13561fe3628a43787a578"
     },
     {
       "path": "docs/PDF_EXPORT.md",
@@ -118,8 +168,8 @@
     },
     {
       "path": "docs/STAGING_ACCEPTANCE.md",
-      "bytes": 10270,
-      "sha256": "4d84a878f91ef7ddacf89d691d03ea2fde24ea8edf936810b17763dd931cf527"
+      "bytes": 10631,
+      "sha256": "262cd91f173b513832bdf0b61c13dfd8cd8ed223481ee56e0d77b85df6671784"
     },
     {
       "path": "docs/STAGING_DIRIQO_HTTP_PROTOCOL.txt",
@@ -243,8 +293,8 @@
     },
     {
       "path": "licenses/evidence.json",
-      "bytes": 212152,
-      "sha256": "263c8cba0cc1aa86ee5bdce86bf657adfb779c5d4e4354bed4d6e9a85d145277"
+      "bytes": 213329,
+      "sha256": "71c789e760112a1c2ed6b3f2d6b834a70ef7629698c534d3657267185d41dda4"
     },
     {
       "path": "licenses/pdf-candidates.json",
@@ -1777,24 +1827,34 @@
       "sha256": "869c30f368eb08735e779027b9f4bc9fea2f39624351856aebe42741f0bc0884"
     },
     {
+      "path": "licenses/texts/xlsx@0.20.3/0-LICENSE",
+      "bytes": 11355,
+      "sha256": "4d2a38ac35cda06a555c84074a819d413339cd3691b822cae50f8f322fe01f64"
+    },
+    {
+      "path": "licenses/texts/xlsx@0.20.3/1-LICENSE",
+      "bytes": 11355,
+      "sha256": "4d2a38ac35cda06a555c84074a819d413339cd3691b822cae50f8f322fe01f64"
+    },
+    {
       "path": "licenses/texts/xml-naming@0.3.0/0-LICENSE",
       "bytes": 1077,
       "sha256": "8e75fc0e776c62ccadb8178ece8d3daa9ba7601fb0a49b2dfb0ea9a7a5c0aa07"
     },
     {
       "path": "package-lock.json",
-      "bytes": 65836,
-      "sha256": "68bfa4ba772ed4e6a695a4467a3aa2f853b50aeb7351bb67019ecd84f1760fb7"
+      "bytes": 66315,
+      "sha256": "91b2e66518240a568a67b5507c7d031f5c1f8241d8ad39a11696cdd412947e1f"
     },
     {
       "path": "package.json",
-      "bytes": 1909,
-      "sha256": "d542bf7500a8ab74a6c04a9cb1e09a4a93da5cfb96eeb9664a0b6405be0a6a13"
+      "bytes": 1976,
+      "sha256": "31fd522f00866e32d1956bd75a0382d576c68f4451e83d5b23a7d37d37d417b0"
     },
     {
       "path": "sbom.cdx.json",
-      "bytes": 147528,
-      "sha256": "503dfc23b2d89ce0ad6be9c1690787400d9a7f698edf0ae26890a21c114dbd04"
+      "bytes": 148533,
+      "sha256": "0a8041da984ffefb64d688180179dc8cf4ce0d91aa0dffccecf858c0d1f84d65"
     },
     {
       "path": "scripts/browser-react-peer.mjs",
@@ -1808,8 +1868,8 @@
     },
     {
       "path": "scripts/check-host-office.mjs",
-      "bytes": 8255,
-      "sha256": "cbfeb1b86981bf95b39b98fc00dab8b0cf4d9a06e807da19dc6f0261fac4d5df"
+      "bytes": 8328,
+      "sha256": "a5bbe569bb7c358a7d10d87c3ac02fa7df396c83f5acadd1f73a0cad35151fc2"
     },
     {
       "path": "scripts/check-office-assets.mjs",
@@ -1818,8 +1878,8 @@
     },
     {
       "path": "scripts/check-source-provenance.mjs",
-      "bytes": 3986,
-      "sha256": "52c1c5dafe2a6a5e0e8b627529b7fb876ac110749726165097b7747eae84e720"
+      "bytes": 4189,
+      "sha256": "9d062205074b90c47f8970f0124686890329ec711db0c69fd9ee748f99e2a883"
     },
     {
       "path": "scripts/demo-build.mjs",
@@ -1843,8 +1903,8 @@
     },
     {
       "path": "scripts/licenses.mjs",
-      "bytes": 22894,
-      "sha256": "0a6fc9f25edc9c0d1ce99b52287f1062f557e93b9e4d0ce48326e3388ad2755a"
+      "bytes": 24355,
+      "sha256": "5cd4f271be6fc13b947c309b85f58ca7fdd6a152695b0f15b6ed4cf7fd1ab729"
     },
     {
       "path": "scripts/native-print-demo.mjs",
@@ -2063,8 +2123,13 @@
     },
     {
       "path": "src/client/OfficeWorkspace.tsx",
-      "bytes": 33698,
-      "sha256": "06164bb36fc9de51fa40f2a3776b4b7fcd10c99c0273f7e0a5a147221d81ae8a"
+      "bytes": 36469,
+      "sha256": "96182eab25849527b7fa67fe36bc82f9c3b407d1bfa855ab7fbb050f77952165"
+    },
+    {
+      "path": "src/client/SharingDialog.tsx",
+      "bytes": 6551,
+      "sha256": "302975d67bf8654cee2c50f5dc8691316e36e17ff3139b648765fb43ba69eb8f"
     },
     {
       "path": "src/client/SpreadsheetEditor.tsx",
@@ -2078,18 +2143,23 @@
     },
     {
       "path": "src/client/locales.ts",
-      "bytes": 21577,
-      "sha256": "b50e14f17237164179af7b3b19d0d912cc7260b6f179830c2a6e83cf51d04e5b"
+      "bytes": 28864,
+      "sha256": "32cb2c32ecb15a488cc42fc7603040bab88dc8c5e2a9a3fdbff10ed28eeae655"
     },
     {
       "path": "src/client/office.css",
-      "bytes": 18473,
-      "sha256": "cdba6bc8991e5ead55ffa8122cb716c13244407a44b712d82f87273638a457e4"
+      "bytes": 20930,
+      "sha256": "46c7e69033f5d88deac7c5f97e650fddeb544a430448d0e9829279fe5b58273d"
+    },
+    {
+      "path": "src/core/formats.ts",
+      "bytes": 1624,
+      "sha256": "13cf543ac5e9c7d94e2786747231651c0213143161fa0f56e209857636a3ec63"
     },
     {
       "path": "src/core/formula-graph.ts",
-      "bytes": 15508,
-      "sha256": "53b58cdd312ae01022b1496b7608e46cc58de4bb6716abc7145e8c6211329306"
+      "bytes": 17832,
+      "sha256": "e7ba91ffc69dec3894171f3b9dc11e86b9ed0ba944f1860b26fb2f51a5393bc7"
     },
     {
       "path": "src/core/formula-policy.ts",
@@ -2103,8 +2173,8 @@
     },
     {
       "path": "src/core/fortune-formula-guard.ts",
-      "bytes": 2611,
-      "sha256": "f5e64e5fcba6d00f1ceb365e24498a02652ecad1af04926e92cea8092da23475"
+      "bytes": 3433,
+      "sha256": "eed7219b68ad4e2ef7a0c1b5fa86325f8e8ab20b310196efb3cb4efdcc76aa63"
     },
     {
       "path": "src/core/templates.ts",
@@ -2113,18 +2183,23 @@
     },
     {
       "path": "src/core/types.ts",
-      "bytes": 4221,
-      "sha256": "0f181922a3a09e9b0b2e1af9a370242454f8e776fc059c63dd664d5ddaeb648a"
+      "bytes": 5066,
+      "sha256": "5c335d4721be1e14e29237fc233b657aae65e877d2119679769badef9cc608f8"
     },
     {
       "path": "src/core/validation.ts",
-      "bytes": 11853,
-      "sha256": "b119d405cbb1a749945bf57535c33b5cdc0b48d34204b2197b61e8033aeb07f7"
+      "bytes": 12193,
+      "sha256": "731a784c5ddc6f0c37601292706bf7db2ed9b98234363ba69cd8d45a460b3c8b"
     },
     {
       "path": "src/server/ai-adapter.ts",
-      "bytes": 13134,
-      "sha256": "da860713ad6af011bd3a82d82a951247fb43c11a89380259ffdfe75f5ce17dfe"
+      "bytes": 13159,
+      "sha256": "72eeb2d30172d4fd5292b242fe59e5ddb07d6bbcb5d641aabb34f60384ee4de0"
+    },
+    {
+      "path": "src/server/alternative-spreadsheets.ts",
+      "bytes": 14749,
+      "sha256": "a1b144e3b0435dd1880c3be22ea6e1fcf7291c6c29e958d50cd78e695b047b43"
     },
     {
       "path": "src/server/bounded-import.ts",
@@ -2132,9 +2207,19 @@
       "sha256": "035e76c3e3f544eaff90e4dd9501a88be354707acedcbed2af08d767b40708cd"
     },
     {
+      "path": "src/server/compound-file.ts",
+      "bytes": 9115,
+      "sha256": "034cae0e44719094134572a1113fb5ab7c164a34d2f2694727bb23e685481a72"
+    },
+    {
+      "path": "src/server/container-safety.ts",
+      "bytes": 10878,
+      "sha256": "c862bb81ffa512ee60cb140d9ebb38786916e4b329914aeec90eb5856c94092f"
+    },
+    {
       "path": "src/server/formats.ts",
-      "bytes": 40508,
-      "sha256": "a7926af2b3ea82a25a4ca6a9605f4f34f99e7dcc3b5aeac9ebcba6eb6b2490eb"
+      "bytes": 38910,
+      "sha256": "1e27ec99224892e6f77c1d0cd14bc58cc8f4e93d46483fe38564e6cd0d2a2d2c"
     },
     {
       "path": "src/server/import-worker.ts",
@@ -2147,9 +2232,24 @@
       "sha256": "562fec99f73624db606262b012e1ff24344cdbd3bff75188d015611e9302ab46"
     },
     {
+      "path": "src/server/legacy-doc.ts",
+      "bytes": 10059,
+      "sha256": "170fb4b9119142887c5ebaf4d49bd182689315101fb0467af7046c4021c84538"
+    },
+    {
       "path": "src/server/multipart.ts",
       "bytes": 956,
       "sha256": "fc0f27a8c0fd4290738e96e909433aec173033d2d18c66fceca1e983ac7a7435"
+    },
+    {
+      "path": "src/server/odf-formulas.ts",
+      "bytes": 9893,
+      "sha256": "3542ffc07c7d24460cb2856db2a57a406b40af00354dd027367656f08f4f438d"
+    },
+    {
+      "path": "src/server/opendocument-text.ts",
+      "bytes": 23291,
+      "sha256": "368145bb8715ced3e9a614f27eef3abec265b135eda06b97e44081ebc84b2671"
     },
     {
       "path": "src/server/origin.ts",
@@ -2173,8 +2273,8 @@
     },
     {
       "path": "src/server/service.ts",
-      "bytes": 14638,
-      "sha256": "008ef43964fe147cd29428a74cc9eaa933d1a2bec44e0124393481f1a00b8659"
+      "bytes": 14568,
+      "sha256": "a91c425103cdafd6baa3f963e675b6cc32be175ca749a8008da4f2b07a36542d"
     },
     {
       "path": "src/server/store.ts",
@@ -2183,8 +2283,8 @@
     },
     {
       "path": "src/server/supabase-service.ts",
-      "bytes": 2957,
-      "sha256": "409d07dc51877a38d732217619522ecbb69d89a629af258b491bdaaba967bbfa"
+      "bytes": 2901,
+      "sha256": "ffd3ea70fab98828ed2281f2e81fbaa5c9326064d6a6d45ec6a3f00d90e3ea12"
     },
     {
       "path": "src/vendor.d.ts",
@@ -2193,13 +2293,33 @@
     },
     {
       "path": "tests/ai.test.mjs",
-      "bytes": 5150,
-      "sha256": "f76f5b70b8c4a834a3dd4e476021cc2d88ee7bba0fcdb38f80ce611cf880d8b9"
+      "bytes": 7171,
+      "sha256": "873d7c2f6f6d8b5e8da8ed739ea6c9f3ca7e48d77f9ce7a90e2f69689dcf590f"
+    },
+    {
+      "path": "tests/alternative-import-service.test.mjs",
+      "bytes": 5622,
+      "sha256": "1c6473eb6498e8a8b6fe319af24f74f81f2e013297a590bed5b8137b71eeb1ec"
+    },
+    {
+      "path": "tests/alternative-spreadsheets.test.mjs",
+      "bytes": 11023,
+      "sha256": "02cbeea5fc0609aaaf3eb6e467ce078ee3c3080b86cb06302b883be41b4df793"
     },
     {
       "path": "tests/browser-react-peer.test.mjs",
       "bytes": 3072,
       "sha256": "58085409b2c175d5ca5dcf52d3808210849e26539e0c224bb6f49770be73c83b"
+    },
+    {
+      "path": "tests/build/alternative-worker.test.mjs",
+      "bytes": 975,
+      "sha256": "048416213087ebfe4ca1bcd60b34c81bc06561064bbf70ee0a522f74d44b5edf"
+    },
+    {
+      "path": "tests/database-base-access-runner.mjs",
+      "bytes": 24040,
+      "sha256": "df75f3700ee2f12d25ff460401d994bfe789440c5b336725a576d2f583de2473"
     },
     {
       "path": "tests/database-fixture.sql",
@@ -2247,6 +2367,21 @@
       "sha256": "3a5e52cbb22ac09e395cfcd8675ec7a941a40ef09ceb66388a846ab6bee9b57b"
     },
     {
+      "path": "tests/fixtures/alternative-office.mjs",
+      "bytes": 1764,
+      "sha256": "5f52c11883777015caf31b52e1de48e3ffa9166a5c122994e1968719e72ce2c3"
+    },
+    {
+      "path": "tests/fixtures/legacy-office.mjs",
+      "bytes": 7018,
+      "sha256": "867fee70169be0596a9364fe1b3afbe112d9184ac8c787d9f249fb1b06f70657"
+    },
+    {
+      "path": "tests/format-capabilities.test.mjs",
+      "bytes": 4788,
+      "sha256": "fcf3d919403bc4bd8470480492d151e249feaea0d82737a2b3ae16c2033edc05"
+    },
+    {
       "path": "tests/formats.test.mjs",
       "bytes": 7730,
       "sha256": "c9ea4696287b44bb04295b848fe9363db0145c796f33aa48d983e87bc140e878"
@@ -2258,8 +2393,13 @@
     },
     {
       "path": "tests/formula-graph.test.mjs",
-      "bytes": 4725,
-      "sha256": "45378be2baedbafd2bec6594afaca3292bd5c7a081d3eb2390251235e5a9916d"
+      "bytes": 5832,
+      "sha256": "85a72226b4b65b2180140ba882d5019bbbe376ad2d58566e70645f7ef133e054"
+    },
+    {
+      "path": "tests/formula-subtotal.test.mjs",
+      "bytes": 5817,
+      "sha256": "6fc5f3c6874fd8f66eb83b39051a9e3d04ce120074e6c023e98fcd562eeba1b1"
     },
     {
       "path": "tests/fortune-adapter.test.mjs",
@@ -2268,8 +2408,8 @@
     },
     {
       "path": "tests/fortune-calculation-boundary.test.mjs",
-      "bytes": 3363,
-      "sha256": "300c5f0522bffbc5f06c55f5f6e55d90dc5575565edea1b3fef47a0e66d5eef6"
+      "bytes": 5315,
+      "sha256": "9bdf011f865bc5d2a4742dd70120dc131baea5e34303a74054a431157f206366"
     },
     {
       "path": "tests/fortune-numeric-roundtrip.test.mjs",
@@ -2288,13 +2428,18 @@
     },
     {
       "path": "tests/host/diriqo-logout.test.mjs",
-      "bytes": 8417,
-      "sha256": "39c21cde40e1231f76aedcc9a618e92c44b9f5235d541919eded019660965f89"
+      "bytes": 9355,
+      "sha256": "0672f0d34e79da8aa0265ddaa14848afaab139b6253d4dd56d0e97b6dc96504b"
     },
     {
       "path": "tests/host/diriqo-office-company.test.mjs",
       "bytes": 6747,
       "sha256": "e1a2a526de5f134cbd7952dbb74b94e67b2d7e6c4d5260e0d6da92aba3f2b3ea"
+    },
+    {
+      "path": "tests/host/diriqo-release-menu.test.mjs",
+      "bytes": 4553,
+      "sha256": "38fb2cbda76a9ffaa25ad8ce438b201e6f033cc74984a44e05b817db4fd863d2"
     },
     {
       "path": "tests/host/diriqo-release-settings.test.mjs",
@@ -2308,18 +2453,18 @@
     },
     {
       "path": "tests/host/hub-office-reader.test.mjs",
-      "bytes": 9654,
-      "sha256": "abdf696c21037c6ace1256e701863305ffeb3bb290ce23f09f881bf974b91ee6"
+      "bytes": 9703,
+      "sha256": "9e775889ed6f9e8e9ec6b851eb8188c96d5fc9464614a3a70137ae109286165c"
     },
     {
       "path": "tests/host/hub-release-menu.test.mjs",
-      "bytes": 5929,
-      "sha256": "378737547265747b3e29c739d4be3550da11c7b6ee19cc946c3bc48debe01f2a"
+      "bytes": 8227,
+      "sha256": "68ac95688850b57975bf116b14a1fbcead3dc2d7f44e6579b8b3921ae60fcd87"
     },
     {
       "path": "tests/host/office-context-switch.test.mjs",
-      "bytes": 18347,
-      "sha256": "ac3298972ae31598fbc12f36b114ee03ec966506bfa6b5f64025c2f0014fc39b"
+      "bytes": 19025,
+      "sha256": "c02d17efbf4ea80fe889f5e8e5de32bdbbd784e50dc1594762eee27d6790dda5"
     },
     {
       "path": "tests/host/office-http-limits.test.mjs",
@@ -2328,13 +2473,13 @@
     },
     {
       "path": "tests/host/office-menu-availability.test.mjs",
-      "bytes": 4434,
-      "sha256": "ebac52a12130e2b3693ae60a95e8e0c39089fea0699e98b74cdc49e749fc97c4"
+      "bytes": 4594,
+      "sha256": "48156c7c67eb6685c16a9b3269aed86d7656bae419b99bf24e7dcef1db0c269f"
     },
     {
       "path": "tests/host/staging-proxy.test.mjs",
-      "bytes": 10830,
-      "sha256": "a6c8c81639eec8c3cf90869ac0c357e34afe42bea5d0c9a548e5e6e1d29b8972"
+      "bytes": 11566,
+      "sha256": "65c60d665ae41b43a6f145300b4997f059960ce42a9c9a056b5e0d92b7d165f7"
     },
     {
       "path": "tests/host/staging-sign-in.test.mjs",
@@ -2352,14 +2497,29 @@
       "sha256": "2c6fc083b31b160848f3852dd5b0c0414a45faa5835d24cb608ac4e5db9553fb"
     },
     {
+      "path": "tests/legacy-doc.test.mjs",
+      "bytes": 8435,
+      "sha256": "1422e74ef178a1f102c28ee064344cbb3ed6a43c157ff8df5a847c765add446a"
+    },
+    {
       "path": "tests/license-guard.test.mjs",
-      "bytes": 2104,
-      "sha256": "7e79a1bc32caaa881b2fedbadb41011fc0d07b459953ad444a135a8823dcedac"
+      "bytes": 3729,
+      "sha256": "eb79cbf222f16584abdced246b35488891c0eab27dc1f4bdad503458432aa20a"
     },
     {
       "path": "tests/native-print.test.mjs",
       "bytes": 1779,
       "sha256": "28d3f099c3529a066c5a9628860a494c16be2e00acced0be3e95816e45553593"
+    },
+    {
+      "path": "tests/odf-formulas.test.mjs",
+      "bytes": 3541,
+      "sha256": "7eb9053ac4319ed797cf25ddb693bf1dd4870082953e62d6d92bec55cc310021"
+    },
+    {
+      "path": "tests/opendocument-text.test.mjs",
+      "bytes": 19779,
+      "sha256": "e93aa7e97c1b17853cb5dc5aa554a6249bc83380e869712b483c025979fe2a5e"
     },
     {
       "path": "tests/origin.test.mjs",
@@ -2383,13 +2543,18 @@
     },
     {
       "path": "tests/restore-dialog.test.mjs",
-      "bytes": 18498,
-      "sha256": "08339fee663ad64866a7fbd5d8fefad89274f30d3580dc2f28606ca0a888ddcc"
+      "bytes": 29357,
+      "sha256": "faea6c998a53d4ee110673583b1758741e3b54f6b9eb0c9ddcd846623e4e95f8"
     },
     {
       "path": "tests/service.test.mjs",
       "bytes": 7479,
       "sha256": "199c066b1f391435f0415cbd250a221b800a7248d2a4196906a139716ac8743a"
+    },
+    {
+      "path": "tests/sharing-dialog.test.mjs",
+      "bytes": 14805,
+      "sha256": "68e8a1dfac93b1498ae23af1e1edfd4cb1bc8d175fdfb8f1ef2e8141a975610d"
     },
     {
       "path": "tests/staging-capacity-resume.test.mjs",
@@ -2452,6 +2617,11 @@
       "sha256": "5eca32a384be3174a71d1e928c6b8756f9acc279eb36de74d42ddb5ebd78d0c3"
     },
     {
+      "path": "tests/xlsx-visibility.test.mjs",
+      "bytes": 4073,
+      "sha256": "3c7154239dfdbac7dd8ca388a36b9a16aa00335e5973e7fadf58da9183cc12e4"
+    },
+    {
       "path": "tsconfig.json",
       "bytes": 321,
       "sha256": "d81bf1f69c2533807c330336fd3ff50d7805ade21033379cbcde9e6f7ae7594d"
@@ -2463,8 +2633,13 @@
     },
     {
       "path": "types/client/OfficeWorkspace.d.ts",
-      "bytes": 488,
-      "sha256": "876f09d13f0c0cb8904d15fa3a9b488be4b1fbed06afe7a052f30fcc78bab1dc"
+      "bytes": 618,
+      "sha256": "bab6454f25be39e9ca4c0dd61351c4c714645d6bf30d2695082a4d01e5454a31"
+    },
+    {
+      "path": "types/client/SharingDialog.d.ts",
+      "bytes": 374,
+      "sha256": "48cc0f3d8d7beaa7c2e37d1f12825179abc22d3a85149f37101666a2d830c5f2"
     },
     {
       "path": "types/client/SpreadsheetEditor.d.ts",
@@ -2478,13 +2653,18 @@
     },
     {
       "path": "types/client/locales.d.ts",
-      "bytes": 25195,
-      "sha256": "bfa9b176604a08cb9743ced5aab0e968890eab0f1766ec77caac4febc28c4e25"
+      "bytes": 33142,
+      "sha256": "b8508b8055e4b30edd727f496397a5c337b7ee9713a32cbc7a4d08ea092bd388"
+    },
+    {
+      "path": "types/core/formats.d.ts",
+      "bytes": 1339,
+      "sha256": "b0764e41d30ad446b7d4b94dd5c4f8d037afed682e6d1a5f098163ed5750ebac"
     },
     {
       "path": "types/core/formula-graph.d.ts",
-      "bytes": 2294,
-      "sha256": "b77124bf8d3fed061fa7c0145ea64e1828e2ac365c2be5f3e286b5828fddc084"
+      "bytes": 2351,
+      "sha256": "8acdf02287bfe30502d9f43b834d83150410d213695c99217dcb7a4e5bd25d15"
     },
     {
       "path": "types/core/formula-policy.d.ts",
@@ -2508,13 +2688,13 @@
     },
     {
       "path": "types/core/types.d.ts",
-      "bytes": 4975,
-      "sha256": "aabea3abc84cde9e305174abd0081ef876443658b7a3bb7ffcdde48d7441c3c5"
+      "bytes": 5941,
+      "sha256": "784b4774cf77087a158442471487f3e2d51fc3e3beed3bb4c23b59fffa953175"
     },
     {
       "path": "types/core/validation.d.ts",
-      "bytes": 860,
-      "sha256": "869d58b3509219b92855a91d9d567c0982e944de870cb16a9fd4ec35cf461e62"
+      "bytes": 1013,
+      "sha256": "44bc496e7a1f2c36ac99add94f1f5333c4c503d5676353ed40cf913ac7adf280"
     },
     {
       "path": "types/server/ai-adapter.d.ts",
@@ -2522,14 +2702,29 @@
       "sha256": "89883971ca4a4c2d09bd15abd9446625410d220946156ea4e0fe5dfdc2729aa5"
     },
     {
+      "path": "types/server/alternative-spreadsheets.d.ts",
+      "bytes": 454,
+      "sha256": "c6cbcefb4f61cdf65960b6f0aab092579f471bc9821e41a5fa6ba23a11ed8f5c"
+    },
+    {
       "path": "types/server/bounded-import.d.ts",
       "bytes": 288,
       "sha256": "e384d3e95da4d8b3504eea6f432a6d9086d1dba1f2ab21a71eaa7f7d2bac3963"
     },
     {
+      "path": "types/server/compound-file.d.ts",
+      "bytes": 177,
+      "sha256": "7aa519b7543e291b8b3cd65e718935cb6f0b8a171a5edef0a181b90f9d4d53a7"
+    },
+    {
+      "path": "types/server/container-safety.d.ts",
+      "bytes": 488,
+      "sha256": "ad84025fe7f5c8ad1fcd9f3be555afb51f1d58b19250bcf5fe599d7f00ceaa0d"
+    },
+    {
       "path": "types/server/formats.d.ts",
-      "bytes": 2050,
-      "sha256": "0caa281dc0415ba9e5ce7e0e9e694ffdbb0baf8746b1be3be4904f38f7cae52c"
+      "bytes": 1842,
+      "sha256": "f852bd70a975a599e38b62f3269a1d8ea6b0aa7bf702eddc1ba98d537c20a707"
     },
     {
       "path": "types/server/import-worker.d.ts",
@@ -2542,9 +2737,24 @@
       "sha256": "2fd019bc6251a613b4fdef93868549ed9a0a268563dbe55420baee1a5feeaf3a"
     },
     {
+      "path": "types/server/legacy-doc.d.ts",
+      "bytes": 264,
+      "sha256": "7497d2d3238fae4632ae24553ccffa46a87896f63682b8d2e27ac32d885ba13a"
+    },
+    {
       "path": "types/server/multipart.d.ts",
       "bytes": 205,
       "sha256": "b07c75dec77e7868c6cf2bf22c6a6c66461899cd61b87675e6048045a75957d4"
+    },
+    {
+      "path": "types/server/odf-formulas.d.ts",
+      "bytes": 426,
+      "sha256": "3ee18a9981129065b8a6bd83a63d068051a9a7ec6410203f6ba2c56003c33527"
+    },
+    {
+      "path": "types/server/opendocument-text.d.ts",
+      "bytes": 373,
+      "sha256": "a9497e56749be48a11785a7db3969b4804ddaac8b78de767b8f3ace75dc6af31"
     },
     {
       "path": "types/server/origin.d.ts",

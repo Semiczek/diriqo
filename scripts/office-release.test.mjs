@@ -238,13 +238,15 @@ test('Diriqo settings return through a full navigation so the company menu reads
 test('Diriqo Office exits through a native link while keeping the server-verified company in the editor', async () => {
   const page = await authored('app/office/page.tsx', {
     requireOfficeContext: async () => ({ actor: { tenantId: A, actorId: 'profile-A', role: 'reader' }, active: { companyName: 'A', companyMemberships: [{ companyId: A, companyName: 'A' }] } }),
-    getRequestLocale: async () => 'cs', OfficeClient: 'OfficeClient',
+    getRequestLocale: async () => 'cs', OfficeClient: 'OfficeClient', FloatingDiriqent: 'FloatingDiriqent',
   }, 'OfficePage');
   const nodes = flatten(await page());
   assert.equal(nodes.find(node => node.props.href === '/').type, 'a', 'Leaving Office releases its global CSS and print rules');
   const editor = nodes.find(node => node.type === 'OfficeClient');
   assert.equal(editor.props.tenantId, A);
   assert.equal(editor.props.readOnly, true);
+  assert.equal(nodes.find(node => node.type === 'FloatingDiriqent').props.keepWorkspaceOpen, true,
+    'Assistant links must preserve the open Office editor instead of replacing its draft');
 });
 
 test('global cookie banner and preferences leave Office natively without changing POS navigation', async () => {

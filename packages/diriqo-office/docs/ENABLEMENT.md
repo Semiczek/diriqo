@@ -1,5 +1,7 @@
 # Distribuce a zapnutí modulu
 
+> **Historický návod.** Aktuální stav aktivace a nasazení je v [OFFICE_MAIN_RELEASE.md](OFFICE_MAIN_RELEASE.md). Office je nyní základní funkcí všech existujících i nových firem; explicitní administrátorské vypnutí se zachovává. Níže uvedené starší výchozí vypnutí, stagingové kroky a revize nejsou aktuálním pokynem k aktivaci.
+
 ## Připravené checkouty
 
 `integrations/hub` a `integrations/diriqo` jsou oddělené kopie skutečných repozitářů na revizích uvedených v ARCHITECTURE.md. Obsahují serverové guardy, `/office`, `/api/office/files`, read-only `/api/office/context`, přepínač `/office/settings`, navigaci, odhlášení a ochranu rout. Původní checkouty se neměnily. Při přenosu změn zkontrolujte konflikty a zachovejte jejich rozpracovanou práci.

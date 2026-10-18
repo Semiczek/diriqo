@@ -1,4 +1,5 @@
 import type { OfficeActor, OfficeContent, OfficeFile, OfficeProposal, OfficeRequest, OfficeResponse } from '../core/types.ts';
+import { isOfficeExportFormat } from '../core/formats.ts';
 import { check, id, title, validateContent, OFFICE_LIMITS } from '../core/validation.ts';
 import { guardActor } from './service.ts';
 
@@ -160,7 +161,7 @@ export class OfficeAIAdapter {
       diff: compareOfficeContent(current.content, proposal.content) };
   }
   async export(fileId: string, format: string) {
-    check(['docx', 'xlsx', 'csv', 'txt', 'html', 'pdf'].includes(format), 'UNSUPPORTED_FORMAT', 'Unsupported export format.');
+    check(isOfficeExportFormat(format), 'UNSUPPORTED_FORMAT', 'Unsupported export format.');
     check(this.options.exportFile, 'UNSUPPORTED_OPERATION', 'This host has not configured an Office exporter.', 501);
     const file = await this.file(fileId);
     check(file.content, 'INVALID_KIND', 'A folder cannot be exported.');

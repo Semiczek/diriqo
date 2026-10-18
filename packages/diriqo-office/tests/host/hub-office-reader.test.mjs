@@ -132,8 +132,8 @@ test('unauthenticated Office access retains only the fixed Office login destinat
  assert.equal(new URL((await p.run('/api/office/files')).url).searchParams.get('next'),'/office');
  assert.equal(new URL((await p.run('/jobs')).url).searchParams.has('next'),false);
 });
-test('actual Hub login submit preserves only exact /office and rejects open redirect values',async()=>{
- for(const next of ['/office',null,'https://evil.invalid','//evil.invalid','/office?next=evil','/office/settings','/api/office']){
+test('actual Hub login submit preserves exact Office and existing Manager destinations and rejects open redirects',async()=>{
+ for(const next of ['/office','/manager',null,'https://evil.invalid','//evil.invalid','/office?next=evil','/office/settings','/api/office']){
   let destination=null,authCalls=0;
   const Login=await authoredModule('integrations/hub/app/login/page.tsx',{
    useSearchParams:()=>new URLSearchParams(next===null?'':{next}),
@@ -146,6 +146,6 @@ test('actual Hub login submit preserves only exact /office and rejects open redi
   const tree=Login(),find=node=>node&&typeof node==='object'?(node.type==='form'?node:node.children?.map(find).find(Boolean)):null;
   const form=find(tree);assert.ok(form?.props.onSubmit);
   await form.props.onSubmit({preventDefault(){}});
-  assert.equal(authCalls,1);assert.equal(destination,next==='/office'?'/office':'/');
+  assert.equal(authCalls,1);assert.equal(destination,['/office','/manager'].includes(next)?next:'/');
  }
 });
