@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import DashboardShell from '@/components/DashboardShell'
 import { useI18n } from '@/components/I18nProvider'
 import { supabase } from '@/lib/supabase'
@@ -224,56 +224,58 @@ export default function AdvanceRequestsPage() {
     'all' | 'pending' | 'approved' | 'rejected' | 'paid'
   >('all')
 
-  const loadData = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-
-    const { data, error } = await supabase
-      .from('advance_requests')
-      .select(`
-        id,
-        company_id,
-        profile_id,
-        amount,
-        requested_amount,
-        reason,
-        note,
-        status,
-        requested_at,
-        approved_at,
-        reviewed_at,
-        paid_at,
-        payroll_month,
-        profiles:profile_id (
-          full_name,
-          email
-        )
-      `)
-      .order('requested_at', { ascending: false })
-
-    if (error) {
-      console.error('Advance requests load failed', error)
-      setError(dictionary.common.dataLoadFailed)
-      setLoading(false)
-      return
-    }
-
-    const normalized = (((data ?? []) as unknown) as AdvanceRequestRow[]).map((row) =>
-      normalizeRequest(row, t.unknownWorker)
-    )
-
-    setItems(normalized)
-    setAmountDrafts(
-      Object.fromEntries(
-        normalized.map((item) => [item.id, String(item.amount || item.requestedAmount || '')])
-      )
-    )
-    setLoading(false)
-  }, [dictionary.common.dataLoadFailed, t.unknownWorker])
-
   useEffect(() => {
-    loadData()
-  }, [loadData])
+    let cancelled = false
+    async function loadData() {
+      setLoading(true)
+      setError(null)
+      const { data, error } = await supabase
+        .from('advance_requests')
+        .select(`
+          id,
+          company_id,
+          profile_id,
+          amount,
+          requested_amount,
+          reason,
+          note,
+          status,
+          requested_at,
+          approved_at,
+          reviewed_at,
+          paid_at,
+          payroll_month,
+          profiles:profile_id (
+            full_name,
+            email
+          )
+        `)
+        .order('requested_at', { ascending: false })
+
+      if (cancelled) return
+
+      if (error) {
+        console.error('Advance requests load failed', error)
+        setError(dictionary.common.dataLoadFailed)
+        setLoading(false)
+        return
+      }
+
+      const normalized = (((data ?? []) as unknown) as AdvanceRequestRow[]).map((row) =>
+        normalizeRequest(row, t.unknownWorker)
+      )
+
+      setItems(normalized)
+      setAmountDrafts(
+        Object.fromEntries(
+          normalized.map((item) => [item.id, String(item.amount || item.requestedAmount || '')])
+        )
+      )
+      setLoading(false)
+    }
+    void loadData()
+    return () => { cancelled = true }
+  }, [dictionary.common.dataLoadFailed, t.unknownWorker])
 
   const yearOptions = useMemo(() => {
     const years = new Set<number>()

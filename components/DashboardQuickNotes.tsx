@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useMemo, useState, useSyncExternalStore } from 'react'
 import type { FormEvent } from 'react'
 import styles from './dashboard-controls.module.css'
 
@@ -27,39 +27,59 @@ function isQuickNote(value: unknown): value is QuickNote {
   return typeof note.id === 'string' && typeof note.text === 'string' && typeof note.done === 'boolean'
 }
 
+const NOTES_CHANGED = 'diriqo-quick-notes-changed'
+
+function subscribeToNotes(notify: () => void) {
+  window.addEventListener('storage', notify)
+  window.addEventListener(NOTES_CHANGED, notify)
+  return () => {
+    window.removeEventListener('storage', notify)
+    window.removeEventListener(NOTES_CHANGED, notify)
+  }
+}
+
+function getServerNotesSnapshot(): undefined {
+  return undefined
+}
+
 export default function DashboardQuickNotes(props: DashboardQuickNotesProps) {
   // A company switch must never carry the previous company's notes into its storage key.
   return <QuickNotesContent key={props.storageKey} {...props} />
 }
 
 function QuickNotesContent({ storageKey, labels }: DashboardQuickNotesProps) {
-  const [notes, setNotes] = useState<QuickNote[]>([])
-  const [draft, setDraft] = useState('')
-  const [loaded, setLoaded] = useState(false)
-  const [storageFailed, setStorageFailed] = useState(false)
-
-  useEffect(() => {
+  const readStoredNotes = useCallback(() => {
     try {
-      const stored = window.localStorage.getItem(storageKey)
-      if (stored) {
-        const parsed: unknown = JSON.parse(stored)
-        if (!Array.isArray(parsed) || !parsed.every(isQuickNote)) throw new Error('Invalid notes')
-        setNotes(parsed)
-      }
+      return window.localStorage.getItem(storageKey)
     } catch {
-      setStorageFailed(true)
-    } finally {
-      setLoaded(true)
+      return false as const
     }
   }, [storageKey])
+  const stored = useSyncExternalStore(subscribeToNotes, readStoredNotes, getServerNotesSnapshot)
+  const parsed = useMemo(() => {
+    try {
+      if (stored === false) throw new Error('Storage unavailable')
+      const value: unknown = stored ? JSON.parse(stored) : []
+      if (!Array.isArray(value) || !value.every(isQuickNote)) throw new Error('Invalid notes')
+      return { notes: value, failed: false }
+    } catch {
+      return { notes: [] as QuickNote[], failed: true }
+    }
+  }, [stored])
+  // Keep an unsaved edit visible even when browser storage is unavailable.
+  const [unsavedNotes, setUnsavedNotes] = useState<QuickNote[] | null>(null)
+  const notes = unsavedNotes ?? parsed.notes
+  const [draft, setDraft] = useState('')
+  const loaded = stored !== undefined
+  const storageFailed = parsed.failed || unsavedNotes !== null
 
   function updateNotes(next: QuickNote[]) {
-    setNotes(next)
     try {
       window.localStorage.setItem(storageKey, JSON.stringify(next))
-      setStorageFailed(false)
+      setUnsavedNotes(null)
+      window.dispatchEvent(new Event(NOTES_CHANGED))
     } catch {
-      setStorageFailed(true)
+      setUnsavedNotes(next)
     }
   }
 

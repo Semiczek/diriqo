@@ -131,7 +131,11 @@ async function loadJobFeedUntilMessageAppears(jobId: string, expectedSubject: st
   return null
 }
 
-export default function JobCommunicationSection({
+export default function JobCommunicationSection(props: JobCommunicationSectionProps) {
+  return <JobCommunicationContent key={props.jobId} {...props} />
+}
+
+function JobCommunicationContent({
   jobId,
   customerId,
   contactId,
@@ -144,6 +148,7 @@ export default function JobCommunicationSection({
   const dateLocale = getIntlLocale(locale)
   const t = dictionary.jobs.detail.communication
   const [feed, setFeed] = useState<MessageFeedItem[]>(feedItems)
+  const [previousFeedItems, setPreviousFeedItems] = useState(feedItems)
   const [toEmail, setToEmail] = useState(defaultToEmail ?? '')
   const [toName, setToName] = useState(defaultToName ?? '')
   const [subject, setSubject] = useState(defaultSubject)
@@ -157,15 +162,10 @@ export default function JobCommunicationSection({
     return toEmail.trim().length > 0 && subject.trim().length > 0 && message.trim().length > 0
   }, [message, subject, toEmail])
 
-  useEffect(() => {
-    setFeed((current) => {
-      if (feedItems.length === 0 && current.length > 0) {
-        return current
-      }
-
-      return feedItems
-    })
-  }, [feedItems])
+  if (previousFeedItems !== feedItems) {
+    setPreviousFeedItems(feedItems)
+    if (feedItems.length > 0 || feed.length === 0) setFeed(feedItems)
+  }
 
   useEffect(() => {
     let cancelled = false

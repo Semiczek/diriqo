@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import type { CSSProperties } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 
 import styles from '@/components/OperationalUI.module.css'
 import { heroCardStyle as headerStyle, heroTitleStyle as titleStyle, eyebrowStyle, secondaryButtonStyle as backLinkStyle, sectionCardStyle, primaryButtonStyle } from '@/components/SaasPageLayout'
@@ -84,9 +84,13 @@ const pageStyle: CSSProperties = {
 const formCardStyle: CSSProperties = { ...sectionCardStyle, display: 'grid', gap: '20px' }
 
 export default function NewCustomerPage() {
+  return <Suspense fallback={null}><NewCustomerForm /></Suspense>
+}
+
+function NewCustomerForm() {
   const router = useRouter()
   const { dictionary } = useI18n()
-  const [shouldContinueToCalculation, setShouldContinueToCalculation] = useState(false)
+  const shouldContinueToCalculation = useSearchParams().get('next') === 'calculation'
 
   const [companyId, setCompanyId] = useState<string | null>(null)
   const [name, setName] = useState('')
@@ -103,10 +107,6 @@ export default function NewCustomerPage() {
   const [loadingAres, setLoadingAres] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const canLoadFromAres = isCzechBillingCountry(billingCountry)
-
-  useEffect(() => {
-    setShouldContinueToCalculation(new URLSearchParams(window.location.search).get('next') === 'calculation')
-  }, [])
 
   useEffect(() => {
     let cancelled = false

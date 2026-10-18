@@ -74,6 +74,10 @@ type DashboardContextPayload = {
 }
 
 let dashboardContextCache: { value: DashboardContextPayload; expiresAt: number } | null = null
+
+function clearDashboardContextCache() {
+  dashboardContextCache = null
+}
 let dashboardContextPromise: Promise<DashboardContextPayload> | null = null
 
 async function loadDashboardContext() {
@@ -261,7 +265,7 @@ export default function DashboardShell({
 
       setCompanyMenuOpen(false)
       setUserMenuOpen(false)
-      dashboardContextCache = null
+      clearDashboardContextCache()
       notifyOfficeContextChanged()
       // Reload the workspace so client state and server data use the same company.
       window.location.assign('/')

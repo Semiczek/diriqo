@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useCallback, useId, useMemo, useRef, useState } from 'react'
 import type { CSSProperties, FormEvent } from 'react'
 import Image from 'next/image'
 import { useI18n } from '@/components/I18nProvider'
@@ -66,7 +66,12 @@ function formatDateTime(value: string | null, locale: string) {
   }).format(date)
 }
 
-export default function JobPhotosSection({ jobId, compact = false, canManage = false }: JobPhotosSectionProps) {
+export default function JobPhotosSection(props: JobPhotosSectionProps) {
+  // A new job must not retain photos, uploads or responses from the previous job.
+  return <JobPhotosContent key={props.jobId} {...props} />
+}
+
+function JobPhotosContent({ jobId, compact = false, canManage = false }: JobPhotosSectionProps) {
   const { dictionary, locale } = useI18n()
   const dateLocale = getIntlLocale(locale)
   const t = dictionary.jobs.detail.photos
@@ -202,28 +207,10 @@ export default function JobPhotosSection({ jobId, compact = false, canManage = f
     }
   }, [jobId, t.loadError, t.metadataIncomplete, t.metadataMissing])
 
-  useEffect(() => {
-    setExpanded(false)
-    setItems([])
-    setTotal(0)
-    setError(null)
-    setMetadataInfo(null)
-    setInitialLoadFinished(false)
-    setSelectedPhoto(null)
-    setSelectedPhotoUrl(null)
-    setSelectedPhotoFileName(null)
-    setSelectedPhotoLoading(false)
-    setSelectedPhotoError(null)
-    setUploadFiles([])
-    setUploadError(null)
-    setUploading(false)
-    setDeletingPhotoId(null)
-  }, [jobId])
-
-  useEffect(() => {
-    if (!expanded || initialLoadFinished || loading) return
-    void loadPhotos(0, false)
-  }, [expanded, initialLoadFinished, loading, loadPhotos])
+  function handleToggleExpanded() {
+    setExpanded(!expanded)
+    if (!expanded && !initialLoadFinished && !loading) void loadPhotos(0, false)
+  }
 
   async function handleOpenPhoto(photo: JobPhotoMeta) {
     setSelectedPhoto(photo)
@@ -348,7 +335,7 @@ export default function JobPhotosSection({ jobId, compact = false, canManage = f
 
           <button
             type="button"
-            onClick={() => setExpanded((prev) => !prev)}
+            onClick={handleToggleExpanded}
             style={{ ...(expanded ? primaryButtonStyle : secondaryButtonStyle), cursor: 'pointer' }}
           >
             {expanded ? t.hide : t.show}
