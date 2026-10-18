@@ -1,6 +1,6 @@
-# C08: employee advance ledger, local implementation
+# C08: employee advance ledger, implementation and verification
 
-This package is prepared in `codex/diriqo-worker-advances-atomic`. Application checkpoint `ae5c232` was integrated with reviewed main `6467d229` in merge `668e3a2`, including Next.js 16.4.2. It has not applied the migration, changed remote financial data, pushed a branch or deployed the application. Subsequent focused review fixes are recorded as separate local commits.
+This package is tracked in draft PR #27 on `codex/diriqo-worker-advances-atomic`. Application checkpoint `ae5c232` was integrated with reviewed main `6467d229` in merge `668e3a2`, including Next.js 16.4.2; focused review fixes are in `fd1f8e4`. The release coordinator applied the migration to the approved Diriqo test database and ran the hosted SQL suite as recorded below. Real Auth/HTTP concurrency and authenticated UI verification remain separate release gates.
 
 ## Implemented contract
 
@@ -36,12 +36,35 @@ Local checks include TypeScript, targeted lint, monetary and authorization tests
 
 Focused follow-up review found and repaired pre-existing cross-company payroll readers and loss of the original idempotency key after a rejected retry. After these fixes, 8 targeted test files / 88 tests passed along with TypeScript and targeted lint. The tests call the export GET handler and decode its XLSX, invoke server list/detail pages and the finance action, and cover an administrator in both A and B with a shared worker, 1,001 shifts, a failed second page, denied payment permissions, and legacy NULL amounts. The query fixture deliberately exposes both companies; these tests verify application filtering, not hosted RLS. Independent app re-review and the two new regression files (11 tests) passed. The first two follow-up builds exhausted the TypeScript worker heap (4 GB and 5 GB); narrowing the dynamic query return type and exported finance DTO removed the recursive SDK type expansion. The final production build passed with the standard 4 GB heap (compilation, TypeScript, 107 static steps and traces), using the same dummy Supabase configuration. No typecheck was skipped.
 
+## Hosted test-database evidence, 18 October 2026
+
+The approved test project is `wfcpfraxiuhuglnuaxqj`. The provider recorded successful application as version `20261018182238`, name `atomic_worker_advance_ledger`. The repository file is now `supabase/migrations/20261018182238_atomic_worker_advance_ledger.sql`; only its filename changed to match the provider, with byte-identical SQL SHA-256 `B15A61F497B1EE85100B0538027890C0FAE0BACBFE6B7BACD0F8FB4EFF81CB28`.
+
+The hosted rollback-only SQL suite passed **80 scenarios plus 5 cleanup assertions** against the deployed schema. Its SQL SHA-256 is `F428CC4170FCE4D527A35DE1FD7AD359600999070C654EAC2A93FD3B8EB56AA1`. This covers sequential RPC behavior, simulated PostgreSQL authenticated roles, RLS, direct-DML denial, exact retries, rejected changes leaving financial state unchanged, partial payouts and settlement arithmetic. The fixture transaction rolled back.
+
+Managed evidence: `artifacts/worker-advances/hosted-sql-20261018.json` (persistent Diriqo artifact), SHA-256 `8cf36cae13974bfe2092801fb215d0dad3cbc3bd261239b2a030de74c4c3b118`. It contains provider apply success, preflight/post-migration metadata, deployed grants/policies and the actual hosted SQL result. The recorded post-migration observation is 18:22:59 UTC.
+
+Preservation checks:
+
+| Existing data | Count | Preserved fingerprint |
+| --- | --- | --- |
+| Original request columns, excluding newly added revision/review-operation/review-reason/currency | 1 | `a157951554d67b6ff1eb5f7109e9281a` |
+| Company payroll settings | 3 | `3f8f6b7e5bb6ab83cd3d0090a32abb15` |
+| Scoped worker payment settings | 6 | `b0c3b648047b8d8f5b39855e30e2c808` |
+| Existing payment ledger | 0 | `d751713988987e9331980363e24189ce` |
+
+The release coordinator separately rechecked the request fingerprint using only its original columns and excluding the explicitly synthetic fixture tenants. That check is preserved in `artifacts/worker-advances/original-request-preservation-20261018.json`, SHA-256 `7ee6c11c0f70d8a1a188d3ad341d8897965f1f1a5d0babb97777b07367f099a9`. The artifact's full-row post-migration fingerprint differs because four columns were added; that is not evidence of a change to the original request values. Settings and payment fingerprints match directly in the saved before/after metadata. Pre-migration scoped data/schema snapshots are recovery evidence for the affected objects, not a verified full-database restore point.
+
+This hosted SQL pass does **not** establish two overlapping HTTP/Auth transactions, lock-wait reauthorization, browser form behavior or device operation. No passing HTTP or UI result is claimed here.
+
+## Remaining release verification
+
 The fixture-driven concurrency harness is prepared in `scripts/test-worker-advance-concurrency.mjs`. Its four modes cover payout overlap, exact retry, shared monthly limits and settlement overlap. It only accepts explicitly synthetic test accounts and tenants. Real overlap requires a separate database owner session holding the worker advisory lock and evidence of two waiting authenticated backends. HTTP timing or local sequential SQL tests alone do not establish this. The separate `scripts/test-worker-advance-request-reauthorization.mjs` harness covers a worker request waiting on company/settings rows while membership is revoked or the licence expires; it requires an independent owner-session lock barrier and admin observer. The additional `scripts/test-worker-advance-payment-reauthorization.mjs` harness covers payout licence expiry, administrator revocation and worker revocation while waiting. All three harnesses passed syntax checks but have not run against hosted fixtures.
 
-Before application: rerun the read-only preflight, preserve schema/grants/policies and settings snapshots plus a verified database restore point, review the immutable migration, then apply it only to the approved Diriqo test project. Deploy the matched application promptly because the old direct-write actions will intentionally fail after ACL changes. Run the SQL rollback suite, real Auth/HTTP races, role/company/module negative cases, and authenticated UI request→approval→partial payout→settlement→export checks. Preserve synthetic evidence and revoke its sessions afterwards.
+For the already migrated test project, deploy the matched application only after the coordinated release gates; old direct-write actions intentionally fail after ACL changes. Complete real Auth/HTTP races, role/company/module negative cases, and authenticated UI request→approval→partial payout→settlement→export checks. Preserve synthetic evidence and revoke its sessions afterwards. Before applying to any other environment, rerun read-only preflight, preserve schema/grants/policies and settings snapshots, establish the approved recovery procedure, and review the immutable migration against that environment.
 
 If application or verification fails, stop new advance operations and retain all financial rows. Roll forward with a reviewed repair. Do not re-enable the old direct writes or drop the settlement ledger as a rollback shortcut. An application rollback must keep advance mutations disabled unless it supports this ledger contract; a database restore requires an explicit recovery decision and reconciliation of any evidence written after the snapshot.
 
 ## Explicit remaining scope
 
-This is the agreed minimal C08 slice. Broader draft/cancel flows, delegated separate decision/payment permissions, corrected financial events, automated percent-of-earned limits, actual payroll deductions and bank transfers are not claimed complete. `percent_of_earned` without an explicit supported amount override fails closed. The existing frequency value is retained; this package adds no unapproved interpretation of weekly/shift payout scheduling. Device, deployed RLS, real transaction concurrency and field operation remain unproven until the separate tests above pass.
+This is the agreed minimal C08 slice. Broader draft/cancel flows, delegated separate decision/payment permissions, corrected financial events, automated percent-of-earned limits, actual payroll deductions and bank transfers are not claimed complete. `percent_of_earned` without an explicit supported amount override fails closed. The existing frequency value is retained; this package adds no unapproved interpretation of weekly/shift payout scheduling. Auth/HTTP enforcement, real transaction overlap, authenticated UI, device and field operation remain unproven until the separate tests above pass; deployed SQL role/RLS scenarios have the narrower hosted evidence recorded above.

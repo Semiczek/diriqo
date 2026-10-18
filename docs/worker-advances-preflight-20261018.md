@@ -2,6 +2,8 @@
 
 Target: Diriqo test Supabase `wfcpfraxiuhuglnuaxqj` only. Read-only metadata and aggregate queries were executed before changing the local migration. No live schema, settings or financial rows were modified by this preflight.
 
+Subsequent release evidence: the migration was applied to this test project as `20261018182238_atomic_worker_advance_ledger.sql`; the hosted rollback-only suite passed 80 scenarios plus 5 cleanup assertions. See `worker-advances-c08-implementation-20261018.md` for the immutable evidence hash and preservation checks. The preflight observations below remain a historical snapshot. Auth/HTTP lock-barrier checks are still pending.
+
 ## Observed state
 
 | Check | Result |
