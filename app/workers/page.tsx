@@ -1,14 +1,18 @@
+import { readAdvanceSettings } from '@/lib/dal/advance-settings'
+import { readPayrollAdvanceLedger } from '@/lib/dal/worker-advances'
+import { payrollAdvanceTotal } from '@/lib/payroll/advances'
 import type { CSSProperties } from 'react'
 
 import Link from 'next/link'
 
 import DashboardShell from '@/components/DashboardShell'
 import styles from './workers.module.css'
-import { getActiveCompanyContext } from '@/lib/active-company'
+import { requireWorkerAccess } from '@/lib/server-guards'
 import { getIntlLocale } from '@/lib/i18n/config'
 import { getRequestDictionary, getRequestLocale } from '@/lib/i18n/server'
 import {
   doesDateRangeOverlap,
+  getAdvanceRange,
   getEffectiveAssignmentHours,
   getEffectiveAssignmentRate,
   getEffectiveAssignmentReward,
@@ -23,9 +27,6 @@ type WorkersPageProps = {
   }>
 }
 
-const PAYROLL_ADVANCE_START_DAY = 19
-const PAYROLL_ADVANCE_END_EXCLUSIVE_DAY = 18
-const PAYROLL_ADVANCE_END_VISIBLE_DAY = 17
 
 type ProfileRow = {
   id: string
@@ -96,33 +97,11 @@ type WorkShiftRow = {
   job_hours_override?: number | null
 }
 
-type WorkerAdvanceRow = {
-  profile_id: string | null
-  amount: number | null
-  issued_at: string | null
-  note?: string | null
-}
-
 type PayrollItemRow = {
   profile_id: string | null
   payroll_month: string | null
   item_type: string | null
   amount: number | string | null
-}
-
-type AdvanceRequestPayrollRow = {
-  id: string
-  profile_id: string | null
-  amount: number | string | null
-  requested_amount?: number | string | null
-  reason?: string | null
-  note?: string | null
-  status: string | null
-  requested_at: string | null
-  approved_at: string | null
-  reviewed_at: string | null
-  paid_at: string | null
-  payroll_month: string | null
 }
 
 type AbsenceRow = {
@@ -229,55 +208,6 @@ function shiftMonth(monthString: string, diff: number) {
   return `${newYear}-${newMonth}`
 }
 
-function normalizePayrollMonthValue(value: string | null | undefined) {
-  const normalized = (value ?? '').trim()
-  const match = normalized.match(/^(\d{4})-(\d{2})(?:-\d{2})?$/)
-  if (!match) return null
-  return `${match[1]}-${match[2]}`
-}
-
-function getPayrollMonthFromDateString(value: string | null | undefined) {
-  if (!value) return null
-
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return null
-
-  const payrollMonth = new Date(
-    date.getFullYear(),
-    date.getMonth() + (date.getDate() >= 19 ? 1 : 0),
-    1,
-    0,
-    0,
-    0,
-    0
-  )
-  const year = payrollMonth.getFullYear()
-  const month = String(payrollMonth.getMonth() + 1).padStart(2, '0')
-  return `${year}-${month}`
-}
-
-function getAdvanceRequestPayrollMonth(row: AdvanceRequestPayrollRow) {
-  return (
-    normalizePayrollMonthValue(row.payroll_month) ||
-    getPayrollMonthFromDateString(row.paid_at) ||
-    getPayrollMonthFromDateString(row.approved_at || row.reviewed_at) ||
-    getPayrollMonthFromDateString(row.requested_at)
-  )
-}
-
-function isAdvanceRequestRepresentedByWorkerAdvance(
-  row: AdvanceRequestPayrollRow,
-  workerAdvances: WorkerAdvanceRow[]
-) {
-  const requestRef = `(${row.id})`
-  return workerAdvances.some(
-    (advance) =>
-      advance.profile_id === row.profile_id &&
-      typeof advance.note === 'string' &&
-      advance.note.includes(requestRef)
-  )
-}
-
 function getShiftHours(startedAt: string | null, endedAt: string | null) {
   if (!startedAt || !endedAt) return 0
 
@@ -340,43 +270,6 @@ function getWorkMonthRange(monthString: string, locale: string) {
     workEndExclusiveIso: workEndExclusive.toISOString(),
     workPeriodLabel: `${formatDateLabel(workStart)} - ${formatDateLabel(workEndVisible)}`,
   }
-}
-
-function getAdvanceRange(monthString: string, locale: string) {
-  const [yearString, monthStringPart] = monthString.split('-')
-  const year = Number(yearString)
-  const monthIndex = Number(monthStringPart) - 1
-
-  const advanceStart = new Date(year, monthIndex, PAYROLL_ADVANCE_START_DAY, 0, 0, 0, 0)
-  const advanceEndExclusive = new Date(year, monthIndex + 1, PAYROLL_ADVANCE_END_EXCLUSIVE_DAY, 0, 0, 0, 0)
-  const advanceEndVisible = new Date(year, monthIndex + 1, PAYROLL_ADVANCE_END_VISIBLE_DAY, 0, 0, 0, 0)
-  const payDate = new Date(year, monthIndex + 1, PAYROLL_ADVANCE_END_EXCLUSIVE_DAY, 0, 0, 0, 0)
-
-  const formatDateLabel = (value: Date) =>
-    new Intl.DateTimeFormat(locale, {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    }).format(value)
-
-  return {
-    advanceStartDate: formatLocalDateKey(advanceStart),
-    advanceEndExclusiveDate: formatLocalDateKey(advanceEndExclusive),
-    payDateLabel: formatDateLabel(payDate),
-    advancePeriodLabel: `${formatDateLabel(advanceStart)} - ${formatDateLabel(advanceEndVisible)}`,
-    monthLabel: new Intl.DateTimeFormat(locale, {
-      month: 'long',
-      year: 'numeric',
-    }).format(new Date(year, monthIndex, 1, 0, 0, 0, 0)),
-  }
-}
-
-function isDateInDateKeyRange(value: string | null | undefined, startDate: string, endExclusiveDate: string) {
-  if (!value) return false
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return false
-  const dateKey = formatLocalDateKey(date)
-  return dateKey >= startDate && dateKey < endExclusiveDate
 }
 
 function normalizeJobAssignments(data: RawJobAssignmentRow[]): JobAssignmentRow[] {
@@ -480,7 +373,7 @@ export default async function WorkersPage({ searchParams }: WorkersPageProps) {
     new Intl.NumberFormat(intlLocale, { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(value)
 
   const formatCurrency = (value: number) =>
-    new Intl.NumberFormat(intlLocale, { style: 'currency', currency: 'CZK', maximumFractionDigits: 0 }).format(value)
+    new Intl.NumberFormat(intlLocale, { style: 'currency', currency: advanceSettings.currency, maximumFractionDigits: 2 }).format(value)
 
   const getAbsenceLabel = (state: WorkerAbsenceState) => {
     if (state === 'sick') return dictionary.workers.sick
@@ -495,14 +388,13 @@ export default async function WorkersPage({ searchParams }: WorkersPageProps) {
 
   const { workStartDate, workEndExclusiveDate, workStartIso, workEndExclusiveIso, workPeriodLabel } =
     getWorkMonthRange(selectedMonth, intlLocale)
-  const { advanceStartDate, advanceEndExclusiveDate, payDateLabel, advancePeriodLabel, monthLabel } =
-    getAdvanceRange(selectedMonth, intlLocale)
 
   const previousMonth = shiftMonth(selectedMonth, -1)
   const nextMonth = shiftMonth(selectedMonth, 1)
   const workersExportHref = `/api/workers/export?month=${selectedMonth}`
 
-  const activeCompany = await getActiveCompanyContext()
+  const access = await requireWorkerAccess()
+  const activeCompany = access.ok ? access.value : null
   const supabase = await createSupabaseServerClient()
 
   const renderError = (message: string) => (
@@ -518,6 +410,12 @@ export default async function WorkersPage({ searchParams }: WorkersPageProps) {
   if (!activeCompany) {
     return renderError(dictionary.auth.noHubAccess)
   }
+
+  if (!['company_admin', 'super_admin'].includes(activeCompany.role ?? '')) return renderError('K financím pracovníků nemáte oprávnění.')
+  let advanceSettings: Awaited<ReturnType<typeof readAdvanceSettings>>
+  try { advanceSettings = await readAdvanceSettings(supabase, activeCompany.companyId) }
+  catch { return renderError('Výplatní nastavení aktivní firmy se nepodařilo načíst.') }
+  const { payDateLabel, advancePeriodLabel, monthLabel } = getAdvanceRange(selectedMonth, advanceSettings.payType === 'monthly' ? advanceSettings.payday : null, intlLocale)
 
   const membersResponse = await supabase
     .from('company_members')
@@ -550,7 +448,6 @@ export default async function WorkersPage({ searchParams }: WorkersPageProps) {
     workLogsResponse,
     workShiftsResponse,
     workerAdvancesResponse,
-    advanceRequestsResponse,
     payrollItemsResponse,
     payrollPaymentsResponse,
     absencesResponse,
@@ -584,12 +481,7 @@ export default async function WorkersPage({ searchParams }: WorkersPageProps) {
       .in('profile_id', profileIds),
     supabase.from('work_logs').select('profile_id, hours, work_date').in('profile_id', profileIds).gte('work_date', workStartDate).lt('work_date', workEndExclusiveDate),
     supabase.from('work_shifts').select('id, profile_id, job_id, shift_date, started_at, ended_at, hours_override, job_hours_override').in('profile_id', profileIds).gte('shift_date', workStartDate).lt('shift_date', workEndExclusiveDate).order('started_at', { ascending: false }),
-    supabase.from('worker_advances').select('profile_id, amount, issued_at, note').in('profile_id', profileIds).gte('issued_at', advanceStartDate).lt('issued_at', advanceEndExclusiveDate),
-    supabase
-      .from('advance_requests')
-      .select('id, profile_id, amount, requested_amount, reason, note, status, requested_at, approved_at, reviewed_at, paid_at, payroll_month')
-      .in('profile_id', profileIds)
-      .eq('status', 'paid'),
+    readPayrollAdvanceLedger(supabase, activeCompany.companyId, { payrollMonth: `${selectedMonth}-01`, currency: advanceSettings.currency }),
     supabase
       .from('payroll_items')
       .select('profile_id, payroll_month, item_type, amount')
@@ -610,7 +502,6 @@ export default async function WorkersPage({ searchParams }: WorkersPageProps) {
   if (workLogsResponse.error) return renderError(`${dictionary.workers.workLogsLoadError}: ${workLogsResponse.error.message}`)
   if (workShiftsResponse.error) return renderError(`${dictionary.workers.shiftsLoadError}: ${workShiftsResponse.error.message}`)
   if (workerAdvancesResponse.error) return renderError(`${dictionary.workers.advancesLoadError}: ${workerAdvancesResponse.error.message}`)
-  if (advanceRequestsResponse.error) return renderError(`${dictionary.workers.advancesLoadError}: ${advanceRequestsResponse.error.message}`)
   if (payrollItemsResponse.error) return renderError(`${dictionary.workers.detail.loadPayrollItemsFailed}: ${payrollItemsResponse.error.message}`)
   if (payrollPaymentsResponse.error && !isMissingPayrollPaymentsTable(payrollPaymentsResponse.error)) {
     return renderError(`Nepodařilo se načíst stav výplat: ${payrollPaymentsResponse.error.message}`)
@@ -644,10 +535,7 @@ export default async function WorkersPage({ searchParams }: WorkersPageProps) {
   })
   const workLogs = (workLogsResponse.data ?? []) as WorkLogRow[]
   const workShifts = (workShiftsResponse.data ?? []) as WorkShiftRow[]
-  const workerAdvances = (workerAdvancesResponse.data ?? []) as WorkerAdvanceRow[]
-  const paidAdvanceRequests = ((advanceRequestsResponse.data ?? []) as unknown[] as AdvanceRequestPayrollRow[]).filter(
-    (item) => isDateInDateKeyRange(item.paid_at, advanceStartDate, advanceEndExclusiveDate)
-  )
+  const workerAdvances = workerAdvancesResponse.data
   const payrollItems = ((payrollItemsResponse.data ?? []) as unknown[]) as PayrollItemRow[]
   const payrollPayments = payrollPaymentsResponse.error
     ? []
@@ -679,9 +567,6 @@ export default async function WorkersPage({ searchParams }: WorkersPageProps) {
     const workerWorkLogs = workLogs.filter((item) => item.profile_id === profile.id)
     const workerShifts = workShifts.filter((item) => item.profile_id === profile.id)
     const workerAdvanceRows = workerAdvances.filter((item) => item.profile_id === profile.id)
-    const workerPaidAdvanceRequests = paidAdvanceRequests.filter(
-      (item) => item.profile_id === profile.id && !isAdvanceRequestRepresentedByWorkerAdvance(item, workerAdvanceRows)
-    )
     const workerPayrollItems = payrollItems.filter((item) => item.profile_id === profile.id)
     const workerPayrollPayment = payrollPayments.find((item) => item.profile_id === profile.id)
     const workerAbsences = absences.filter((item) => item.profile_id === profile.id)
@@ -714,9 +599,7 @@ export default async function WorkersPage({ searchParams }: WorkersPageProps) {
     const workLogHours = workerWorkLogs.reduce((sum, item) => sum + Number(item.hours ?? 0), 0)
     const shiftHoursMonth = shiftCalculations.reduce((sum, item) => sum + item.hours, 0)
     const shiftReward = shiftCalculations.reduce((sum, item) => sum + item.reward, 0)
-    const advancePaidInPeriod =
-      workerAdvanceRows.reduce((sum, item) => sum + Number(item.amount ?? 0), 0) +
-      workerPaidAdvanceRequests.reduce((sum, item) => sum + Number(item.amount ?? item.requested_amount ?? 0), 0)
+    const advancePaidInPeriod = payrollAdvanceTotal(workerAdvanceRows, workerAdvancesResponse.settlements)
     const payrollBonusTotal = workerPayrollItems
       .filter((item) => item.item_type === 'bonus')
       .reduce((sum, item) => sum + Number(item.amount ?? 0), 0)
@@ -794,7 +677,7 @@ export default async function WorkersPage({ searchParams }: WorkersPageProps) {
             </div>
             <h1 style={{ margin: 0, fontSize: '32px', lineHeight: '1.08', fontWeight: 600, color: '#202534' }}>{dictionary.workers.title}</h1>
             <p style={{ margin: '8px 0 0 0', color: '#475569', fontSize: '14px', lineHeight: 1.45 }}>
-              {dictionary.workers.workingMonth}: {workPeriodLabel}. {dictionary.workers.advancesForPayroll}: {advancePeriodLabel}. {dictionary.workers.payrollDue}: {payDateLabel}.
+              {dictionary.workers.workingMonth}: {workPeriodLabel}. {dictionary.workers.advancesForPayroll}: {advancePeriodLabel}. Firemní plán výplaty podle současného nastavení: {advanceSettings.payType === 'monthly' ? payDateLabel : 'Podle výplatního režimu'} (individuální výjimky v detailu pracovníka).
             </p>
           </div>
 

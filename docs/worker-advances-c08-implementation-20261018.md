@@ -1,0 +1,43 @@
+# C08: employee advance ledger, local implementation
+
+This package is prepared in `codex/diriqo-worker-advances-atomic`, based on `f3e7b0f`. It has not applied the migration, changed remote financial data, pushed a branch or deployed the application. Integrate the independently completed framework security change before release and repeat the combined checks.
+
+## Implemented contract
+
+A worker requests 5,000. An administrator approves 3,000 with an explanation. Approval records no payment. Separate recorded payments of 1,000 and 2,000 consume the approved balance; the first leaves 2,000 payable, the second leaves zero. The request is marked paid only when cumulative payments equal the approved amount. The administrator records cash or an evidenced bank transfer; this application does not send money.
+
+Every request, review, payout and settlement has a stable client-generated operation identity. A transport failure preserves the original identity and payload in session storage; a retry confirms the existing result. Another payload with that identity is rejected. Requests carry a revision so a second administrator sees a stale-state error instead of overwriting a decision. A per-company/worker transaction lock serializes manual and request-linked payments against the shared monthly limit. Financial history is append-only; direct DML, TRUNCATE, trigger and reference privileges are removed from API roles.
+
+Two balances are shown separately: approved but unpaid, and paid but unsettled. Returned money and an evidenced payroll offset are separate immutable settlement entries tied to the payment. Their cumulative amount cannot exceed that payment. A returned amount reduces the advance counted against wages. A payroll offset confirms the same deduction; it is not deducted again. Neither settlement reopens the approved payout ceiling or monthly payment limit. Stored payroll-payment amounts are not modified.
+
+Reads use the session client, explicit company scope and own-profile scope for workers. RLS admits an active company administrator or the worker's own history. Managers cannot approve or read team financial history through these tables. The server resolves the actual active company before checking the role, and rejects a form from a different company. New requests/payouts require the existing Core capability evaluator; review and settlement preserve access to existing history after licence expiry. No licence model is changed.
+
+## UI and accounting readers
+
+- `/mobile/my/advances`: own request, decision, payments and settlement history; linked from My Diriqo and web My Work.
+- `/advance-requests`: administrator review with changed-amount reason, partial payouts and settlement evidence.
+- Worker detail: immutable manual payout form and history, plus a link to full request/settlement history.
+- Worker list/detail, dashboard and XLSX export count the payment ledger once. Request status and note text no longer manufacture a second payment. Returns reduce the wage advance; offsets do not create another expense.
+- Financial readers paginate beyond PostgREST's default cap, preserve cents, and refuse ambiguous historical periods or currencies instead of returning a guessed total. Payout/settlement history keeps its recorded currency. Dates use the company timezone at entry.
+
+## Pay date and period
+
+The work month and new advance `payroll_month` are calendar months. A new payment belongs to the calendar month of its explicit actual payment date. A configured payday is only a planned date for wages of month M in month M+1. Days 29–31 are clipped to the last day of that payment month; weekends and holidays are not silently moved. NULL is displayed as not configured. Weekly/shift modes do not receive a fabricated monthly payday.
+
+The shared authorized settings writer updates canonical and legacy aliases together. Existing company rows are authoritative; false/NULL values are preserved. Active worker overrides are read only from `(company_id, profile_id)`. Global profile overrides are not allowed to affect a different company. Historical stored `payroll_month` and recorded payments remain untouched when settings change. Unknown historical periods or currencies require a separately audited reconciliation; this migration does not invent evidence.
+
+The worker export honors individual scoped payday overrides. A historical report's displayed plan is explicitly based on current settings; the current schema has no historical schedule snapshot. Actual paid amounts/dates remain the original evidence.
+
+## Verification and deployment boundary
+
+Local checks include TypeScript, targeted lint, monetary and authorization tests, pagination beyond 1,000 records, active-company rejection, malformed responses, retries, settlement arithmetic, payday boundaries and shared settings writers. The complete Vitest suite passed at the last checkpoint (58 files, 1,563 tests); rerun after subsequent edits and integration. SQL checks were run in local PGlite with a simplified baseline and capability stub, not on the hosted database. See the preflight document for the latest SQL count and observed metadata.
+
+The fixture-driven concurrency harness is prepared in `scripts/test-worker-advance-concurrency.mjs`. Its four modes cover payout overlap, exact retry, shared monthly limits and settlement overlap. It only accepts explicitly synthetic test accounts and tenants. Real overlap requires a separate database owner session holding the worker advisory lock and evidence of two waiting authenticated backends. HTTP timing or local sequential SQL tests alone do not establish this.
+
+Before application: rerun the read-only preflight, preserve schema/grants/policies and settings snapshots plus a verified database restore point, review the immutable migration, then apply it only to the approved Diriqo test project. Deploy the matched application promptly because the old direct-write actions will intentionally fail after ACL changes. Run the SQL rollback suite, real Auth/HTTP races, role/company/module negative cases, and authenticated UI request→approval→partial payout→settlement→export checks. Preserve synthetic evidence and revoke its sessions afterwards.
+
+If application or verification fails, stop new advance operations and retain all financial rows. Roll forward with a reviewed repair. Do not re-enable the old direct writes or drop the settlement ledger as a rollback shortcut. An application rollback must keep advance mutations disabled unless it supports this ledger contract; a database restore requires an explicit recovery decision and reconciliation of any evidence written after the snapshot.
+
+## Explicit remaining scope
+
+This is the agreed minimal C08 slice. Broader draft/cancel flows, delegated separate decision/payment permissions, corrected financial events, automated percent-of-earned limits, actual payroll deductions and bank transfers are not claimed complete. `percent_of_earned` without an explicit supported amount override fails closed. The existing frequency value is retained; this package adds no unapproved interpretation of weekly/shift payout scheduling. Device, deployed RLS, real transaction concurrency and field operation remain unproven until the separate tests above pass.

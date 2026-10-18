@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import DashboardShell from '@/components/DashboardShell'
 import { requireWorkerAccess } from '@/lib/server-guards'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
@@ -153,6 +154,7 @@ export default async function MyWorkPage() {
           ) : null}
         </section>
 
+        <Link href="/mobile/my/advances">Moje zálohy a historie výplat</Link>
         <WorkerFlowClient jobs={jobs} timeZone={access.value.timeZone} />
       </main>
     </DashboardShell>

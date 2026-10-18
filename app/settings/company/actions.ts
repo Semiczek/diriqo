@@ -8,6 +8,9 @@ import { resolveCompanyTimeZone } from '@/lib/company-timezone'
 import { getCompanyCountryConfig } from '@/lib/company-country-config'
 import { requireHubAccess } from '@/lib/require-hub-access'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
+import { requirePayrollSettingsContext, saveCompanyPayrollSettings } from '@/lib/dal/payroll-settings'
+import { parsePayday } from '@/lib/payroll/payday'
+import { nonnegative } from '@/lib/payroll/settings-input'
 
 export type SettingsActionResult = {
   ok: boolean
@@ -139,6 +142,7 @@ function result(ok: boolean, message: string): SettingsActionResult {
 
 function revalidateSettings() {
   revalidatePath('/settings/company')
+  revalidatePath('/ucet')
   revalidatePath('/')
   revalidatePath('/jobs')
   revalidatePath('/workers')
@@ -256,47 +260,19 @@ export async function updateCompanyJobSettings(formData: FormData): Promise<Sett
 
 export async function updateCompanyPayrollSettings(formData: FormData): Promise<SettingsActionResult> {
   try {
-    const { activeCompany, supabase } = await requireCompanySettingsAccess()
-
-    const { error } = await supabase.from('company_payroll_settings').upsert(
-      {
-        company_id: activeCompany.companyId,
-        default_worker_type: enumValue(formData, 'default_worker_type', ['employee', 'contractor'] as const, 'employee'),
-        default_pay_type: enumValue(
-          formData,
-          'default_pay_type',
-          ['after_shift', 'weekly', 'biweekly', 'monthly'] as const,
-          'monthly',
-        ),
-        payday_day: asInteger(formData, 'payday_day'),
-        payday_weekday: asInteger(formData, 'payday_weekday'),
-        advances_enabled: asBoolean(formData, 'advances_enabled'),
-        advance_limit_type: enumValue(
-          formData,
-          'advance_limit_type',
-          ['monthly_amount', 'percent_of_earned'] as const,
-          'monthly_amount',
-        ),
-        advance_limit_amount: asNumber(formData, 'advance_limit_amount'),
-        advance_limit_percent: asNumber(formData, 'advance_limit_percent'),
-        advance_frequency: enumValue(
-          formData,
-          'advance_frequency',
-          ['per_shift', 'weekly', 'biweekly', 'monthly'] as const,
-          'monthly',
-        ),
-        default_hourly_rate: asNumber(formData, 'default_hourly_rate'),
-        default_contractor_cost_mode: enumValue(
-          formData,
-          'default_contractor_cost_mode',
-          ['hourly', 'fixed_per_job', 'invoice'] as const,
-          'hourly',
-        ),
-      },
-      { onConflict: 'company_id' },
-    )
-
-    if (error) return result(false, error.message)
+    await saveCompanyPayrollSettings(asText(formData, 'company_id') ?? '', {
+      payType: asText(formData, 'default_pay_type'),
+      payday: asText(formData, 'payday_day'),
+      weekday: asText(formData, 'payday_weekday'),
+      advancesEnabled: asBoolean(formData, 'advances_enabled'),
+      advanceLimitAmount: asText(formData, 'advance_limit_amount'),
+      advanceFrequency: asText(formData, 'advance_frequency'),
+      defaultWorkerType: asText(formData, 'default_worker_type'),
+      advanceLimitType: asText(formData, 'advance_limit_type'),
+      advanceLimitPercent: asText(formData, 'advance_limit_percent'),
+      defaultHourlyRate: asText(formData, 'default_hourly_rate'),
+      defaultContractorCostMode: asText(formData, 'default_contractor_cost_mode'),
+    })
 
     revalidateSettings()
     return result(true, 'Nastavení pracovníků a výplat bylo uloženo.')
@@ -307,15 +283,14 @@ export async function updateCompanyPayrollSettings(formData: FormData): Promise<
 
 export async function updateWorkerPaymentSettings(formData: FormData): Promise<SettingsActionResult> {
   try {
-    const { activeCompany, supabase } = await requireCompanySettingsAccess()
+    const { companyId, supabase } = await requirePayrollSettingsContext(asText(formData, 'company_id') ?? '')
     const profileId = asText(formData, 'profile_id')
-
     if (!profileId) return result(false, 'Chybí pracovník.')
 
     const memberResponse = await supabase
       .from('company_members')
       .select('id')
-      .eq('company_id', activeCompany.companyId)
+      .eq('company_id', companyId)
       .eq('profile_id', profileId)
       .eq('is_active', true)
       .maybeSingle()
@@ -326,16 +301,16 @@ export async function updateWorkerPaymentSettings(formData: FormData): Promise<S
 
     const { error } = await supabase.from('worker_payment_settings').upsert(
       {
-        company_id: activeCompany.companyId,
+        company_id: companyId,
         profile_id: profileId,
         worker_type: enumValue(formData, 'worker_type', ['employee', 'contractor'] as const, 'employee'),
         pay_type_override: nullablePayType(formData, 'pay_type_override'),
-        payday_day_override: asInteger(formData, 'payday_day_override'),
+        payday_day_override: parsePayday(asText(formData, 'payday_day_override')),
         payday_weekday_override: asInteger(formData, 'payday_weekday_override'),
-        hourly_rate: asNumber(formData, 'hourly_rate'),
-        fixed_rate_per_job: asNumber(formData, 'fixed_rate_per_job'),
+        hourly_rate: nonnegative(asText(formData, 'hourly_rate'), 'hodinová sazba'),
+        fixed_rate_per_job: nonnegative(asText(formData, 'fixed_rate_per_job'), 'fix za zakázku'),
         advances_enabled_override: nullableBooleanOverride(formData, 'advances_enabled_override_mode'),
-        advance_limit_amount_override: asNumber(formData, 'advance_limit_amount_override'),
+        advance_limit_amount_override: nonnegative(asText(formData, 'advance_limit_amount_override'), 'limit záloh'),
         contractor_company_name: asText(formData, 'contractor_company_name'),
         contractor_registration_no: asText(formData, 'contractor_registration_no'),
         contractor_vat_no: asText(formData, 'contractor_vat_no'),

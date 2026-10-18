@@ -1,9 +1,12 @@
+import { readAdvanceSettings, readWorkerPaydayOverrides } from '@/lib/dal/advance-settings'
+import { readPayrollAdvanceLedger } from '@/lib/dal/worker-advances'
+import { payrollAdvanceTotal } from '@/lib/payroll/advances'
 import { NextRequest, NextResponse } from 'next/server'
 
 import { createExportWorkbook, styleExportWorksheet, workbookXlsxResponse } from '@/lib/excel-export'
 import { getContractorBillingType, getWorkerType } from '@/lib/payroll-settings'
 import { calculateWorkerPayroll } from '@/lib/payroll/worker-payroll'
-import { requireHubAccess } from '@/lib/server-guards'
+import { requireWorkerAccess } from '@/lib/server-guards'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 import {
   doesDateRangeOverlap,
@@ -107,25 +110,10 @@ type WorkShiftRow = {
   hours_override: number | string | null
 }
 
-type WorkerAdvanceRow = {
-  profile_id: string | null
-  amount: number | string | null
-}
-
 type PayrollItemRow = {
   profile_id: string | null
   item_type: string | null
   amount: number | string | null
-}
-
-type AdvanceRequestRow = {
-  profile_id: string | null
-  amount: number | string | null
-  requested_amount?: number | string | null
-  status: string | null
-  paid_at: string | null
-  approved_at: string | null
-  reviewed_at: string | null
 }
 
 type PayrollPaymentRow = {
@@ -197,14 +185,6 @@ function getDefaultHourlyRate(profile: ProfileRow) {
   )
 }
 
-function isDateInDateKeyRange(value: string | null | undefined, startDate: string, endExclusiveDate: string) {
-  if (!value) return false
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return false
-  const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
-  return key >= startDate && key < endExclusiveDate
-}
-
 function isMissingPayrollPaymentsTable(error: { message?: string; code?: string } | null | undefined) {
   const message = (error?.message ?? '').toLowerCase()
   return error?.code === '42P01' || message.includes('payroll_payments')
@@ -221,17 +201,20 @@ function getWorkerTypeText(profile: ProfileRow) {
 }
 
 export async function GET(request: NextRequest) {
-  const guard = await requireHubAccess()
+  const guard = await requireWorkerAccess()
   if (!guard.ok) {
     return NextResponse.json({ error: guard.error }, { status: guard.status })
   }
 
+  if (!['company_admin', 'super_admin'].includes(guard.value.role ?? '')) return NextResponse.json({ error: 'K financím pracovníků nemáte oprávnění.' }, { status: 403 })
   const selectedMonth = resolveExportMonth(request.nextUrl.searchParams.get('month'))
   const { workStartDate, workEndExclusiveDate, workStartIso, workEndExclusiveIso, workPeriodLabel } =
     getWorkMonthRange(selectedMonth)
-  const { advanceStartDate, advanceEndExclusiveDate, advancePeriodLabel, payDateLabel } =
-    getAdvanceRange(selectedMonth)
   const supabase = await createSupabaseServerClient()
+  let advanceSettings, paydayOverrides
+  try { [advanceSettings, paydayOverrides] = await Promise.all([readAdvanceSettings(supabase, guard.value.companyId), readWorkerPaydayOverrides(supabase, guard.value.companyId)]) }
+  catch { return NextResponse.json({ error: 'Výplatní nastavení se nepodařilo načíst.' }, { status: 503 }) }
+  const { advancePeriodLabel } = getAdvanceRange(selectedMonth)
 
   const membersResponse = await supabase
     .from('company_members')
@@ -256,7 +239,7 @@ export async function GET(request: NextRequest) {
   worksheet.columns = [
     { header: 'Pracovní měsíc', key: 'workPeriod', width: 24 },
     { header: 'Období záloh', key: 'advancePeriod', width: 24 },
-    { header: 'Splatnost výplaty', key: 'payDate', width: 18 },
+    { header: 'Plán výplaty (současné nastavení)', key: 'payDate', width: 18 },
     { header: 'Jméno', key: 'name', width: 28 },
     { header: 'E-mail', key: 'email', width: 30 },
     { header: 'Telefon', key: 'phone', width: 18 },
@@ -267,14 +250,14 @@ export async function GET(request: NextRequest) {
     { header: 'Směny h', key: 'shiftHours', width: 12 },
     { header: 'Work logy h', key: 'workLogHours', width: 12 },
     { header: 'Hodiny ze zakázek h', key: 'jobHours', width: 18 },
-    { header: 'Odměna ze směn Kč', key: 'shiftReward', width: 18 },
-    { header: 'Náklady zakázek Kč', key: 'jobReward', width: 18 },
-    { header: 'Bonusy Kč', key: 'bonusTotal', width: 14 },
-    { header: 'Stravné Kč', key: 'mealTotal', width: 14 },
-    { header: 'Srážky Kč', key: 'deductionTotal', width: 14 },
-    { header: 'Zálohy Kč', key: 'advanceTotal', width: 14 },
-    { header: 'Celkem k výplatě Kč', key: 'netPayout', width: 20 },
-    { header: 'Uhrazeno Kč', key: 'paidAmount', width: 14 },
+    { header: `Odměna ze směn ${advanceSettings.currency}`, key: 'shiftReward', width: 18 },
+    { header: `Náklady zakázek ${advanceSettings.currency}`, key: 'jobReward', width: 18 },
+    { header: `Bonusy ${advanceSettings.currency}`, key: 'bonusTotal', width: 14 },
+    { header: `Stravné ${advanceSettings.currency}`, key: 'mealTotal', width: 14 },
+    { header: `Srážky ${advanceSettings.currency}`, key: 'deductionTotal', width: 14 },
+    { header: `Zálohy ${advanceSettings.currency}`, key: 'advanceTotal', width: 14 },
+    { header: `Celkem k výplatě ${advanceSettings.currency}`, key: 'netPayout', width: 20 },
+    { header: `Uhrazeno ${advanceSettings.currency}`, key: 'paidAmount', width: 14 },
     { header: 'Uhrazeno dne', key: 'paidAt', width: 16 },
   ]
 
@@ -290,7 +273,6 @@ export async function GET(request: NextRequest) {
     workLogsResponse,
     workShiftsResponse,
     workerAdvancesResponse,
-    advanceRequestsResponse,
     payrollItemsResponse,
     payrollPaymentsResponse,
   ] = await Promise.all([
@@ -340,17 +322,7 @@ export async function GET(request: NextRequest) {
       .in('profile_id', profileIds)
       .gte('shift_date', workStartDate)
       .lt('shift_date', workEndExclusiveDate),
-    supabase
-      .from('worker_advances')
-      .select('profile_id, amount')
-      .in('profile_id', profileIds)
-      .gte('issued_at', advanceStartDate)
-      .lt('issued_at', advanceEndExclusiveDate),
-    supabase
-      .from('advance_requests')
-      .select('profile_id, amount, requested_amount, status, paid_at, approved_at, reviewed_at')
-      .in('profile_id', profileIds)
-      .eq('status', 'paid'),
+    readPayrollAdvanceLedger(supabase, guard.value.companyId, { payrollMonth: `${selectedMonth}-01`, currency: advanceSettings.currency }),
     supabase
       .from('payroll_items')
       .select('profile_id, item_type, amount')
@@ -369,7 +341,6 @@ export async function GET(request: NextRequest) {
   if (workLogsResponse.error) return NextResponse.json({ error: workLogsResponse.error.message }, { status: 400 })
   if (workShiftsResponse.error) return NextResponse.json({ error: workShiftsResponse.error.message }, { status: 400 })
   if (workerAdvancesResponse.error) return NextResponse.json({ error: workerAdvancesResponse.error.message }, { status: 400 })
-  if (advanceRequestsResponse.error) return NextResponse.json({ error: advanceRequestsResponse.error.message }, { status: 400 })
   if (payrollItemsResponse.error) return NextResponse.json({ error: payrollItemsResponse.error.message }, { status: 400 })
   if (payrollPaymentsResponse.error && !isMissingPayrollPaymentsTable(payrollPaymentsResponse.error)) {
     return NextResponse.json({ error: payrollPaymentsResponse.error.message }, { status: 400 })
@@ -398,10 +369,7 @@ export async function GET(request: NextRequest) {
   })
   const workLogs = (workLogsResponse.data ?? []) as WorkLogRow[]
   const workShifts = (workShiftsResponse.data ?? []) as WorkShiftRow[]
-  const workerAdvances = (workerAdvancesResponse.data ?? []) as WorkerAdvanceRow[]
-  const paidAdvanceRequests = ((advanceRequestsResponse.data ?? []) as AdvanceRequestRow[]).filter((request) =>
-    isDateInDateKeyRange(request.paid_at || request.approved_at || request.reviewed_at, advanceStartDate, advanceEndExclusiveDate),
-  )
+  const workerAdvances = workerAdvancesResponse.data
   const payrollItems = (payrollItemsResponse.data ?? []) as PayrollItemRow[]
   const payrollPayments = payrollPaymentsResponse.error
     ? []
@@ -409,6 +377,11 @@ export async function GET(request: NextRequest) {
 
   for (const profile of (profilesResponse.data ?? []) as ProfileRow[]) {
     const member = memberByProfileId.get(profile.id)
+    const override = paydayOverrides.get(profile.id)
+    const payType = override?.payType ?? advanceSettings.payType
+    const payDateLabel = payType === 'monthly'
+      ? getAdvanceRange(selectedMonth, override?.payday ?? advanceSettings.payday).payDateLabel
+      : 'Podle výplatního režimu'
     const defaultHourlyRate = getDefaultHourlyRate(profile)
     const workerAssignments = assignments.filter((assignment) => {
       if (assignment.profile_id !== profile.id) return false
@@ -442,13 +415,7 @@ export async function GET(request: NextRequest) {
     const workLogHours = workLogs
       .filter((log) => log.profile_id === profile.id)
       .reduce((sum, log) => sum + numberOrZero(log.hours), 0)
-    const advanceTotal =
-      workerAdvances
-        .filter((advance) => advance.profile_id === profile.id)
-        .reduce((sum, advance) => sum + numberOrZero(advance.amount), 0) +
-      paidAdvanceRequests
-        .filter((advance) => advance.profile_id === profile.id)
-        .reduce((sum, advance) => sum + numberOrZero(advance.amount ?? advance.requested_amount), 0)
+    const advanceTotal = payrollAdvanceTotal(workerAdvances.filter(advance => advance.profile_id === profile.id), workerAdvancesResponse.settlements)
     const workerPayrollItems = payrollItems.filter((item) => item.profile_id === profile.id)
     const bonusTotal = workerPayrollItems
       .filter((item) => item.item_type === 'bonus')
@@ -500,7 +467,7 @@ export async function GET(request: NextRequest) {
     worksheet.getColumn(key).numFmt = '0.00'
   }
   for (const key of ['shiftReward', 'jobReward', 'bonusTotal', 'mealTotal', 'deductionTotal', 'advanceTotal', 'netPayout', 'paidAmount']) {
-    worksheet.getColumn(key).numFmt = '# ##0 Kč'
+    worksheet.getColumn(key).numFmt = `# ##0.00 "${advanceSettings.currency}"`
   }
   styleExportWorksheet(worksheet)
 

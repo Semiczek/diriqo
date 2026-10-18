@@ -20,6 +20,7 @@ export default async function MyDiriqoPage() {
       <div className={styles.stat}><strong>{work.jobs.filter(job => job.completedAt).length}</strong><span>Hotovo v přehledu</span></div>
     </div>
     {running > 0 && <Link href="/mobile/my/finish" className={styles.module}>Všechny moje rozpracované směny<small>Zastavit běžící práci</small></Link>}
+    <Link href="/mobile/my/advances" className={styles.module}>Moje zálohy<small>Žádost, rozhodnutí a historie výplat</small></Link>
     <section className={styles.section}><h2>Moje zakázky</h2>{work.total > 100 && <p className={styles.note}>Posledních 100 přiřazení z {work.total} a starší rozpracované zakázky. Všechny běžící směny najdete také v samostatném přehledu výše.</p>}<WorkerFlowClient jobs={work.jobs} timeZone={work.context.timeZone} /></section>
   </MobileShell>
 }

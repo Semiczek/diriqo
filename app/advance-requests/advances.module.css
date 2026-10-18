@@ -1,0 +1,21 @@
+.page { display: grid; gap: 20px; max-width: 1120px; color: var(--dq-text, #172033); }
+.header, .card, .form { padding: 20px; border: 1px solid var(--dq-border, #e2e5ed); border-radius: 16px; background: var(--dq-surface, white); }
+.header h1, .card h2, .form h2, .form h3 { margin: 0 0 12px; }
+.header p, .card p, .form p { color: var(--dq-muted, #64748b); line-height: 1.5; }
+.card { display: grid; gap: 16px; }
+.summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+.summary div { border-radius: 12px; background: var(--dq-bg, #f7f7fc); padding: 14px; }
+.summary dt { font-size: 13px; color: var(--dq-muted, #64748b); }
+.summary dd { margin: 6px 0 0; font-size: 23px; font-weight: 700; }
+.form { display: grid; gap: 14px; }
+.form fieldset { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); padding: 0; border: 0; min-width: 0; }
+.form label { display: grid; align-content: start; gap: 7px; font-size: 14px; font-weight: 600; }
+.form input, .form select, .form textarea { width: 100%; min-height: 44px; border: 1px solid var(--dq-border, #d9dce7); border-radius: 9px; padding: 10px 12px; font: inherit; background: var(--dq-surface, white); color: inherit; box-sizing: border-box; }
+.form textarea { resize: vertical; }
+.primary { justify-self: start; min-height: 44px; padding: 11px 18px; background: var(--dq-accent, #6d4aff); color: white; border: 0; border-radius: 9px; font-weight: 650; cursor: pointer; }
+.primary:disabled { opacity: .55; cursor: wait; }
+.error { background: #fff1f2; color: #9f1239 !important; padding: 12px; border: 1px solid #fecdd3; border-radius: 10px; }
+.error button { display: block; margin-top: 8px; background: transparent; color: inherit; border: 0; text-decoration: underline; cursor: pointer; }
+.history { display: grid; gap: 10px; padding: 0; list-style: none; }
+.history li { padding: 12px 0; border-top: 1px solid var(--dq-border, #e2e5ed); }
+.badge { display: inline-flex; width: fit-content; padding: 5px 10px; border-radius: 20px; color: var(--dq-accent, #6d4aff); background: #f0eaff; font-size: 13px; font-weight: 650; }

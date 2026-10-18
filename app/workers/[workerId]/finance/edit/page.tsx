@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation'
 import DashboardShell from '@/components/DashboardShell'
 import { useI18n } from '@/components/I18nProvider'
 import { createPayrollItemAction, deletePayrollItemAction, updateWorkerProfileAction } from '../actions'
+import { formatAdvanceMoney, sumAdvancePayments } from '@/lib/payroll/advances'
+import { readWorkerAdvanceHistoryAction } from '@/app/advance-requests/actions'
 import { supabase } from '@/lib/supabase'
 
 type EditWorkerFinancePageProps = {
@@ -17,9 +19,10 @@ type EditWorkerFinancePageProps = {
 type WorkerAdvanceRow = {
   id: string
   profile_id: string | null
-  amount: number | null
+  amount: number | string
   issued_at: string | null
   note: string | null
+  currency?: string | null
   created_at?: string | null
 }
 
@@ -123,12 +126,7 @@ export default function EditWorkerFinancePage({
             .eq('id', resolvedWorkerId)
             .maybeSingle(),
 
-          supabase
-            .from('worker_advances')
-            .select('id, profile_id, amount, issued_at, note, created_at')
-            .eq('profile_id', resolvedWorkerId)
-            .order('issued_at', { ascending: false })
-            .order('created_at', { ascending: false }),
+          readWorkerAdvanceHistoryAction(resolvedWorkerId),
 
           supabase
             .from('payroll_items')
@@ -184,7 +182,9 @@ export default function EditWorkerFinancePage({
   }, [dictionary.workers.financeEdit.loadFailed, dictionary.workers.financeEdit.workerNotFound, params])
 
   const totalAdvances = useMemo(() => {
-    return advances.reduce((sum, item) => sum + Number(item.amount ?? 0), 0)
+    const groups = new Map<string | null, WorkerAdvanceRow[]>()
+    for (const advance of advances) groups.set(advance.currency ?? null, [...(groups.get(advance.currency ?? null) ?? []), advance])
+    return [...groups].map(([currency, rows]) => formatAdvanceMoney(sumAdvancePayments(rows), currency)).join(' · ') || '0'
   }, [advances])
 
   const payrollItemsForMonth = useMemo(() => {
@@ -840,7 +840,7 @@ export default function EditWorkerFinancePage({
                   Evidované zálohy
                 </div>
                 <div style={{ fontSize: '28px', fontWeight: 700, color: '#111827' }}>
-                  {formatCurrency(totalAdvances)}
+                  {totalAdvances}
                 </div>
               </div>
             </div>

@@ -38,7 +38,7 @@ export type CompanyPayrollSettings = {
   advance_limit_type: 'monthly_amount' | 'percent_of_earned'
   advance_limit_amount: number | null
   advance_limit_percent: number | null
-  advance_frequency: 'per_shift' | 'weekly' | 'biweekly' | 'monthly'
+  advance_frequency: 'anytime' | 'per_shift' | 'weekly' | 'biweekly' | 'monthly'
   default_hourly_rate: number | null
   default_contractor_cost_mode: ContractorCostMode
 }

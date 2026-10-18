@@ -1,6 +1,6 @@
 export type WorkerType = 'employee' | 'contractor'
 export type PayrollType = 'shift' | 'weekly' | 'biweekly' | 'monthly'
-export type AdvanceFrequency = 'anytime' | 'weekly' | 'monthly'
+export type AdvanceFrequency = 'anytime' | 'per_shift' | 'weekly' | 'biweekly' | 'monthly'
 export type ContractorBillingType = 'hourly' | 'fixed' | 'invoice'
 
 export type CompanyPayrollSettingsLike = {
@@ -61,7 +61,7 @@ export function getPayrollType(value: string | null | undefined): PayrollType {
 
 export function getAdvanceFrequency(value: string | null | undefined): AdvanceFrequency | null {
   if (!value) return null
-  return normalizeEnum(value, ['anytime', 'weekly', 'monthly'] as const, 'monthly')
+  return normalizeEnum(value, ['anytime', 'per_shift', 'weekly', 'biweekly', 'monthly'] as const, 'monthly')
 }
 
 export function getContractorBillingType(value: string | null | undefined): ContractorBillingType {
@@ -86,7 +86,9 @@ export function getPayrollTypeLabel(payrollType: string | null | undefined) {
 export function getAdvanceFrequencyLabel(value: string | null | undefined) {
   const normalized = getAdvanceFrequency(value)
   if (normalized === 'anytime') return 'Kdykoliv'
+  if (normalized === 'per_shift') return 'Po směně'
   if (normalized === 'weekly') return 'Týdně'
+  if (normalized === 'biweekly') return 'Každých 14 dní'
   if (normalized === 'monthly') return 'Měsíčně'
   return 'Bez omezení'
 }

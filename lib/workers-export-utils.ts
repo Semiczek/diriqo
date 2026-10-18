@@ -1,8 +1,6 @@
+import { payrollMonthRange, plannedPayday } from '@/lib/payroll/payday'
 import 'server-only'
 
-const PAYROLL_ADVANCE_START_DAY = 19
-const PAYROLL_ADVANCE_END_EXCLUSIVE_DAY = 18
-const PAYROLL_ADVANCE_END_VISIBLE_DAY = 17
 
 export function isValidMonthString(value: string | null | undefined) {
   return typeof value === 'string' && /^\d{4}-\d{2}$/.test(value)
@@ -41,20 +39,15 @@ export function getWorkMonthRange(monthString: string) {
   }
 }
 
-export function getAdvanceRange(monthString: string) {
-  const [yearString, monthStringPart] = monthString.split('-')
-  const year = Number(yearString)
-  const monthIndex = Number(monthStringPart) - 1
-  const advanceStart = new Date(year, monthIndex, PAYROLL_ADVANCE_START_DAY, 0, 0, 0, 0)
-  const advanceEndExclusive = new Date(year, monthIndex + 1, PAYROLL_ADVANCE_END_EXCLUSIVE_DAY, 0, 0, 0, 0)
-  const advanceEndVisible = new Date(year, monthIndex + 1, PAYROLL_ADVANCE_END_VISIBLE_DAY, 0, 0, 0, 0)
-  const payDate = new Date(year, monthIndex + 1, PAYROLL_ADVANCE_END_EXCLUSIVE_DAY, 0, 0, 0, 0)
-
+export function getAdvanceRange(monthString: string, payday: number | null = null) {
+  const range = payrollMonthRange(monthString)
+  const end = new Date(range.endExclusiveDate + 'T00:00:00Z')
+  const payDate = plannedPayday(monthString, payday)
+  const label = (value: string) => new Intl.DateTimeFormat('cs-CZ', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' }).format(new Date(value + 'T00:00:00Z'))
   return {
-    advanceStartDate: formatLocalDateKey(advanceStart),
-    advanceEndExclusiveDate: formatLocalDateKey(advanceEndExclusive),
-    advancePeriodLabel: `${formatDateForExport(advanceStart)} - ${formatDateForExport(advanceEndVisible)}`,
-    payDateLabel: formatDateForExport(payDate),
+    advanceStartDate: range.startDate, advanceEndExclusiveDate: range.endExclusiveDate,
+    advancePeriodLabel: label(range.startDate) + ' – ' + label(new Date(end.getTime() - 86400000).toISOString().slice(0, 10)),
+    payDateLabel: payDate ? label(payDate) : 'Nenastaveno',
   }
 }
 

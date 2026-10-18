@@ -42,7 +42,7 @@ export type CompanyPayrollSettings = {
   advance_limit_type: 'monthly_amount' | 'percent_of_earned'
   advance_limit_amount: number | null
   advance_limit_percent: number | null
-  advance_frequency: 'per_shift' | 'weekly' | 'biweekly' | 'monthly'
+  advance_frequency: 'anytime' | 'per_shift' | 'weekly' | 'biweekly' | 'monthly'
   default_hourly_rate: number | null
   default_contractor_cost_mode: ContractorCostMode
 }
@@ -178,8 +178,8 @@ function mapPayrollSettings(row: Record<string, unknown> | null, companyId: stri
     company_id: companyId,
     default_worker_type: normalizeWorkerType(row?.default_worker_type),
     default_pay_type: normalizePayType(row?.default_pay_type ?? legacyPayType),
-    payday_day: toNumber(row?.payday_day ?? row?.payroll_day_of_month),
-    payday_weekday: toNumber(row?.payday_weekday ?? row?.payroll_weekday),
+    payday_day: toNumber(row && 'payday_day' in row ? row.payday_day : row?.payroll_day_of_month),
+    payday_weekday: toNumber(row && 'payday_weekday' in row ? row.payday_weekday : row?.payroll_weekday),
     advances_enabled:
       typeof row?.advances_enabled === 'boolean'
         ? row.advances_enabled
@@ -191,6 +191,7 @@ function mapPayrollSettings(row: Record<string, unknown> | null, companyId: stri
     advance_limit_amount: toNumber(row?.advance_limit_amount),
     advance_limit_percent: toNumber(row?.advance_limit_percent),
     advance_frequency:
+      row?.advance_frequency === 'anytime' ||
       row?.advance_frequency === 'per_shift' ||
       row?.advance_frequency === 'weekly' ||
       row?.advance_frequency === 'biweekly'
