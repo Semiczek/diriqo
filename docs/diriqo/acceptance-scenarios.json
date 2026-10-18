@@ -1413,7 +1413,7 @@
           "artifacts/worker-advances/hosted-concurrency-20261018.json",
           "artifacts/worker-advances/hosted-http409-sql-20261018.json"
         ],
-        "scope": "81 SQL scénářů+5 cleanup;4 souběhy+4 request reauth+7 payment reauth, samostatně4kroková reconciliace. Dva původní neúspěchy zachovány. Paid receipt/UI/hardware neověřeny.",
+        "scope": "81 SQL scénářů+5 cleanup;4 souběhy+4 request reauth+7 payment reauth, samostatně4kroková reconciliace. Tři historické neúspěchy zachovány. Paid receipt/UI/hardware neověřeny.",
         "executedThisReview": true
       }
     },
@@ -1494,7 +1494,7 @@
           "artifacts/worker-advances/hosted-concurrency-20261018.json",
           "artifacts/worker-advances/hosted-http409-sql-20261018.json"
         ],
-        "scope": "81 SQL scénářů+5 cleanup;4 souběhy+4 request reauth+7 payment reauth, samostatně4kroková reconciliace. Dva původní neúspěchy zachovány. Paid receipt/UI/hardware neověřeny.",
+        "scope": "81 SQL scénářů+5 cleanup;4 souběhy+4 request reauth+7 payment reauth, samostatně4kroková reconciliace. Tři historické neúspěchy zachovány. Paid receipt/UI/hardware neověřeny.",
         "executedThisReview": true
       }
     },
