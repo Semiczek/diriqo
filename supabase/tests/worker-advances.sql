@@ -9,7 +9,7 @@ declare
   r3 uuid:=gen_random_uuid(); rlate uuid:=gen_random_uuid(); opreview uuid:=gen_random_uuid();
   op1 uuid:=gen_random_uuid(); op2 uuid:=gen_random_uuid(); ops uuid:=gen_random_uuid();
   v_payment uuid; v_manual uuid; v_grant uuid; v_result jsonb; v_retry jsonb; v_before jsonb; v_after jsonb;
-  v_error text; v_message text; v_case record; v_role uuid; v_query text; v_table text;
+  v_error text; v_message text; v_sqlstate text; v_case record; v_role uuid; v_query text; v_table text;
   passed jsonb:='[]'; marker text:='AdvanceTest'||replace(gen_random_uuid()::text,'-','');
   today date:=(clock_timestamp() at time zone 'Europe/Prague')::date;
   state_sql constant text:=$q$select jsonb_build_object(
@@ -108,6 +108,7 @@ begin
       (format('select public.pay_worker_advance_atomic(%L,%L,%L,%L,1000,%L,%L,2,%L,null)',ca,pw,r1,op1,today,'Different note','cash'),'ADVANCE_OPERATION_CONFLICT'),
       (format('select public.pay_worker_advance_atomic(%L,%L,%L,%L,2001,%L,null,2)',ca,pw,r1,gen_random_uuid(),today),'ADVANCE_BALANCE_EXCEEDED'),
       (format('select public.pay_worker_advance_atomic(%L,%L,%L,%L,2000,%L,null,1)',ca,pw,r1,gen_random_uuid(),today),'ADVANCE_STALE'),
+      (format('select public.review_advance_request_atomic(%L,%L,1,%L,3000,%L,%L)',ca,r1,'approved',gen_random_uuid(),'Stale review'),'ADVANCE_STALE'),
       (format('select public.pay_worker_advance_atomic(%L,%L,%L,%L,2000,%L,null,2,%L,null)',ca,pw,r1,gen_random_uuid(),today,'bank_transfer'),'ADVANCE_INVALID'),
       (format('select public.review_advance_request_atomic(%L,%L,2,%L,0,%L,null)',ca,r1,'rejected',gen_random_uuid()),'ADVANCE_INVALID_STATE'),
       (format('select public.review_advance_request_atomic(%L,%L,0,%L,3001,%L,%L)',ca,r1,'approved',opreview,'Synthetic lower approval'),'ADVANCE_OPERATION_CONFLICT'),
@@ -116,9 +117,13 @@ begin
       (format('select public.pay_worker_advance_atomic(%L,%L,null,%L,%L,%L,null,null)',ca,pw,gen_random_uuid(),'Infinity',today),'ADVANCE_INVALID'),
       (format('select public.pay_worker_advance_atomic(%L,%L,null,%L,0.001,%L,null,null)',ca,pw,gen_random_uuid(),today),'ADVANCE_INVALID')
     ) x(query,expected) loop
-      v_error:=null;
-      begin execute v_case.query; exception when others then get stacked diagnostics v_error=message_text; end;
+      v_error:=null; v_sqlstate:=null;
+      begin execute v_case.query;
+      exception when others then get stacked diagnostics v_error=message_text,v_sqlstate=returned_sqlstate; end;
       assert v_error=v_case.expected,'negative_case_'||v_case.expected||'_got_'||coalesce(v_error,'NO_ERROR');
+      if v_case.expected='ADVANCE_STALE' then
+        assert v_sqlstate='PT409','stale_business_revision_returns_nonretryable_http409_'||v_case.query;
+      end if;
       execute state_sql into v_after using ca;
       assert v_after=v_before,'negative_case_preserves_whole_state';
       passed:=passed||jsonb_build_array(v_case.expected||'_whole_state_unchanged');

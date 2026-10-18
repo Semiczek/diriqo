@@ -204,6 +204,15 @@ try {
   } else {
     const expected = mode === 'settlement-overlap' ? 'ADVANCE_SETTLEMENT_EXCEEDED' : mode === 'shared-limit' ? 'ADVANCE_LIMIT_EXCEEDED' : 'ADVANCE_STALE'
     assert(responses.filter(response => isError(response, expected)).length === 1, `Losing operation must return ${expected}`)
+    if (mode === 'payout-overlap') {
+      const loser = responses.findIndex(response => isError(response, 'ADVANCE_STALE'))
+      assert(responses[loser].status === 409 && responses[loser].data?.code === 'PT409',
+        'Stale revision must return HTTP 409/PT409, never retryable serialization failure')
+      const rejectedRetry = await rpc(tokens[loser], method, attempts[loser].body)
+      report.rejectedRetry = publicResponse(rejectedRetry)
+      assert(rejectedRetry.status === 409 && rejectedRetry.data?.code === 'PT409'
+        && isError(rejectedRetry, 'ADVANCE_STALE'), 'Same stale operation must return a definite conflict again')
+    }
   }
   const after = await snapshot(tokens[1], f.companyId)
   const afterRequest = after.requests.find(row => row.id === f.requestId)

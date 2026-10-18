@@ -64,6 +64,14 @@ describe('advance server action boundary', () => {
     mocks.rpc.mockRejectedValue(new Error('network timeout'))
     expect(await payAdvanceAction(input)).toMatchObject({ ok: false, uncertain: true })
   })
+  it.each(['review', 'pay'])('treats PT409 stale %s as a definite conflict without retrying', async operation => {
+    mocks.rpc.mockResolvedValue({ data: null, error: { code: 'PT409', message: 'ADVANCE_STALE', details: null, hint: null } })
+    const response = operation === 'pay' ? await payAdvanceAction(input)
+      : await reviewAdvanceAction({ companyId, requestId, revision: 0, operationId, status: 'approved', amount: 3000, reason: 'Dílčí schválení' })
+    expect(response).toMatchObject({ ok: false, uncertain: false, error: expect.stringContaining('Žádost mezitím změnil') })
+    expect(mocks.rpc).toHaveBeenCalledTimes(1)
+    expect(mocks.revalidate).not.toHaveBeenCalled()
+  })
   it.each(['company_id', 'profile_id', 'operation_id'])('does not accept a mismatched payment %s', async key => {
     mocks.rpc.mockResolvedValue({ data: { ...result(), payment: { ...payment(), [key]: requestId } }, error: null })
     expect(await payAdvanceAction(input)).toMatchObject({ ok: false, uncertain: true })
