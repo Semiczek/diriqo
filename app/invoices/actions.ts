@@ -8,6 +8,7 @@ import { sendTransactionalEmail } from '@/lib/email/sendTransactionalEmail'
 import { buildInvoicePdf, type InvoicePdfItemRow, type InvoicePdfRow } from '@/lib/invoice-pdf-safe'
 import { requireHubAccess } from '@/lib/require-hub-access'
 import { deleteInvoiceDraftAtomic } from '@/lib/dal/invoices'
+import { cancelInvoiceAtomic, markInvoicePaidAtomic, InvoiceSettlementError, type InvoiceSettlementResult } from '@/lib/dal/invoice-settlement'
 import { createInvoiceFromJobsAtomic, InvoiceDraftError, invoiceDraftWriteError, InvoiceDraftEditError, invoiceDraftEditError, updateInvoiceDraftAtomic, refreshInvoiceSupplierAtomic, issueInvoiceRevisionAtomic } from '@/lib/dal/invoice-drafts'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 
@@ -320,7 +321,7 @@ async function runInvoiceDraftAction(action: (data: FormData) => Promise<void>, 
     return { error: null, reloadRequired: false }
   } catch (error) {
     unstable_rethrow(error)
-    const safe = error instanceof InvoiceDraftEditError ? error : invoiceDraftEditError(null)
+    const safe = error instanceof InvoiceDraftEditError || error instanceof InvoiceSettlementError ? error : invoiceDraftEditError(null)
     return { error: safe.message, reloadRequired: safe.reloadRequired }
   }
 }
@@ -354,8 +355,13 @@ export async function markInvoiceSent(formData: FormData) {
     })
     .eq('id', invoice.id)
     .eq('company_id', activeCompany.companyId)
+    .in('status', ['issued', 'sent'])
+    .select('id')
+    .maybeSingle()
 
-  if (response.error) throw new Error(response.error.message)
+  if (response.error || !response.data?.id) {
+    throw new Error('Stav faktury se změnil nebo se změnu nepodařilo potvrdit. Načtěte aktuální fakturu.')
+  }
 
   revalidatePath('/invoices')
   revalidatePath(`/invoices/${invoice.id}`)
@@ -399,6 +405,9 @@ export async function sendInvoiceByEmail(formData: FormData) {
     }
 
     const emailInvoice = invoiceResponse.data as InvoiceForEmailRow
+    if (!['issued', 'sent', 'overdue', 'paid'].includes(emailInvoice.status ?? '')) {
+      throw new Error('E-mailem lze odeslat jen vystavenou fakturu. Načtěte její aktuální stav.')
+    }
     const toEmail = getSnapshotString(emailInvoice.customer_snapshot, 'email')
     const toName =
       getSnapshotString(emailInvoice.customer_snapshot, 'billingName') ||
@@ -476,25 +485,31 @@ export async function sendInvoiceByEmail(formData: FormData) {
     )
 
     const sentAt = new Date().toISOString()
-    const invoiceEmailUpdate: {
-      sent_at: string
-      status?: 'sent'
-    } = {
-      sent_at: sentAt,
-    }
+    try {
+      // Decide from the current row, not the pre-send snapshot: payment may have won.
+      let updateResponse = await supabase
+        .from('invoices')
+        .update({ status: 'sent', sent_at: sentAt })
+        .eq('id', emailInvoice.id)
+        .eq('company_id', activeCompany.companyId)
+        .eq('status', 'issued')
+        .select('id')
+        .maybeSingle()
 
-    if (emailInvoice.status === 'issued') {
-      invoiceEmailUpdate.status = 'sent'
-    }
-
-    const updateResponse = await supabase
-      .from('invoices')
-      .update(invoiceEmailUpdate)
-      .eq('id', emailInvoice.id)
-      .eq('company_id', activeCompany.companyId)
-
-    if (updateResponse.error) {
-      throw new Error(updateResponse.error.message)
+      if (!updateResponse.error && !updateResponse.data) {
+        updateResponse = await supabase
+          .from('invoices')
+          .update({ sent_at: sentAt })
+          .eq('id', emailInvoice.id)
+          .eq('company_id', activeCompany.companyId)
+          .in('status', ['issued', 'sent', 'paid', 'overdue'])
+          .select('id')
+          .maybeSingle()
+      }
+      if (updateResponse.error || !updateResponse.data?.id) throw new Error('INVOICE_EMAIL_BOOKKEEPING_UNCONFIRMED')
+    } catch {
+      // This also covers a lost database response after the mail provider accepted the email.
+      throw new Error('E-mail byl odeslán, ale stav faktury se nepodařilo potvrdit. Načtěte aktuální fakturu; e-mail znovu neodesílejte.')
     }
 
     revalidatePath('/invoices')
@@ -508,110 +523,37 @@ export async function sendInvoiceByEmail(formData: FormData) {
   }
 }
 
-export async function markInvoicePaid(formData: FormData) {
-  const invoiceId = getFormString(formData, 'invoiceId')
-  const { activeCompany, supabase, invoice } = await getInvoiceForAction(invoiceId)
-
-  if (!['issued', 'sent', 'overdue', 'paid'].includes(invoice.status ?? '')) {
-    throw new Error('Jako zaplacenou lze označit jen vystavenou fakturu.')
-  }
-
-  const paidAt = new Date().toISOString()
-  const linkedJobsResponse = await supabase
-    .from('invoice_jobs')
-    .select('job_id')
-    .eq('invoice_id', invoice.id)
-    .eq('company_id', activeCompany.companyId)
-    .eq('is_active', true)
-  if (linkedJobsResponse.error) throw new Error(linkedJobsResponse.error.message)
-
-  const linkedJobIds = (linkedJobsResponse.data ?? []).map((item) => item.job_id)
-  const [response, jobsResponse] = await Promise.all([
-    supabase
-      .from('invoices')
-      .update({
-        status: 'paid',
-        paid_at: paidAt,
-      })
-      .eq('id', invoice.id)
-      .eq('company_id', activeCompany.companyId),
-    linkedJobIds.length > 0
-      ? supabase
-          .from('jobs')
-          .update({
-            billing_status: 'paid',
-            paid_at: paidAt,
-            is_paid: true,
-          })
-          .eq('company_id', activeCompany.companyId)
-          .in('id', linkedJobIds)
-      : Promise.resolve({ error: null }),
-  ])
-
-  if (response.error) throw new Error(response.error.message)
-  if (jobsResponse.error) throw new Error(jobsResponse.error.message)
-
+function revalidateInvoiceSettlement(result: InvoiceSettlementResult) {
   revalidatePath('/invoices')
-  revalidatePath(`/invoices/${invoice.id}`)
+  revalidatePath(`/invoices/${result.invoiceId}`)
+  revalidatePath('/jobs')
+  for (const jobId of result.jobIds) revalidatePath(`/jobs/${jobId}`)
+}
+
+export async function markInvoicePaid(formData: FormData) {
+  const ctx = await getInvoiceEditContext(formData)
+  const result = await markInvoicePaidAtomic(ctx, {
+    invoiceId: getFormString(formData, 'invoiceId'),
+    expectedRevision: getFormString(formData, 'revision'),
+  })
+  revalidateInvoiceSettlement(result)
 }
 
 export async function cancelInvoice(formData: FormData) {
-  const invoiceId = getFormString(formData, 'invoiceId')
-  const { activeCompany, supabase, invoice } = await getInvoiceForAction(invoiceId)
+  const ctx = await getInvoiceEditContext(formData)
+  const result = await cancelInvoiceAtomic(ctx, {
+    invoiceId: getFormString(formData, 'invoiceId'),
+    expectedRevision: getFormString(formData, 'revision'),
+  })
+  revalidateInvoiceSettlement(result)
+}
 
-  if (invoice.status === 'paid') {
-    throw new Error('Zaplacenou fakturu nelze zrušit bez opravného dokladu.')
-  }
+export async function markInvoicePaidAction(_state: InvoiceDraftActionState, formData: FormData) {
+  return runInvoiceDraftAction(markInvoicePaid, formData)
+}
 
-  if (invoice.pohoda_export_status === 'exported') {
-    throw new Error('Exportovanou fakturu nelze běžně zrušit. Bude potřeba storno/dobropis workflow.')
-  }
-
-  const linkedJobsResponse = await supabase
-    .from('invoice_jobs')
-    .select('job_id')
-    .eq('invoice_id', invoice.id)
-    .eq('company_id', activeCompany.companyId)
-    .eq('is_active', true)
-  if (linkedJobsResponse.error) throw new Error(linkedJobsResponse.error.message)
-
-  const linkedJobIds = (linkedJobsResponse.data ?? []).map((item) => item.job_id)
-  const shouldResetLinkedJobs = invoice.status !== 'draft'
-  const [invoiceResponse, linksResponse, jobsResponse] = await Promise.all([
-    supabase
-      .from('invoices')
-      .update({
-        status: 'cancelled',
-        cancelled_at: new Date().toISOString(),
-      })
-      .eq('id', invoice.id)
-      .eq('company_id', activeCompany.companyId),
-    supabase
-      .from('invoice_jobs')
-      .update({ is_active: false })
-      .eq('invoice_id', invoice.id)
-      .eq('company_id', activeCompany.companyId),
-    shouldResetLinkedJobs && linkedJobIds.length > 0
-      ? supabase
-          .from('jobs')
-          .update({
-            billing_status: 'waiting_for_invoice',
-            invoiced_at: null,
-            due_date: null,
-            paid_at: null,
-            is_paid: false,
-          })
-          .eq('company_id', activeCompany.companyId)
-          .in('id', linkedJobIds)
-      : Promise.resolve({ error: null }),
-  ])
-
-  if (invoiceResponse.error) throw new Error(invoiceResponse.error.message)
-  if (linksResponse.error) throw new Error(linksResponse.error.message)
-  if (jobsResponse.error) throw new Error(jobsResponse.error.message)
-
-  revalidatePath('/invoices')
-  revalidatePath(`/invoices/${invoice.id}`)
+export async function cancelInvoiceAction(_state: InvoiceDraftActionState, formData: FormData) {
+  return runInvoiceDraftAction(cancelInvoice, formData)
 }
 
 export async function deleteInvoicePermanently(formData: FormData) {

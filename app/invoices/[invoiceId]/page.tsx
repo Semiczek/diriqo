@@ -3,11 +3,11 @@ import Image from 'next/image'
 import { notFound } from 'next/navigation'
 
 import {
-  cancelInvoice,
+  cancelInvoiceAction,
   deleteInvoicePermanently,
   exportInvoicesToPohoda,
   issueInvoiceRevisionAction,
-  markInvoicePaid,
+  markInvoicePaidAction,
   markInvoiceSent,
   refreshInvoiceSupplierAction,
   sendInvoiceByEmail,
@@ -293,17 +293,11 @@ export default async function InvoiceDetailPage({ params, searchParams }: PagePr
             ) : null}
 
             {['issued', 'sent', 'overdue'].includes(invoice.status ?? '') ? (
-              <form action={markInvoicePaid}>
-                <input type="hidden" name="invoiceId" value={invoice.id} />
-                <ActionButton>Označit jako zaplacenou</ActionButton>
-              </form>
+              <InvoiceDraftForm key={`paid-${snapshot.revision}`} {...editFormIdentity} action={markInvoicePaidAction} label="Označit jako zaplacenou" pendingLabel="Ukládám úhradu…" />
             ) : null}
 
             {invoice.status !== 'cancelled' && invoice.status !== 'paid' ? (
-              <form action={cancelInvoice}>
-                <input type="hidden" name="invoiceId" value={invoice.id} />
-                <ActionButton danger>Zrušit fakturu</ActionButton>
-              </form>
+              <InvoiceDraftForm key={`cancel-${snapshot.revision}`} {...editFormIdentity} action={cancelInvoiceAction} label="Zrušit fakturu" pendingLabel="Ruším fakturu…" danger />
             ) : null}
 
             {invoice.status === 'draft' && invoice.pohoda_export_status !== 'exported' ? (

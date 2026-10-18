@@ -14,12 +14,13 @@ type Props = {
   pendingLabel: string
   children?: ReactNode
   style?: CSSProperties
+  danger?: boolean
 }
 
 type DraftCoordinator = { busy: boolean; begin: () => boolean; finish: () => void }
 const DraftCoordinatorContext = createContext<DraftCoordinator | null>(null)
 
-/** One immediate gate covers save, supplier refresh and issue, including queued clicks. */
+/** One immediate gate covers the revision-aware invoice actions, including queued clicks. */
 export function InvoiceDraftActionsProvider({ children }: { children: ReactNode }) {
   const active = useRef(false)
   const [busy, setBusy] = useState(false)
@@ -40,7 +41,7 @@ export function InvoiceDraftActionsProvider({ children }: { children: ReactNode 
 }
 
 /** Explicit dispatch preserves uncontrolled input values after a returned error. */
-export default function InvoiceDraftForm({ action, companyId, invoiceId, revision, itemIds, label, pendingLabel, children, style }: Props) {
+export default function InvoiceDraftForm({ action, companyId, invoiceId, revision, itemIds, label, pendingLabel, children, style, danger = false }: Props) {
   const coordinatorValue = useContext(DraftCoordinatorContext)
   if (!coordinatorValue) throw new Error('InvoiceDraftForm requires InvoiceDraftActionsProvider')
   const coordinator = coordinatorValue
@@ -78,7 +79,7 @@ export default function InvoiceDraftForm({ action, companyId, invoiceId, revisio
             ) : null}
           </div>
         ) : null}
-        <button type="submit" disabled={blocked || state.reloadRequired} style={{ justifySelf: 'start', borderRadius: '8px', border: '1px solid #c4b5fd', backgroundColor: '#6d28d9', color: '#ffffff', padding: '10px 14px', fontWeight: 800, cursor: blocked || state.reloadRequired ? 'default' : 'pointer', opacity: blocked || state.reloadRequired ? 0.6 : 1 }}>
+        <button type="submit" disabled={blocked || state.reloadRequired} style={{ justifySelf: 'start', borderRadius: '8px', border: danger ? '1px solid #fecaca' : '1px solid #c4b5fd', backgroundColor: danger ? '#fef2f2' : '#6d28d9', color: danger ? '#991b1b' : '#ffffff', padding: '10px 14px', fontWeight: 800, cursor: blocked || state.reloadRequired ? 'default' : 'pointer', opacity: blocked || state.reloadRequired ? 0.6 : 1 }}>
           {pending ? pendingLabel : label}
         </button>
       </fieldset>
