@@ -2,7 +2,7 @@
 
 Target: Diriqo test Supabase `wfcpfraxiuhuglnuaxqj` only. Read-only metadata and aggregate queries were executed before changing the local migration. No live schema, settings or financial rows were modified by this preflight.
 
-Subsequent release evidence: the migration was applied to this test project as `20261018182238_atomic_worker_advance_ledger.sql`; the hosted rollback-only suite passed 80 scenarios plus 5 cleanup assertions. See `worker-advances-c08-implementation-20261018.md` for the immutable evidence hash and preservation checks. The preflight observations below remain a historical snapshot. Auth/HTTP lock-barrier checks are still pending.
+Subsequent release evidence: the original migration was applied to this test project as `20261018182238_atomic_worker_advance_ledger.sql`; its hosted rollback-only suite passed 80 scenarios plus 5 cleanup assertions. The forward fix `20261018183656_advance_revision_conflict_http409.sql` is also applied and the updated hosted suite passed 81 scenarios plus 5 cleanup assertions. See `worker-advances-c08-implementation-20261018.md` for immutable hashes and preservation checks. The preflight observations below remain a historical snapshot. Four request reauthorization Auth/HTTP cases passed; the corrected stale-conflict response and complete payment matrix are separate checks.
 
 ## Observed state
 
@@ -73,7 +73,7 @@ select jsonb_build_object(
 
 The SQL regression suite is rollback-only and exercises PostgreSQL roles, RLS and complete financial-state snapshots. The final local PGlite run uses an explicitly simplified schema baseline and the actual shared capability evaluator from `20261010202807_add_nonfinancial_test_module_grants.sql`; earlier runs used a capability stub. Neither proves live grants, all deployed constraints, deployed behavior or concurrent transaction overlap. Actual authenticated HTTP races require the reviewed fixture-driven harness plus separate owner-session database lock evidence. No production financial readiness claim follows from the local checks alone.
 
-## Worker request reauthorization barrier (prepared, not executed)
+## Worker request reauthorization barrier (four hosted cases passed)
 
 `scripts/test-worker-advance-request-reauthorization.mjs` uses an actual worker Auth account as the RPC caller and a separate synthetic company administrator only for read-only before/after financial snapshots. It deliberately does not change memberships, grants or database settings. The owner must prepare each fixture and collect the lock proof separately. Run four fresh cases: settings/revoke, company/revoke, settings/expiry, company/expiry. Both tenants must have the required synthetic names and visible request history; the new request UUID must be absent.
 
@@ -95,13 +95,29 @@ In a separate owner connection, record `pg_stat_activity` and `pg_blocking_pids(
 - For revoke: after observing the wait, deactivate only this synthetic worker's membership in this synthetic company using a separate committed owner transaction. Release the barrier with `rollback`. The queued worker call must return `ADVANCE_FORBIDDEN`.
 - For expiry: before the run, provide a short-lived, enforced nonfinancial test grant with no alternative active entitlement. Store its exact `valid_until` in the private fixture. Initial worker capability must be allowed with reason `test`. Observe the wait before expiry, let wall-clock time pass `valid_until`, then release the barrier with `rollback`. The queued call must return `ADVANCE_MODULE_REQUIRED`. Do not attempt grant revocation during this scenario: the first capability evaluation intentionally holds grant share locks.
 
+An equally valid revocation variant uses the **same owner transaction that holds the barrier**. First independently prove the target authenticated RPC is waiting on this exact owner PID. Then update only the declared synthetic membership inside the barrier transaction and commit it: this publishes the revocation and releases the barrier together. Verify the update returned exactly one expected membership before committing; otherwise roll back and treat the run as failed. The deployed request cases were verified at `READ COMMITTED`, so the function's final authorization recheck sees the newly committed membership after its wait. Merely changing membership before observing a waiter does not establish in-flight reauthorization.
+
+```sql
+-- In the existing owner barrier transaction, only AFTER waiter evidence:
+update public.company_members
+set is_active = false
+where company_id = '<synthetic-company-uuid>'::uuid
+  and profile_id = '<synthetic-worker-profile-uuid>'::uuid
+  and is_active = true
+returning company_id, profile_id, is_active;
+-- Continue only if this is exactly the intended single synthetic membership:
+commit;
+```
+
+The release owner recorded hosted PASS for `settings/revoke`, `company/revoke`, `settings/expiry`, and `company/expiry`. These are request RPC results only; they do not establish payment-barrier behavior or a browser workflow. Detailed HTTP files and owner observations are retained in the private validation workspace pending the aggregate release artifact.
+
 The deployed authenticated statement timeout is eight seconds; authenticator statement and lock timeouts are also eight seconds. Set expiry 1–6 seconds after planned RPC start and release the barrier before eight seconds. Do not alter role timeouts. A statement timeout, transport error or missing owner lock evidence is not a passing reauthorization test. The harness preserves the request UUID before the call, checks that the request remains absent, and requires identical full financial-state fingerprints in the target and control tenants through the unaffected observer account. The result's `databaseOverlapEvidence` remains `REQUIRED_SEPARATE_OWNER_LOCK_BARRIER`; its assertion result alone does not certify concurrency. Owner-managed synthetic fixtures and membership changes must be reconciled after verification.
 
 Both reauthorization harnesses accept optional `--expiry-lead-ms=3000` only with `--change=expiry`. It derives `requestDelayMs = Date.parse(fixture.grantValidUntil) - Date.now() - expiryLeadMs` **after** successful login, fixture reads and the initial capability probe, so variable Auth/HTTP latency does not consume a fixed scheduling margin. The argument must be an integer in `1000..6000`; the derived delay must be in `0..45000` ms. The existing strict deadline check (more than one and less than six seconds after the planned RPC start) still applies, including at the argument boundaries. A deadline that has become too close or is too far away fails closed; prepare a fresh fixture instead of changing role timeouts. Without this option, `--request-delay-ms` retains its existing behavior and 15000 ms default.
 
 For example, the owner can create the reviewed synthetic test grant about 35 seconds ahead, save the exact deadline, then start either harness with `--change=expiry --expiry-lead-ms=3000` plus its existing fixture, output and barrier arguments. After `ready` (which records the derived delay and lead), acquire the owner barrier during that delay, prove the actual RPC wait, and release just after expiry within the unchanged eight-second timeout. Licence barriers must always be acquired after `ready`; they also block the initial capability probe. This scheduling option does not itself establish database overlap.
 
-## Payment licence barrier (prepared, not executed)
+## Payment licence barrier (separate release checks)
 
 `scripts/test-worker-advance-payment-reauthorization.mjs` calls a new manual `1.00` payment as a synthetic company administrator. A distinct administrator remains active to read full before/after financial snapshots even when the caller or worker loses membership. Both tenant fingerprints must remain identical and the operation UUID must remain absent.
 
@@ -123,10 +139,10 @@ where company_id='<synthetic-company-uuid>'::uuid and id='<fixture-receipt-uuid>
 select pg_backend_pid() as barrier_pid, clock_timestamp() as barrier_started_at;
 ```
 
-For rollout and test-grant barriers, test each of admin membership revocation, worker membership revocation and expiry. The membership changes commit in a separate owner transaction after the wait is observed. Expect `ADVANCE_FORBIDDEN`, `ADVANCE_WORKER_UNAVAILABLE` or `ADVANCE_MODULE_REQUIRED`, respectively. Grant revocation is also available for nonfinancial test grants: revoke the held grant with its required reason in the owner barrier transaction and commit it to release the wait; when holding a rollout barrier, revoke the grant from a separate connection then roll back the barrier. Ensure no other active grant/receipt can authorize the capability.
+For rollout and test-grant barriers, test each of admin membership revocation, worker membership revocation and expiry. The membership changes commit after the wait is observed, either in a separate owner transaction before rolling back the barrier or in the same barrier transaction using the exact-membership update/commit variant above. Expect `ADVANCE_FORBIDDEN`, `ADVANCE_WORKER_UNAVAILABLE` or `ADVANCE_MODULE_REQUIRED`, respectively. Grant revocation is also available for nonfinancial test grants: revoke the held grant with its required reason in the owner barrier transaction and commit it to release the wait; when holding a rollout barrier, revoke the grant from a separate connection then roll back the barrier. Ensure no other active grant/receipt can authorize the capability.
 
 For a paid-receipt barrier, test expiry and both membership revocations. The C08 helper now locks the selected receipt and validates its actual company/product/policy/source/state/revocation/mode/capability/time after the wait. Paid receipt constraints are immutable in the current schema: do not disable triggers or constraints to manufacture a paid-revocation test. Unknown or unavailable selected sources fail closed. The central evaluator remains unchanged for other domains.
 
-Use the same eight-second timeout envelope and owner `pg_blocking_pids`/deadline/release evidence as the request cases. After all licence locks, the payment RPC rechecks its administrator and the target's active membership/profile immediately before writing. These harnesses are prepared only; no barrier run, licence mutation or remote financial write was performed by this work.
+Use the same eight-second timeout envelope and owner `pg_blocking_pids`/deadline/release evidence as the request cases. After all licence locks, the payment RPC rechecks its administrator and the target's active membership/profile immediately before writing. Request passes above must not be counted as payment passes; the seven rollout/test-grant payment scenarios require their own result and lock evidence.
 
-The final local SQL run contains **80 scenario entries plus five rollback cleanup assertions**. New checks include active test-grant payment, rejected revoked/expired grants with unchanged financial state, and rejected new payments for revoked administrator/worker memberships. In-flight lock cases remain unexecuted until root review and authorized test migration application.
+The updated local and hosted SQL runs contain **81 scenario entries plus five rollback cleanup assertions** after the forward `PT409` fix. They include active test-grant payment, rejected revoked/expired grants with unchanged financial state, rejected new payments for revoked administrator/worker memberships, and both stale-revision SQLSTATE assertions. These sequential SQL checks remain distinct from the in-flight lock evidence above.
