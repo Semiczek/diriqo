@@ -3,6 +3,7 @@
 //   --fixture=<private.json> --output=<new-evidence.json>
 //   --barrier=rollout|test-grant|paid-receipt --change=admin-revoke|subject-revoke|grant-revoke|expiry
 //   --request-delay-ms=15000 [--env-file=<private.env>]
+// Expiry only: --expiry-lead-ms=3000 derives the delay after the capability probe.
 // Private fixture: {administrator:{email,password},observer:{email,password},fixture:{
 // companyId,companyName,controlCompanyId,controlCompanyName,administratorProfileId,
 // observerProfileId,workerProfileId,operationId,issuedOn,grantValidUntil?}}
@@ -36,8 +37,14 @@ assert(args['--fixture'] && args['--output'], 'Private fixture and evidence path
 const output = path.resolve(args['--output'])
 const envPath = path.resolve(args['--env-file'] || path.join(root, '.env.local'))
 assert(output !== path.resolve(args['--fixture']) && output !== envPath, 'Evidence must not overwrite credentials')
-const requestDelayMs = Number(args['--request-delay-ms'] ?? 15000)
+let requestDelayMs = Number(args['--request-delay-ms'] ?? 15000)
 assert(Number.isInteger(requestDelayMs) && requestDelayMs >= 0 && requestDelayMs <= 45000, 'Delay must be 0..45000ms')
+const expiryLeadMs = args['--expiry-lead-ms'] === undefined ? undefined : Number(args['--expiry-lead-ms'])
+if (expiryLeadMs !== undefined) {
+  assert(change === 'expiry', '--expiry-lead-ms requires --change=expiry')
+  assert(Number.isInteger(expiryLeadMs) && expiryLeadMs >= 1000 && expiryLeadMs <= 6000,
+    'Expiry lead must be an integer 1000..6000ms')
+}
 const auth = JSON.parse(await fs.readFile(args['--fixture'], 'utf8'))
 for (const account of [auth.administrator, auth.observer]) {
   assert(/^worker-advance-concurrency-[^@]+@example\.invalid$/.test(account?.email), 'Dedicated synthetic accounts required')
@@ -150,7 +157,13 @@ try {
   if (change === 'expiry') {
     assert(capability.data.enforced === true && capability.data.reason === (barrier === 'paid-receipt' ? 'paid' : 'test'), 'Expiry requires the expected enforced licence source')
     const until = Date.parse(f.grantValidUntil)
-    assert(until > Date.now() + requestDelayMs + 1000 && until < Date.now() + requestDelayMs + 6000,
+    const timingCheckedAt = Date.now()
+    if (expiryLeadMs !== undefined) {
+      requestDelayMs = until - timingCheckedAt - expiryLeadMs
+      assert(Number.isInteger(requestDelayMs) && requestDelayMs >= 0 && requestDelayMs <= 45000,
+        'Derived expiry delay must be 0..45000ms; prepare a fresh grant deadline')
+    }
+    assert(until > timingCheckedAt + requestDelayMs + 1000 && until < timingCheckedAt + requestDelayMs + 6000,
       'Set grant deadline 1..6 seconds after the planned RPC start; owner must observe the wait and release before the 8s database timeout')
   }
   const body = { target_company_id: f.companyId, target_profile_id: f.workerProfileId, target_request_id: null,
@@ -158,13 +171,13 @@ try {
     payment_note: `SYNTHETIC-${barrier}-${change}-WRITE-REAUTHORIZATION`, expected_revision: null,
     payment_method: 'cash', payment_reference: 'SYNTHETIC-RECORD-ONLY' }
   Object.assign(report, { companyId: f.companyId, administratorProfileId: f.administratorProfileId, workerProfileId: f.workerProfileId, operationId: f.operationId,
-    requestDelayMs, callerRole: 'company_admin', observerRole: 'company_admin', capabilityAllowedBefore: true,
+    requestDelayMs, expiryLeadMs, callerRole: 'company_admin', observerRole: 'company_admin', capabilityAllowedBefore: true,
     grantValidUntil: change === 'expiry' ? f.grantValidUntil : undefined, attempt: body,
     beforeFingerprint: fingerprint(before), controlBeforeFingerprint: fingerprint(controlBefore) })
   await fs.writeFile(output, JSON.stringify(report, null, 2) + '\n', { flag: 'wx' })
   outputOwned = true
   console.log(JSON.stringify({ ready: true, project, barrierTable, change, companyId: f.companyId,
-    operationId: f.operationId, requestDelayMs, at: new Date().toISOString() }))
+    operationId: f.operationId, requestDelayMs, expiryLeadMs, at: new Date().toISOString() }))
   await delay(requestDelayMs)
   const result = await rpc(administrator.token, 'pay_worker_advance_atomic', body)
   report.response = { status: result.status, started: result.started, finished: result.finished,
