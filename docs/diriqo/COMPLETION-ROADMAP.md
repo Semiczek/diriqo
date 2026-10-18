@@ -236,3 +236,7 @@ Předchozí relace doložila CI a Vercel pro PR #9 a přihlášené Demo webové
 - TypeScript, lint, relevantní unit/integration/SQL/E2E a čistý build odpovídají stejnému schvalovanému commitu; známá omezení a přesné nasazení jsou uvedené.
 - Ověřená záloha/obnova a forward-compatible návrat aplikace zachovají nové obchodní události. Prodává se jen capability katalog, který prošel akceptací.
 - Fyzický Android/POS pilot je podmínkou příslušných mobilních/hardwarových tvrzení; nepodporované funkce se nenabízejí jako dokončené.
+
+## 11. Odložené UX po dokončení původního plánu
+
+Na výslovné přání uživatele z 18. 10. 2026 upravit až po původním plánu pravou hlavní obsahovou část Diriqa: klidnější typografie, střídmé plochy a dekorace a profesionální, přehledná hierarchie. Zachovat původní logo a fialovou/modrou/tyrkysovou identitu. Nyní jde pouze o odložený úkol; přednost mají dosavadní stabilizační a funkční etapy.
