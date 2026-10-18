@@ -2,7 +2,7 @@
 
 ## Stav tohoto checkpointu
 
-Nové RPC pro označení celé faktury jako zaplacené a pro její zrušení jsou aplikované pouze v testovacím Diriqu `wfcpfraxiuhuglnuaxqj`. Aplikační kandidát nahrazuje samostatné zápisy do faktury, zakázek a vazeb jedním voláním transakce. Nová skutečná SQL sada má **82 kontrol + 10 kontrol úklidu PASS**, opakováno 18. 10. Skutečné Auth/PostgREST relace s doloženým databázovým překryvem potvrdily úhrada/úhrada a obě pořadí úhrada/storno. **Nová aplikační změna zatím nemá doložené CI, nasazení ani přihlášené UI ověření.**
+Nové RPC pro označení celé faktury jako zaplacené a pro její zrušení jsou aplikované pouze v testovacím Diriqu `wfcpfraxiuhuglnuaxqj`. Nasazená aplikace nahrazuje samostatné zápisy do faktury, zakázek a vazeb jedním voláním transakce. Nová skutečná SQL sada má **82 kontrol + 10 kontrol úklidu PASS**, opakováno 18. 10. Skutečné Auth/PostgREST relace s doloženým databázovým překryvem potvrdily úhrada/úhrada a obě pořadí úhrada/storno. **PR #24 je sloučené a nasazené na app.diriqo.com z revize `f3e7b0f5496cec2192d0f5b388cb9d465bd823df`. CI i přihlášené UI úhrady/storna včetně reloadu a navazující DB kontroly mají PASS.**
 
 Výchozí revize před touto opravou je `ac07949537852d02fa69654433eb6353db052a1f`, merge [PR #19](https://github.com/Semiczek/diriqo/pull/19). Implementační commit je `70f3f03`; následná integrace hlavní větve `c116e30` vytvořila kandidáta `536db5d` a zachovala novější změny Office a Diriqenta. Integrovaná lokální sada má **1490/1490 PASS v 53 souborech**, lint, TypeScript a build PASS. Starší výsledky níže jsou výslovně datované. Nasazená atomická editace konceptu a obnova dodavatele z PR #18 mají samostatný [report včetně přihlášených dvou karet](invoice-draft-update-release.md). Tento zásah jejich důkaz nepřenáší na úhradu a storno. JSPD Hub, jeho identita a data se nemění.
 
@@ -43,7 +43,8 @@ Aplikovaná migrace: `supabase/migrations/20261013175141_atomic_invoice_settleme
 | Existující skutečné fakturační SQL regrese po aplikaci migrace | **300 kontrol + 44 kontrol úklidu PASS dne 13. 10.** |
 | Nová skutečná SQL sada `supabase/tests/invoice-settlement.sql` | **82 kontrol + 10 kontrol úklidu PASS**, opakováno 18. 10.; fixture rollback |
 | Souběh přes skutečné Auth/PostgREST relace | **Úhrada/úhrada PASS 13. 10.; úhrada/storno a storno/úhrada PASS 18. 10.**; překryv potvrzen dvěma čekajícími DB relacemi v každém páru, celé konečné řádky ověřeny, obě relace každého páru odhlášeny |
-| CI, nasazení a přihlášené UI nové úhrady/storna | Zatím neprokázáno |
+| CI a nasazení | **PASS 18. 10.**: PR běh `39143908149`, main běh `39144120964`; Vercel `dpl_7fnQP76ZcCBwy6Qw9dMX1aMh9Zhp` READY, alias `app.diriqo.com`, SHA `f3e7b0f` |
+| Přihlášené UI nové úhrady/storna | **PASS 18. 10.**: obě akce, blokace tlačítek během zápisu, výsledný stav po reloadu, DB stav čtyř zakázek a vazeb; po odebrání testovacího přístupu detail vrací 404 |
 
 Existující SQL regrese zahrnují tvorbu konceptu, vystavení, ochranu obsahu, uchování historie při DELETE, jedinečnost čísla a atomickou editaci. Každá sada ověřuje operace postupně uvnitř jedné databázové relace. Jejich úspěch se neoznačuje za důkaz souběhu nových settlement RPC.
 
@@ -61,9 +62,21 @@ Souběhový důkaz používá oddělenou syntetickou firmu `d7666d81-4737-4b41-9
 
 Původní pokus úhrada/storno z 13. 10. neměl potvrzený překryv bariéry, a proto je pouze sekvenčním důkazem. Nový pokus z 18. 10. použil další vydanou syntetickou fakturu a doložil skutečný souběh. Výsledky nové SQL sady, obou bariér a HTTP kontrol z 18. 10. jsou uložené v řízeném artefaktu `artifacts/invoice-settlement/resumed-verification-20261018.json`, SHA-256 `e6cbe94800fde1ad4956cd6c1f4b08f22d1ead1d462ad98f1d897569fe1fb14f`.
 
-HTTP běhy zanechaly ve vyhrazené syntetické firmě **4 faktury, 8 zakázek a 8 položek**; tři faktury jsou zaplacené a jedna zrušená. Následná příprava přidala dvě vydané faktury pro dosud neprovedenou UI akceptaci: celkem je nyní **6 faktur, 12 zakázek a 12 položek**. Vydané a zrušené faktury podléhají stejné ochraně historie jako ostatní doklady a nebyly kvůli úklidu smazány.
+HTTP běhy zanechaly ve vyhrazené syntetické firmě **4 faktury, 8 zakázek a 8 položek**; tři faktury jsou zaplacené a jedna zrušená. Přihlášená UI akceptace přidala jednu zaplacenou a jednu zrušenou fakturu: celkem je nyní **6 faktur (4 zaplacené, 2 zrušené), 12 zakázek a 12 položek**. Vydané a zrušené faktury podléhají stejné ochraně historie jako ostatní doklady a nebyly kvůli úklidu smazány.
 
-Každý doložený HTTP pár potvrdil odhlášení obou relací. Syntetický HTTP účet je nyní zakázaný, jeho členství neaktivní a počet jeho relací je 0. Čtyři soukromé soubory s přístupem k HTTP fixture byly odstraněny; kontrola potvrdila 0 zbývajících. Stávající administrátor Adam má dočasné členství ve vyhrazené testovací firmě pro následnou UI akceptaci; jeho odebrání čeká na dokončení této kontroly. Celkový úklid přístupů se tedy zatím neoznačuje za dokončený.
+Každý doložený HTTP pár potvrdil odhlášení obou relací. Syntetický HTTP účet je nyní zakázaný, jeho členství neaktivní a počet jeho relací je 0. Čtyři soukromé soubory s přístupem k HTTP fixture byly odstraněny; kontrola potvrdila 0 zbývajících. Dočasné členství stávajícího administrátora Adama bylo po UI kontrole deaktivované. Aktivní firma byla vrácena na Diriqo Demo s.r.o.; její původní členství zůstalo aktivní. Závěrečná DB kontrola potvrdila 0 aktivních členství ve fixture firmě, 0 relací syntetického účtu a jeho zákaz přihlášení. Následný přístup k testovací faktuře přes UI skončil 404. Úklid testovacích přístupů je uzavřený; vydaná historie je zachovaná.
+
+## Přihlášené ověření nasazené verze
+
+Dne 18. 10. 2026 v 17:12–17:14 UTC proběhlo označení syntetické faktury `345bd93c-af74-4110-b87d-c85e1e5b6410` jako zaplacené a storno `1a4f373a-e087-4e27-bae7-55b0c61f74c4`. UI po akci i obnovení ukázalo Zaplacená / Zrušená. Faktura a obě zakázky při úhradě mají jeden čas `2026-10-18T17:12:49.673428Z`; storno v `2026-10-18T17:13:25.505890Z` vrátilo dvě zakázky do `waiting_for_invoice` a deaktivovalo vazby. V obou dokladech zůstaly dvě položky po 50 Kč a celkem 100 Kč bez DPH. Nebyla provedena skutečná platba ani odeslán e-mail.
+
+Řízený artefakt `artifacts/invoice-settlement/live-release-ui-20261018.json`, SHA-256 `715335bd7905ab42d122fbe838e0b9f109c313eace739995ae0f424c68a07b4d`, obsahuje CI, nasazení, výsledné řádky, aserce i úklid. Snímky jsou v lokálním validačním adresáři:
+
+| Soubor | SHA-256 |
+|---|---|
+| `invoice-paid-ui.jpg` | `cea0337ce7ed0b6c918a493a77e77b4ddd5a5ef6846023d13859a70878847bad` |
+| `invoice-cancelled-ui.jpg` | `dbcd46d05cbd9cd2a3b3b0c44278d3ac031a03ff39fd76330ac6d401760f91cc` |
+| `invoice-access-revoked-ui.jpg` | `b6ab4488d5e9dc95d5f63fb426472e3ddc7cfef8941e678bc8755f2ccc4058d5` |
 
 ## Otevřené hranice a návrat
 
