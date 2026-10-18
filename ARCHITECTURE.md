@@ -25,8 +25,9 @@ Diriqo is a multi-company SaaS app. A signed-in user works inside an active comp
 - `companies` represents tenants.
 - `company_members` links profiles to companies and roles.
 - Internal pages and actions should resolve company context through `getActiveCompanyContext()` from `@/lib/active-company`.
-- The `active_company_id` cookie is only a preference. `getActiveCompanyContext()` reconciles it against live active memberships and falls back to an allowed company.
-- Company switching goes through `/api/active-company` and `resolveActiveCompanySwitch()`, which accepts only companies in the authenticated membership list.
+- A nonempty `active_company_id` cookie selects an exact tenant. `getActiveCompanyContext()` checks its live active membership and the caller's allowed roles, denying access instead of falling back to another company. Only an absent/blank selection uses the existing allowed-company fallback.
+- Explicit company-switch requests validate the new target independently of the old cookie, so an expired selection does not prevent recovery. They never grant access to an unavailable target.
+- `/api/active-company`, Office switching, and the unavailable-selection recovery form use `getCompanyContextForSwitch()`, which reauthenticates the user and authorizes only the exact new target against live active memberships.
 - Queries over tenant data must explicitly filter by the active company whenever possible.
 - Tenant tables should carry `company_id not null`; child tables without their own `company_id` must derive tenant scope from a parent row and have matching RLS.
 

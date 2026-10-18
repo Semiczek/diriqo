@@ -1,5 +1,6 @@
 import React from 'react'
 import Link from 'next/link'
+import { notFound } from 'next/navigation'
 import DashboardShell from '@/components/DashboardShell'
 import {
   PrimaryAction,
@@ -388,6 +389,7 @@ export default async function CustomerDetailPage({
   const activeCompany = await getActiveCompanyContext({
     allowedRoles: ['super_admin', 'company_admin', 'manager'],
   })
+  if (!activeCompany) notFound()
 
   const customerQuery = supabase
     .from('customers')
@@ -395,6 +397,7 @@ export default async function CustomerDetailPage({
       'id, name, email, phone, created_at, billing_name, billing_street, billing_city, billing_postal_code, billing_country, company_number, vat_number, ares_last_checked_at, lead_contact_name, lead_source, lead_locale, lead_service_slug, lead_message, lead_page_url, lead_referrer, lead_user_agent, lead_submitted_at'
     )
     .eq('id', customerId)
+    .eq('company_id', activeCompany.companyId)
     .maybeSingle()
 
   let { data: customer, error: customerError } = await customerQuery
@@ -404,6 +407,7 @@ export default async function CustomerDetailPage({
       .from('customers')
       .select('id, name, email, phone, created_at')
       .eq('id', customerId)
+      .eq('company_id', activeCompany.companyId)
       .maybeSingle()
 
     customer = (fallbackResult.data
@@ -445,6 +449,7 @@ export default async function CustomerDetailPage({
     .from('customer_contacts')
     .select('id, full_name, role, phone, email, note, created_at')
     .eq('customer_id', customerId)
+    .eq('company_id', activeCompany.companyId)
     .order('created_at', { ascending: false })
 
   const { data: jobs } = await supabase
@@ -453,12 +458,14 @@ export default async function CustomerDetailPage({
       'id, title, status, price, customer_id, start_at, end_at, created_at, time_state, work_state, billing_state_resolved'
     )
     .eq('customer_id', customerId)
+    .eq('company_id', activeCompany.companyId)
     .order('created_at', { ascending: false })
 
   const { data: calculations } = await supabase
     .from('calculations')
     .select('id, title, status, calculation_date, total_price')
     .eq('customer_id', customerId)
+    .eq('company_id', activeCompany.companyId)
     .order('calculation_date', { ascending: false })
     .order('created_at', { ascending: false })
     .limit(3)
@@ -467,6 +474,7 @@ export default async function CustomerDetailPage({
     .from('quotes')
     .select('id, quote_number, title, status, quote_date, total_price')
     .eq('customer_id', customerId)
+    .eq('company_id', activeCompany.companyId)
     .order('quote_date', { ascending: false })
     .order('created_at', { ascending: false })
     .limit(3)

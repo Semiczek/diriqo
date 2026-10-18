@@ -54,6 +54,8 @@ export type CommonMessages = {
   openMenu: string
   closeMenu: string
   activeCompany: string
+  chooseCompany: string
+  companySelectionRequired: string
   unnamedCompany: string
   noOtherCompanyAvailable: string
 }

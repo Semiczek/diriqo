@@ -1,7 +1,9 @@
 import { redirect } from 'next/navigation'
+import { cookies } from 'next/headers'
 
 import CompanyOnboardingForm from '@/app/onboarding/company/CompanyOnboardingForm'
-import { getActiveCompanyContext } from '@/lib/active-company'
+import CompanySelectionRecovery from '@/app/onboarding/company/CompanySelectionRecovery'
+import { getActiveCompanyContext, getCompanySwitchMemberships } from '@/lib/active-company'
 import { getCompanyCountryConfig } from '@/lib/company-country-config'
 import { getRequestDictionary, getRequestLocale } from '@/lib/i18n/server'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
@@ -9,6 +11,7 @@ import { createSupabaseServerClient } from '@/lib/supabase-server'
 type Props = {
   searchParams?: Promise<{
     error?: string
+    selection?: string
   }>
 }
 
@@ -50,6 +53,19 @@ export default async function CompanyOnboardingPage({ searchParams }: Props) {
   const t = dictionary.auth
   const defaults = getCompanyCountryConfig(getDefaultCountryCode(locale))
   const params = searchParams ? await searchParams : {}
+  const selectedCompanyId = (await cookies()).get('active_company_id')?.value?.trim() ?? ''
+  const companies = selectedCompanyId ? await getCompanySwitchMemberships() : []
+  if (companies.length > 0 && !companies.some(company => company.companyId === selectedCompanyId)) {
+    return (
+      <main style={pageStyle}>
+        <section style={{ ...cardStyle, display: 'block', maxWidth: 520 }}>
+          <CompanySelectionRecovery companies={companies} title={dictionary.common.chooseCompany}
+            description={dictionary.common.companySelectionRequired} unnamedCompany={dictionary.common.unnamedCompany}
+            error={params.selection === 'unavailable' ? dictionary.common.companySwitchFailed : null} />
+        </section>
+      </main>
+    )
+  }
   const hasCompanyNameError = params.error === 'company-name'
   const hasRequiredError = params.error === 'required'
   const createErrorMessage = getCreateErrorMessage(params.error, t)

@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
 
-import { resolveActiveCompanySwitch } from '@/lib/active-company-switch'
-import { getActiveCompanyContext } from '@/lib/active-company'
+import { getActiveCompanyContext, getCompanyContextForSwitch } from '@/lib/active-company'
 import { readOfficeAvailability } from '@/lib/office/availability'
+import { requireAuthenticatedUser } from '@/lib/server-guards'
 
 export async function GET() {
   const activeCompany = await getActiveCompanyContext({ allowedRoles: ['super_admin', 'company_admin', 'manager', 'worker'] })
@@ -30,9 +30,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const activeCompany = await getActiveCompanyContext({ allowedRoles: ['super_admin', 'company_admin', 'manager', 'worker'] })
+  const auth = await requireAuthenticatedUser()
 
-  if (!activeCompany) {
+  if (!auth.ok) {
     return NextResponse.json(
       {
         error: 'Forbidden',
@@ -41,24 +41,20 @@ export async function POST(request: Request) {
     )
   }
 
-  const payload = (await request.json().catch(() => null)) as {
-    companyId?: string | null
-  } | null
-  const switchResult = resolveActiveCompanySwitch(
-    payload?.companyId,
-    activeCompany.companyMemberships,
-  )
+  const payload: unknown = await request.json().catch(() => null)
+  const targetCompany = payload && typeof payload === 'object' && 'companyId' in payload
+    && typeof payload.companyId === 'string'
+    ? await getCompanyContextForSwitch(payload.companyId)
+    : null
 
-  if (!switchResult.ok) {
+  if (!targetCompany) {
     return NextResponse.json(
       {
-        error: switchResult.error,
+        error: 'Company not available',
       },
       { status: 400 }
     )
   }
-
-  const targetCompany = switchResult.company
 
   const response = NextResponse.json({
     companyId: targetCompany.companyId,
