@@ -1,4 +1,8 @@
-﻿import Link from 'next/link'
+import { companyPayrollQuery, readPayrollRows, readPayrollAssignments, readActivePayrollMember } from '@/lib/dal/payroll-readers'
+import { readAdvanceSettings } from '@/lib/dal/advance-settings'
+import { readPayrollAdvanceLedger } from '@/lib/dal/worker-advances'
+import { formatAdvanceMoney, payrollAdvanceTotal } from '@/lib/payroll/advances'
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import DashboardShell from '@/components/DashboardShell'
@@ -19,7 +23,6 @@ import {
   type WorkerDetailPageProps,
   type WorkerJobAssignmentSummaryRow,
   boxStyle,
-  formatCurrency,
   formatDate,
   formatHours,
   getAdvanceRange,
@@ -27,16 +30,12 @@ import {
   getEffectiveShiftHours,
   getTodayMonthString,
   getWorkMonthRange,
-  getAdvanceRequestPayrollMonth,
-  isDateInRange,
   doesDateRangeOverlap,
   getWorkerName,
   getEffectiveAssignmentRate,
   getEffectiveAssignmentReward,
-  isAdvanceRequestRepresentedByWorkerAdvance,
   isMissingWorkShiftAssignmentColumn,
   isValidMonthString,
-  mapAdvanceRequestToWorkerAdvance,
   monthNavButtonStyle,
   normalizeJobAssignments,
   sectionTitleStyle,
@@ -47,11 +46,10 @@ import {
   thStyle,
 } from '@/app/workers/[workerId]/worker-detail-helpers'
 import { getRequestDictionary, getRequestLocale } from '@/lib/i18n/server'
-import { requireCompanyRole } from '@/lib/server-guards'
+import { requireCompanyRole, requireWorkerAccess } from '@/lib/server-guards'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 import {
   getContractorBillingTypeLabel,
-  getEffectivePayrollSettings,
   getWorkerType,
   getWorkerTypeLabel,
 } from '@/lib/payroll-settings'
@@ -91,16 +89,6 @@ type AbsenceRow = {
 type AdvanceRequestStatus = 'pending' | 'approved' | 'rejected' | 'paid'
 type AbsenceRequestStatus = 'pending' | 'approved' | 'rejected'
 
-type CompanyPayrollSettingsRow = {
-  payroll_type: string | null
-  payroll_day_of_month: number | null
-  payroll_weekday: number | null
-  payroll_anchor_date: string | null
-  allow_advances: boolean | null
-  advance_limit_amount: number | null
-  advance_frequency: string | null
-}
-
 type PayrollPaymentRow = {
   id: string
   profile_id: string | null
@@ -117,7 +105,7 @@ type LatestWorkerInviteRow = {
 
 function isMissingPayrollPaymentsTable(error: { message?: string; code?: string } | null | undefined) {
   const message = (error?.message ?? '').toLowerCase()
-  return error?.code === '42P01' || message.includes('payroll_payments')
+  return (error?.code === '42P01' || error?.code === 'PGRST205') && message.includes('payroll_payments')
 }
 
 function renderError(message: string) {
@@ -234,9 +222,20 @@ function getAdvanceRequestRequestedAmount(request: AdvanceRequestPayrollRow) {
 }
 
 export default async function WorkerDetailPage({ params, searchParams }: WorkerDetailPageProps) {
+  const pageAccess = await requireWorkerAccess()
+  if (!pageAccess.ok || !['company_admin', 'super_admin'].includes(pageAccess.value.role ?? '')) return renderError('K financím pracovníka nemáte přístup.')
   const dictionary = await getRequestDictionary()
   const locale = await getRequestLocale()
   const { workerId } = await params
+  const supabase = await createSupabaseServerClient()
+  const memberResponse = await readActivePayrollMember(supabase, pageAccess.value.companyId, workerId)
+  if (memberResponse.error) return renderError(dictionary.workers.detail.loadMembersFailed)
+  if (!memberResponse.data) return renderNotFound(dictionary.workers.detail.workerNotFound)
+  const companyMember = memberResponse.data as CompanyMemberRow
+  let advanceSettings: Awaited<ReturnType<typeof readAdvanceSettings>>
+  try { advanceSettings = await readAdvanceSettings(supabase, pageAccess.value.companyId, workerId) }
+  catch { return renderError('Výplatní nastavení aktivní firmy se nepodařilo načíst.') }
+  const formatCurrency = (value: number) => formatAdvanceMoney(value, advanceSettings.currency)
   const resolvedSearchParams = searchParams ? await searchParams : undefined
 
   const selectedMonth = isValidMonthString(resolvedSearchParams?.month)
@@ -252,17 +251,14 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
   } = getWorkMonthRange(selectedMonth)
 
   const {
-    advanceStartDate,
-    advanceEndExclusiveDate,
     payDateLabel,
     advancePeriodLabel,
     monthLabel,
-  } = getAdvanceRange(selectedMonth)
+  } = getAdvanceRange(selectedMonth, advanceSettings.payType === 'monthly' ? advanceSettings.payday : null)
 
   const previousMonth = shiftMonth(selectedMonth, -1)
   const nextMonth = shiftMonth(selectedMonth, 1)
 
-  const supabase = await createSupabaseServerClient()
 
   const profileResponse = await supabase
     .from('profiles')
@@ -300,18 +296,14 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
   if (!profile) return renderNotFound(dictionary.workers.detail.workerNotFound)
 
   const [
-    jobAssignmentsResponse,
-    workerJobAssignmentSummaryResponse,
+    assignmentResponses,
     workerAdvancesResponse,
     advanceRequestsResponse,
     payrollItemsResponse,
-    companyMembersResponse,
     absencesResponse,
   ] =
     await Promise.all([
-      supabase
-        .from('job_assignments')
-        .select(`
+      readPayrollAssignments(supabase, pageAccess.value.companyId, [workerId], `
           id,
           job_id,
           profile_id,
@@ -322,7 +314,7 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
           external_amount,
           work_started_at,
           work_completed_at,
-          jobs (
+          jobs!inner (
             id,
             company_id,
             title,
@@ -336,43 +328,22 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
               name
             )
           )
-        `)
+        `),
+      readPayrollAdvanceLedger(supabase, pageAccess.value.companyId, { profileId: workerId, payrollMonth: `${selectedMonth}-01`, currency: advanceSettings.currency }),
+      readPayrollRows(companyPayrollQuery(supabase, pageAccess.value.companyId, 'advance_requests', 'id, profile_id, amount, requested_amount, reason, note, status, requested_at, approved_at, reviewed_at, paid_at, payroll_month')
         .eq('profile_id', workerId)
-        .is('archived_at', null),
-      supabase
-        .from('worker_job_assignment_summary')
-        .select('assignment_id, job_id, profile_id, labor_hours_total, effective_hourly_rate, labor_cost_total')
-        .eq('profile_id', workerId),
-      supabase
-        .from('worker_advances')
-        .select('id, profile_id, amount, issued_at, note')
-        .eq('profile_id', workerId)
-        .gte('issued_at', advanceStartDate)
-        .lt('issued_at', advanceEndExclusiveDate)
-        .order('issued_at', { ascending: false }),
-      supabase
-        .from('advance_requests')
-        .select('id, profile_id, amount, requested_amount, reason, note, status, requested_at, approved_at, reviewed_at, paid_at, payroll_month')
-        .eq('profile_id', workerId)
-        .order('requested_at', { ascending: false }),
-      supabase
-        .from('payroll_items')
-        .select('id, profile_id, payroll_month, item_type, amount, note, created_at')
+        .order('requested_at', { ascending: false }).order('id')),
+      readPayrollRows(companyPayrollQuery(supabase, pageAccess.value.companyId, 'payroll_items', 'id, profile_id, payroll_month, item_type, amount, note, created_at')
         .eq('profile_id', workerId)
         .eq('payroll_month', selectedMonth)
-        .order('created_at', { ascending: false }),
-      supabase
-        .from('company_members')
-        .select('company_id')
+        .order('created_at', { ascending: false }).order('id')),
+      readPayrollRows(companyPayrollQuery(supabase, pageAccess.value.companyId, 'absence_requests', 'id, profile_id, absence_mode, absence_type, start_at, end_at, note, status, created_at, reviewed_at')
         .eq('profile_id', workerId)
-        .eq('is_active', true)
-        .limit(1),
-      supabase
-        .from('absence_requests')
-        .select('id, profile_id, absence_mode, absence_type, start_at, end_at, note, status, created_at, reviewed_at')
-        .eq('profile_id', workerId)
-        .order('start_at', { ascending: false }),
+        .order('start_at', { ascending: false }).order('id')),
     ])
+
+  const jobAssignmentsResponse = assignmentResponses.assignments
+  const workerJobAssignmentSummaryResponse = assignmentResponses.summaries
 
   if (jobAssignmentsResponse.error) {
     return renderError(`${dictionary.workers.detail.loadAssignmentsFailed}: ${jobAssignmentsResponse.error.message}`)
@@ -396,10 +367,6 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
     return renderError(`${dictionary.workers.detail.loadPayrollItemsFailed}: ${payrollItemsResponse.error.message}`)
   }
 
-  if (companyMembersResponse.error) {
-    return renderError(`${dictionary.workers.detail.loadMembersFailed}: ${companyMembersResponse.error.message}`)
-  }
-
   if (absencesResponse.error) {
     return renderError(`Nepodařilo se načíst nepřítomnosti: ${absencesResponse.error.message}`)
   }
@@ -408,13 +375,11 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
   let workShiftsData: Array<Partial<WorkShiftRow>> | null = null
   let workShiftsError: { message: string } | null = null
 
-  const workShiftsWithJobResponse = await supabase
-    .from('work_shifts')
-    .select('id, profile_id, company_id, job_id, job_hours_override, shift_date, started_at, ended_at, hours_override, note')
+  const workShiftsWithJobResponse = await readPayrollRows(companyPayrollQuery(supabase, pageAccess.value.companyId, 'work_shifts', 'id, profile_id, company_id, job_id, job_hours_override, shift_date, started_at, ended_at, hours_override, note')
     .eq('profile_id', workerId)
     .gte('shift_date', workStartDate)
     .lt('shift_date', workEndExclusiveDate)
-    .order('started_at', { ascending: false })
+    .order('started_at', { ascending: false }).order('id'))
 
   if (
     workShiftsWithJobResponse.error &&
@@ -422,13 +387,11 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
   ) {
     workShiftsSupportJobAssignment = false
 
-    const fallbackWorkShiftsResponse = await supabase
-      .from('work_shifts')
-      .select('id, profile_id, company_id, shift_date, started_at, ended_at, hours_override, note')
+    const fallbackWorkShiftsResponse = await readPayrollRows(companyPayrollQuery(supabase, pageAccess.value.companyId, 'work_shifts', 'id, profile_id, company_id, shift_date, started_at, ended_at, hours_override, note')
       .eq('profile_id', workerId)
       .gte('shift_date', workStartDate)
       .lt('shift_date', workEndExclusiveDate)
-      .order('started_at', { ascending: false })
+      .order('started_at', { ascending: false }).order('id'))
 
     workShiftsData = (fallbackWorkShiftsResponse.data ?? []) as Array<Partial<WorkShiftRow>>
     workShiftsError = fallbackWorkShiftsResponse.error
@@ -467,7 +430,7 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
 
   const jobStatesResponse =
     assignmentJobIds.length > 0
-      ? await supabase.from('jobs_with_state').select('id, time_state, work_state').in('id', assignmentJobIds)
+      ? await readPayrollRows(supabase.from('jobs_with_state').select('id, time_state, work_state').in('id', assignmentJobIds).order('id'))
       : { data: [], error: null }
 
   if (jobStatesResponse.error) {
@@ -525,23 +488,8 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
 
   const workerAdvances = ((workerAdvancesResponse.data ?? []) as unknown[]) as WorkerAdvanceRow[]
   const allAdvanceRequests = ((advanceRequestsResponse.data ?? []) as unknown[]) as AdvanceRequestPayrollRow[]
-  const advanceRequestsForPeriod = allAdvanceRequests.filter((request) => {
-    const status = getAdvanceRequestStatus(request)
-    const payrollMonth = getAdvanceRequestPayrollMonth(request)
-    const timelineDate = request.paid_at || request.approved_at || request.reviewed_at || request.requested_at
-
-    if (status === 'pending' || status === 'approved') {
-      return true
-    }
-
-    return payrollMonth === selectedMonth || isDateInRange(timelineDate, advanceStartDate, advanceEndExclusiveDate)
-  })
-  const paidAdvanceRequestsForPeriod = allAdvanceRequests
-    .filter((item) => getAdvanceRequestStatus(item) === 'paid')
-    .filter((item) => !isAdvanceRequestRepresentedByWorkerAdvance(item, workerAdvances))
-    .map(mapAdvanceRequestToWorkerAdvance)
-    .filter((item) => isDateInRange(item.issued_at, advanceStartDate, advanceEndExclusiveDate))
-  const displayedWorkerAdvances = [...workerAdvances, ...paidAdvanceRequestsForPeriod].sort((a, b) => {
+  const advanceRequestsForPeriod = allAdvanceRequests
+  const displayedWorkerAdvances = [...workerAdvances].sort((a, b) => {
     const aTime = a.issued_at ? new Date(a.issued_at).getTime() : 0
     const bTime = b.issued_at ? new Date(b.issued_at).getTime() : 0
     return bTime - aTime
@@ -555,7 +503,6 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
     ),
   )
   const approvedAbsences = absenceRequests.filter((absence) => getAbsenceRequestStatus(absence) === 'approved')
-  const companyMember = (((companyMembersResponse.data ?? []) as unknown[]) as CompanyMemberRow[])[0] ?? null
   const latestInviteResponse = companyMember?.company_id
     ? await supabase
         .from('worker_invites')
@@ -589,28 +536,10 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
     ? null
     : (payrollPaymentResponse.data as PayrollPaymentRow | null)
 
-  const companyPayrollSettingsResponse = companyMember?.company_id
-    ? await supabase
-        .from('company_payroll_settings')
-        .select('payroll_type, payroll_day_of_month, payroll_weekday, payroll_anchor_date, allow_advances, advance_limit_amount, advance_frequency')
-        .eq('company_id', companyMember.company_id)
-        .maybeSingle()
-    : { data: null, error: null }
-
-  if (companyPayrollSettingsResponse.error) {
-    return renderError(`Nepodařilo se načíst výplatní nastavení firmy: ${companyPayrollSettingsResponse.error.message}`)
-  }
-
-  const companyPayrollSettings = companyPayrollSettingsResponse.data as CompanyPayrollSettingsRow | null
   const workerType = getWorkerType(profile)
   const isContractor = workerType === 'contractor'
-  const effectivePayrollSettings = getEffectivePayrollSettings(profile, companyPayrollSettings)
 
-  const shiftCompanyId =
-    workShifts.find((item) => item.company_id)?.company_id ??
-    mergedJobAssignments.find((item) => item.jobs?.company_id)?.jobs?.company_id ??
-    companyMember?.company_id ??
-    null
+  const shiftCompanyId = pageAccess.value.companyId
 
   const shiftLinkedJobIds = new Set(
     workShifts
@@ -620,11 +549,9 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
 
   const shiftJobsResponse =
     shiftCompanyId && workShiftsSupportJobAssignment
-      ? await supabase
-          .from('jobs')
-          .select('id, title, start_at, end_at')
+      ? await readPayrollRows(companyPayrollQuery(supabase, pageAccess.value.companyId, 'jobs', 'id, title, start_at, end_at')
           .eq('company_id', shiftCompanyId)
-          .order('start_at', { ascending: false })
+          .order('start_at', { ascending: false }).order('id'))
       : { data: [], error: null }
 
   if (shiftCompanyId && shiftJobsResponse.error) {
@@ -700,7 +627,7 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
     0,
   )
   const companyCoveredReward = totalStandaloneShiftHours * defaultHourlyRate
-  const advancePaidInPeriod = displayedWorkerAdvances.reduce((sum, item) => sum + Number(item.amount ?? 0), 0)
+  const advancePaidInPeriod = payrollAdvanceTotal(workerAdvancesResponse.data, workerAdvancesResponse.settlements)
   const payrollItems = ((payrollItemsResponse.data ?? []) as unknown[]) as PayrollItemRow[]
   const payrollBonusTotal = payrollItems
     .filter((item) => item.item_type === 'bonus')
@@ -789,162 +716,6 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
       redirect(targetUrl)
     }
 
-    redirect(targetUrl)
-  }
-
-  async function createWorkerAdvance(formData: FormData) {
-    'use server'
-
-    const profileId = String(formData.get('profileId') ?? '').trim()
-    const month = String(formData.get('month') ?? '').trim()
-    const amountRaw = String(formData.get('amount') ?? '').trim()
-    const issuedAt = String(formData.get('issued_at') ?? '').trim()
-    const note = String(formData.get('note') ?? '').trim()
-
-    const targetUrl = profileId
-      ? `/workers/${profileId}${month ? `?month=${encodeURIComponent(month)}` : ''}`
-      : '/workers'
-
-    if (!profileId || !isValidMonthString(month) || !amountRaw || !issuedAt) {
-      redirect(targetUrl)
-    }
-
-    const access = await requireCompanyRole('company_admin', 'super_admin')
-
-    if (!access.ok) {
-      redirect(targetUrl)
-    }
-
-    const amount = Number(amountRaw.replace(',', '.'))
-    if (!Number.isFinite(amount) || amount <= 0) {
-      redirect(targetUrl)
-    }
-
-    const { advanceStartDate, advanceEndExclusiveDate } = getAdvanceRange(month)
-    const supabase = await createSupabaseServerClient()
-
-    const [profileCheckResponse, companyMemberResponse, existingAdvancesResponse, paidRequestsResponse] =
-      await Promise.all([
-        supabase
-          .from('profiles')
-          .select('id, worker_type, use_custom_payroll, custom_payroll_type, custom_payroll_day_of_month, custom_payroll_weekday, custom_payroll_anchor_date, allow_advances_override, advance_limit_amount_override')
-          .eq('id', profileId)
-          .maybeSingle(),
-        supabase
-          .from('company_members')
-          .select('company_id')
-          .eq('profile_id', profileId)
-          .eq('is_active', true)
-          .eq('company_id', access.value.companyId)
-          .limit(1),
-        supabase
-          .from('worker_advances')
-          .select('id, profile_id, amount, issued_at, note')
-          .eq('profile_id', profileId)
-          .gte('issued_at', advanceStartDate)
-          .lt('issued_at', advanceEndExclusiveDate),
-        supabase
-          .from('advance_requests')
-          .select('id, profile_id, amount, requested_amount, reason, note, status, requested_at, approved_at, reviewed_at, paid_at, payroll_month')
-          .eq('profile_id', profileId)
-          .eq('status', 'paid'),
-      ])
-
-    if (
-      profileCheckResponse.error ||
-      !profileCheckResponse.data ||
-      companyMemberResponse.error ||
-      existingAdvancesResponse.error ||
-      paidRequestsResponse.error
-    ) {
-      redirect(targetUrl)
-    }
-
-    const profileForSettings = profileCheckResponse.data as ProfileRow
-    const companyId = ((companyMemberResponse.data ?? []) as CompanyMemberRow[])[0]?.company_id ?? null
-    const companySettingsResponse = companyId
-      ? await supabase
-          .from('company_payroll_settings')
-          .select('payroll_type, payroll_day_of_month, payroll_weekday, payroll_anchor_date, allow_advances, advance_limit_amount, advance_frequency')
-          .eq('company_id', companyId)
-          .maybeSingle()
-      : { data: null, error: null }
-
-    if (companySettingsResponse.error) {
-      redirect(targetUrl)
-    }
-
-    const effectiveSettings = getEffectivePayrollSettings(
-      profileForSettings,
-      companySettingsResponse.data as CompanyPayrollSettingsRow | null,
-    )
-
-    if (!effectiveSettings.advancesAllowed) {
-      redirect(targetUrl)
-    }
-
-    const existingAdvances = ((existingAdvancesResponse.data ?? []) as unknown[]) as WorkerAdvanceRow[]
-    const paidRequestsForPeriod = (((paidRequestsResponse.data ?? []) as unknown[]) as AdvanceRequestPayrollRow[])
-      .filter((item) => !isAdvanceRequestRepresentedByWorkerAdvance(item, existingAdvances))
-      .map(mapAdvanceRequestToWorkerAdvance)
-      .filter((item) => isDateInRange(item.issued_at, advanceStartDate, advanceEndExclusiveDate))
-    const existingAdvanceTotal = [...existingAdvances, ...paidRequestsForPeriod].reduce(
-      (sum, item) => sum + Number(item.amount ?? 0),
-      0,
-    )
-
-    if (
-      effectiveSettings.advanceLimitAmount != null &&
-      existingAdvanceTotal + amount > effectiveSettings.advanceLimitAmount
-    ) {
-      redirect(targetUrl)
-    }
-
-    const { error } = await supabase.from('worker_advances').insert({
-      company_id: access.value.companyId,
-      profile_id: profileId,
-      amount,
-      issued_at: issuedAt,
-      note: note || null,
-    })
-
-    if (error) {
-      redirect(targetUrl)
-    }
-
-    revalidatePath(`/workers/${profileId}`)
-    redirect(targetUrl)
-  }
-
-  async function deleteWorkerAdvance(formData: FormData) {
-    'use server'
-
-    const profileId = String(formData.get('profileId') ?? '').trim()
-    const month = String(formData.get('month') ?? '').trim()
-    const advanceId = String(formData.get('advanceId') ?? '').trim()
-    const targetUrl = profileId
-      ? `/workers/${profileId}${month ? `?month=${encodeURIComponent(month)}` : ''}`
-      : '/workers'
-
-    if (!profileId || !advanceId || advanceId.startsWith('advance-request-')) {
-      redirect(targetUrl)
-    }
-
-    const access = await requireCompanyRole('company_admin', 'super_admin')
-
-    if (!access.ok) {
-      redirect(targetUrl)
-    }
-
-    const supabase = await createSupabaseServerClient()
-    await supabase
-      .from('worker_advances')
-      .delete()
-      .eq('id', advanceId)
-      .eq('profile_id', profileId)
-      .eq('company_id', access.value.companyId)
-
-    revalidatePath(`/workers/${profileId}`)
     redirect(targetUrl)
   }
 
@@ -1140,7 +911,7 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
                 </p>
               ) : (
                 <p style={{ ...heroTextStyle, fontSize: '15px' }}>
-                  {dictionary.workers.workingMonth}: {workPeriodLabel}. {dictionary.workers.advancesForPayroll}: {advancePeriodLabel}. {dictionary.workers.payrollDue}: {payDateLabel}.
+                  {dictionary.workers.workingMonth}: {workPeriodLabel}. {dictionary.workers.advancesForPayroll}: {advancePeriodLabel}. Plán výplaty podle současného nastavení: {advanceSettings.payType === 'monthly' ? payDateLabel : 'Podle výplatního režimu'}.
                 </p>
               )}
             </div>
@@ -1521,11 +1292,13 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
             selectedMonth={selectedMonth}
             workerId={workerId}
             workerAdvances={displayedWorkerAdvances}
-            advancesAllowed={effectivePayrollSettings.advancesAllowed}
-            advanceLimitAmount={effectivePayrollSettings.advanceLimitAmount}
+            advancesAllowed={advanceSettings.advancesAllowed && !advanceSettings.unsupportedLimit}
+            advanceLimitAmount={advanceSettings.advanceLimitAmount}
             totalAdvances={advancePaidInPeriod}
-            createAdvanceAction={createWorkerAdvance}
-            deleteAdvanceAction={deleteWorkerAdvance}
+            currency={advanceSettings.currency}
+            companyId={pageAccess.value.companyId}
+            actorProfileId={pageAccess.value.profileId}
+            timeZone={pageAccess.value.timeZone}
           />
         </div>
 
@@ -1565,13 +1338,13 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
               </div>
               <div style={metaItemStyle}>
                 <div style={metaLabelStyle}>Zálohy</div>
-                <div style={metaValueStyle}>{effectivePayrollSettings.advancesAllowed ? 'Povoleny' : 'Nepovoleny'}</div>
+                <div style={metaValueStyle}>{advanceSettings.advancesAllowed ? 'Povoleny' : 'Nepovoleny'}</div>
               </div>
               <div style={metaItemStyle}>
                 <div style={metaLabelStyle}>Limit záloh</div>
                 <div style={metaValueStyle}>
-                  {effectivePayrollSettings.advanceLimitAmount != null
-                    ? formatCurrency(effectivePayrollSettings.advanceLimitAmount)
+                  {advanceSettings.advanceLimitAmount != null
+                    ? formatCurrency(advanceSettings.advanceLimitAmount)
                     : 'Bez limitu'}
                 </div>
               </div>
@@ -1580,31 +1353,27 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
             <div style={{ display: 'grid', gap: '12px', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
               <div style={{ ...metaItemStyle, gridColumn: '1 / -1' }}>
                 <div style={metaLabelStyle}>Zdroj nastavení</div>
-                <div style={metaValueStyle}>{effectivePayrollSettings.label}</div>
+                <div style={metaValueStyle}>{'Firemní nastavení a individuální výjimky této firmy'}</div>
               </div>
               <div style={metaItemStyle}>
                 <div style={metaLabelStyle}>Typ výplaty</div>
-                <div style={metaValueStyle}>{effectivePayrollSettings.payrollTypeLabel}</div>
+                <div style={metaValueStyle}>{({ monthly: 'Měsíčně', weekly: 'Týdně', biweekly: 'Jednou za 14 dní', after_shift: 'Po směně' } as Record<string, string>)[advanceSettings.payType ?? ''] ?? 'Nenastaveno'}</div>
               </div>
               <div style={metaItemStyle}>
                 <div style={metaLabelStyle}>Den výplaty</div>
                 <div style={metaValueStyle}>
-                  {effectivePayrollSettings.payrollDayOfMonth
-                    ? `${effectivePayrollSettings.payrollDayOfMonth}. den v měsíci`
-                    : effectivePayrollSettings.payrollWeekday
-                      ? `Den v týdnu: ${effectivePayrollSettings.payrollWeekday}`
-                      : '—'}
+                  {advanceSettings.payday ? `${advanceSettings.payday}. den následujícího měsíce` : 'Nenastaveno'}
                 </div>
               </div>
               <div style={metaItemStyle}>
                 <div style={metaLabelStyle}>Zálohy</div>
-                <div style={metaValueStyle}>{effectivePayrollSettings.advancesAllowed ? 'Povoleny' : 'Nepovoleny'}</div>
+                <div style={metaValueStyle}>{advanceSettings.advancesAllowed ? 'Povoleny' : 'Nepovoleny'}</div>
               </div>
               <div style={metaItemStyle}>
                 <div style={metaLabelStyle}>Limit záloh</div>
                 <div style={metaValueStyle}>
-                  {effectivePayrollSettings.advanceLimitAmount != null
-                    ? formatCurrency(effectivePayrollSettings.advanceLimitAmount)
+                  {advanceSettings.advanceLimitAmount != null
+                    ? formatCurrency(advanceSettings.advanceLimitAmount)
                     : 'Bez limitu'}
                 </div>
               </div>

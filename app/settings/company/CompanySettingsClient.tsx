@@ -326,6 +326,7 @@ export default function CompanySettingsClient({
           {activeTab === 'payroll' ? (
             <div style={contentStyle}>
               <form style={panelStyle} onSubmit={submitWith(updateCompanyPayrollSettings)}>
+                <input type="hidden" name="company_id" value={company.id} />
                 <SectionHeader
                   title="Pracovníci a výplaty"
                   description="Výchozí pravidla pro interní pracovníky, externisty a zálohy."
@@ -333,15 +334,17 @@ export default function CompanySettingsClient({
                 <div style={formGridStyle}>
                   <SelectField label="Výchozí typ pracovníka" name="default_worker_type" defaultValue={payrollSettings.default_worker_type} options={[['employee', 'Interní pracovník'], ['contractor', 'Externista / subdodavatel']]} />
                   <SelectField label="Typ výplaty" name="default_pay_type" defaultValue={payrollSettings.default_pay_type} options={[['after_shift', 'Po směně'], ['weekly', 'Týdně'], ['biweekly', 'Každých 14 dní'], ['monthly', 'Měsíčně']]} />
-                  <Field label="Den výplaty v měsíci" name="payday_day" defaultValue={payrollSettings.payday_day ?? ''} type="number" />
+                  <Field label="Den měsíční výplaty (1–31)" name="payday_day" defaultValue={payrollSettings.payday_day ?? ''} type="number" min={1} max={31} step={1} />
+                  <SelectField label="Den týdenní výplaty" name="payday_weekday" defaultValue={String(payrollSettings.payday_weekday ?? '')} options={[["", "Nenastaveno"], ["1", "Pondělí"], ["2", "Úterý"], ["3", "Středa"], ["4", "Čtvrtek"], ["5", "Pátek"], ["6", "Sobota"], ["7", "Neděle"]]} />
                   <SelectField label="Limit zálohy" name="advance_limit_type" defaultValue={payrollSettings.advance_limit_type} options={[['monthly_amount', 'Měsíční částka'], ['percent_of_earned', 'Procento z vydělaného']]} />
-                  <SelectField label="Frekvence záloh" name="advance_frequency" defaultValue={payrollSettings.advance_frequency} options={[['per_shift', 'Po směně'], ['weekly', 'Týdně'], ['biweekly', 'Každých 14 dní'], ['monthly', 'Měsíčně']]} />
+                  <SelectField label="Frekvence záloh" name="advance_frequency" defaultValue={payrollSettings.advance_frequency} options={[['anytime', 'Kdykoliv'], ['per_shift', 'Po směně'], ['weekly', 'Týdně'], ['biweekly', 'Každých 14 dní'], ['monthly', 'Měsíčně']]} />
                   <Field label="Maximální záloha" name="advance_limit_amount" defaultValue={payrollSettings.advance_limit_amount ?? ''} type="number" />
                   <Field label="Limit v %" name="advance_limit_percent" defaultValue={payrollSettings.advance_limit_percent ?? ''} type="number" />
                   <Field label="Výchozí hodinová sazba" name="default_hourly_rate" defaultValue={payrollSettings.default_hourly_rate ?? ''} type="number" />
                   <SelectField label="Výchozí způsob nákladu externisty" name="default_contractor_cost_mode" defaultValue={payrollSettings.default_contractor_cost_mode} options={[['hourly', 'Hodinově'], ['fixed_per_job', 'Fixně za zakázku'], ['invoice', 'Fakturou']]} />
                   <CheckboxField label="Povolit zálohy" name="advances_enabled" defaultChecked={payrollSettings.advances_enabled} />
                 </div>
+                <p style={mutedStyle}>Měsíční výplata za pracovní měsíc připadá na zvolený den následujícího měsíce. Pro 29.–31. den se v kratším měsíci použije poslední den. Prázdné pole znamená nenastaveno. Historické výplaty se nemění.</p>
                 <SubmitButton pending={isPending}>Uložit výplatní nastavení</SubmitButton>
               </form>
 
@@ -370,6 +373,7 @@ export default function CompanySettingsClient({
                         </button>
                         {isExpanded ? (
                           <WorkerPaymentForm
+                            companyId={company.id}
                             member={member}
                             pending={isPending}
                             onSubmit={submitWith(updateWorkerPaymentSettings)}
@@ -479,10 +483,12 @@ export default function CompanySettingsClient({
 }
 
 function WorkerPaymentForm({
+  companyId,
   member,
   pending,
   onSubmit,
 }: {
+  companyId: string
   member: MemberRow
   pending: boolean
   onSubmit: (event: FormEvent<HTMLFormElement>) => void
@@ -497,6 +503,7 @@ function WorkerPaymentForm({
 
   return (
     <form style={workerCardStyle} onSubmit={onSubmit}>
+      <input type="hidden" name="company_id" value={companyId} />
       <input type="hidden" name="profile_id" value={member.profileId ?? ''} />
       <div>
         <strong style={workerNameStyle}>{member.fullName}</strong>
@@ -507,7 +514,7 @@ function WorkerPaymentForm({
       <div style={miniGridStyle}>
         <SelectField label="Typ" name="worker_type" defaultValue={settings?.worker_type ?? 'employee'} options={[['employee', 'Interní'], ['contractor', 'Externista']]} />
         <SelectField label="Výplata" name="pay_type_override" defaultValue={settings?.pay_type_override ?? ''} options={[['', 'Firemní nastavení'], ['after_shift', 'Po směně'], ['weekly', 'Týdně'], ['biweekly', 'Každých 14 dní'], ['monthly', 'Měsíčně']]} />
-        <Field label="Den v měsíci" name="payday_day_override" defaultValue={settings?.payday_day_override ?? ''} type="number" />
+        <Field label="Den v měsíci (prázdné = firemní)" name="payday_day_override" defaultValue={settings?.payday_day_override ?? ''} type="number" min={1} max={31} step={1} />
         <Field label="Sazba Kč/h" name="hourly_rate" defaultValue={settings?.hourly_rate ?? ''} type="number" />
         <Field label="Fix za zakázku" name="fixed_rate_per_job" defaultValue={settings?.fixed_rate_per_job ?? ''} type="number" />
         <SelectField label="Zálohy" name="advances_enabled_override_mode" defaultValue={advancesMode} options={[['inherit', 'Firemní nastavení'], ['enabled', 'Povolit'], ['disabled', 'Zakázat']]} />
@@ -790,6 +797,9 @@ function Field({
   required = false,
   wide = false,
   maxLength,
+  min,
+  max,
+  step,
 }: {
   label: string
   name: string
@@ -798,6 +808,9 @@ function Field({
   required?: boolean
   wide?: boolean
   maxLength?: number
+  min?: number
+  max?: number
+  step?: number
 }) {
   return (
     <label style={{ ...fieldStyle, gridColumn: wide ? '1 / -1' : undefined }}>
@@ -808,6 +821,9 @@ function Field({
         defaultValue={defaultValue}
         required={required}
         maxLength={maxLength}
+        min={min}
+        max={max}
+        step={step}
         style={inputStyle}
       />
     </label>

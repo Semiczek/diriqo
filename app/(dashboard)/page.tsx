@@ -1,3 +1,5 @@
+import { readPayrollAdvanceLedger } from '@/lib/dal/worker-advances'
+import { formatAdvanceMoney, payrollAdvanceTotal } from '@/lib/payroll/advances'
 import Link from 'next/link'
 import { unstable_noStore as noStore } from 'next/cache'
 import Image from 'next/image'
@@ -42,10 +44,6 @@ import {
   formatPercent,
   formatTime,
 } from '@/lib/formatters'
-import {
-  getPayrollRangeFromMonthValue,
-  isWorkerAdvanceBackfilledFromRequest,
-} from '@/lib/payroll/payroll-periods'
 import {
   getEffectiveJobWorkState,
   isCompletedJob as isResolvedJobDone,
@@ -167,14 +165,6 @@ type AdvanceRequestRow = {
   reviewed_at?: string | null
   paid_at?: string | null
   payroll_month?: string | null
-}
-
-type WorkerAdvanceDashboardRow = {
-  id: string
-  profile_id: string | null
-  amount: number | string | null
-  issued_at: string | null
-  note?: string | null
 }
 
 type QuoteDashboardRow = {
@@ -708,7 +698,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const summaryMonthLabel = formatMonthYearLabel(summaryMonthConfig.start, companyTimeZone, intlLocale)
   const selectedSummaryMonth = summaryMonthConfig.value
   const selectedSummaryWeekRaw = (resolvedSearchParams?.summary_week ?? '').trim()
-  const payrollMonthConfig = getPayrollRangeFromMonthValue(selectedSummaryMonth, companyTimeZone)
   const supabase = await createSupabaseServerClient()
   const onboardingChecklist = await getCompanyOnboardingChecklist(
     supabase,
@@ -952,14 +941,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           .in('job_id', jobIds)
       : Promise.resolve({ data: [] }),
 
-    profileIds.length > 0
-      ? supabase
-          .from('worker_advances')
-          .select('id, profile_id, amount, issued_at, note')
-          .in('profile_id', profileIds)
-          .gte('issued_at', payrollMonthConfig.startDate)
-          .lt('issued_at', payrollMonthConfig.endExclusiveDate)
-      : Promise.resolve({ data: [] }),
+    readPayrollAdvanceLedger(supabase, activeCompany.companyId, { payrollMonth: `${selectedSummaryMonth}-01` }),
 
     profileIds.length > 0
       ? supabase
@@ -999,7 +981,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const activeAssignments = (activeAssignmentsResponse.data ?? []) as JobAssignmentDashboardRow[]
   const allAssignments = (allAssignmentsResponse.data ?? []) as Array<{ job_id: string | null }>
   const advances = (advancesResponse.data ?? []) as AdvanceRequestRow[]
-  const workerAdvances = (workerAdvancesResponse.data ?? []) as WorkerAdvanceDashboardRow[]
   const quotes = ((quotesResponse.data ?? []) as QuoteDashboardRow[]).filter(
     (quote) => !quote.company_id || quote.company_id === companyId
   )
@@ -1204,23 +1185,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     const status = (item.status ?? '').trim().toLowerCase()
     return status === 'pending' || status === 'approved'
   })
-  const payrollWorkerAdvances = workerAdvances.filter(
-    (item) => item.profile_id != null && activeMemberProfileIds.has(item.profile_id)
-  )
-  const payrollPaidAdvanceRequests = companyAdvances.filter((item) => {
-    const status = (item.status ?? '').trim().toLowerCase()
-    if (status !== 'paid') return false
-    if (!item.profile_id || !activeMemberProfileIds.has(item.profile_id)) return false
-    if (!isDateInDateKeyRange(item.paid_at, payrollMonthConfig.startDate, payrollMonthConfig.endExclusiveDate, companyTimeZone)) return false
-    return !isWorkerAdvanceBackfilledFromRequest(item, payrollWorkerAdvances)
-  })
-  const payrollAdvanceTotal = payrollWorkerAdvances.reduce(
-    (sum, item) => sum + toNumber(item.amount),
-    0
-  ) + payrollPaidAdvanceRequests.reduce(
-    (sum, item) => sum + toNumber(item.amount ?? item.requested_amount),
-    0
-  )
+  const payrollAdvanceAmount = workerAdvancesResponse.error ? null : payrollAdvanceTotal(workerAdvancesResponse.data, workerAdvancesResponse.settlements)
 
   const jobsWithoutAssignments = operationalJobs.filter(
     (job) =>
@@ -1975,7 +1940,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               <EconomyLine label={t.readyToInvoice} value={formatCurrency(monthReadyToInvoice, intlLocale)} />
               <EconomyLine label={t.laborCosts} value={formatCurrency(monthLabor, intlLocale)} />
               <EconomyLine label={t.otherCosts} value={formatCurrency(monthOther, intlLocale)} />
-              <EconomyLine label={t.currentPayrollAdvances} value={formatCurrency(payrollAdvanceTotal, intlLocale)} />
+              <EconomyLine label={t.currentPayrollAdvances} value={payrollAdvanceAmount == null ? 'Nelze načíst' : payrollAdvanceAmount === 0 ? '0' : formatAdvanceMoney(payrollAdvanceAmount, workerAdvancesResponse.currency)} />
               <EconomyLine label={t.profit} value={formatCurrency(monthProfit, intlLocale)} strong />
             </div>
           </div>

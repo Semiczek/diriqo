@@ -1,3 +1,4 @@
+import { payrollMonthRange, plannedPayday } from '@/lib/payroll/payday'
 ﻿import type { CSSProperties } from 'react'
 
 import {
@@ -159,9 +160,6 @@ export type AdvanceRequestPayrollRow = {
 
 type RowRecord = Record<string, unknown>
 
-const PAYROLL_ADVANCE_START_DAY = 19
-const PAYROLL_ADVANCE_END_EXCLUSIVE_DAY = 18
-const PAYROLL_ADVANCE_END_VISIBLE_DAY = 17
 
 export function isMissingWorkShiftAssignmentColumn(message: string | undefined) {
   const lowerMessage = (message ?? '').toLowerCase()
@@ -428,27 +426,19 @@ export function getWorkMonthRange(monthString: string) {
   }
 }
 
-export function getAdvanceRange(monthString: string) {
-  const [yearString, monthStringPart] = monthString.split('-')
-  const year = Number(yearString)
-  const monthIndex = Number(monthStringPart) - 1
-
-  const advanceStart = new Date(year, monthIndex, PAYROLL_ADVANCE_START_DAY, 0, 0, 0, 0)
-  const advanceEndExclusive = new Date(year, monthIndex + 1, PAYROLL_ADVANCE_END_EXCLUSIVE_DAY, 0, 0, 0, 0)
-  const advanceEndVisible = new Date(year, monthIndex + 1, PAYROLL_ADVANCE_END_VISIBLE_DAY, 0, 0, 0, 0)
-  const payDate = new Date(year, monthIndex + 1, PAYROLL_ADVANCE_END_EXCLUSIVE_DAY, 0, 0, 0, 0)
-
+export function getAdvanceRange(monthString: string, payday: number | null = null, locale = 'cs-CZ') {
+  const range = payrollMonthRange(monthString)
+  const start = new Date(range.startDate + 'T00:00:00Z')
+  const end = new Date(range.endExclusiveDate + 'T00:00:00Z')
+  const last = new Date(end.getTime() - 86400000)
+  const payDate = plannedPayday(monthString, payday)
+  const label = (date: Date) => new Intl.DateTimeFormat(locale, { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' }).format(date)
   return {
-    advanceStartDate: formatLocalDateKey(advanceStart),
-    advanceEndExclusiveDate: formatLocalDateKey(advanceEndExclusive),
-    advanceStartIso: advanceStart.toISOString(),
-    advanceEndExclusiveIso: advanceEndExclusive.toISOString(),
-    payDateLabel: formatDateLabel(payDate),
-    advancePeriodLabel: `${formatDateLabel(advanceStart)} – ${formatDateLabel(advanceEndVisible)}`,
-    monthLabel: new Intl.DateTimeFormat('cs-CZ', {
-      month: 'long',
-      year: 'numeric',
-    }).format(new Date(year, monthIndex, 1, 0, 0, 0, 0)),
+    advanceStartDate: range.startDate, advanceEndExclusiveDate: range.endExclusiveDate,
+    advanceStartIso: start.toISOString(), advanceEndExclusiveIso: end.toISOString(),
+    payDateLabel: payDate ? label(new Date(payDate + 'T00:00:00Z')) : 'Nenastaveno',
+    advancePeriodLabel: label(start) + ' – ' + label(last),
+    monthLabel: new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(start),
   }
 }
 

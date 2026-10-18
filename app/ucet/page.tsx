@@ -161,6 +161,10 @@ const labelStyle: React.CSSProperties = {
 
 type CompanyPayrollSettings = {
   company_id?: string | null
+  default_pay_type?: string | null
+  payday_day?: number | null
+  payday_weekday?: number | null
+  advances_enabled?: boolean | null
   payroll_type: string
   payroll_day_of_month: number | null
   payroll_weekday: number | null
@@ -221,7 +225,7 @@ export default function AccountPage() {
   const [iban, setIban] = useState('')
   const [swiftBic, setSwiftBic] = useState('')
   const [payrollType, setPayrollType] = useState('monthly')
-  const [payrollDayOfMonth, setPayrollDayOfMonth] = useState('18')
+  const [payrollDayOfMonth, setPayrollDayOfMonth] = useState('')
   const [payrollWeekday, setPayrollWeekday] = useState('1')
   const [payrollAnchorDate, setPayrollAnchorDate] = useState('')
   const [allowAdvances, setAllowAdvances] = useState(true)
@@ -270,11 +274,14 @@ export default function AccountPage() {
   }
 
   function applyPayrollSettings(payload: Partial<CompanyPayrollSettings> | null) {
-    setPayrollType(payload?.payroll_type ?? 'monthly')
-    setPayrollDayOfMonth(payload?.payroll_day_of_month != null ? String(payload.payroll_day_of_month) : '18')
-    setPayrollWeekday(payload?.payroll_weekday != null ? String(payload.payroll_weekday) : '1')
+    const payType = payload?.default_pay_type ?? payload?.payroll_type ?? 'monthly'
+    const payday = payload && 'payday_day' in payload ? payload.payday_day : payload?.payroll_day_of_month
+    const weekday = payload && 'payday_weekday' in payload ? payload.payday_weekday : payload?.payroll_weekday
+    setPayrollType(payType === 'after_shift' ? 'shift' : payType)
+    setPayrollDayOfMonth(payday != null ? String(payday) : '')
+    setPayrollWeekday(weekday != null ? String(weekday) : '')
     setPayrollAnchorDate(payload?.payroll_anchor_date ?? '')
-    setAllowAdvances(payload?.allow_advances ?? true)
+    setAllowAdvances(payload?.advances_enabled ?? payload?.allow_advances ?? true)
     setAdvanceLimitAmount(payload?.advance_limit_amount != null ? String(payload.advance_limit_amount) : '')
     setAdvanceFrequency(payload?.advance_frequency ?? 'monthly')
   }
@@ -307,7 +314,7 @@ export default function AccountPage() {
           if (payload.companyId) {
             const payrollSettingsResponse = await supabase
               .from('company_payroll_settings')
-              .select('company_id, payroll_type, payroll_day_of_month, payroll_weekday, payroll_anchor_date, allow_advances, advance_limit_amount, advance_frequency')
+              .select('company_id, default_pay_type, payday_day, payday_weekday, advances_enabled, payroll_type, payroll_day_of_month, payroll_weekday, payroll_anchor_date, allow_advances, advance_limit_amount, advance_frequency')
               .eq('company_id', payload.companyId)
               .maybeSingle()
 
@@ -448,8 +455,8 @@ export default function AccountPage() {
     const weekday = payrollWeekday ? Number(payrollWeekday) : null
     const advanceLimit = advanceLimitAmount ? Number(advanceLimitAmount.replace(',', '.')) : null
 
-    if ((dayOfMonth != null && (!Number.isFinite(dayOfMonth) || dayOfMonth < 1 || dayOfMonth > 31)) ||
-      (weekday != null && (!Number.isFinite(weekday) || weekday < 1 || weekday > 7)) ||
+    if ((dayOfMonth != null && (!Number.isInteger(dayOfMonth) || dayOfMonth < 1 || dayOfMonth > 31)) ||
+      (weekday != null && (!Number.isInteger(weekday) || weekday < 1 || weekday > 7)) ||
       (advanceLimit != null && (!Number.isFinite(advanceLimit) || advanceLimit < 0))) {
       setPayrollSettingsError('Zkontrolujte den výplaty a limit záloh.')
       return
@@ -690,8 +697,9 @@ export default function AccountPage() {
 
               {payrollType === 'monthly' ? (
                 <label style={labelStyle}>
-                  <span>Den v měsíci</span>
-                  <input type="number" min="1" max="31" value={payrollDayOfMonth} onChange={(event) => setPayrollDayOfMonth(event.target.value)} style={inputStyle} />
+                  <span>Den měsíční výplaty (1–31)</span>
+                  <input type="number" min="1" max="31" step="1" placeholder="Nenastaveno" value={payrollDayOfMonth} onChange={(event) => setPayrollDayOfMonth(event.target.value)} style={inputStyle} />
+                  <small>Za pracovní měsíc v následujícím měsíci. Pro 29.–31. den se v kratším měsíci použije poslední den. Historické výplaty se nemění.</small>
                 </label>
               ) : null}
 
@@ -699,6 +707,7 @@ export default function AccountPage() {
                 <label style={labelStyle}>
                   <span>Den v týdnu</span>
                   <select value={payrollWeekday} onChange={(event) => setPayrollWeekday(event.target.value)} style={inputStyle}>
+                    <option value="">Nenastaveno</option>
                     <option value="1">Pondělí</option>
                     <option value="2">Úterý</option>
                     <option value="3">Středa</option>
@@ -733,7 +742,9 @@ export default function AccountPage() {
                 <span>Frekvence záloh</span>
                 <select value={advanceFrequency} onChange={(event) => setAdvanceFrequency(event.target.value)} style={inputStyle}>
                   <option value="anytime">Kdykoliv</option>
+                  <option value="per_shift">Po směně</option>
                   <option value="weekly">Týdně</option>
+                  <option value="biweekly">Každých 14 dní</option>
                   <option value="monthly">Měsíčně</option>
                 </select>
               </label>

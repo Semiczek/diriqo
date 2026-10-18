@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation'
 import DashboardShell from '@/components/DashboardShell'
 import { useI18n } from '@/components/I18nProvider'
 import { createPayrollItemAction, deletePayrollItemAction, updateWorkerProfileAction } from '../actions'
+import { formatAdvanceMoney, sumAdvancePayments } from '@/lib/payroll/advances'
+import { readWorkerFinanceHistoryAction } from '@/app/advance-requests/actions'
 import { supabase } from '@/lib/supabase'
 
 type EditWorkerFinancePageProps = {
@@ -17,9 +19,10 @@ type EditWorkerFinancePageProps = {
 type WorkerAdvanceRow = {
   id: string
   profile_id: string | null
-  amount: number | null
+  amount: number | string
   issued_at: string | null
   note: string | null
+  currency?: string | null
   created_at?: string | null
 }
 
@@ -116,55 +119,21 @@ export default function EditWorkerFinancePage({
         setWorkerId(resolvedWorkerId)
         setPayrollMonth(initialPayrollMonth)
 
-        const [profileResponse, advancesResponse, payrollItemsResponse] = await Promise.all([
-          supabase
-            .from('profiles')
-            .select('id, full_name, email, default_hourly_rate')
-            .eq('id', resolvedWorkerId)
-            .maybeSingle(),
-
-          supabase
-            .from('worker_advances')
-            .select('id, profile_id, amount, issued_at, note, created_at')
-            .eq('profile_id', resolvedWorkerId)
-            .order('issued_at', { ascending: false })
-            .order('created_at', { ascending: false }),
-
-          supabase
-            .from('payroll_items')
-            .select('id, profile_id, payroll_month, item_type, amount, note, created_at')
-            .eq('profile_id', resolvedWorkerId)
-            .order('payroll_month', { ascending: false })
-            .order('created_at', { ascending: false }),
-        ])
-
-        if (profileResponse.error) {
-          throw new Error(profileResponse.error.message)
-        }
-
-        if (!profileResponse.data) {
-          throw new Error(dictionary.workers.financeEdit.workerNotFound)
-        }
-
-        if (advancesResponse.error) {
-          throw new Error(advancesResponse.error.message)
-        }
-
-        if (payrollItemsResponse.error) {
-          throw new Error(payrollItemsResponse.error.message)
-        }
+        const response = await readWorkerFinanceHistoryAction(resolvedWorkerId)
+        if (response.error || !response.data) throw new Error(response.error?.message ?? dictionary.workers.financeEdit.workerNotFound)
+        const { profile, advances, payrollItems } = response.data
 
         if (cancelled) return
 
-        setFullName(profileResponse.data.full_name ?? '')
-        setEmail(profileResponse.data.email ?? '')
+        setFullName(profile.full_name ?? '')
+        setEmail(profile.email ?? '')
         setDefaultHourlyRate(
-          profileResponse.data.default_hourly_rate != null
-            ? String(profileResponse.data.default_hourly_rate)
+          profile.default_hourly_rate != null
+            ? String(profile.default_hourly_rate)
             : ''
         )
-        setAdvances((advancesResponse.data ?? []) as WorkerAdvanceRow[])
-        setPayrollItems((payrollItemsResponse.data ?? []) as PayrollItemRow[])
+        setAdvances(advances as WorkerAdvanceRow[])
+        setPayrollItems(payrollItems as PayrollItemRow[])
       } catch (err: unknown) {
         if (!cancelled) {
           setError(getErrorMessage(err, dictionary.workers.financeEdit.loadFailed))
@@ -184,7 +153,9 @@ export default function EditWorkerFinancePage({
   }, [dictionary.workers.financeEdit.loadFailed, dictionary.workers.financeEdit.workerNotFound, params])
 
   const totalAdvances = useMemo(() => {
-    return advances.reduce((sum, item) => sum + Number(item.amount ?? 0), 0)
+    const groups = new Map<string | null, WorkerAdvanceRow[]>()
+    for (const advance of advances) groups.set(advance.currency ?? null, [...(groups.get(advance.currency ?? null) ?? []), advance])
+    return [...groups].map(([currency, rows]) => formatAdvanceMoney(sumAdvancePayments(rows), currency)).join(' · ') || '0'
   }, [advances])
 
   const payrollItemsForMonth = useMemo(() => {
@@ -840,7 +811,7 @@ export default function EditWorkerFinancePage({
                   Evidované zálohy
                 </div>
                 <div style={{ fontSize: '28px', fontWeight: 700, color: '#111827' }}>
-                  {formatCurrency(totalAdvances)}
+                  {totalAdvances}
                 </div>
               </div>
             </div>
