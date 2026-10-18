@@ -6,7 +6,7 @@ Stav celého produktu: **není dosud doložená připravenost pro prvního komer
 
 Identita: pouze `Semiczek/diriqo`, testovací Supabase `wfcpfraxiuhuglnuaxqj`, web `app.diriqo.com`. JSPD Hub `yrxfozthravgbbcqklzy` se neupravuje a jeho provozní data se nepřenášejí. Zachovat původní logo a paletu fialová/modrá/tyrkysová na bílých plochách.
 
-Checkpoint záloh C08, 18. 10.: PR #27 má atomický platební ledger a aplikované testovací migrace `20261018182238` + `20261018183656`. Hosted SQL **81 + 5 PASS**, skutečné Auth/HTTP **4 souběhy + 4 revokace/expirace žádostí + 7 revokací/expirací výplat PASS**, samostatná reconciliace **4 kroky PASS**. První `40001` timeout i neúspěšná koordinace settings/revoke zůstávají v důkazech; oprava `PT409` a čistý opakovaný běh prošly. Paid-receipt barrier nebyl proveden. Vydání aplikace, přihlášené UI a konečný úklid testovacích přístupů čekají; všechny C08 zůstávají **ČÁSTEČNĚ**. [Release důkaz a hranice](../worker-advances-c08-implementation-20261018.md).
+Checkpoint záloh C08, 18. 10.: PR #27 je sloučené a nasazené z `010a3643b9ad5397b665d2e8a37238ac7f3737f1`; main i Office CI PASS. Testovací migrace `20261018182238` + `20261018183656`, hosted SQL **81 + 5 PASS**, skutečné Auth/HTTP **4 souběhy + 4 kontroly žádostí + 7 kontrol výplat PASS**, reconciliace **4 kroky PASS**. Přihlášené UI/AX a DB doložily 5000→3000→1000+2000, obě salda i referencované vypořádání; změna výplatního dne 31→25 prošla uložením/reloadem a oba DB aliasy souhlasí. Testovací přístupy uklizené: 18 firem, 0 aktivních testovacích členství, 3 zablokované účty, 0 relací. **C08-01 a C08-02 HOTOVO pro původní text; C08-03 ČÁSTEČNĚ**, protože konkrétní náklad zakázky vedle odpracovaného času čeká. Export, širší UX nejistého výsledku a Android nejsou přidané brány uzavřených scénářů. Tři historické neúspěchy zůstávají zachované, paid-receipt barrier nebyl proveden. [Release checkpoint a přesná hranice důkazů](../worker-advances-c08-implementation-20261018.md).
 
 ## 1. Aktuální stav modulů
 
@@ -37,7 +37,7 @@ Konkrétní kódové vady se odlišují od neprovedeného testu. Následující 
 | ID | Konkrétní problém | Dopad a další oprava |
 |---|---|---|
 | P0-01 | Baseline: start směny používal SELECT před INSERT bez atomického invariantu. | Dvě zařízení mohla založit souběžné směny. Baseline vada opravena migrací 20261011191250; 27+3 DB kontrol a souběh dvou spojení PASS. PR #10 je nasazené; přihlášený start/reload/stop/Hotovo i následná DB kontrola PASS. Původní C04-01 je HOTOVO: následný skutečný dvojklik i současné kliky ze dvou webových karet na revizi 915705d doložily jedinou běžící směnu. Viz report směn. |
-| P0-02 | Baseline: paid před samostatným worker_advances upsertem; první souběhový test navíc odhalil retry smyčku při business SQLSTATE40001. | Opraveno atomickým append-only ledgerem a forward PT409 migrací. Hosted SQL81+5, čtyři Auth/HTTP souběhy a stejná-operation reconciliace PASS; request/payment reautorizace4+7 PASS. PR #27 čeká vydání a přihlášené UI; C08-02 ČÁSTEČNĚ. [Důkaz](../worker-advances-c08-implementation-20261018.md). |
+| P0-02 | Baseline: paid před samostatným worker_advances upsertem; první souběhový test navíc odhalil retry smyčku při business SQLSTATE40001. | Opraveno atomickým append-only ledgerem a forward PT409 migrací. Hosted SQL81+5, čtyři Auth/HTTP souběhy a stejná-operation reconciliace PASS; request/payment reautorizace4+7 PASS. PR #27 nasazené z 010a3643; původní C08-02 HOTOVO na základě skutečného Auth/HTTP/DB opakování. [Důkaz](../worker-advances-c08-implementation-20261018.md). |
 | P0-03 | Calendar update nemá očekávanou verzi; přidělení se maže a vkládá odděleně. | Tiché přepsání druhého vedoucího nebo ztráta přiřazení. Atomická změna s verzí. C06-03. |
 | P0-04 | Core převod nabídky zapisuje rodiče a podzakázky odděleně; catch vrací nalezeného rodiče jako úspěch i po selhání potomků. | Neúplná vícedenní zakázka se tváří dokončeně. Samostatná transakční oprava core cesty; smart quote RPC je jiná implementace. C01-02. |
 | P0-05 | Základní PDF nabídky načítá dnešní customers místo uloženého snapshotu. | Změna adresy změní pozdější export staré nabídky. Snapshot při vydání a regresní test. C02-02. |
@@ -73,9 +73,9 @@ Licenční audit již staticky potvrzuje: limit počtu pracovníků není aktuá
 
 ## 5. Aktualizovaná matice 73 scénářů
 
-**HOTOVO: 1 · ČÁSTEČNĚ: 50 · CHYBÍ: 11 · CHYBA: 6 · NEOVĚŘENO: 5.** Původních 30 core + 18 modulových + 25 platformních ID a texty jsou beze změny v [acceptance-scenarios.json](acceptance-scenarios.json). Manifest obsahuje pro každý řádek implementaci/soubory, bezpečnost, typ testů, datum zdrojového důkazu, E2E, komerční připravenost a chybějící kroky.
+**HOTOVO: 3 · ČÁSTEČNĚ: 48 · CHYBÍ: 11 · CHYBA: 6 · NEOVĚŘENO: 5.** Původních 30 core + 18 modulových + 25 platformních ID a texty jsou beze změny v [acceptance-scenarios.json](acceptance-scenarios.json). Manifest obsahuje pro každý řádek implementaci/soubory, bezpečnost, typ testů, datum zdrojového důkazu, E2E, komerční připravenost a chybějící kroky.
 
-- HOTOVO = celý původní scénář má uzavřený relevantní důkaz; nyní C04-01 pro přesný invariant dvojkliku/dvou karet. Nejde o akceptaci celého mobilního produktu nebo komerční připravenosti.
+- HOTOVO = celý původní scénář má uzavřený relevantní důkaz; nyní C04-01 pro přesný invariant dvojkliku/dvou karet a C08-01/02 pro dílčí výplaty, obě salda a idempotenci. Nejde o akceptaci celého mobilního produktu nebo komerční připravenosti.
 - ČÁSTEČNĚ = implementace nebo dílčí testy existují, úplný průchod chybí.
 - CHYBÍ = konkrétní požadovaná část toku není implementovaná; neznamená neexistenci celého modulu.
 - CHYBA = nalezená konkrétní vada aktuální implementace, nikoli absence testu.
@@ -106,9 +106,9 @@ Sloupec důkaz odkazuje na zdrojové soubory a dřívější reporty v JSON. Př
 | C07-01 | Místní data absence | NEOVĚŘENO | kód | Otestovat celé místní dny a DST v nejméně dvou firemních zónách bez posunu žádosti. |
 | C07-02 | Konflikty a soukromí absence | ČÁSTEČNĚ | kód | Ověřit viditelnost důvodu absence, konfliktní směnu a výstupy worker/manager rolí. |
 | C07-03 | Zrušení schválené absence | CHYBÍ | kód | Doplnit žádost/zrušení, historii a přepočet dostupnosti bez vytváření směn. |
-| C08-01 | Částečné vyplacení zálohy | ČÁSTEČNĚ | Hosted SQL81+5; cílené aplikační testy; Auth/HTTP souběhy | Přihlášené UI 5000→3000→1000+2000, obě salda po reloadu a export; širší workflow a release úklid. |
-| C08-02 | Retry výplaty | ČÁSTEČNĚ | Atomický rollback; skutečný souběh/exact retry; PT409; reconciliace4 kroky PASS | Přihlášený retry a nejistý výsledek v UI po vydání; konečný úklid testovacích přístupů. |
-| C08-03 | Záloha není druhý náklad | ČÁSTEČNĚ | Kanonický ledger; SQL vypořádání; Auth/HTTP settlement souběh; XLSX mock regrese | Přesný náklad zakázky a reference vypořádání v jednom přihlášeném UI/export průchodu. |
+| C08-01 | Částečné vyplacení zálohy | HOTOVO | Nasazené přihlášené UI/AX 5000→3000→1000+2000, obě salda; matching DB ledger | Původní scénář uzavřen. Export a širší workflow se posuzují samostatně. |
+| C08-02 | Retry výplaty | HOTOVO | Skutečné Auth/HTTP stejné potvrzení: právě jeden DB pohyb; přesný retry a reconciliace PASS | Původní invariant uzavřen. Širší UX obnovy nejistého výsledku zůstává samostatně. |
+| C08-03 | Záloha není druhý náklad | ČÁSTEČNĚ | Vypořádání s referencemi UI/DB PASS; kanonický ledger, settlement souběh a XLSX mock regrese | Doložit, že konkrétní zakázka nezapočte zálohu podruhé vedle odpracovaného času; vypořádání je již doložené. |
 | C09-01 | Fotografie a předání | ČÁSTEČNĚ | Dřívější dílčí SQL; související unit/mock; kód | Dokončit zahrnutí konkrétní fotky do verzovaného předání a pilot worker/manager. |
 | C09-02 | Odvolání přístupu k souboru | ČÁSTEČNĚ | Dřívější dílčí SQL; související unit/mock; kód | Skutečný A/B Storage test, odebrání přiřazení a změřená expirace již vydaného odkazu pro všechny přílohy. |
 | C09-03 | Verzované předání | CHYBÍ | Dřívější dílčí SQL; související unit/mock; kód | Doplnit dokument/verze/schválení a zachování původního výstupu. |
