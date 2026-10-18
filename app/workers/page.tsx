@@ -1,3 +1,4 @@
+import { companyPayrollQuery, readPayrollRows, readPayrollAssignments } from '@/lib/dal/payroll-readers'
 import { readAdvanceSettings } from '@/lib/dal/advance-settings'
 import { readPayrollAdvanceLedger } from '@/lib/dal/worker-advances'
 import { payrollAdvanceTotal } from '@/lib/payroll/advances'
@@ -361,7 +362,7 @@ function getAbsenceVisual(state: WorkerAbsenceState) {
 
 function isMissingPayrollPaymentsTable(error: { message?: string; code?: string } | null | undefined) {
   const message = (error?.message ?? '').toLowerCase()
-  return error?.code === '42P01' || message.includes('payroll_payments')
+  return (error?.code === '42P01' || error?.code === 'PGRST205') && message.includes('payroll_payments')
 }
 
 export default async function WorkersPage({ searchParams }: WorkersPageProps) {
@@ -417,11 +418,8 @@ export default async function WorkersPage({ searchParams }: WorkersPageProps) {
   catch { return renderError('Výplatní nastavení aktivní firmy se nepodařilo načíst.') }
   const { payDateLabel, advancePeriodLabel, monthLabel } = getAdvanceRange(selectedMonth, advanceSettings.payType === 'monthly' ? advanceSettings.payday : null, intlLocale)
 
-  const membersResponse = await supabase
-    .from('company_members')
-    .select('id, company_id, profile_id, is_active')
-    .eq('company_id', activeCompany.companyId)
-    .eq('is_active', true)
+  const membersResponse = await readPayrollRows(companyPayrollQuery(supabase, activeCompany.companyId, 'company_members', 'id, company_id, profile_id, is_active')
+    .eq('is_active', true).order('id'))
   if (membersResponse.error) {
     return renderError(`${dictionary.workers.companyMembersLoadError}: ${membersResponse.error.message}`)
   }
@@ -443,8 +441,7 @@ export default async function WorkersPage({ searchParams }: WorkersPageProps) {
 
   const [
     profilesResponse,
-    jobAssignmentsResponse,
-    jobAssignmentSummariesResponse,
+    assignmentResponses,
     workLogsResponse,
     workShiftsResponse,
     workerAdvancesResponse,
@@ -452,8 +449,8 @@ export default async function WorkersPage({ searchParams }: WorkersPageProps) {
     payrollPaymentsResponse,
     absencesResponse,
   ] = await Promise.all([
-    supabase.from('profiles').select('id, full_name, email, phone, worker_status, activated_at, disabled_at, last_seen_at, device_registered_at, default_hourly_rate, advance_paid, worker_type, contractor_billing_type, contractor_default_rate').in('id', profileIds).order('full_name', { ascending: true }),
-    supabase.from('job_assignments').select(`
+    readPayrollRows(supabase.from('profiles').select('id, full_name, email, phone, worker_status, activated_at, disabled_at, last_seen_at, device_registered_at, default_hourly_rate, advance_paid, worker_type, contractor_billing_type, contractor_default_rate').in('id', profileIds).order('full_name', { ascending: true }).order('id')),
+    readPayrollAssignments(supabase, activeCompany.companyId, profileIds, `
       id,
       profile_id,
       job_id,
@@ -474,27 +471,21 @@ export default async function WorkersPage({ searchParams }: WorkersPageProps) {
         price,
         is_paid
       )
-    `).in('profile_id', profileIds).is('archived_at', null),
-    supabase
-      .from('worker_job_assignment_summary')
-      .select('assignment_id, job_id, profile_id, labor_hours_total, effective_hourly_rate, labor_cost_total')
-      .in('profile_id', profileIds),
-    supabase.from('work_logs').select('profile_id, hours, work_date').in('profile_id', profileIds).gte('work_date', workStartDate).lt('work_date', workEndExclusiveDate),
-    supabase.from('work_shifts').select('id, profile_id, job_id, shift_date, started_at, ended_at, hours_override, job_hours_override').in('profile_id', profileIds).gte('shift_date', workStartDate).lt('shift_date', workEndExclusiveDate).order('started_at', { ascending: false }),
+    `),
+    readPayrollRows(companyPayrollQuery(supabase, activeCompany.companyId, 'work_logs', 'profile_id, hours, work_date').in('profile_id', profileIds).gte('work_date', workStartDate).lt('work_date', workEndExclusiveDate).order('id')),
+    readPayrollRows(companyPayrollQuery(supabase, activeCompany.companyId, 'work_shifts', 'id, profile_id, job_id, shift_date, started_at, ended_at, hours_override, job_hours_override').in('profile_id', profileIds).gte('shift_date', workStartDate).lt('shift_date', workEndExclusiveDate).order('started_at', { ascending: false }).order('id')),
     readPayrollAdvanceLedger(supabase, activeCompany.companyId, { payrollMonth: `${selectedMonth}-01`, currency: advanceSettings.currency }),
-    supabase
-      .from('payroll_items')
-      .select('profile_id, payroll_month, item_type, amount')
+    readPayrollRows(companyPayrollQuery(supabase, activeCompany.companyId, 'payroll_items', 'profile_id, payroll_month, item_type, amount')
       .in('profile_id', profileIds)
-      .eq('payroll_month', selectedMonth),
-    supabase
-      .from('payroll_payments')
-      .select('profile_id, payroll_month, amount, paid_at')
-      .eq('company_id', activeCompany.companyId)
+      .eq('payroll_month', selectedMonth).order('id')),
+    readPayrollRows(companyPayrollQuery(supabase, activeCompany.companyId, 'payroll_payments', 'profile_id, payroll_month, amount, paid_at')
       .in('profile_id', profileIds)
-      .eq('payroll_month', selectedMonth),
-    supabase.from('absence_requests').select('id, profile_id, absence_mode, absence_type, start_at, end_at, status').in('profile_id', profileIds).eq('status', 'approved'),
+      .eq('payroll_month', selectedMonth).order('id')),
+    readPayrollRows(companyPayrollQuery(supabase, activeCompany.companyId, 'absence_requests', 'id, profile_id, absence_mode, absence_type, start_at, end_at, status').in('profile_id', profileIds).eq('status', 'approved').order('id')),
   ])
+
+  const jobAssignmentsResponse = assignmentResponses.assignments
+  const jobAssignmentSummariesResponse = assignmentResponses.summaries
 
   if (profilesResponse.error) return renderError(`${dictionary.workers.profilesLoadError}: ${profilesResponse.error.message}`)
   if (jobAssignmentsResponse.error) return renderError(`${dictionary.workers.assignmentsLoadError}: ${jobAssignmentsResponse.error.message}`)

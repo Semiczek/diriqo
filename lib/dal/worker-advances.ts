@@ -4,7 +4,7 @@ import { advanceAmount, type AdvancePayment, type AdvanceSettlement } from '@/li
 
 export type AdvanceContext = { companyId: string; profileId: string; supabase: SupabaseServerClient }
 export type AdvanceRequest = {
-  id: string; company_id: string; profile_id: string; requested_amount: number | string
+  id: string; company_id: string; profile_id: string; requested_amount: number | string | null
   amount: number | string; status: 'pending' | 'approved' | 'rejected' | 'paid'
   revision: number; requested_at: string; approved_at: string | null; paid_at: string | null
   reason: string | null; note: string | null; payroll_month: string | null

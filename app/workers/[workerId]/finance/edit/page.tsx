@@ -7,7 +7,7 @@ import DashboardShell from '@/components/DashboardShell'
 import { useI18n } from '@/components/I18nProvider'
 import { createPayrollItemAction, deletePayrollItemAction, updateWorkerProfileAction } from '../actions'
 import { formatAdvanceMoney, sumAdvancePayments } from '@/lib/payroll/advances'
-import { readWorkerAdvanceHistoryAction } from '@/app/advance-requests/actions'
+import { readWorkerFinanceHistoryAction } from '@/app/advance-requests/actions'
 import { supabase } from '@/lib/supabase'
 
 type EditWorkerFinancePageProps = {
@@ -119,50 +119,21 @@ export default function EditWorkerFinancePage({
         setWorkerId(resolvedWorkerId)
         setPayrollMonth(initialPayrollMonth)
 
-        const [profileResponse, advancesResponse, payrollItemsResponse] = await Promise.all([
-          supabase
-            .from('profiles')
-            .select('id, full_name, email, default_hourly_rate')
-            .eq('id', resolvedWorkerId)
-            .maybeSingle(),
-
-          readWorkerAdvanceHistoryAction(resolvedWorkerId),
-
-          supabase
-            .from('payroll_items')
-            .select('id, profile_id, payroll_month, item_type, amount, note, created_at')
-            .eq('profile_id', resolvedWorkerId)
-            .order('payroll_month', { ascending: false })
-            .order('created_at', { ascending: false }),
-        ])
-
-        if (profileResponse.error) {
-          throw new Error(profileResponse.error.message)
-        }
-
-        if (!profileResponse.data) {
-          throw new Error(dictionary.workers.financeEdit.workerNotFound)
-        }
-
-        if (advancesResponse.error) {
-          throw new Error(advancesResponse.error.message)
-        }
-
-        if (payrollItemsResponse.error) {
-          throw new Error(payrollItemsResponse.error.message)
-        }
+        const response = await readWorkerFinanceHistoryAction(resolvedWorkerId)
+        if (response.error || !response.data) throw new Error(response.error?.message ?? dictionary.workers.financeEdit.workerNotFound)
+        const { profile, advances, payrollItems } = response.data
 
         if (cancelled) return
 
-        setFullName(profileResponse.data.full_name ?? '')
-        setEmail(profileResponse.data.email ?? '')
+        setFullName(profile.full_name ?? '')
+        setEmail(profile.email ?? '')
         setDefaultHourlyRate(
-          profileResponse.data.default_hourly_rate != null
-            ? String(profileResponse.data.default_hourly_rate)
+          profile.default_hourly_rate != null
+            ? String(profile.default_hourly_rate)
             : ''
         )
-        setAdvances((advancesResponse.data ?? []) as WorkerAdvanceRow[])
-        setPayrollItems((payrollItemsResponse.data ?? []) as PayrollItemRow[])
+        setAdvances(advances as WorkerAdvanceRow[])
+        setPayrollItems(payrollItems as PayrollItemRow[])
       } catch (err: unknown) {
         if (!cancelled) {
           setError(getErrorMessage(err, dictionary.workers.financeEdit.loadFailed))

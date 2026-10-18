@@ -8,7 +8,7 @@ declare
   ca uuid:=gen_random_uuid(); cb uuid:=gen_random_uuid(); r1 uuid:=gen_random_uuid(); r2 uuid:=gen_random_uuid();
   r3 uuid:=gen_random_uuid(); rlate uuid:=gen_random_uuid(); opreview uuid:=gen_random_uuid();
   op1 uuid:=gen_random_uuid(); op2 uuid:=gen_random_uuid(); ops uuid:=gen_random_uuid();
-  v_payment uuid; v_manual uuid; v_result jsonb; v_retry jsonb; v_before jsonb; v_after jsonb;
+  v_payment uuid; v_manual uuid; v_grant uuid; v_result jsonb; v_retry jsonb; v_before jsonb; v_after jsonb;
   v_error text; v_message text; v_case record; v_role uuid; v_query text; v_table text;
   passed jsonb:='[]'; marker text:='AdvanceTest'||replace(gen_random_uuid()::text,'-','');
   today date:=(clock_timestamp() at time zone 'Europe/Prague')::date;
@@ -329,6 +329,66 @@ begin
     execute state_sql into v_after using ca;
     assert v_error='22003' and v_before=v_after,'late_request_update_failure_rolls_back_inserted_payment';
     passed:=passed||jsonb_build_array('late_request_update_failure_rolls_back_inserted_payment');
+
+    -- Real grant evaluator and C08 post-lock source validation. These sequential
+    -- cases complement (not replace) the separate authenticated licence barriers.
+    begin
+      execute 'reset role';
+      insert into private.company_module_rollouts(company_id,product,livemode) values(ca,'diriqo_core',false);
+      insert into private.company_test_module_grants(company_id,product,source_ref,reason,
+        valid_from,valid_until,history_until,capabilities)
+      values(ca,'diriqo_core',marker||'-active','Synthetic C08 regression',
+        now()-interval '1 hour',now()+interval '1 hour',now()+interval '1 hour',
+        array['core.advances.request','core.advances.pay']) returning id into v_grant;
+      execute 'set local role authenticated';
+      v_result:=public.pay_worker_advance_atomic(ca,pw,null,gen_random_uuid(),1,today,'Active test grant');
+      assert (v_result->>'changed')::boolean,'active_test_grant_allows_canonical_payment';
+      passed:=passed||jsonb_build_array('active_test_grant_allows_canonical_payment');
+      execute 'reset role';
+      update private.company_test_module_grants set revoked_at=clock_timestamp(),revocation_reason='Synthetic C08 regression' where id=v_grant;
+      execute state_sql into v_before using ca;
+      execute 'set local role authenticated';
+      v_error:=null;
+      begin perform public.pay_worker_advance_atomic(ca,pw,null,gen_random_uuid(),1,today,'Revoked test grant');
+      exception when others then get stacked diagnostics v_error=message_text; end;
+      execute state_sql into v_after using ca;
+      assert v_error='ADVANCE_MODULE_REQUIRED' and v_before=v_after,'revoked_test_grant_denies_new_payment_without_writes';
+      passed:=passed||jsonb_build_array('revoked_test_grant_denies_new_payment_without_writes');
+      raise exception 'rollback scenario' using errcode='PT002';
+    exception when sqlstate 'PT002' then null; end;
+    begin
+      execute 'reset role';
+      insert into private.company_module_rollouts(company_id,product,livemode) values(ca,'diriqo_core',false);
+      insert into private.company_test_module_grants(company_id,product,source_ref,reason,
+        valid_from,valid_until,history_until,capabilities)
+      values(ca,'diriqo_core',marker||'-expired','Synthetic C08 expired regression',
+        now()-interval '2 hours',now()-interval '1 hour',now()-interval '1 hour',array['core.advances.pay']);
+      execute state_sql into v_before using ca;
+      execute 'set local role authenticated';
+      v_error:=null;
+      begin perform public.pay_worker_advance_atomic(ca,pw,null,gen_random_uuid(),1,today,'Expired test grant');
+      exception when others then get stacked diagnostics v_error=message_text; end;
+      execute state_sql into v_after using ca;
+      assert v_error='ADVANCE_MODULE_REQUIRED' and v_before=v_after,'expired_test_grant_denies_new_payment_without_writes';
+      passed:=passed||jsonb_build_array('expired_test_grant_denies_new_payment_without_writes');
+      raise exception 'rollback scenario' using errcode='PT002';
+    exception when sqlstate 'PT002' then null; end;
+    foreach v_role in array array[pa,pw] loop
+      execute 'reset role';
+      execute state_sql into v_before using ca;
+      update public.company_members set is_active=false where company_id=ca and profile_id=v_role;
+      execute 'set local role authenticated';
+      v_error:=null;
+      begin perform public.pay_worker_advance_atomic(ca,pw,null,gen_random_uuid(),1,today,'Revoked actor');
+      exception when others then get stacked diagnostics v_error=message_text; end;
+      execute 'reset role';
+      execute state_sql into v_after using ca;
+      assert v_error=case when v_role=pa then 'ADVANCE_FORBIDDEN' else 'ADVANCE_WORKER_UNAVAILABLE' end and v_before=v_after,
+        'revoked_payment_actor_preserves_financial_state';
+      update public.company_members set is_active=true where company_id=ca and profile_id=v_role;
+      passed:=passed||jsonb_build_array(case when v_role=pa then 'revoked_admin_new_payment_denied' else 'revoked_subject_new_payment_denied' end);
+    end loop;
+    execute 'set local role authenticated';
 
     -- No client API write can bypass amount, role, state, immutability or scope.
     foreach v_table in array array['advance_requests','worker_advances','worker_advance_settlements'] loop

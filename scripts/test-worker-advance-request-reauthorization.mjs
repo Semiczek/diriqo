@@ -142,8 +142,8 @@ try {
   if (change === 'expiry') {
     assert(capability.data.enforced === true && capability.data.reason === 'test', 'Expiry requires enforced nonfinancial test grant only')
     const until = Date.parse(f.grantValidUntil)
-    assert(until > Date.now() + requestDelayMs + 5000 && until < Date.now() + requestDelayMs + 35000,
-      'Set grant deadline 5..35 seconds after the planned RPC start; owner must observe the wait before expiry')
+    assert(until > Date.now() + requestDelayMs + 1000 && until < Date.now() + requestDelayMs + 6000,
+      'Set grant deadline 1..6 seconds after the planned RPC start; owner must observe the wait and release before the 8s database timeout')
   }
   const body = { target_company_id: f.companyId, target_request_id: f.requestId, requested_amount: '1.00',
     request_reason: `SYNTHETIC-${barrier}-${change}-WRITE-REAUTHORIZATION`, requested_for_month: null }

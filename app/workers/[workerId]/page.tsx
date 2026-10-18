@@ -1,3 +1,4 @@
+import { companyPayrollQuery, readPayrollRows, readPayrollAssignments, readActivePayrollMember } from '@/lib/dal/payroll-readers'
 import { readAdvanceSettings } from '@/lib/dal/advance-settings'
 import { readPayrollAdvanceLedger } from '@/lib/dal/worker-advances'
 import { formatAdvanceMoney, payrollAdvanceTotal } from '@/lib/payroll/advances'
@@ -104,7 +105,7 @@ type LatestWorkerInviteRow = {
 
 function isMissingPayrollPaymentsTable(error: { message?: string; code?: string } | null | undefined) {
   const message = (error?.message ?? '').toLowerCase()
-  return error?.code === '42P01' || message.includes('payroll_payments')
+  return (error?.code === '42P01' || error?.code === 'PGRST205') && message.includes('payroll_payments')
 }
 
 function renderError(message: string) {
@@ -227,6 +228,10 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
   const locale = await getRequestLocale()
   const { workerId } = await params
   const supabase = await createSupabaseServerClient()
+  const memberResponse = await readActivePayrollMember(supabase, pageAccess.value.companyId, workerId)
+  if (memberResponse.error) return renderError(dictionary.workers.detail.loadMembersFailed)
+  if (!memberResponse.data) return renderNotFound(dictionary.workers.detail.workerNotFound)
+  const companyMember = memberResponse.data as CompanyMemberRow
   let advanceSettings: Awaited<ReturnType<typeof readAdvanceSettings>>
   try { advanceSettings = await readAdvanceSettings(supabase, pageAccess.value.companyId, workerId) }
   catch { return renderError('Výplatní nastavení aktivní firmy se nepodařilo načíst.') }
@@ -291,18 +296,14 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
   if (!profile) return renderNotFound(dictionary.workers.detail.workerNotFound)
 
   const [
-    jobAssignmentsResponse,
-    workerJobAssignmentSummaryResponse,
+    assignmentResponses,
     workerAdvancesResponse,
     advanceRequestsResponse,
     payrollItemsResponse,
-    companyMembersResponse,
     absencesResponse,
   ] =
     await Promise.all([
-      supabase
-        .from('job_assignments')
-        .select(`
+      readPayrollAssignments(supabase, pageAccess.value.companyId, [workerId], `
           id,
           job_id,
           profile_id,
@@ -313,7 +314,7 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
           external_amount,
           work_started_at,
           work_completed_at,
-          jobs (
+          jobs!inner (
             id,
             company_id,
             title,
@@ -327,39 +328,22 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
               name
             )
           )
-        `)
-        .eq('profile_id', workerId)
-        .is('archived_at', null),
-      supabase
-        .from('worker_job_assignment_summary')
-        .select('assignment_id, job_id, profile_id, labor_hours_total, effective_hourly_rate, labor_cost_total')
-        .eq('profile_id', workerId),
+        `),
       readPayrollAdvanceLedger(supabase, pageAccess.value.companyId, { profileId: workerId, payrollMonth: `${selectedMonth}-01`, currency: advanceSettings.currency }),
-      supabase
-        .from('advance_requests')
-        .select('id, profile_id, amount, requested_amount, reason, note, status, requested_at, approved_at, reviewed_at, paid_at, payroll_month')
-        .eq('company_id', pageAccess.value.companyId)
+      readPayrollRows(companyPayrollQuery(supabase, pageAccess.value.companyId, 'advance_requests', 'id, profile_id, amount, requested_amount, reason, note, status, requested_at, approved_at, reviewed_at, paid_at, payroll_month')
         .eq('profile_id', workerId)
-        .order('requested_at', { ascending: false }),
-      supabase
-        .from('payroll_items')
-        .select('id, profile_id, payroll_month, item_type, amount, note, created_at')
+        .order('requested_at', { ascending: false }).order('id')),
+      readPayrollRows(companyPayrollQuery(supabase, pageAccess.value.companyId, 'payroll_items', 'id, profile_id, payroll_month, item_type, amount, note, created_at')
         .eq('profile_id', workerId)
         .eq('payroll_month', selectedMonth)
-        .order('created_at', { ascending: false }),
-      supabase
-        .from('company_members')
-        .select('company_id')
-        .eq('company_id', pageAccess.value.companyId)
+        .order('created_at', { ascending: false }).order('id')),
+      readPayrollRows(companyPayrollQuery(supabase, pageAccess.value.companyId, 'absence_requests', 'id, profile_id, absence_mode, absence_type, start_at, end_at, note, status, created_at, reviewed_at')
         .eq('profile_id', workerId)
-        .eq('is_active', true)
-        .limit(1),
-      supabase
-        .from('absence_requests')
-        .select('id, profile_id, absence_mode, absence_type, start_at, end_at, note, status, created_at, reviewed_at')
-        .eq('profile_id', workerId)
-        .order('start_at', { ascending: false }),
+        .order('start_at', { ascending: false }).order('id')),
     ])
+
+  const jobAssignmentsResponse = assignmentResponses.assignments
+  const workerJobAssignmentSummaryResponse = assignmentResponses.summaries
 
   if (jobAssignmentsResponse.error) {
     return renderError(`${dictionary.workers.detail.loadAssignmentsFailed}: ${jobAssignmentsResponse.error.message}`)
@@ -383,10 +367,6 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
     return renderError(`${dictionary.workers.detail.loadPayrollItemsFailed}: ${payrollItemsResponse.error.message}`)
   }
 
-  if (companyMembersResponse.error) {
-    return renderError(`${dictionary.workers.detail.loadMembersFailed}: ${companyMembersResponse.error.message}`)
-  }
-
   if (absencesResponse.error) {
     return renderError(`Nepodařilo se načíst nepřítomnosti: ${absencesResponse.error.message}`)
   }
@@ -395,13 +375,11 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
   let workShiftsData: Array<Partial<WorkShiftRow>> | null = null
   let workShiftsError: { message: string } | null = null
 
-  const workShiftsWithJobResponse = await supabase
-    .from('work_shifts')
-    .select('id, profile_id, company_id, job_id, job_hours_override, shift_date, started_at, ended_at, hours_override, note')
+  const workShiftsWithJobResponse = await readPayrollRows(companyPayrollQuery(supabase, pageAccess.value.companyId, 'work_shifts', 'id, profile_id, company_id, job_id, job_hours_override, shift_date, started_at, ended_at, hours_override, note')
     .eq('profile_id', workerId)
     .gte('shift_date', workStartDate)
     .lt('shift_date', workEndExclusiveDate)
-    .order('started_at', { ascending: false })
+    .order('started_at', { ascending: false }).order('id'))
 
   if (
     workShiftsWithJobResponse.error &&
@@ -409,13 +387,11 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
   ) {
     workShiftsSupportJobAssignment = false
 
-    const fallbackWorkShiftsResponse = await supabase
-      .from('work_shifts')
-      .select('id, profile_id, company_id, shift_date, started_at, ended_at, hours_override, note')
+    const fallbackWorkShiftsResponse = await readPayrollRows(companyPayrollQuery(supabase, pageAccess.value.companyId, 'work_shifts', 'id, profile_id, company_id, shift_date, started_at, ended_at, hours_override, note')
       .eq('profile_id', workerId)
       .gte('shift_date', workStartDate)
       .lt('shift_date', workEndExclusiveDate)
-      .order('started_at', { ascending: false })
+      .order('started_at', { ascending: false }).order('id'))
 
     workShiftsData = (fallbackWorkShiftsResponse.data ?? []) as Array<Partial<WorkShiftRow>>
     workShiftsError = fallbackWorkShiftsResponse.error
@@ -454,7 +430,7 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
 
   const jobStatesResponse =
     assignmentJobIds.length > 0
-      ? await supabase.from('jobs_with_state').select('id, time_state, work_state').in('id', assignmentJobIds)
+      ? await readPayrollRows(supabase.from('jobs_with_state').select('id, time_state, work_state').in('id', assignmentJobIds).order('id'))
       : { data: [], error: null }
 
   if (jobStatesResponse.error) {
@@ -527,7 +503,6 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
     ),
   )
   const approvedAbsences = absenceRequests.filter((absence) => getAbsenceRequestStatus(absence) === 'approved')
-  const companyMember = (((companyMembersResponse.data ?? []) as unknown[]) as CompanyMemberRow[])[0] ?? null
   const latestInviteResponse = companyMember?.company_id
     ? await supabase
         .from('worker_invites')
@@ -564,11 +539,7 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
   const workerType = getWorkerType(profile)
   const isContractor = workerType === 'contractor'
 
-  const shiftCompanyId =
-    workShifts.find((item) => item.company_id)?.company_id ??
-    mergedJobAssignments.find((item) => item.jobs?.company_id)?.jobs?.company_id ??
-    companyMember?.company_id ??
-    null
+  const shiftCompanyId = pageAccess.value.companyId
 
   const shiftLinkedJobIds = new Set(
     workShifts
@@ -578,11 +549,9 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
 
   const shiftJobsResponse =
     shiftCompanyId && workShiftsSupportJobAssignment
-      ? await supabase
-          .from('jobs')
-          .select('id, title, start_at, end_at')
+      ? await readPayrollRows(companyPayrollQuery(supabase, pageAccess.value.companyId, 'jobs', 'id, title, start_at, end_at')
           .eq('company_id', shiftCompanyId)
-          .order('start_at', { ascending: false })
+          .order('start_at', { ascending: false }).order('id'))
       : { data: [], error: null }
 
   if (shiftCompanyId && shiftJobsResponse.error) {

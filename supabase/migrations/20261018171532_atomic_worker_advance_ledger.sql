@@ -199,6 +199,57 @@ end;
 $f$;
 revoke all on function private.advance_settings(uuid,uuid) from public,anon,authenticated,service_role;
 
+-- C08 only: the shared evaluator can wait after receiving its timestamp. Acquire
+-- its rollout/grant locks first, then evaluate again with a fresh clock. Paid
+-- receipts are not locked by that evaluator, so lock the selected receipt here
+-- and validate its actual current fields/time. Unknown or changed sources fail
+-- closed. Do not change licensing policy for any other domain.
+create function private.assert_advance_capability(target_company_id uuid,target_capability text)
+returns void language plpgsql security definer set search_path='' as $f$
+declare v_access jsonb; v_paid public.company_module_entitlements%rowtype;
+  v_test private.company_test_module_grants%rowtype; v_now timestamptz; v_valid boolean;
+begin
+  if target_capability is null or target_capability not in ('core.advances.request','core.advances.pay') then
+    raise exception 'ADVANCE_INVALID' using errcode='22023';
+  end if;
+  perform private.evaluate_company_capability_access(target_company_id,target_capability,clock_timestamp());
+  v_access:=private.evaluate_company_capability_access(target_company_id,target_capability,clock_timestamp());
+  if not coalesce((v_access->>'allowed')::boolean,false) then
+    raise exception 'ADVANCE_MODULE_REQUIRED' using errcode='42501';
+  end if;
+  if v_access->>'reason'='paid' then
+    select * into v_paid from public.company_module_entitlements e
+      where e.id=(v_access->>'entitlement_id')::uuid and e.company_id=target_company_id for share;
+    if not found then raise exception 'ADVANCE_MODULE_REQUIRED' using errcode='42501'; end if;
+    v_now:=clock_timestamp();
+    v_valid:=v_paid.product='diriqo_core' and v_paid.register_id is null
+      and v_paid.policy_version='diriqo-capabilities-v0.1' and v_paid.origin='paid'
+      and v_paid.state='active' and not v_paid.revoked
+      and v_paid.livemode=(v_access->>'livemode')::boolean
+      and v_paid.valid_from<=v_now and v_now<v_paid.valid_until
+      and target_capability=any(v_paid.capabilities);
+  elsif v_access->>'reason'='test' then
+    select * into v_test from private.company_test_module_grants g
+      where g.id=(v_access->>'test_grant_id')::uuid and g.company_id=target_company_id for share;
+    if not found then raise exception 'ADVANCE_MODULE_REQUIRED' using errcode='42501'; end if;
+    v_now:=clock_timestamp();
+    v_valid:=v_test.product='diriqo_core' and v_test.register_id is null
+      and v_test.policy_version='diriqo-capabilities-v0.1' and v_test.origin='manual_grant'
+      and v_test.state='active' and v_test.revoked_at is null and not v_test.livemode
+      and (v_access->>'livemode')::boolean=false
+      and v_test.valid_from<=v_now and v_now<v_test.valid_until
+      and target_capability=any(v_test.capabilities);
+  else
+    v_valid:=v_access->>'reason'='legacy' and (v_access->>'enforced')::boolean=false;
+  end if;
+  if v_valid is distinct from true then raise exception 'ADVANCE_MODULE_REQUIRED' using errcode='42501'; end if;
+exception when insufficient_privilege then
+  if sqlerrm='MODULE_CAPABILITY_FORBIDDEN' then raise exception 'ADVANCE_FORBIDDEN' using errcode='42501'; end if;
+  raise;
+end;
+$f$;
+revoke all on function private.assert_advance_capability(uuid,text) from public,anon,authenticated,service_role;
+
 create function private.request_advance_atomic(target_company_id uuid,target_request_id uuid,
   requested_amount numeric,request_reason text,requested_for_month date)
 returns jsonb language plpgsql security definer set search_path='' as $f$
@@ -236,8 +287,7 @@ begin
   if private.advance_actor(target_company_id,false) is distinct from v_actor then
     raise exception 'ADVANCE_FORBIDDEN' using errcode='42501';
   end if;
-  v_access:=private.evaluate_company_capability_access(target_company_id,'core.advances.request',clock_timestamp());
-  if not coalesce((v_access->>'allowed')::boolean,false) then raise exception 'ADVANCE_MODULE_REQUIRED' using errcode='42501'; end if;
+  perform private.assert_advance_capability(target_company_id,'core.advances.request');
   if private.advance_actor(target_company_id,false) is distinct from v_actor then
     raise exception 'ADVANCE_FORBIDDEN' using errcode='42501';
   end if;
@@ -386,11 +436,15 @@ begin
       where w.company_id=target_company_id and w.profile_id=target_profile_id
         and w.payroll_month=v_month;
     if v_limit is not null and v_month_paid+payment_amount>v_limit then raise exception 'ADVANCE_LIMIT_EXCEEDED' using errcode='23514'; end if;
+    perform private.assert_advance_capability(target_company_id,'core.advances.pay');
+    -- No authorization call below this point acquires a blocking row/advisory
+    -- lock. Both actors must still be valid after every licence/settings wait.
     v_actor:=private.advance_actor(target_company_id,true);
-    if not exists(select 1 from public.company_members cm where cm.company_id=target_company_id
-      and cm.profile_id=target_profile_id and cm.is_active) then raise exception 'ADVANCE_WORKER_UNAVAILABLE' using errcode='23514'; end if;
-    v_access:=private.evaluate_company_capability_access(target_company_id,'core.advances.pay',clock_timestamp());
-    if not coalesce((v_access->>'allowed')::boolean,false) then raise exception 'ADVANCE_MODULE_REQUIRED' using errcode='42501'; end if;
+    if not exists(select 1 from public.company_members cm join public.profiles p on p.id=cm.profile_id
+      where cm.company_id=target_company_id and cm.profile_id=target_profile_id and cm.is_active and p.is_active) then
+      raise exception 'ADVANCE_WORKER_UNAVAILABLE' using errcode='23514';
+    end if;
+    v_now:=clock_timestamp();
     insert into public.worker_advances(company_id,profile_id,advance_request_id,operation_id,amount,
       issued_at,payroll_month,paid_at,note,recorded_by,currency,payment_method,payment_reference,created_at,updated_at)
     values(target_company_id,target_profile_id,target_request_id,operation_id,payment_amount,issued_on,v_month,

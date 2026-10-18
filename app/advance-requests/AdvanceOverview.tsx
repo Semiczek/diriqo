@@ -23,14 +23,14 @@ export default function AdvanceOverview(props: {
         <header><span className={styles.badge}>{label}</span><h2>{props.admin ? request.worker_name : 'Žádost o zálohu'}</h2>
           <p>Podáno {new Date(request.requested_at).toLocaleDateString('cs-CZ')} · {request.reason || request.note || 'Bez poznámky'}</p></header>
         <dl className={styles.summary}>
-          <div><dt>Požadováno</dt><dd>{money(request.requested_amount)}</dd></div>
+          <div><dt>Požadováno</dt><dd>{request.requested_amount == null ? 'Původní částka není doložená' : money(request.requested_amount)}</dd></div>
           <div><dt>Schváleno</dt><dd>{money(approved)}</dd></div>
           <div><dt>Vyplaceno</dt><dd>{money(paid)}</dd></div>
           <div><dt>Zbývá vyplatit</dt><dd>{money(remaining)}</dd></div>
           <div><dt>Vyplaceno a nevypořádáno</dt><dd>{money(paid - settled)}</dd></div>
         </dl>
         {request.review_reason && <p>Důvod rozhodnutí: {request.review_reason}</p>}
-        {props.admin && request.currency && request.status === 'pending' && <AdvanceReviewForm companyId={props.companyId} actorProfileId={props.actorProfileId} requestId={request.id} revision={request.revision} requestedAmount={request.requested_amount} currency={request.currency!} />}
+        {props.admin && request.currency && request.requested_amount != null && request.status === 'pending' && <AdvanceReviewForm companyId={props.companyId} actorProfileId={props.actorProfileId} requestId={request.id} revision={request.revision} requestedAmount={request.requested_amount} currency={request.currency!} />}
         {props.admin && request.currency && request.status === 'approved' && remaining > 0 && <AdvancePaymentForm companyId={props.companyId} actorProfileId={props.actorProfileId} requestId={request.id} profileId={request.profile_id} revision={request.revision} remaining={remaining} today={props.today} currency={request.currency} />}
         <PaymentHistory {...props} payments={payments} />
       </article>

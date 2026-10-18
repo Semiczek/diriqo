@@ -4,6 +4,8 @@ import { revalidatePath } from 'next/cache'
 import { requireWorkerAccess } from '@/lib/server-guards'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 import { AdvanceError, advanceError, payAdvance, readAdvanceLedger, requestAdvance, reviewAdvance, settleAdvance, type AdvanceContext, type AdvanceResult } from '@/lib/dal/worker-advances'
+import { companyPayrollQuery, readActivePayrollMember, readPayrollRows } from '@/lib/dal/payroll-readers'
+import type { AdvancePayment } from '@/lib/payroll/advances'
 
 export type AdvanceActionResult = { ok: true; data: AdvanceResult } | { ok: false; error: string; uncertain: boolean }
 async function context(expectedCompanyId: string, admin: boolean): Promise<AdvanceContext> {
@@ -45,9 +47,38 @@ export async function readWorkerAdvanceHistoryAction(profileId: string) {
     const access = await requireWorkerAccess()
     if (!access.ok) throw new AdvanceError('Přihlaste se do aktivní firmy.')
     const ctx = await context(access.value.companyId, true)
+    const member = await readActivePayrollMember(ctx.supabase, ctx.companyId, profileId)
+    if (member.error || !member.data) throw new AdvanceError('Pracovník nepatří do aktivní firmy.')
     const result = await readAdvanceLedger(ctx.supabase, ctx.companyId, { profileId })
     return { data: result.payments, error: null }
   } catch {
     return { data: [], error: { message: 'Historii záloh pracovníka nelze v aktivní firmě načíst.' } }
+  }
+}
+
+type WorkerFinanceHistory = {
+  profile: { id: string; full_name: string | null; email: string | null; default_hourly_rate: number | null }
+  advances: AdvancePayment[]
+  payrollItems: Array<{ id: string; profile_id: string; payroll_month: string | null; item_type: string | null; amount: number | string | null; note: string | null; created_at: string | null }>
+}
+export async function readWorkerFinanceHistoryAction(profileId: string): Promise<{
+  data: WorkerFinanceHistory | null; error: { message: string } | null
+}> {
+  try {
+    const access = await requireWorkerAccess()
+    if (!access.ok) throw new AdvanceError('Přihlaste se do aktivní firmy.')
+    const ctx = await context(access.value.companyId, true)
+    const member = await readActivePayrollMember(ctx.supabase, ctx.companyId, profileId)
+    if (member.error || !member.data) throw new AdvanceError('Pracovník nepatří do aktivní firmy.')
+    const [profile, ledger, payrollItems] = await Promise.all([
+      ctx.supabase.from('profiles').select('id, full_name, email, default_hourly_rate').eq('id', profileId).maybeSingle(),
+      readAdvanceLedger(ctx.supabase, ctx.companyId, { profileId }),
+      readPayrollRows(companyPayrollQuery(ctx.supabase, ctx.companyId, 'payroll_items', 'id, profile_id, payroll_month, item_type, amount, note, created_at')
+        .eq('profile_id', profileId).order('payroll_month', { ascending: false }).order('created_at', { ascending: false }).order('id')),
+    ])
+    if (profile.error || !profile.data || payrollItems.error) throw new AdvanceError('Mzdové podklady nelze načíst.')
+    return { data: { profile: profile.data, advances: ledger.payments, payrollItems: payrollItems.data as WorkerFinanceHistory['payrollItems'] }, error: null }
+  } catch {
+    return { data: null, error: { message: 'Finanční údaje pracovníka nelze v aktivní firmě načíst.' } }
   }
 }

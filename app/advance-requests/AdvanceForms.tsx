@@ -3,6 +3,7 @@
 import { useMemo, useRef, useState, useSyncExternalStore, type FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import { payAdvanceAction, requestAdvanceAction, reviewAdvanceAction, settleAdvanceAction, type AdvanceActionResult } from './actions'
+import { executeAdvanceOperation } from '@/lib/payroll/advance-operation'
 import { formatAdvanceMoney } from '@/lib/payroll/advances'
 import styles from './advances.module.css'
 
@@ -15,7 +16,7 @@ function subscribePending(notify: () => void) {
   return () => { window.removeEventListener('storage', notify); window.removeEventListener('diriqo-advance-pending', notify) }
 }
 
-/** Keep one operation and its original payload until a definite response, including across reload. */
+/** Preserve uncertain operations through failed retries, including across reload. */
 function useOperation(scope: Scope, suffix: string) {
   const router = useRouter()
   const key = `diriqo-advance-v1:${scope.companyId}:${scope.actorProfileId}:${suffix}`
@@ -42,14 +43,11 @@ function useOperation(scope: Scope, suffix: string) {
     running.current = true
     setBusy(true); setError(null); setMessage(null)
     try {
-      const operation = pending ?? { ...payload, companyId: scope.companyId, operationId: crypto.randomUUID() }
-      sessionStorage.setItem(key, JSON.stringify(operation))
-      window.dispatchEvent(new Event('diriqo-advance-pending'))
-      const result = await action(operation)
-      if (result.ok || !result.uncertain) {
-        sessionStorage.removeItem(key)
-        window.dispatchEvent(new Event('diriqo-advance-pending'))
-      }
+      const result = await executeAdvanceOperation({
+        pending, payload, companyId: scope.companyId, newOperationId: () => crypto.randomUUID(), action,
+        store: operation => { sessionStorage.setItem(key, JSON.stringify(operation)); window.dispatchEvent(new Event('diriqo-advance-pending')) },
+        clear: () => { sessionStorage.removeItem(key); window.dispatchEvent(new Event('diriqo-advance-pending')) },
+      })
       if (!result.ok) { setError(result.error); return }
       setMessage(result.data.changed ? 'Záznam byl uložen.' : 'Toto potvrzení již bylo uloženo. Další pohyb nevznikl.')
       onSuccess?.()

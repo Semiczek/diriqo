@@ -1,3 +1,4 @@
+import { companyPayrollQuery, readPayrollRows, readPayrollAssignments } from '@/lib/dal/payroll-readers'
 import { readAdvanceSettings, readWorkerPaydayOverrides } from '@/lib/dal/advance-settings'
 import { readPayrollAdvanceLedger } from '@/lib/dal/worker-advances'
 import { payrollAdvanceTotal } from '@/lib/payroll/advances'
@@ -187,7 +188,7 @@ function getDefaultHourlyRate(profile: ProfileRow) {
 
 function isMissingPayrollPaymentsTable(error: { message?: string; code?: string } | null | undefined) {
   const message = (error?.message ?? '').toLowerCase()
-  return error?.code === '42P01' || message.includes('payroll_payments')
+  return (error?.code === '42P01' || error?.code === 'PGRST205') && message.includes('payroll_payments')
 }
 
 function getInviteStatus(profile: ProfileRow) {
@@ -216,11 +217,8 @@ export async function GET(request: NextRequest) {
   catch { return NextResponse.json({ error: 'Výplatní nastavení se nepodařilo načíst.' }, { status: 503 }) }
   const { advancePeriodLabel } = getAdvanceRange(selectedMonth)
 
-  const membersResponse = await supabase
-    .from('company_members')
-    .select('id, company_id, profile_id, role, is_active')
-    .eq('company_id', guard.value.companyId)
-    .eq('is_active', true)
+  const membersResponse = await readPayrollRows(companyPayrollQuery(supabase, guard.value.companyId, 'company_members', 'id, company_id, profile_id, role, is_active')
+    .eq('is_active', true).order('id'))
 
   if (membersResponse.error) {
     return NextResponse.json({ error: membersResponse.error.message }, { status: 400 })
@@ -268,22 +266,15 @@ export async function GET(request: NextRequest) {
 
   const [
     profilesResponse,
-    jobAssignmentsResponse,
-    jobAssignmentSummariesResponse,
+    assignmentResponses,
     workLogsResponse,
     workShiftsResponse,
     workerAdvancesResponse,
     payrollItemsResponse,
     payrollPaymentsResponse,
   ] = await Promise.all([
-    supabase
-      .from('profiles')
-      .select('id, full_name, email, phone, worker_status, activated_at, disabled_at, last_seen_at, device_registered_at, default_hourly_rate, worker_type, contractor_billing_type, contractor_default_rate')
-      .in('id', profileIds)
-      .order('full_name', { ascending: true }),
-    supabase
-      .from('job_assignments')
-      .select(`
+    readPayrollRows(supabase.from('profiles').select('id, full_name, email, phone, worker_status, activated_at, disabled_at, last_seen_at, device_registered_at, default_hourly_rate, worker_type, contractor_billing_type, contractor_default_rate').in('id', profileIds).order('full_name', { ascending: true }).order('id')),
+    readPayrollAssignments(supabase, guard.value.companyId, profileIds, `
         id,
         profile_id,
         job_id,
@@ -302,38 +293,26 @@ export async function GET(request: NextRequest) {
           start_at,
           end_at
         )
-      `)
-      .in('profile_id', profileIds)
-      .is('archived_at', null),
-    supabase
-      .from('worker_job_assignment_summary')
-      .select('assignment_id, job_id, profile_id, labor_hours_total, effective_hourly_rate, labor_cost_total')
-      .in('profile_id', profileIds),
-    supabase
-      .from('work_logs')
-      .select('profile_id, hours')
+      `),
+    readPayrollRows(companyPayrollQuery(supabase, guard.value.companyId, 'work_logs', 'profile_id, hours')
       .in('profile_id', profileIds)
       .gte('work_date', workStartDate)
-      .lt('work_date', workEndExclusiveDate),
-    supabase
-      .from('work_shifts')
-      .select('id, profile_id, job_id, shift_date, started_at, ended_at, hours_override')
-      .eq('company_id', guard.value.companyId)
+      .lt('work_date', workEndExclusiveDate).order('id')),
+    readPayrollRows(companyPayrollQuery(supabase, guard.value.companyId, 'work_shifts', 'id, profile_id, job_id, shift_date, started_at, ended_at, hours_override')
       .in('profile_id', profileIds)
       .gte('shift_date', workStartDate)
-      .lt('shift_date', workEndExclusiveDate),
+      .lt('shift_date', workEndExclusiveDate).order('id')),
     readPayrollAdvanceLedger(supabase, guard.value.companyId, { payrollMonth: `${selectedMonth}-01`, currency: advanceSettings.currency }),
-    supabase
-      .from('payroll_items')
-      .select('profile_id, item_type, amount')
+    readPayrollRows(companyPayrollQuery(supabase, guard.value.companyId, 'payroll_items', 'profile_id, item_type, amount')
       .in('profile_id', profileIds)
-      .eq('payroll_month', selectedMonth),
-    supabase
-      .from('payroll_payments')
-      .select('profile_id, amount, paid_at')
+      .eq('payroll_month', selectedMonth).order('id')),
+    readPayrollRows(companyPayrollQuery(supabase, guard.value.companyId, 'payroll_payments', 'profile_id, amount, paid_at')
       .in('profile_id', profileIds)
-      .eq('payroll_month', selectedMonth),
+      .eq('payroll_month', selectedMonth).order('id')),
   ])
+
+  const jobAssignmentsResponse = assignmentResponses.assignments
+  const jobAssignmentSummariesResponse = assignmentResponses.summaries
 
   if (profilesResponse.error) return NextResponse.json({ error: profilesResponse.error.message }, { status: 400 })
   if (jobAssignmentsResponse.error) return NextResponse.json({ error: jobAssignmentsResponse.error.message }, { status: 400 })
