@@ -29,6 +29,9 @@ PDF export faktury vrací `permission denied for table invoices`: firemní PDF r
 
 ## 2. Kritické P0 chyby a blokující ověření
 
+**Nový neuzavřený nález 18. 10.: smíšené role a fallback aktivní firmy.** Po přepnutí uživatele z administrátora firmy A do worker členství firmy B ukazuje hlavička firmu B, ale `/` načte dashboard firmy A. `app/(dashboard)/page.tsx` volá `getActiveCompanyContext()` s výchozím filtrem `hasHubAccessRole` před vyhodnocením cookie; worker firmu odfiltruje a použije fallback administrátorské firmy. C08 používá správné `requireWorkerAccess`. Globální resolver/dashboard vyžaduje samostatnou opravu a regresi admin A / worker B; celá tenant matice zůstává otevřená. V tomto C08 balíku se resolver nemění.
+
+
 Konkrétní kódové vady se odlišují od neprovedeného testu. Následující vady byly zjištěny čtením baseline; případná následná oprava a její důkaz jsou uvedeny v příslušném řádku. U ostatních vad se netvrdí živá reprodukce ani nasazená oprava.
 
 | ID | Konkrétní problém | Dopad a další oprava |

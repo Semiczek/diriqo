@@ -1332,7 +1332,7 @@
           "artifacts/worker-advances/hosted-concurrency-20261018.json",
           "artifacts/worker-advances/hosted-http409-sql-20261018.json"
         ],
-        "scope": "81 SQL scénářů+5 cleanup;4 souběhy+4 request reauth+7 payment reauth, samostatně4kroková reconciliace. Dva původní neúspěchy zachovány. Paid receipt/UI/hardware neověřeny.",
+        "scope": "81 SQL scénářů+5 cleanup;4 souběhy+4 request reauth+7 payment reauth, samostatně4kroková reconciliace. Tři historické neúspěchy zachovány. Paid receipt/UI/hardware neověřeny.",
         "executedThisReview": true
       }
     },
@@ -1350,7 +1350,7 @@
     },
     "evidence": [
       "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Žádost má jednu částku a stav paid; schvalování existuje, více samostatných výplat a dvě salda ne.",
-      "2026-10-18: minimální C08+forward PT409 oprava, hosted SQL 81+5 PASS, Auth/HTTP4+4+7 a reconciliace 4kroky PASS. Agregát SHA 9b011b9312feaa43f504fa052b2d90e775bf1716856fafb393d80c92ff631a06; hosted SQLfix SHA 2dc25206502836a692957146a31696fd6f8d5013959d5001b74a326995939904. Historický baseline výše není aktuálním stavem opravených funkcí."
+      "2026-10-18: minimální C08+forward PT409 oprava, hosted SQL 81+5 PASS, Auth/HTTP4+4+7 a reconciliace 4kroky PASS. Agregát SHA 98b8839dd8deed772d8fa0699bbeca3ed2d67a44a18a6b5ca72686d8181b7206; hosted SQLfix SHA 2dc25206502836a692957146a31696fd6f8d5013959d5001b74a326995939904. Historický baseline výše není aktuálním stavem opravených funkcí."
     ],
     "remaining": [
       "Doložit přihlášené UI žádost 5000→schválení 3000→výplaty 1000+2000, obě salda po reloadu a export.",
@@ -1431,7 +1431,7 @@
     },
     "evidence": [
       "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Stav žádosti se změní na paid před odděleným upsertem worker_advances; chyba upsertu již nemá opakovatelnou cestu, protože retry vyžaduje approved.",
-      "2026-10-18: minimální C08+forward PT409 oprava, hosted SQL 81+5 PASS, Auth/HTTP4+4+7 a reconciliace 4kroky PASS. Agregát SHA 9b011b9312feaa43f504fa052b2d90e775bf1716856fafb393d80c92ff631a06; hosted SQLfix SHA 2dc25206502836a692957146a31696fd6f8d5013959d5001b74a326995939904. Historický baseline výše není aktuálním stavem opravených funkcí."
+      "2026-10-18: minimální C08+forward PT409 oprava, hosted SQL 81+5 PASS, Auth/HTTP4+4+7 a reconciliace 4kroky PASS. Agregát SHA 98b8839dd8deed772d8fa0699bbeca3ed2d67a44a18a6b5ca72686d8181b7206; hosted SQLfix SHA 2dc25206502836a692957146a31696fd6f8d5013959d5001b74a326995939904. Historický baseline výše není aktuálním stavem opravených funkcí."
     ],
     "remaining": [
       "Ověřit opakované potvrzení a obnovu nejistého výsledku také v přihlášeném UI po vydání.",
@@ -1512,7 +1512,7 @@
     },
     "evidence": [
       "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Zaměstnanecké zálohy a pracovní odměny jsou oddělené; úplné vypořádání se zdrojovým dokladem není doložené.",
-      "2026-10-18: minimální C08+forward PT409 oprava, hosted SQL 81+5 PASS, Auth/HTTP4+4+7 a reconciliace 4kroky PASS. Agregát SHA 9b011b9312feaa43f504fa052b2d90e775bf1716856fafb393d80c92ff631a06; hosted SQLfix SHA 2dc25206502836a692957146a31696fd6f8d5013959d5001b74a326995939904. Historický baseline výše není aktuálním stavem opravených funkcí."
+      "2026-10-18: minimální C08+forward PT409 oprava, hosted SQL 81+5 PASS, Auth/HTTP4+4+7 a reconciliace 4kroky PASS. Agregát SHA 98b8839dd8deed772d8fa0699bbeca3ed2d67a44a18a6b5ca72686d8181b7206; hosted SQLfix SHA 2dc25206502836a692957146a31696fd6f8d5013959d5001b74a326995939904. Historický baseline výše není aktuálním stavem opravených funkcí."
     ],
     "remaining": [
       "Doložit přesný náklad konkrétní zakázky vedle času a záloh v jednom přihlášeném UI/export průchodu.",

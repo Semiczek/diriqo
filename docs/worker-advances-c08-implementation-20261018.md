@@ -82,14 +82,17 @@ All three fixture-driven harnesses ran against explicitly synthetic hosted tenan
 | Original-operation reconciliation after the fix | 4 steps PASS, using the saved operation identities |
 | Paid-receipt licence barrier | NOT RUN; no paid receipt was manufactured |
 
-The aggregate contains 18 preserved reports: 15 final scenario passes, one reconciliation pass and two failed initial attempts. The hosted SQL artifact contains the provider-applied forward migration, **81 scenarios + 5 cleanup assertions PASS**, and the narrowly matched backend cleanup. No bank transfer or payroll deduction was performed.
+The aggregate contains 19 preserved reports: 15 final scenario passes, one reconciliation pass and three failed historical attempts (initial payout overlap, initial reconciliation, and initial settings/revocation). The hosted SQL artifact contains the provider-applied forward migration, **81 scenarios + 5 cleanup assertions PASS**, and the narrowly matched backend cleanup. No bank transfer or payroll deduction was performed.
 
 | Managed private evidence path | SHA-256 |
 | --- | --- |
-| `artifacts/worker-advances/hosted-concurrency-20261018.json` | `9b011b9312feaa43f504fa052b2d90e775bf1716856fafb393d80c92ff631a06` |
+| `artifacts/worker-advances/hosted-concurrency-20261018.json` | `98b8839dd8deed772d8fa0699bbeca3ed2d67a44a18a6b5ca72686d8181b7206` |
 | `artifacts/worker-advances/hosted-http409-sql-20261018.json` | `2dc25206502836a692957146a31696fd6f8d5013959d5001b74a326995939904` |
 
 ## Remaining release verification
+
+A separate mixed-role active-company fallback was observed during UI preparation: a user who is administrator in company A and worker in selected company B can see company B in the header while `/` loads company A dashboard data. `app/(dashboard)/page.tsx` uses `getActiveCompanyContext()` with its default `hasHubAccessRole` filter before resolving the active-company cookie; the worker membership is filtered out and the resolver falls back to an administrator company. C08 uses the correct `requireWorkerAccess` boundary. The global resolver/dashboard issue is open for a separate fix; this release does not close the full tenant audit.
+
 
 For the already migrated test project, deploy the matched application only after the coordinated release gates; old direct-write actions intentionally fail after ACL changes. Authenticated UI request→approval→partial payout→settlement→export, current deployment/CI confirmation and final synthetic access cleanup remain release work. C08-01/02/03 stay **partial**, not fully accepted. The paid-receipt barrier and broader authorization surfaces remain outside the completed test matrix. Preserve synthetic financial evidence and revoke test access afterwards. Before applying to any other environment, rerun read-only preflight, preserve schema/grants/policies and settings snapshots, establish the approved recovery procedure, and review the immutable migration against that environment.
 
