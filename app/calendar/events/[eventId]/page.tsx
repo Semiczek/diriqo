@@ -1,23 +1,13 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { startTransition, useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import DashboardShell from '@/components/DashboardShell'
 import CalendarEventDangerZone from '@/components/CalendarEventDangerZone'
 import { useI18n } from '@/components/I18nProvider'
-import { supabase } from '@/lib/supabase'
-import { updateCalendarEventAction } from '../../actions'
-
-type CalendarEventRow = {
-  id: string
-  title: string | null
-  description: string | null
-  start_at: string | null
-  end_at: string | null
-  company_id: string | null
-  job_id: string | null
-}
+import type { CalendarEvent, CalendarSnapshot } from '@/lib/calendar/types'
+import { readCalendarEditorAction, updateCalendarEventAction } from '../../actions'
 
 type Job = {
   id: string
@@ -28,25 +18,6 @@ type Job = {
 type Profile = {
   id: string
   full_name: string | null
-}
-
-type Company = {
-  id: string
-  name: string | null
-}
-
-type AssignmentRow = {
-  id: string
-  event_id: string
-  profile_id: string
-}
-
-function getErrorMessage(error: unknown, fallback: string) {
-  if (error instanceof Error && error.message) {
-    return error.message
-  }
-
-  return fallback
 }
 
 function toDateTimeLocalValue(value: string | null | undefined) {
@@ -81,6 +52,7 @@ function formatDateTime(value: string | null) {
 
 export default function CalendarEventDetailPage() {
   const { dictionary } = useI18n()
+  const t = dictionary.calendar.eventDetail
   const params = useParams<{ eventId: string }>()
   const router = useRouter()
   const eventId = params?.eventId
@@ -89,8 +61,13 @@ export default function CalendarEventDetailPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [conflict, setConflict] = useState<CalendarSnapshot | null>(null)
+  const [needsReconcile, setNeedsReconcile] = useState(false)
+  const [reloading, setReloading] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const writeInFlight = useRef(false)
 
-  const [event, setEvent] = useState<CalendarEventRow | null>(null)
+  const [event, setEvent] = useState<CalendarEvent | null>(null)
 
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
@@ -101,13 +78,30 @@ export default function CalendarEventDetailPage() {
 
   const [jobs, setJobs] = useState<Job[]>([])
   const [profiles, setProfiles] = useState<Profile[]>([])
-  const [companies, setCompanies] = useState<Company[]>([])
+  const [companyName, setCompanyName] = useState('')
   const [selectedProfiles, setSelectedProfiles] = useState<string[]>([])
+  const showLoadError = useEffectEvent(() => setError(t.loadEventFailed))
+  const showMissingEvent = useEffectEvent(() => setError(t.missingEventId))
+  const showNotFound = useEffectEvent(() => setError(t.notFound))
+
+  const applySnapshot = useCallback((snapshot: CalendarSnapshot) => {
+    setEvent(snapshot.event)
+    setSelectedProfiles(snapshot.assigned_profile_ids)
+    setTitle(snapshot.event.title || '')
+    setDescription(snapshot.event.description || '')
+    setStartAt(toDateTimeLocalValue(snapshot.event.start_at))
+    setEndAt(toDateTimeLocalValue(snapshot.event.end_at))
+    setCompanyId(snapshot.event.company_id || '')
+    setJobId(snapshot.event.job_id || '')
+    setConflict(null)
+    setNeedsReconcile(false)
+  }, [])
 
   useEffect(() => {
+    let cancelled = false
     async function loadPage() {
       if (!eventId || typeof eventId !== 'string') {
-        setError(dictionary.calendar.eventDetail.missingEventId)
+        showMissingEvent()
         setLoading(false)
         return
       }
@@ -115,85 +109,32 @@ export default function CalendarEventDetailPage() {
       setLoading(true)
       setError(null)
       setSuccess(null)
-
-      const { data: eventData, error: eventError } = await supabase
-        .from('calendar_events')
-        .select('id, title, description, start_at, end_at, company_id, job_id')
-        .eq('id', eventId)
-        .single()
-
-      if (eventError || !eventData) {
-        setError(eventError?.message || dictionary.calendar.eventDetail.notFound)
-        setLoading(false)
-        return
+      setEvent(null)
+      try {
+        const result = await readCalendarEditorAction({ eventId })
+        if (cancelled) return
+        if (!result.ok) {
+          setError(result.error)
+          return
+        }
+        if (!result.data.snapshot) {
+          showNotFound()
+          return
+        }
+        setJobs(result.data.jobs)
+        setProfiles(result.data.profiles)
+        setCompanyName(result.data.companyName || '')
+        applySnapshot(result.data.snapshot)
+      } catch {
+        if (!cancelled) showLoadError()
+      } finally {
+        if (!cancelled) setLoading(false)
       }
-
-      const { data: jobsData, error: jobsError } = await supabase
-        .from('jobs')
-        .select('id, title, company_id')
-        .order('title', { ascending: true })
-
-      if (jobsError) {
-        setError(`${dictionary.calendar.eventDetail.loadJobsFailed}: ${jobsError.message}`)
-        setLoading(false)
-        return
-      }
-
-      const { data: profilesData, error: profilesError } = await supabase
-        .from('profiles')
-        .select('id, full_name')
-        .order('full_name', { ascending: true })
-
-      if (profilesError) {
-        setError(`${dictionary.calendar.eventDetail.loadWorkersFailed}: ${profilesError.message}`)
-        setLoading(false)
-        return
-      }
-
-      const { data: companiesData, error: companiesError } = await supabase
-        .from('companies')
-        .select('id, name')
-        .order('name', { ascending: true })
-
-      if (companiesError) {
-        setError(`${dictionary.calendar.eventDetail.loadCompaniesFailed}: ${companiesError.message}`)
-        setLoading(false)
-        return
-      }
-
-      const { data: assignmentsData, error: assignmentsError } = await supabase
-        .from('calendar_event_assignments')
-        .select('id, event_id, profile_id')
-        .eq('event_id', eventId)
-
-      if (assignmentsError) {
-        setError(`${dictionary.calendar.eventDetail.loadAssignmentsFailed}: ${assignmentsError.message}`)
-        setLoading(false)
-        return
-      }
-
-      const selected = ((assignmentsData as AssignmentRow[]) || [])
-        .map((item) => item.profile_id)
-        .filter(Boolean)
-
-      setEvent(eventData)
-      setJobs(jobsData || [])
-      setProfiles(profilesData || [])
-      setCompanies(companiesData || [])
-      setSelectedProfiles(selected)
-
-      setTitle(eventData.title || '')
-      setDescription(eventData.description || '')
-      setStartAt(toDateTimeLocalValue(eventData.start_at))
-      setEndAt(toDateTimeLocalValue(eventData.end_at))
-      setCompanyId(eventData.company_id || '')
-      setJobId(eventData.job_id || '')
-
-      setLoading(false)
     }
 
-    loadPage()
-  }, [dictionary.calendar.eventDetail.loadAssignmentsFailed, dictionary.calendar.eventDetail.loadCompaniesFailed, dictionary.calendar.eventDetail.loadJobsFailed, dictionary.calendar.eventDetail.loadWorkersFailed, dictionary.calendar.eventDetail.missingEventId, dictionary.calendar.eventDetail.notFound, eventId])
+    startTransition(() => { void loadPage() })
+    return () => { cancelled = true }
+  }, [applySnapshot, eventId])
 
   function toggleProfile(profileId: string) {
     setSelectedProfiles((prev) =>
@@ -203,15 +144,47 @@ export default function CalendarEventDetailPage() {
     )
   }
 
-  function handleJobChange(value: string) {
-    setJobId(value)
+  function handleConflict(current?: CalendarSnapshot) {
+    setConflict(current || null)
+    setNeedsReconcile(true)
+    setSuccess(null)
+    setError(t.conflictDetected)
+  }
 
-    if (!value) return
+  function handleUncertainResult(message = t.uncertainSave) {
+    setNeedsReconcile(true)
+    setSuccess(null)
+    setError(message)
+  }
 
-    const selectedJob = jobs.find((job) => job.id === value)
-
-    if (selectedJob?.company_id) {
-      setCompanyId(selectedJob.company_id)
+  async function handleLoadLatest() {
+    if (writeInFlight.current || deleting || reloading || !eventId) return
+    if (!window.confirm(t.confirmLoadLatest)) return
+    setReloading(true)
+    setSuccess(null)
+    try {
+      const result = await readCalendarEditorAction({ eventId })
+      if (!result.ok) {
+        setError(result.error)
+        return
+      }
+      if (result.data.companyId !== companyId) {
+        setError(t.companyChanged)
+        return
+      }
+      if (!result.data.snapshot) {
+        setError(t.notFound)
+        return
+      }
+      setJobs(result.data.jobs)
+      setProfiles(result.data.profiles)
+      setCompanyName(result.data.companyName || '')
+      applySnapshot(result.data.snapshot)
+      setError(null)
+    } catch {
+      setError(t.loadEventFailed)
+    } finally {
+      setReloading(false)
     }
   }
 
@@ -220,16 +193,17 @@ export default function CalendarEventDetailPage() {
 
     return profiles.filter((profile) => selectedProfiles.includes(profile.id))
   }, [profiles, selectedProfiles])
+  const unavailableProfileIds = selectedProfiles.filter((id) => !profiles.some((profile) => profile.id === id))
 
   async function handleSave(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
+    if (writeInFlight.current || deleting || reloading || needsReconcile || !event || event.id !== eventId) return
 
     if (!eventId || typeof eventId !== 'string') {
       setError(dictionary.calendar.eventDetail.missingEventId)
       return
     }
 
-    setSaving(true)
     setError(null)
     setSuccess(null)
 
@@ -267,42 +241,38 @@ export default function CalendarEventDetailPage() {
     }
 
     try {
+      writeInFlight.current = true
+      setSaving(true)
       const updateResponse = await updateCalendarEventAction({
         eventId,
+        expectedRevision: event.revision,
         title,
         description,
-        startAt,
-        endAt,
+        startAt: start.toISOString(),
+        endAt: end.toISOString(),
         companyId,
         jobId,
         selectedProfileIds: selectedProfiles,
       })
 
       if (!updateResponse.ok) {
-        setError(`${dictionary.calendar.eventDetail.updateFailed}: ${updateResponse.error}`)
-        setSaving(false)
+        if (updateResponse.code === 'conflict') {
+          handleConflict(updateResponse.current)
+        } else if (updateResponse.code === 'unknown' || updateResponse.code === 'unavailable') {
+          handleUncertainResult()
+        } else {
+          setError(`${t.updateFailed}: ${updateResponse.error}`)
+        }
         return
       }
 
-      setEvent((prev) =>
-        prev
-          ? {
-              ...prev,
-              ...updateResponse.event,
-            }
-          : prev
-      )
-
+      setEvent(updateResponse.event)
       setSuccess(dictionary.calendar.eventDetail.successSaved)
-      setSaving(false)
       router.refresh()
-    } catch (err: unknown) {
-      setError(
-        `${dictionary.calendar.eventDetail.unexpectedError}: ${getErrorMessage(
-          err,
-          dictionary.calendar.eventDetail.unexpectedError
-        )}`
-      )
+    } catch {
+      handleUncertainResult()
+    } finally {
+      writeInFlight.current = false
       setSaving(false)
     }
   }
@@ -417,6 +387,7 @@ export default function CalendarEventDetailPage() {
 
             {error ? (
               <div
+                role="alert"
                 style={{
                   marginBottom: '16px',
                   padding: '12px 16px',
@@ -431,8 +402,28 @@ export default function CalendarEventDetailPage() {
               </div>
             ) : null}
 
+            {needsReconcile ? (
+              <section aria-label={t.currentSavedVersion} style={{ marginBottom: '16px', padding: '16px', background: '#f5f3ff', border: '1px solid #ddd6fe', borderRadius: '12px' }}>
+                <p style={{ marginTop: 0 }}>{t.draftPreserved}</p>
+                {conflict ? (
+                  <div style={{ marginBottom: '16px' }}>
+                    <strong>{t.currentSavedVersion}</strong>
+                    <p>{conflict.event.title || t.untitledEvent}</p>
+                    <p>{t.from}: {formatDateTime(conflict.event.start_at)} · {t.to}: {formatDateTime(conflict.event.end_at)}</p>
+                    <p>{t.workers}: {conflict.assigned_profile_ids.length
+                      ? conflict.assigned_profile_ids.map((id) => profiles.find((profile) => profile.id === id)?.full_name || t.unnamedWorker).join(', ')
+                      : t.noAssignedWorkers}</p>
+                  </div>
+                ) : null}
+                <button type="button" disabled={reloading || saving || deleting} onClick={() => startTransition(() => { void handleLoadLatest() })} style={{ padding: '10px 14px', background: '#111827', color: '#fff', border: 'none', borderRadius: '8px', cursor: reloading ? 'wait' : 'pointer', fontWeight: 600 }}>
+                  {reloading ? t.loading : t.loadLatest}
+                </button>
+              </section>
+            ) : null}
+
             {success ? (
               <div
+                role="status"
                 style={{
                   marginBottom: '16px',
                   padding: '12px 16px',
@@ -468,10 +459,12 @@ export default function CalendarEventDetailPage() {
                 {dictionary.calendar.eventDetail.editEvent}
               </h2>
 
-              <form onSubmit={handleSave} style={{ display: 'grid', gap: '16px' }}>
+              <form onSubmit={(event) => startTransition(() => { void handleSave(event) })} style={{ display: 'grid', gap: '16px' }}>
+                <fieldset disabled={saving || deleting || reloading} style={{ border: 0, padding: 0, margin: 0, minWidth: 0, display: 'grid', gap: '16px' }}>
                 <div style={{ display: 'grid', gap: '6px' }}>
-                  <label>{dictionary.calendar.eventDetail.title}</label>
+                  <label htmlFor="calendar-title">{dictionary.calendar.eventDetail.title}</label>
                   <input
+                    id="calendar-title"
                     type="text"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
@@ -485,8 +478,9 @@ export default function CalendarEventDetailPage() {
                 </div>
 
                 <div style={{ display: 'grid', gap: '6px' }}>
-                  <label>{dictionary.calendar.eventDetail.description}</label>
+                  <label htmlFor="calendar-description">{dictionary.calendar.eventDetail.description}</label>
                   <textarea
+                    id="calendar-description"
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     rows={4}
@@ -499,8 +493,9 @@ export default function CalendarEventDetailPage() {
                 </div>
 
                 <div style={{ display: 'grid', gap: '6px' }}>
-                  <label>{dictionary.calendar.eventDetail.from}</label>
+                  <label htmlFor="calendar-start">{dictionary.calendar.eventDetail.from}</label>
                   <input
+                    id="calendar-start"
                     type="datetime-local"
                     value={startAt}
                     onChange={(e) => setStartAt(e.target.value)}
@@ -514,8 +509,9 @@ export default function CalendarEventDetailPage() {
                 </div>
 
                 <div style={{ display: 'grid', gap: '6px' }}>
-                  <label>{dictionary.calendar.eventDetail.to}</label>
+                  <label htmlFor="calendar-end">{dictionary.calendar.eventDetail.to}</label>
                   <input
+                    id="calendar-end"
                     type="datetime-local"
                     value={endAt}
                     onChange={(e) => setEndAt(e.target.value)}
@@ -529,31 +525,26 @@ export default function CalendarEventDetailPage() {
                 </div>
 
                 <div style={{ display: 'grid', gap: '6px' }}>
-                  <label>{dictionary.calendar.eventDetail.company}</label>
-                  <select
-                    value={companyId}
-                    onChange={(e) => setCompanyId(e.target.value)}
-                    required
+                  <label htmlFor="calendar-company">{dictionary.calendar.eventDetail.company}</label>
+                  <input
+                    id="calendar-company"
+                    value={companyName || dictionary.calendar.newEvent.unnamedCompany}
+                    readOnly
+                    aria-readonly="true"
                     style={{
                       padding: '10px',
                       borderRadius: '8px',
                       border: '1px solid #d1d5db',
                     }}
-                  >
-                    <option value="">{dictionary.calendar.eventDetail.selectCompany}</option>
-                    {companies.map((company) => (
-                      <option key={company.id} value={company.id}>
-                        {company.name || dictionary.calendar.eventDetail.untitledEvent}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </div>
 
                 <div style={{ display: 'grid', gap: '6px' }}>
-                  <label>{dictionary.calendar.eventDetail.job}</label>
+                  <label htmlFor="calendar-job">{dictionary.calendar.eventDetail.job}</label>
                   <select
+                    id="calendar-job"
                     value={jobId}
-                    onChange={(e) => handleJobChange(e.target.value)}
+                    onChange={(e) => setJobId(e.target.value)}
                     style={{
                       padding: '10px',
                       borderRadius: '8px',
@@ -585,19 +576,25 @@ export default function CalendarEventDetailPage() {
                         {profile.full_name || dictionary.calendar.eventDetail.unnamedWorker}
                       </label>
                     ))}
+                    {unavailableProfileIds.map((profileId) => (
+                      <label key={profileId} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <input type="checkbox" checked onChange={() => toggleProfile(profileId)} />
+                        {t.unavailableWorker}
+                      </label>
+                    ))}
                   </div>
                 </div>
 
                 <button
                   type="submit"
-                  disabled={saving}
+                  disabled={saving || deleting || reloading || needsReconcile}
                   style={{
                     padding: '12px',
-                    background: saving ? '#9ca3af' : '#111827',
+                    background: saving || deleting || reloading || needsReconcile ? '#9ca3af' : '#111827',
                     color: '#fff',
                     border: 'none',
                     borderRadius: '8px',
-                    cursor: saving ? 'not-allowed' : 'pointer',
+                    cursor: saving || deleting || reloading || needsReconcile ? 'not-allowed' : 'pointer',
                     fontWeight: 600,
                   }}
                 >
@@ -605,6 +602,7 @@ export default function CalendarEventDetailPage() {
                     ? dictionary.calendar.eventDetail.saving
                     : dictionary.calendar.eventDetail.saveChanges}
                 </button>
+                </fieldset>
               </form>
             </section>
 
@@ -688,7 +686,16 @@ export default function CalendarEventDetailPage() {
               </div>
             </section>
 
-            <CalendarEventDangerZone eventId={event.id} />
+            <CalendarEventDangerZone
+              key={`${event.id}:${event.revision}`}
+              eventId={event.id}
+              companyId={companyId}
+              expectedRevision={event.revision}
+              disabled={saving || reloading || needsReconcile}
+              onConflict={handleConflict}
+              onUncertainResult={handleUncertainResult}
+              onBusyChange={setDeleting}
+            />
           </>
         )}
       </main>

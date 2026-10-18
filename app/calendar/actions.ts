@@ -1,396 +1,98 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { DalAuthError, requireHubDalContext, type DalContext } from '@/lib/dal/auth'
+import {
+  calendarError, CalendarError, createCalendarEvent, deleteCalendarEvent,
+  readCalendarEditor, readCalendarList, readCalendarSnapshot, updateCalendarEvent,
+} from '@/lib/dal/calendar'
+import type {
+  CalendarDeleteInput, CalendarEditorData, CalendarFailure, CalendarListData,
+  CalendarResult, CalendarUpdateInput, CalendarWriteInput, CalendarWriteSuccess,
+} from '@/lib/calendar/types'
 
-import { requireHubDalContext } from '@/lib/dal/auth'
-import { requireCompanyModule } from '@/lib/module-access'
+export type CreateCalendarEventResult = CalendarWriteSuccess | CalendarFailure
+export type UpdateCalendarEventResult = CalendarWriteSuccess | CalendarFailure
+export type CalendarMutationResult = { ok: true } | CalendarFailure
 
-export type CreateCalendarEventResult =
-  | {
-      ok: true
-      eventId: string
-    }
-  | {
-      ok: false
-      error: string
-    }
-
-export type UpdateCalendarEventResult =
-  | {
-      ok: true
-      event: {
-        id: string
-        title: string
-        description: string | null
-        start_at: string
-        end_at: string
-        company_id: string
-        job_id: string | null
-      }
-    }
-  | {
-      ok: false
-      error: string
-    }
-
-export type CalendarMutationResult =
-  | {
-      ok: true
-    }
-  | {
-      ok: false
-      error: string
-    }
-
-function cleanOptionalId(value: unknown) {
-  const cleaned = String(value ?? '').trim()
-  return cleaned || null
+async function context(): Promise<DalContext> {
+  const ctx = await requireHubDalContext()
+  if (ctx.role !== 'super_admin' && ctx.role !== 'company_admin') {
+    throw calendarError({ message: 'CALENDAR_FORBIDDEN' })
+  }
+  return ctx
+}
+function failure(error: unknown): CalendarFailure {
+  const known = error instanceof DalAuthError
+    ? calendarError({ message: 'CALENDAR_FORBIDDEN' }) : calendarError(error)
+  return { ok: false, error: known.message, code: known.code }
+}
+function sameCompany(ctx: DalContext, companyId: unknown) {
+  if (typeof companyId !== 'string' || companyId.toLowerCase() !== ctx.companyId.toLowerCase()) {
+    throw calendarError({ message: 'CALENDAR_FORBIDDEN' })
+  }
+}
+function revalidate(eventId: string) {
+  revalidatePath('/calendar')
+  revalidatePath(`/calendar/events/${eventId}`)
 }
 
-function cleanString(value: unknown) {
-  return String(value ?? '').trim()
+export async function readCalendarListAction(): Promise<CalendarResult<CalendarListData>> {
+  try { return { ok: true, data: await readCalendarList(await context()) } }
+  catch (error) { return failure(error) }
 }
 
-function parseDate(value: string | null) {
-  if (!value) return null
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? null : date
-}
-
-function normalizeProfileIds(value: string[] | undefined) {
-  return [...new Set((value ?? []).map(cleanOptionalId).filter((id): id is string => Boolean(id)))]
-}
-
-export async function createCalendarEventAction(input: {
-  title?: string | null
-  description?: string | null
-  startAt?: string | null
-  endAt?: string | null
-  jobId?: string | null
-  companyId?: string | null
-  selectedProfileIds?: string[]
-}): Promise<CreateCalendarEventResult> {
+export async function readCalendarEditorAction(input: { eventId?: string } = {}): Promise<CalendarResult<CalendarEditorData>> {
   try {
-    const context = await requireHubDalContext()
-    const { supabase, companyId } = context
-    const moduleAccess = await requireCompanyModule(companyId, 'calendar')
-
-    if (!moduleAccess.ok) {
-      return { ok: false, error: moduleAccess.error }
+    if (!input || (input.eventId !== undefined && typeof input.eventId !== 'string')) {
+      throw calendarError({ message: 'CALENDAR_INPUT_INVALID' })
     }
+    return { ok: true, data: await readCalendarEditor(await context(), input.eventId) }
+  } catch (error) { return failure(error) }
+}
 
-    const title = cleanString(input.title)
-    const requestedCompanyId = cleanOptionalId(input.companyId)
-    const jobId = cleanOptionalId(input.jobId)
-    const start = parseDate(cleanOptionalId(input.startAt))
-    const end = parseDate(cleanOptionalId(input.endAt))
+export async function createCalendarEventAction(input: CalendarWriteInput): Promise<CreateCalendarEventResult> {
+  try {
+    const ctx = await context()
+    sameCompany(ctx, input?.companyId)
+    const saved = await createCalendarEvent(ctx, input)
+    revalidate(saved.event.id)
+    return { ok: true, eventId: saved.event.id, event: saved.event, assignedProfileIds: saved.assigned_profile_ids }
+  } catch (error) { return failure(error) }
+}
 
-    if (!title) {
-      return { ok: false, error: 'Zadejte název události.' }
-    }
-
-    if (requestedCompanyId && requestedCompanyId !== companyId) {
-      return { ok: false, error: 'Událost lze vytvořit jen v aktivní firmě.' }
-    }
-
-    if (!start || !end) {
-      return { ok: false, error: 'Vyplňte platný začátek a konec události.' }
-    }
-
-    if (end <= start) {
-      return { ok: false, error: 'Konec události musí být po začátku.' }
-    }
-
-    if (jobId) {
-      const jobResponse = await supabase
-        .from('jobs')
-        .select('id')
-        .eq('id', jobId)
-        .eq('company_id', companyId)
-        .maybeSingle()
-
-      if (jobResponse.error || !jobResponse.data?.id) {
-        return { ok: false, error: 'Vybraná zakázka nepatří do aktivní firmy.' }
-      }
-    }
-
-    const selectedProfileIds = normalizeProfileIds(input.selectedProfileIds)
-
-    if (selectedProfileIds.length > 0) {
-      const membersResponse = await supabase
-        .from('company_members')
-        .select('profile_id')
-        .eq('company_id', companyId)
-        .eq('is_active', true)
-        .in('profile_id', selectedProfileIds)
-
-      if (membersResponse.error) {
-        return { ok: false, error: 'Nepodařilo se ověřit pracovníky.' }
-      }
-
-      const allowedProfileIds = new Set(
-        ((membersResponse.data ?? []) as { profile_id?: string | null }[])
-          .map((row) => row.profile_id)
-          .filter((id): id is string => Boolean(id))
-      )
-
-      if (selectedProfileIds.some((profileId) => !allowedProfileIds.has(profileId))) {
-          return { ok: false, error: 'Některý pracovník nepatří do aktivní firmy.' }
-      }
-    }
-
-    const eventResponse = await supabase
-      .from('calendar_events')
-      .insert([
-        {
-          title,
-          description: cleanOptionalId(input.description),
-          start_at: start.toISOString(),
-          end_at: end.toISOString(),
-          job_id: jobId,
-          company_id: companyId,
-        },
-      ])
-      .select('id')
-      .single()
-
-    if (eventResponse.error || !eventResponse.data?.id) {
-      return { ok: false, error: eventResponse.error?.message || 'Událost se nepodařilo vytvořit.' }
-    }
-
-    if (selectedProfileIds.length > 0) {
-      const assignments = selectedProfileIds.map((profileId) => ({
-        event_id: eventResponse.data.id,
-        profile_id: profileId,
-      }))
-
-      const assignResponse = await supabase.from('calendar_event_assignments').insert(assignments)
-
-      if (assignResponse.error) {
-        return {
-          ok: false,
-          error: `Událost vznikla, ale pracovníky se nepodařilo přiřadit: ${assignResponse.error.message}`,
-        }
-      }
-    }
-
-    revalidatePath('/calendar')
-
-    return {
-      ok: true,
-      eventId: eventResponse.data.id,
-    }
+export async function updateCalendarEventAction(input: CalendarUpdateInput): Promise<UpdateCalendarEventResult> {
+  let ctx: DalContext | undefined
+  try {
+    ctx = await context()
+    sameCompany(ctx, input?.companyId)
+    const saved = await updateCalendarEvent(ctx, input)
+    revalidate(saved.event.id)
+    return { ok: true, eventId: saved.event.id, event: saved.event, assignedProfileIds: saved.assigned_profile_ids }
   } catch (error) {
-    return {
-      ok: false,
-      error: error instanceof Error ? error.message : 'Událost se nepodařilo vytvořit.',
+    const result = failure(error)
+    // Read only after a definite stale response, under fresh authentication/RLS.
+    // The caller's draft and base revision remain unchanged until explicit reload.
+    if (ctx && error instanceof CalendarError && error.code === 'conflict' && input?.eventId) {
+      try { result.current = await readCalendarSnapshot(ctx, input.eventId) } catch { /* Do not disclose an inaccessible snapshot. */ }
     }
+    return result
   }
 }
 
-async function verifyCalendarProfiles(input: {
-  supabase: Awaited<ReturnType<typeof requireHubDalContext>>['supabase']
-  companyId: string
-  profileIds: string[]
-}) {
-  if (input.profileIds.length === 0) return null
-
-  const membersResponse = await input.supabase
-    .from('company_members')
-    .select('profile_id')
-    .eq('company_id', input.companyId)
-    .eq('is_active', true)
-    .in('profile_id', input.profileIds)
-
-  if (membersResponse.error) {
-    return 'Nepodařilo se ověřit pracovníky.'
-  }
-
-  const allowedProfileIds = new Set(
-    ((membersResponse.data ?? []) as { profile_id?: string | null }[])
-      .map((row) => row.profile_id)
-      .filter((id): id is string => Boolean(id))
-  )
-
-  if (input.profileIds.some((profileId) => !allowedProfileIds.has(profileId))) {
-      return 'Některý pracovník nepatří do aktivní firmy.'
-  }
-
-  return null
-}
-
-export async function updateCalendarEventAction(input: {
-  eventId?: string | null
-  title?: string | null
-  description?: string | null
-  startAt?: string | null
-  endAt?: string | null
-  jobId?: string | null
-  companyId?: string | null
-  selectedProfileIds?: string[]
-}): Promise<UpdateCalendarEventResult> {
+export async function deleteCalendarEventAction(input: CalendarDeleteInput): Promise<CalendarMutationResult> {
+  let ctx: DalContext | undefined
   try {
-    const context = await requireHubDalContext()
-    const { supabase, companyId } = context
-    const moduleAccess = await requireCompanyModule(companyId, 'calendar')
-
-    if (!moduleAccess.ok) {
-      return { ok: false, error: moduleAccess.error }
-    }
-
-    const eventId = cleanOptionalId(input.eventId)
-    const title = cleanString(input.title)
-    const requestedCompanyId = cleanOptionalId(input.companyId)
-    const jobId = cleanOptionalId(input.jobId)
-    const start = parseDate(cleanOptionalId(input.startAt))
-    const end = parseDate(cleanOptionalId(input.endAt))
-
-    if (!eventId) return { ok: false, error: 'Chybí událost.' }
-    if (!title) return { ok: false, error: 'Zadejte název události.' }
-    if (requestedCompanyId && requestedCompanyId !== companyId) {
-      return { ok: false, error: 'Událost lze upravit jen v aktivní firmě.' }
-    }
-    if (!start || !end) return { ok: false, error: 'Vyplňte platný začátek a konec události.' }
-    if (end <= start) return { ok: false, error: 'Konec události musí být po začátku.' }
-
-    const eventResponse = await supabase
-      .from('calendar_events')
-      .select('id')
-      .eq('id', eventId)
-      .eq('company_id', companyId)
-      .maybeSingle()
-
-    if (eventResponse.error || !eventResponse.data?.id) {
-      return { ok: false, error: 'Událost nebyla nalezena v aktivní firmě.' }
-    }
-
-    if (jobId) {
-      const jobResponse = await supabase
-        .from('jobs')
-        .select('id')
-        .eq('id', jobId)
-        .eq('company_id', companyId)
-        .maybeSingle()
-
-      if (jobResponse.error || !jobResponse.data?.id) {
-        return { ok: false, error: 'Vybraná zakázka nepatří do aktivní firmy.' }
-      }
-    }
-
-    const selectedProfileIds = normalizeProfileIds(input.selectedProfileIds)
-    const profileError = await verifyCalendarProfiles({ supabase, companyId, profileIds: selectedProfileIds })
-
-    if (profileError) {
-      return { ok: false, error: profileError }
-    }
-
-    const startIso = start.toISOString()
-    const endIso = end.toISOString()
-    const updatedEvent = {
-      title,
-      description: cleanOptionalId(input.description),
-      start_at: startIso,
-      end_at: endIso,
-      company_id: companyId,
-      job_id: jobId,
-    }
-
-    const updateResponse = await supabase
-      .from('calendar_events')
-      .update(updatedEvent)
-      .eq('id', eventId)
-      .eq('company_id', companyId)
-
-    if (updateResponse.error) {
-      return { ok: false, error: updateResponse.error.message || 'Událost se nepodařilo uložit.' }
-    }
-
-    const deleteAssignmentsResponse = await supabase
-      .from('calendar_event_assignments')
-      .delete()
-      .or(`event_id.eq.${eventId},calendar_event_id.eq.${eventId}`)
-
-    if (deleteAssignmentsResponse.error) {
-      return { ok: false, error: deleteAssignmentsResponse.error.message || 'Pracovníky se nepodařilo aktualizovat.' }
-    }
-
-    if (selectedProfileIds.length > 0) {
-      const rows = selectedProfileIds.map((profileId) => ({
-        event_id: eventId,
-        profile_id: profileId,
-      }))
-
-      const insertAssignmentsResponse = await supabase.from('calendar_event_assignments').insert(rows)
-
-      if (insertAssignmentsResponse.error) {
-        return { ok: false, error: insertAssignmentsResponse.error.message || 'Pracovníky se nepodařilo přiřadit.' }
-      }
-    }
-
-    revalidatePath('/calendar')
-    revalidatePath(`/calendar/events/${eventId}`)
-
-    return {
-      ok: true,
-      event: {
-        id: eventId,
-        ...updatedEvent,
-      },
-    }
-  } catch (error) {
-    return {
-      ok: false,
-      error: error instanceof Error ? error.message : 'Událost se nepodařilo uložit.',
-    }
-  }
-}
-
-export async function deleteCalendarEventAction(eventIdInput: string): Promise<CalendarMutationResult> {
-  try {
-    const context = await requireHubDalContext()
-    const { supabase, companyId } = context
-    const moduleAccess = await requireCompanyModule(companyId, 'calendar')
-    const eventId = cleanOptionalId(eventIdInput)
-
-    if (!moduleAccess.ok) return { ok: false, error: moduleAccess.error }
-    if (!eventId) return { ok: false, error: 'Chybí událost.' }
-
-    const eventResponse = await supabase
-      .from('calendar_events')
-      .select('id')
-      .eq('id', eventId)
-      .eq('company_id', companyId)
-      .maybeSingle()
-
-    if (eventResponse.error || !eventResponse.data?.id) {
-      return { ok: false, error: 'Událost nebyla nalezena v aktivní firmě.' }
-    }
-
-    const assignmentsResponse = await supabase
-      .from('calendar_event_assignments')
-      .delete()
-      .or(`event_id.eq.${eventId},calendar_event_id.eq.${eventId}`)
-
-    if (assignmentsResponse.error) {
-      return { ok: false, error: assignmentsResponse.error.message || 'Přiřazení se nepodařilo smazat.' }
-    }
-
-    const deleteResponse = await supabase
-      .from('calendar_events')
-      .delete()
-      .eq('id', eventId)
-      .eq('company_id', companyId)
-
-    if (deleteResponse.error) {
-      return { ok: false, error: deleteResponse.error.message || 'Událost se nepodařilo smazat.' }
-    }
-
-    revalidatePath('/calendar')
+    ctx = await context()
+    sameCompany(ctx, input?.companyId)
+    await deleteCalendarEvent(ctx, input)
+    revalidate(input.eventId)
     return { ok: true }
   } catch (error) {
-    return {
-      ok: false,
-      error: error instanceof Error ? error.message : 'Událost se nepodařilo smazat.',
+    const result = failure(error)
+    if (ctx && error instanceof CalendarError && error.code === 'conflict' && input?.eventId) {
+      try { result.current = await readCalendarSnapshot(ctx, input.eventId) } catch { /* Membership can be revoked between calls. */ }
     }
+    return result
   }
 }

@@ -1,11 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { startTransition, useEffect, useEffectEvent, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import DashboardShell from '../../../components/DashboardShell'
 import { useI18n } from '@/components/I18nProvider'
-import { createCalendarEventAction } from '@/app/calendar/actions'
-import { supabase } from '../../../lib/supabase'
+import { createCalendarEventAction, readCalendarEditorAction } from '@/app/calendar/actions'
 
 type Job = {
   id: string
@@ -16,19 +15,6 @@ type Job = {
 type Profile = {
   id: string
   full_name: string | null
-}
-
-type Company = {
-  id: string
-  name: string | null
-}
-
-function getErrorMessage(error: unknown, fallback: string) {
-  if (error instanceof Error && error.message) {
-    return error.message
-  }
-
-  return fallback
 }
 
 export default function NewCalendarEventPage() {
@@ -45,11 +31,15 @@ export default function NewCalendarEventPage() {
 
   const [jobs, setJobs] = useState<Job[]>([])
   const [profiles, setProfiles] = useState<Profile[]>([])
-  const [companies, setCompanies] = useState<Company[]>([])
+  const [companyName, setCompanyName] = useState('')
   const [selectedProfiles, setSelectedProfiles] = useState<string[]>([])
 
   const [loading, setLoading] = useState(false)
+  const [initialLoading, setInitialLoading] = useState(true)
+  const [needsReconcile, setNeedsReconcile] = useState(false)
+  const writeInFlight = useRef(false)
   const [debugError, setDebugError] = useState<string | null>(null)
+  const showLoadError = useEffectEvent(() => setDebugError(dictionary.calendar.loadError))
   const quickTasks = [
     t.quickPaySupplier,
     t.quickCallCustomer,
@@ -58,50 +48,29 @@ export default function NewCalendarEventPage() {
   ]
 
   useEffect(() => {
+    let cancelled = false
     async function loadData() {
-      setDebugError(null)
-
-      const { data: jobsData, error: jobsError } = await supabase
-        .from('jobs')
-        .select('id, title, company_id')
-        .order('title', { ascending: true })
-
-      const { data: profilesData, error: profilesError } = await supabase
-        .from('profiles')
-        .select('id, full_name')
-        .order('full_name', { ascending: true })
-
-      const { data: companiesData, error: companiesError } = await supabase
-        .from('companies')
-        .select('id, name')
-        .order('name', { ascending: true })
-
-      if (jobsError) {
-        setDebugError(`${t.loadJobsFailed} ${jobsError.message}`)
-        return
-      }
-
-      if (profilesError) {
-        setDebugError(`${t.loadProfilesFailed} ${profilesError.message}`)
-        return
-      }
-
-      if (companiesError) {
-        setDebugError(`${t.loadCompaniesFailed} ${companiesError.message}`)
-        return
-      }
-
-      setJobs(jobsData || [])
-      setProfiles(profilesData || [])
-      setCompanies(companiesData || [])
-
-      if (companiesData && companiesData.length > 0) {
-        setCompanyId(companiesData[0].id)
+      try {
+        const result = await readCalendarEditorAction({})
+        if (cancelled) return
+        if (!result.ok) {
+          setDebugError(result.error)
+          return
+        }
+        setJobs(result.data.jobs)
+        setProfiles(result.data.profiles)
+        setCompanyId(result.data.companyId)
+        setCompanyName(result.data.companyName || '')
+      } catch {
+        if (!cancelled) showLoadError()
+      } finally {
+        if (!cancelled) setInitialLoading(false)
       }
     }
 
-    loadData()
-  }, [t.loadCompaniesFailed, t.loadJobsFailed, t.loadProfilesFailed])
+    startTransition(() => { void loadData() })
+    return () => { cancelled = true }
+  }, [])
 
   function toggleProfile(profileId: string) {
     setSelectedProfiles((prev) =>
@@ -111,25 +80,18 @@ export default function NewCalendarEventPage() {
     )
   }
 
-  function handleJobChange(value: string) {
-    setJobId(value)
-
-    if (!value) return
-
-    const selectedJob = jobs.find((job) => job.id === value)
-
-    if (selectedJob?.company_id) {
-      setCompanyId(selectedJob.company_id)
-    }
-  }
-
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    setLoading(true)
+    if (writeInFlight.current || initialLoading || needsReconcile) return
     setDebugError(null)
 
     const start = new Date(startAt)
     const end = new Date(endAt)
+
+    if (!title.trim()) {
+      setDebugError(dictionary.calendar.eventDetail.titleRequired)
+      return
+    }
 
     if (!startAt || !endAt) {
       setDebugError(t.fillStartEnd)
@@ -149,6 +111,7 @@ export default function NewCalendarEventPage() {
       return
     }
 
+    let created = false
     try {
       if (!companyId) {
         setDebugError(t.selectCompany)
@@ -156,11 +119,13 @@ export default function NewCalendarEventPage() {
         return
       }
 
+      writeInFlight.current = true
+      setLoading(true)
       const result = await createCalendarEventAction({
         title,
         description,
-        startAt,
-        endAt,
+        startAt: start.toISOString(),
+        endAt: end.toISOString(),
         jobId,
         companyId,
         selectedProfileIds: selectedProfiles,
@@ -168,15 +133,21 @@ export default function NewCalendarEventPage() {
 
       if (!result.ok) {
         setDebugError(result.error || t.createFailed)
-        setLoading(false)
+        if (result.code === 'unknown' || result.code === 'unavailable') setNeedsReconcile(true)
         return
       }
 
+      created = true
       router.push('/calendar')
       router.refresh()
-    } catch (error: unknown) {
-      setDebugError(`${t.unexpectedError} ${getErrorMessage(error, t.unexpectedError)}`)
-      setLoading(false)
+    } catch {
+      setDebugError(t.uncertainSave)
+      setNeedsReconcile(true)
+    } finally {
+      if (!created) {
+        writeInFlight.current = false
+        setLoading(false)
+      }
     }
   }
 
@@ -196,6 +167,7 @@ export default function NewCalendarEventPage() {
 
         {debugError && (
           <div
+            role="alert"
             style={{
               marginBottom: '16px',
               padding: '12px 16px',
@@ -210,7 +182,14 @@ export default function NewCalendarEventPage() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="calendar-new-form">
+        {needsReconcile ? (
+          <p role="status">
+            {t.uncertainSave} <a href="/calendar" target="_blank" rel="noreferrer">{t.checkCalendar}</a>
+          </p>
+        ) : null}
+
+        <form onSubmit={(event) => startTransition(() => { void handleSubmit(event) })} className="calendar-new-form">
+          <fieldset disabled={loading} className="calendar-new-form" style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
           <section className="calendar-new-card primary">
             <div>
               <h2>{t.mainSectionTitle}</h2>
@@ -223,8 +202,9 @@ export default function NewCalendarEventPage() {
                 </button>
               ))}
             </div>
-            <label>{t.eventTitle}</label>
+            <label htmlFor="calendar-title">{t.eventTitle}</label>
             <input
+              id="calendar-title"
               data-tour="calendar-event-title"
               type="text"
               placeholder={t.titlePlaceholder}
@@ -233,8 +213,9 @@ export default function NewCalendarEventPage() {
               required
             />
 
-            <label>{t.description}</label>
+            <label htmlFor="calendar-description">{t.description}</label>
             <textarea
+              id="calendar-description"
               placeholder={t.notePlaceholder}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -249,8 +230,9 @@ export default function NewCalendarEventPage() {
             </div>
             <div className="calendar-new-two" data-tour="calendar-event-time">
               <div>
-                <label>{t.from}</label>
+                <label htmlFor="calendar-start">{t.from}</label>
                 <input
+                  id="calendar-start"
                   type="datetime-local"
                   value={startAt}
                   onChange={(e) => setStartAt(e.target.value)}
@@ -259,8 +241,9 @@ export default function NewCalendarEventPage() {
               </div>
 
               <div>
-                <label>{t.to}</label>
+                <label htmlFor="calendar-end">{t.to}</label>
                 <input
+                  id="calendar-end"
                   type="datetime-local"
                   value={endAt}
                   onChange={(e) => setEndAt(e.target.value)}
@@ -278,26 +261,16 @@ export default function NewCalendarEventPage() {
 
             <div className="calendar-new-two">
               <div>
-                <label>{t.company}</label>
-                <select
-                  value={companyId}
-                  onChange={(e) => setCompanyId(e.target.value)}
-                  required
-                >
-                  <option value="">{t.selectCompanyOption}</option>
-                  {companies.map((company) => (
-                    <option key={company.id} value={company.id}>
-                      {company.name || t.unnamedCompany}
-                    </option>
-                  ))}
-                </select>
+                <label htmlFor="calendar-company">{t.company}</label>
+                <input id="calendar-company" value={companyName || t.unnamedCompany} readOnly aria-readonly="true" />
               </div>
 
               <div>
-                <label>{t.job}</label>
+                <label htmlFor="calendar-job">{t.job}</label>
                 <select
+                  id="calendar-job"
                   value={jobId}
-                  onChange={(e) => handleJobChange(e.target.value)}
+                  onChange={(e) => setJobId(e.target.value)}
                 >
                   <option value="">{t.noJob}</option>
                   {jobs.map((job) => (
@@ -330,10 +303,11 @@ export default function NewCalendarEventPage() {
             <button type="button" onClick={() => router.push('/calendar')}>
               {dictionary.common.cancel}
             </button>
-            <button type="submit" disabled={loading} data-tour="calendar-event-save">
+            <button type="submit" disabled={loading || initialLoading || !companyId || needsReconcile} data-tour="calendar-event-save">
               {loading ? t.saving : t.create}
             </button>
           </div>
+          </fieldset>
         </form>
       </div>
 
