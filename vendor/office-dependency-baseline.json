@@ -1,5 +1,7 @@
 {
-  "scope": "Existing current-main host dependencies are unchanged; not newly licensed by the Office audit.",
-  "declarationHash": "bc99f1f84b964d83f22ef8abd7c78cd9f3c80d2a0e1b165a6fe93e4ab332aff8",
-  "lockPackagesHash": "95c86af727febeaee2a98ab77b829d7f3ea454c97401f43faaff9a5fa4a44e9b"
+  "scope": "Host dependencies reviewed for the Next.js security update on 2026-10-18; separate from the unchanged Office-only license audit.",
+  "reviewFile": "vendor/host-dependency-review-20261018.json",
+  "reviewSha256": "f1b4e374029b683ac6c1929ba10f6fbd52adcbce25fcb6640a9bb75bf2ef18d6",
+  "declarationHash": "af047c5599eaaf82904c1d9a2d458c9ff3d7fd8a58a4876e6a190c04de9e2b01",
+  "lockPackagesHash": "71f1ce4b875451791a32e4d33818fb38172ce78f661c82595204164b73f5c50b"
 }

@@ -239,6 +239,7 @@ type JobEconomicsSummaryRow = {
 
 type JobDetailPageClientProps = {
   jobId: string
+  referenceTime: number
   canManageJobPhotos?: boolean
   canManageCommunication?: boolean
   initialJob: Job | null
@@ -826,8 +827,22 @@ function normalizeAssignmentRows(
   })
 }
 
-export default function JobDetailPageClient({
+function assignmentDraftsFrom(assignments: AssignmentRow[]) {
+  return Object.fromEntries(assignments.map((assignment) => [assignment.id, {
+    labor_hours: assignment.labor_hours != null ? String(assignment.labor_hours) : '',
+    hourly_rate: assignment.hourly_rate != null ? String(assignment.hourly_rate) : '',
+    external_amount: assignment.external_amount != null ? String(assignment.external_amount) : '',
+    note: assignment.note ?? '',
+  }]))
+}
+
+export default function JobDetailPageClient(props: JobDetailPageClientProps) {
+  return <JobDetailContent key={props.jobId} {...props} />
+}
+
+function JobDetailContent({
   jobId,
+  referenceTime,
   canManageJobPhotos = false,
   canManageCommunication = false,
   initialJob,
@@ -924,19 +939,21 @@ export default function JobDetailPageClient({
   const [jobCustomerContactsWithDetails] =
     useState<JobCustomerContact[]>(initialJobCustomerContacts)
   const [assignments, setAssignments] = useState<AssignmentRow[]>(initialAssignments)
-  const [workShifts, setWorkShifts] = useState<WorkShiftRow[]>(initialWorkShifts)
+  const [previousAssignments, setPreviousAssignments] = useState(initialAssignments)
+  const workShifts = initialWorkShifts
   const [groupParentJob] =
     useState<GroupMemberJobRow | null>(initialGroupParentJob)
   const [groupMemberJobs] = useState<GroupMemberJobRow[]>(initialGroupMemberJobs)
   const [groupMemberJobStates] =
     useState<JobStateRow[]>(initialGroupMemberJobStates)
-  const [groupWorkShifts, setGroupWorkShifts] = useState<WorkShiftRow[]>(initialGroupWorkShifts)
+  const groupWorkShifts = initialGroupWorkShifts
   const [groupEconomicsSummaries] =
     useState<JobEconomicsSummaryRow[]>(initialGroupEconomicsSummaries)
   const [workLogs] = useState<WorkLogRow[]>(initialWorkLogs)
   const [costItems, setCostItems] = useState<CostItemRow[]>(initialCostItems)
   const [jobEconomicsSummary, setJobEconomicsSummary] =
     useState<JobEconomicsSummaryRow | null>(initialJobEconomicsSummary)
+  const [previousEconomicsSummary, setPreviousEconomicsSummary] = useState(initialJobEconomicsSummary)
   const detailsLoading = false
   const [error, setError] = useState<string | null>(initialError)
   const [notFound, setNotFound] = useState(initialNotFound)
@@ -959,7 +976,19 @@ export default function JobDetailPageClient({
   })
   const [assignmentDrafts, setAssignmentDrafts] = useState<
     Record<string, { labor_hours: string; hourly_rate: string; external_amount: string; note: string }>
-  >({})
+  >(() => assignmentDraftsFrom(initialAssignments))
+
+  // Reconcile a new server snapshot before rendering children. Ordinary local
+  // edits keep the same source props and therefore retain their draft values.
+  if (previousAssignments !== initialAssignments) {
+    setPreviousAssignments(initialAssignments)
+    setAssignments(initialAssignments)
+    setAssignmentDrafts(assignmentDraftsFrom(initialAssignments))
+  }
+  if (previousEconomicsSummary !== initialJobEconomicsSummary) {
+    setPreviousEconomicsSummary(initialJobEconomicsSummary)
+    setJobEconomicsSummary(initialJobEconomicsSummary)
+  }
 
   function handlePriceSaved(nextPrice: number) {
     setJob((current) => (current ? { ...current, price: nextPrice } : current))
@@ -972,30 +1001,6 @@ export default function JobDetailPageClient({
   function handleCostItemDeleted(id: string) {
     setCostItems((current) => current.filter((item) => item.id !== id))
   }
-
-  useEffect(() => {
-    setAssignments(initialAssignments)
-  }, [initialAssignments])
-
-  useEffect(() => {
-    setJobEconomicsSummary(initialJobEconomicsSummary)
-  }, [initialJobEconomicsSummary])
-
-  useEffect(() => {
-    setAssignmentDrafts(
-      Object.fromEntries(
-        initialAssignments.map((assignment) => [
-          assignment.id,
-          {
-            labor_hours: assignment.labor_hours != null ? String(assignment.labor_hours) : '',
-            hourly_rate: assignment.hourly_rate != null ? String(assignment.hourly_rate) : '',
-            external_amount: assignment.external_amount != null ? String(assignment.external_amount) : '',
-            note: assignment.note ?? '',
-          },
-        ])
-      )
-    )
-  }, [initialAssignments])
 
   useEffect(() => {
     let cancelled = false
@@ -1020,14 +1025,6 @@ export default function JobDetailPageClient({
       cancelled = true
     }
   }, [])
-
-  useEffect(() => {
-    setWorkShifts(initialWorkShifts)
-  }, [initialWorkShifts])
-
-  useEffect(() => {
-    setGroupWorkShifts(initialGroupWorkShifts)
-  }, [initialGroupWorkShifts])
 
   const getLocalizedTimeStateLabel = (state: TimeState) => {
     if (state === 'future') return dictionary.jobs.future
@@ -1461,7 +1458,6 @@ export default function JobDetailPageClient({
   }`
 
   const nearestShift = useMemo(() => {
-    const now = Date.now()
     const sorted = [...workShifts]
       .filter((shift) => shift.started_at || shift.shift_date)
       .sort((left, right) => {
@@ -1473,10 +1469,10 @@ export default function JobDetailPageClient({
     return (
       sorted.find((shift) => {
         const value = new Date(shift.started_at ?? shift.shift_date ?? 0).getTime()
-        return Number.isFinite(value) && value >= now
+        return Number.isFinite(value) && value >= referenceTime
       }) ?? sorted[0] ?? null
     )
-  }, [workShifts])
+  }, [referenceTime, workShifts])
 
   function parseMoneyInput(value: string) {
     const normalized = value.replace(',', '.').trim()

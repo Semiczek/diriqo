@@ -1,0 +1,2210 @@
+{
+  "schemaVersion": 1,
+  "reviewDate": "2026-10-18",
+  "scope": "Separate technical license review of the Next.js 16.4.2 host dependency delta. The Office 0.3.4 archive and its strict license policy are unchanged.",
+  "baseRevision": "f3e7b0f5496cec2192d0f5b388cb9d465bd823df",
+  "baseLockSha256": "79cbe68f57010e01803ecac1ac6bc3af26cec27134b3a63855352bd767554c46",
+  "lockSha256": "e960dc8f32191146e57b4b4dab3a02bd5bfa136b9dc584e89abe2e938b48ef81",
+  "archiveEvidenceSha256": "994f3b557a5026485db925334818b5194a3b8f164c98944ddc19842835e29be0",
+  "sourceEvidenceSha256": "33152ef590eb57dd62cadd21ac759c84914a24aa1a1073bd4b842ebfc212424f",
+  "review": {
+    "changedLockRecords": 76,
+    "downloadedAndSriVerifiedArchives": 69,
+    "unchangedArchiveMetadataRecords": 1,
+    "existingBundledMetadataRecords": 6,
+    "unknownDeclaredLicenses": 0,
+    "changedExistingDeclaredLicenseExpressions": 0,
+    "limits": [
+      "This is a host dependency delta review, not a claim that host dependencies satisfy the Office-only permissive allowlist.",
+      "Existing host libvips/Sharp LGPL, caniuse-lite CC-BY and bundled component obligations remain applicable.",
+      "The libvips upstream notice list changes cairo from MPL 2.0 to MPL 1.1, highway to BSD 3-Clause, removes libspng and adds libultrahdr; source notice texts were retained for review.",
+      "Registry identity/SRI, SPDX declarations and available notice files were checked; this does not certify legal compliance of every deployment or redistribution."
+    ]
+  },
+  "sources": [
+    {
+      "url": "https://raw.githubusercontent.com/vercel/next.js/v16.4.2/license.md",
+      "sha256": "ee765244e2d59f5234d474f62e0766fa0c8b99af967fdd4c0cb8dcb0c76ea224"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/lovell/sharp-libvips/v1.3.4/THIRD-PARTY-NOTICES.md",
+      "sha256": "6f0d5086e3bcbee12bcdacf5878b31d1104002aeecaeb241d3fff466108082fe"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/lovell/sharp-libvips/v1.2.4/THIRD-PARTY-NOTICES.md",
+      "sha256": "3f416978dd2448ddab0d413d333c45fb208acdc066c280b95ebcb2f8b9f34ab9"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/lovell/sharp-libvips/v1.3.4/README.md",
+      "sha256": "52f8b2931fa6d496c792a2ed808177414ac24f2f87b667bb13fbc21bf1d99758"
+    }
+  ],
+  "packages": [
+    {
+      "location": "node_modules/@babel/code-frame",
+      "name": "@babel/code-frame",
+      "oldVersion": "7.29.0",
+      "version": "7.29.7",
+      "oldLicense": "MIT",
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/@babel/code-frame/-/code-frame-7.29.7.tgz",
+      "integrity": "sha512-Aup7aUOfpbAUg2ROOJN6Iw5f9DMBlzu0mIkm/malLQFN/YQgO48wCj0Kxa3sEHJvPVFg7siR+qRInwXd2qhQKw==",
+      "inBundle": false,
+      "optional": false,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "fa8b176fa0b5d1d72b41ad33443f1f4f75933157a45010dffb51719f40c19c67",
+      "packageDeclaredLicense": "MIT",
+      "files": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "117da2af0d4ce0fe1c8e19b5cff9dcd806adf973d328d27b11d4448c4ff24f76",
+          "bytes": 1106
+        }
+      ]
+    },
+    {
+      "location": "node_modules/@babel/compat-data",
+      "name": "@babel/compat-data",
+      "oldVersion": "7.29.0",
+      "version": "7.29.7",
+      "oldLicense": "MIT",
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/@babel/compat-data/-/compat-data-7.29.7.tgz",
+      "integrity": "sha512-locTkQyKvwIEgBzVrn8693ebc97F2U8ZHjbXwDXJ5Fn2TCpNwTlKcaKLkdHop5c/icOFE7qt7Q9JC5hnKNa6Gg==",
+      "inBundle": false,
+      "optional": false,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "0cf63b5ed704654bdc7574be035883b2eb3f8872c795a6b8dbb690cb7a3d54b9",
+      "packageDeclaredLicense": "MIT",
+      "files": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "117da2af0d4ce0fe1c8e19b5cff9dcd806adf973d328d27b11d4448c4ff24f76",
+          "bytes": 1106
+        }
+      ]
+    },
+    {
+      "location": "node_modules/@babel/core",
+      "name": "@babel/core",
+      "oldVersion": "7.29.0",
+      "version": "7.29.7",
+      "oldLicense": "MIT",
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/@babel/core/-/core-7.29.7.tgz",
+      "integrity": "sha512-RgHBCvtjbOK2gXSNBNIkNoEc9qoVEtau3hj8gEqKQuL3HZAibKarWFEI3Lfm6EYKkLalOh8eSrj9b+ch9H/VBA==",
+      "inBundle": false,
+      "optional": false,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "46dd458b3d2bc29daa0e9e01f13b399ab544a8013f27ac6c51b56b831c8a0ed3",
+      "packageDeclaredLicense": "MIT",
+      "files": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "117da2af0d4ce0fe1c8e19b5cff9dcd806adf973d328d27b11d4448c4ff24f76",
+          "bytes": 1106
+        }
+      ]
+    },
+    {
+      "location": "node_modules/@babel/generator",
+      "name": "@babel/generator",
+      "oldVersion": "7.29.1",
+      "version": "7.29.8",
+      "oldLicense": "MIT",
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/@babel/generator/-/generator-7.29.8.tgz",
+      "integrity": "sha512-gZbepsdh3WDtgZKWL+vTPh71LSBrm/Y4/QDZBVCcYfmeTEEuoOYwlSy+G1StfJg+/Zy550u/3TATbm7qDbbMtg==",
+      "inBundle": false,
+      "optional": false,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "b5ced4fd7c23a580549182676c43c03a8731b9625e66270f443ab27cd21b502d",
+      "packageDeclaredLicense": "MIT",
+      "files": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "117da2af0d4ce0fe1c8e19b5cff9dcd806adf973d328d27b11d4448c4ff24f76",
+          "bytes": 1106
+        }
+      ]
+    },
+    {
+      "location": "node_modules/@babel/helper-compilation-targets",
+      "name": "@babel/helper-compilation-targets",
+      "oldVersion": "7.28.6",
+      "version": "7.29.7",
+      "oldLicense": "MIT",
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/@babel/helper-compilation-targets/-/helper-compilation-targets-7.29.7.tgz",
+      "integrity": "sha512-wem6WaBj4NaVYVdNhLPPVacES6ZJ+KBBfSkTMD3YZxbP3rm3Di85tJU5ljaUNhaOynt+Aj0xruhYuzQBt8n71g==",
+      "inBundle": false,
+      "optional": false,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "5b5446f3d32b10ba38cb308af5f65e76afcddaacd7b817e71055a6de6ab934e0",
+      "packageDeclaredLicense": "MIT",
+      "files": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "117da2af0d4ce0fe1c8e19b5cff9dcd806adf973d328d27b11d4448c4ff24f76",
+          "bytes": 1106
+        }
+      ]
+    },
+    {
+      "location": "node_modules/@babel/helper-globals",
+      "name": "@babel/helper-globals",
+      "oldVersion": "7.28.0",
+      "version": "7.29.7",
+      "oldLicense": "MIT",
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/@babel/helper-globals/-/helper-globals-7.29.7.tgz",
+      "integrity": "sha512-3nQVUAtvkKH9zahfWgw96Jc/uFOmjACE1kQz82E2lqWmHBgjzbNlsC22nuQTfahmWeQtTq5nQ/4Nnd2A1wj4zA==",
+      "inBundle": false,
+      "optional": false,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "94fb962c489aae2c4e5581f1494721083dc76dddd7c703314dd4d7ff965d2a3f",
+      "packageDeclaredLicense": "MIT",
+      "files": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "117da2af0d4ce0fe1c8e19b5cff9dcd806adf973d328d27b11d4448c4ff24f76",
+          "bytes": 1106
+        }
+      ]
+    },
+    {
+      "location": "node_modules/@babel/helper-module-imports",
+      "name": "@babel/helper-module-imports",
+      "oldVersion": "7.28.6",
+      "version": "7.29.7",
+      "oldLicense": "MIT",
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/@babel/helper-module-imports/-/helper-module-imports-7.29.7.tgz",
+      "integrity": "sha512-ejHwrQQYcm9xnTivShn2IDOlIzInN34AXskvq9QicvCtEzq1Vzclu/tKF8Jq1Cg8JG2GL6/EmjgsCT7lXepE3g==",
+      "inBundle": false,
+      "optional": false,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "4bdf46cf597b875ce16770f151159ca34f96c20ba3c112dc8d7f6c6d6cce770c",
+      "packageDeclaredLicense": "MIT",
+      "files": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "117da2af0d4ce0fe1c8e19b5cff9dcd806adf973d328d27b11d4448c4ff24f76",
+          "bytes": 1106
+        }
+      ]
+    },
+    {
+      "location": "node_modules/@babel/helper-module-transforms",
+      "name": "@babel/helper-module-transforms",
+      "oldVersion": "7.28.6",
+      "version": "7.29.7",
+      "oldLicense": "MIT",
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/@babel/helper-module-transforms/-/helper-module-transforms-7.29.7.tgz",
+      "integrity": "sha512-UPUVSyXbOh627KiCIGQSgwWzGeBKLkaJ9PJEdrngIwMSzxLR4jS4+f1f1jb7VzBbg8nFLaYotvVPFCTqdrmTAg==",
+      "inBundle": false,
+      "optional": false,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "dbb3b9b10b0a2828f5af58a6317685b1a150464c6bd54995069c526aba45e6e4",
+      "packageDeclaredLicense": "MIT",
+      "files": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "117da2af0d4ce0fe1c8e19b5cff9dcd806adf973d328d27b11d4448c4ff24f76",
+          "bytes": 1106
+        }
+      ]
+    },
+    {
+      "location": "node_modules/@babel/helper-string-parser",
+      "name": "@babel/helper-string-parser",
+      "oldVersion": "7.27.1",
+      "version": "7.29.7",
+      "oldLicense": "MIT",
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/@babel/helper-string-parser/-/helper-string-parser-7.29.7.tgz",
+      "integrity": "sha512-Pb5ijPrZ89GDH8223L4UP8i6QApWxs04RbPQJTeWDV0/keR2E36MeKnyr6LYmUUvqRRI+Iv87SuF1W6ErINzYw==",
+      "inBundle": false,
+      "optional": false,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "124565ecd300d7187973060ba6b1d1c4f296e55f0489ddfd6af794f516fed127",
+      "packageDeclaredLicense": "MIT",
+      "files": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "117da2af0d4ce0fe1c8e19b5cff9dcd806adf973d328d27b11d4448c4ff24f76",
+          "bytes": 1106
+        }
+      ]
+    },
+    {
+      "location": "node_modules/@babel/helper-validator-identifier",
+      "name": "@babel/helper-validator-identifier",
+      "oldVersion": "7.28.5",
+      "version": "7.29.7",
+      "oldLicense": "MIT",
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/@babel/helper-validator-identifier/-/helper-validator-identifier-7.29.7.tgz",
+      "integrity": "sha512-qehxGkRj55h/ff8EMaJ+cYhyaKlHIxqYDn682wQD7RNp9UujOQsHog2uS0r2vzr4pW+sXf90NeeayjcNaX3fFg==",
+      "inBundle": false,
+      "optional": false,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "7a31904bc45f1bb232d5e5dd797d12296f4a27fb4bf0f6d517827700f997dc1f",
+      "packageDeclaredLicense": "MIT",
+      "files": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "117da2af0d4ce0fe1c8e19b5cff9dcd806adf973d328d27b11d4448c4ff24f76",
+          "bytes": 1106
+        }
+      ]
+    },
+    {
+      "location": "node_modules/@babel/helper-validator-option",
+      "name": "@babel/helper-validator-option",
+      "oldVersion": "7.27.1",
+      "version": "7.29.7",
+      "oldLicense": "MIT",
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/@babel/helper-validator-option/-/helper-validator-option-7.29.7.tgz",
+      "integrity": "sha512-N9ZErrD+yW5geCDtBqnOoxmR8+tNKiGuxKlDpuJxfsqpa2dFcexaziGAE/qoHLiDDreVNMupxGmSoNlyvsA3gw==",
+      "inBundle": false,
+      "optional": false,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "e32d8ff2cc0455c5210f92f0844d2cb6e1d61b83ee17d7b328fe410f9021e4cd",
+      "packageDeclaredLicense": "MIT",
+      "files": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "117da2af0d4ce0fe1c8e19b5cff9dcd806adf973d328d27b11d4448c4ff24f76",
+          "bytes": 1106
+        }
+      ]
+    },
+    {
+      "location": "node_modules/@babel/helpers",
+      "name": "@babel/helpers",
+      "oldVersion": "7.29.2",
+      "version": "7.29.10",
+      "oldLicense": "MIT",
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/@babel/helpers/-/helpers-7.29.10.tgz",
+      "integrity": "sha512-EMCx3AGZ3WfAl6ht7AyQoPm2Lh+BGYEMdc4Q6Hf7uSCDOZFuLq44qNwL+iaim8VlyYhRAo4X43+weadK8ZB4Yg==",
+      "inBundle": false,
+      "optional": false,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "57d0c44bfe794c72c97e25891dc678cce5d4556359459a6c5d310b35c3791c25",
+      "packageDeclaredLicense": "MIT",
+      "files": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "4be9d87b56a306293223b490c0d0b245e9e94f39884147bf051a6c7b825aeb30",
+          "bytes": 1189
+        }
+      ]
+    },
+    {
+      "location": "node_modules/@babel/parser",
+      "name": "@babel/parser",
+      "oldVersion": "7.29.2",
+      "version": "7.29.9",
+      "oldLicense": "MIT",
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/@babel/parser/-/parser-7.29.9.tgz",
+      "integrity": "sha512-CjXrNHTnvqBVqHgdBysY3vk2T8tpJHb5/RMeHJBTyVa9xgugCB0CJTx/3oO8RV2QRQP391RWpB7D6hLjm8V9uA==",
+      "inBundle": false,
+      "optional": false,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "8f3b9fbc531e0c08e2c329cf1ff57bbe121e2d10061b65a05614a25b2255cc43",
+      "packageDeclaredLicense": "MIT",
+      "files": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "2e97627cb278aa7556fb9e8817368302301a595b6c7582512b8d74c57b773652",
+          "bytes": 1086
+        }
+      ]
+    },
+    {
+      "location": "node_modules/@babel/template",
+      "name": "@babel/template",
+      "oldVersion": "7.28.6",
+      "version": "7.29.7",
+      "oldLicense": "MIT",
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/@babel/template/-/template-7.29.7.tgz",
+      "integrity": "sha512-puq+Gf35oI24FeN11LkoUQFqv9uwNeWpxXZi/Ji3rRIoKAzKnxRaZ+Gkj0vKS9ZCiTESfng1N9LyOyXvo+m+Gg==",
+      "inBundle": false,
+      "optional": false,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "5e0ee28d5536e986cf5ff2da0f096fb84810d9136c2a64c6c78a6b495a0e7764",
+      "packageDeclaredLicense": "MIT",
+      "files": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "117da2af0d4ce0fe1c8e19b5cff9dcd806adf973d328d27b11d4448c4ff24f76",
+          "bytes": 1106
+        }
+      ]
+    },
+    {
+      "location": "node_modules/@babel/traverse",
+      "name": "@babel/traverse",
+      "oldVersion": "7.29.0",
+      "version": "7.29.10",
+      "oldLicense": "MIT",
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/@babel/traverse/-/traverse-7.29.10.tgz",
+      "integrity": "sha512-B3lYAs2nkKskbgQ1nfy8Ma9ao9Q1rntTAQHrzzyDuj+TSO+X3le6PfWwqDvodsb+OumE10eMFfuMCTQSQ5iuIQ==",
+      "inBundle": false,
+      "optional": false,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "2804424ee8791f9d02ebde17ad63e59f2bc4c41671ddfe47479ccce25398d049",
+      "packageDeclaredLicense": "MIT",
+      "files": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "117da2af0d4ce0fe1c8e19b5cff9dcd806adf973d328d27b11d4448c4ff24f76",
+          "bytes": 1106
+        }
+      ]
+    },
+    {
+      "location": "node_modules/@babel/types",
+      "name": "@babel/types",
+      "oldVersion": "7.29.0",
+      "version": "7.29.8",
+      "oldLicense": "MIT",
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/@babel/types/-/types-7.29.8.tgz",
+      "integrity": "sha512-Vj1jF3cPfxg7OAfoI7QnVKLoILlm2JF9pnVHrX8qx7AHMiYWT+NDAA7jChlNgRS4WTLc/fD1lXLmPixluj+3Gg==",
+      "inBundle": false,
+      "optional": false,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "514a4ed09355fe1417f03e89c5a5f518745e2eb75a4069d25b55a3e7298069de",
+      "packageDeclaredLicense": "MIT",
+      "files": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "117da2af0d4ce0fe1c8e19b5cff9dcd806adf973d328d27b11d4448c4ff24f76",
+          "bytes": 1106
+        }
+      ]
+    },
+    {
+      "location": "node_modules/@emnapi/runtime",
+      "name": "@emnapi/runtime",
+      "oldVersion": "1.10.0",
+      "version": "1.10.0",
+      "oldLicense": "MIT",
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/@emnapi/runtime/-/runtime-1.10.0.tgz",
+      "integrity": "sha512-ewvYlk86xUoGI0zQRNq/mC+16R1QeDlKQy21Ki3oSYXNgLb45GV1P6A0M+/s6nyCuNDqe5VpaY84BzXGwVbwFA==",
+      "inBundle": false,
+      "optional": true,
+      "evidence": "unchanged archive; metadata only",
+      "files": []
+    },
+    {
+      "location": "node_modules/@img/sharp-darwin-arm64",
+      "name": "@img/sharp-darwin-arm64",
+      "oldVersion": "0.34.5",
+      "version": "0.35.5",
+      "oldLicense": "Apache-2.0",
+      "declaredLicense": "Apache-2.0",
+      "resolved": "https://registry.npmjs.org/@img/sharp-darwin-arm64/-/sharp-darwin-arm64-0.35.5.tgz",
+      "integrity": "sha512-QRUlFQ0WxvdWyqqG/WtI3iupfD5rBzmCHXSdPsY91sAtVtTo7Q4cb6zOccZ3gqEqkr0f1As1ehLqmEpDsRf+lg==",
+      "inBundle": false,
+      "optional": true,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "52168af984c322e5548bebfb437a9976244824338ea5b8a5b1e0cdaaf06480cb",
+      "packageDeclaredLicense": "Apache-2.0",
+      "files": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "73ba74dfaa520b49a401b5d21459a8523a146f3b7518a833eea5efa85130bf68",
+          "bytes": 10273
+        }
+      ]
+    },
+    {
+      "location": "node_modules/@img/sharp-darwin-x64",
+      "name": "@img/sharp-darwin-x64",
+      "oldVersion": "0.34.5",
+      "version": "0.35.5",
+      "oldLicense": "Apache-2.0",
+      "declaredLicense": "Apache-2.0",
+      "resolved": "https://registry.npmjs.org/@img/sharp-darwin-x64/-/sharp-darwin-x64-0.35.5.tgz",
+      "integrity": "sha512-+BR255RhDlpygUpOc/Jdt1nT6DQ3XG/ERo5wbcdOf5Q320dKtPCKPLR1LJs9VGXRaMa8l1uUa0tkCNOXiAxZUw==",
+      "inBundle": false,
+      "optional": true,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "56c3308ae36d93bb9332217d78a330505c2c710d874d24354116629a035fdcd7",
+      "packageDeclaredLicense": "Apache-2.0",
+      "files": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "73ba74dfaa520b49a401b5d21459a8523a146f3b7518a833eea5efa85130bf68",
+          "bytes": 10273
+        }
+      ]
+    },
+    {
+      "location": "node_modules/@img/sharp-freebsd-wasm32",
+      "name": "@img/sharp-freebsd-wasm32",
+      "oldVersion": null,
+      "version": "0.35.5",
+      "oldLicense": null,
+      "declaredLicense": "Apache-2.0",
+      "resolved": "https://registry.npmjs.org/@img/sharp-freebsd-wasm32/-/sharp-freebsd-wasm32-0.35.5.tgz",
+      "integrity": "sha512-Y/z91nEZ4uIBX5X3nfTovjU9lHNKFYbL2lpHCLVNmXQK03VIZvXBBt0KxbPGp2SdGSF+2mQU4e+hQaWOt86iAw==",
+      "inBundle": false,
+      "optional": true,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "7c33873308850538dae2c9ae86a515f6fe70b127cd12cfc6408abb09e64bd5fe",
+      "packageDeclaredLicense": "Apache-2.0",
+      "files": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "73ba74dfaa520b49a401b5d21459a8523a146f3b7518a833eea5efa85130bf68",
+          "bytes": 10273
+        }
+      ]
+    },
+    {
+      "location": "node_modules/@img/sharp-libvips-darwin-arm64",
+      "name": "@img/sharp-libvips-darwin-arm64",
+      "oldVersion": "1.2.4",
+      "version": "1.3.4",
+      "oldLicense": "LGPL-3.0-or-later",
+      "declaredLicense": "LGPL-3.0-or-later",
+      "resolved": "https://registry.npmjs.org/@img/sharp-libvips-darwin-arm64/-/sharp-libvips-darwin-arm64-1.3.4.tgz",
+      "integrity": "sha512-5R89nBYiRdUlSWJxPhO+GVtaXzXSxKnRu/xqMn3KTA3L9EB9Oy/P+Nn2f2vlhPuUdy/Zusb2DarbyTpGCfEDuw==",
+      "inBundle": false,
+      "optional": true,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "e8350e62344d027995ef46cdd97a5ea1c88bc54ab82ab8c3fcb0c076d839675f",
+      "packageDeclaredLicense": "LGPL-3.0-or-later",
+      "files": [],
+      "sourceNotice": "https://raw.githubusercontent.com/lovell/sharp-libvips/v1.3.4/THIRD-PARTY-NOTICES.md"
+    },
+    {
+      "location": "node_modules/@img/sharp-libvips-darwin-x64",
+      "name": "@img/sharp-libvips-darwin-x64",
+      "oldVersion": "1.2.4",
+      "version": "1.3.4",
+      "oldLicense": "LGPL-3.0-or-later",
+      "declaredLicense": "LGPL-3.0-or-later",
+      "resolved": "https://registry.npmjs.org/@img/sharp-libvips-darwin-x64/-/sharp-libvips-darwin-x64-1.3.4.tgz",
+      "integrity": "sha512-iR2OKH80yi0U+dUplyh3/xdpFvps6YkCwsXenIJxqxR1v9o+xtKTGbS9H7cps+2Vxjc8B1j96p75NmTGjIhtpQ==",
+      "inBundle": false,
+      "optional": true,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "02a59a80669f04591bb050398e3fe2aa1a736624339e6aeafb9a7f33d3599b4f",
+      "packageDeclaredLicense": "LGPL-3.0-or-later",
+      "files": [],
+      "sourceNotice": "https://raw.githubusercontent.com/lovell/sharp-libvips/v1.3.4/THIRD-PARTY-NOTICES.md"
+    },
+    {
+      "location": "node_modules/@img/sharp-libvips-linux-arm",
+      "name": "@img/sharp-libvips-linux-arm",
+      "oldVersion": "1.2.4",
+      "version": "1.3.4",
+      "oldLicense": "LGPL-3.0-or-later",
+      "declaredLicense": "LGPL-3.0-or-later",
+      "resolved": "https://registry.npmjs.org/@img/sharp-libvips-linux-arm/-/sharp-libvips-linux-arm-1.3.4.tgz",
+      "integrity": "sha512-LmRtTsOHuvM2+wlO2Db37dx5MiZhB0FvSunciw48YjdOkZz9KAiRbm8ujeMOA1INqmei5NapFxYEK1D1ZSidmw==",
+      "inBundle": false,
+      "optional": true,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "782aa1175daff0e9f7846f404daaa07eaea8c91903bc6b68b31e2a6227e6bba8",
+      "packageDeclaredLicense": "LGPL-3.0-or-later",
+      "files": [],
+      "sourceNotice": "https://raw.githubusercontent.com/lovell/sharp-libvips/v1.3.4/THIRD-PARTY-NOTICES.md"
+    },
+    {
+      "location": "node_modules/@img/sharp-libvips-linux-arm64",
+      "name": "@img/sharp-libvips-linux-arm64",
+      "oldVersion": "1.2.4",
+      "version": "1.3.4",
+      "oldLicense": "LGPL-3.0-or-later",
+      "declaredLicense": "LGPL-3.0-or-later",
+      "resolved": "https://registry.npmjs.org/@img/sharp-libvips-linux-arm64/-/sharp-libvips-linux-arm64-1.3.4.tgz",
+      "integrity": "sha512-Y3dgX/6lE2QhQb+Gxy0WZxfg9MEm/JBjamZpS2IklP7xIQoKN4hzAm7KcMVGtaVDt3neE9OKBC7vAfonA/Lr1A==",
+      "inBundle": false,
+      "optional": true,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "495e6c63c797c6b080a9dbd827a8cc0790b77f8f7d5d82f1764dadfc5068a845",
+      "packageDeclaredLicense": "LGPL-3.0-or-later",
+      "files": [],
+      "sourceNotice": "https://raw.githubusercontent.com/lovell/sharp-libvips/v1.3.4/THIRD-PARTY-NOTICES.md"
+    },
+    {
+      "location": "node_modules/@img/sharp-libvips-linux-ppc64",
+      "name": "@img/sharp-libvips-linux-ppc64",
+      "oldVersion": "1.2.4",
+      "version": "1.3.4",
+      "oldLicense": "LGPL-3.0-or-later",
+      "declaredLicense": "LGPL-3.0-or-later",
+      "resolved": "https://registry.npmjs.org/@img/sharp-libvips-linux-ppc64/-/sharp-libvips-linux-ppc64-1.3.4.tgz",
+      "integrity": "sha512-Le6boB8Tai0Nis+gIxIpKx68UDVVIqdR8Tin5Yf1z2LJJQLDJvCDRqRu+jC2qCoD+eIomonmOwB4smBRxfVpYQ==",
+      "inBundle": false,
+      "optional": true,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "f4efe2825b01d38fd5f01bab9b132788fab14a2b26a011861617b4ba42b035f7",
+      "packageDeclaredLicense": "LGPL-3.0-or-later",
+      "files": [],
+      "sourceNotice": "https://raw.githubusercontent.com/lovell/sharp-libvips/v1.3.4/THIRD-PARTY-NOTICES.md"
+    },
+    {
+      "location": "node_modules/@img/sharp-libvips-linux-riscv64",
+      "name": "@img/sharp-libvips-linux-riscv64",
+      "oldVersion": "1.2.4",
+      "version": "1.3.4",
+      "oldLicense": "LGPL-3.0-or-later",
+      "declaredLicense": "LGPL-3.0-or-later",
+      "resolved": "https://registry.npmjs.org/@img/sharp-libvips-linux-riscv64/-/sharp-libvips-linux-riscv64-1.3.4.tgz",
+      "integrity": "sha512-aHkkIEHPRdQEegJN20MLmGtxYD9R2wQr3Cwpddnu5+YKMt6Uzax7S9h5gpZTo8wyrGuZSlfQ63OevL5mTyOC7Q==",
+      "inBundle": false,
+      "optional": true,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "79353a1a045bd02afca80063fcf199ac68decb7cf2bfbc503722fb524d6bded9",
+      "packageDeclaredLicense": "LGPL-3.0-or-later",
+      "files": [],
+      "sourceNotice": "https://raw.githubusercontent.com/lovell/sharp-libvips/v1.3.4/THIRD-PARTY-NOTICES.md"
+    },
+    {
+      "location": "node_modules/@img/sharp-libvips-linux-s390x",
+      "name": "@img/sharp-libvips-linux-s390x",
+      "oldVersion": "1.2.4",
+      "version": "1.3.4",
+      "oldLicense": "LGPL-3.0-or-later",
+      "declaredLicense": "LGPL-3.0-or-later",
+      "resolved": "https://registry.npmjs.org/@img/sharp-libvips-linux-s390x/-/sharp-libvips-linux-s390x-1.3.4.tgz",
+      "integrity": "sha512-ra/mB6MikESDUO7Yg+Mi95bFBb9GsObURuhnOv3OqknjGe9sZrG8tCe9q0xSIGrtLgvgw0gKnFWcK4blSgQOuQ==",
+      "inBundle": false,
+      "optional": true,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "e5a15f7f675b0719c98678d5ba78ea19e2b7b088fd756da8ead6e2a71f0a9646",
+      "packageDeclaredLicense": "LGPL-3.0-or-later",
+      "files": [],
+      "sourceNotice": "https://raw.githubusercontent.com/lovell/sharp-libvips/v1.3.4/THIRD-PARTY-NOTICES.md"
+    },
+    {
+      "location": "node_modules/@img/sharp-libvips-linux-x64",
+      "name": "@img/sharp-libvips-linux-x64",
+      "oldVersion": "1.2.4",
+      "version": "1.3.4",
+      "oldLicense": "LGPL-3.0-or-later",
+      "declaredLicense": "LGPL-3.0-or-later",
+      "resolved": "https://registry.npmjs.org/@img/sharp-libvips-linux-x64/-/sharp-libvips-linux-x64-1.3.4.tgz",
+      "integrity": "sha512-GJ//SSXbnwSDes02umB3nDJLFcQzw8a18V8fyhqr6tV515tOEMdImjjxj1AoafMRz56F3PHgftnj1QEKSU1zkw==",
+      "inBundle": false,
+      "optional": true,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "e371cb713fc8822c96a0d3fb60a3d092799d0aefab6d7f1fb3b72d8d75f1d109",
+      "packageDeclaredLicense": "LGPL-3.0-or-later",
+      "files": [],
+      "sourceNotice": "https://raw.githubusercontent.com/lovell/sharp-libvips/v1.3.4/THIRD-PARTY-NOTICES.md"
+    },
+    {
+      "location": "node_modules/@img/sharp-libvips-linuxmusl-arm64",
+      "name": "@img/sharp-libvips-linuxmusl-arm64",
+      "oldVersion": "1.2.4",
+      "version": "1.3.4",
+      "oldLicense": "LGPL-3.0-or-later",
+      "declaredLicense": "LGPL-3.0-or-later",
+      "resolved": "https://registry.npmjs.org/@img/sharp-libvips-linuxmusl-arm64/-/sharp-libvips-linuxmusl-arm64-1.3.4.tgz",
+      "integrity": "sha512-hvulFwtjUcagsis6BBxHwGFwWoNZjgYmULGVrZcyfNbjA8hKILbRxGg15/7w5HDyXHXUos/j6baAWqnCyQ2DWA==",
+      "inBundle": false,
+      "optional": true,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "d98395f7aa0f73e5f7306bdff30af7c310d15d9e003addbc36efb3c6613bfa59",
+      "packageDeclaredLicense": "LGPL-3.0-or-later",
+      "files": [],
+      "sourceNotice": "https://raw.githubusercontent.com/lovell/sharp-libvips/v1.3.4/THIRD-PARTY-NOTICES.md"
+    },
+    {
+      "location": "node_modules/@img/sharp-libvips-linuxmusl-x64",
+      "name": "@img/sharp-libvips-linuxmusl-x64",
+      "oldVersion": "1.2.4",
+      "version": "1.3.4",
+      "oldLicense": "LGPL-3.0-or-later",
+      "declaredLicense": "LGPL-3.0-or-later",
+      "resolved": "https://registry.npmjs.org/@img/sharp-libvips-linuxmusl-x64/-/sharp-libvips-linuxmusl-x64-1.3.4.tgz",
+      "integrity": "sha512-6zXKeE/p39I1AmA3cJG35eyBGNqNddLnUXjhwBnsGjFPWqf5VKkDBEqaEkPDoTEtkxwi2vv8Tcr2mDyP4So7Fg==",
+      "inBundle": false,
+      "optional": true,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "c6312802c16511458a1cf3d990c3e2b9dba555932caf297025ba0bec34ee5cbe",
+      "packageDeclaredLicense": "LGPL-3.0-or-later",
+      "files": [],
+      "sourceNotice": "https://raw.githubusercontent.com/lovell/sharp-libvips/v1.3.4/THIRD-PARTY-NOTICES.md"
+    },
+    {
+      "location": "node_modules/@img/sharp-linux-arm",
+      "name": "@img/sharp-linux-arm",
+      "oldVersion": "0.34.5",
+      "version": "0.35.5",
+      "oldLicense": "Apache-2.0",
+      "declaredLicense": "Apache-2.0",
+      "resolved": "https://registry.npmjs.org/@img/sharp-linux-arm/-/sharp-linux-arm-0.35.5.tgz",
+      "integrity": "sha512-LEaXK2WdXVK5ykcw0buWyPMsmLLL2vpHLD6yrNSW+JGEL3BZPA4tpKN6iaMc4AxTTAoaX/sU1rOL51lcIz48ZQ==",
+      "inBundle": false,
+      "optional": true,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "f223f355725a7046548e3bb4be4d0f82c30a2b1c170289fd714679ad1441152c",
+      "packageDeclaredLicense": "Apache-2.0",
+      "files": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "73ba74dfaa520b49a401b5d21459a8523a146f3b7518a833eea5efa85130bf68",
+          "bytes": 10273
+        }
+      ]
+    },
+    {
+      "location": "node_modules/@img/sharp-linux-arm64",
+      "name": "@img/sharp-linux-arm64",
+      "oldVersion": "0.34.5",
+      "version": "0.35.5",
+      "oldLicense": "Apache-2.0",
+      "declaredLicense": "Apache-2.0",
+      "resolved": "https://registry.npmjs.org/@img/sharp-linux-arm64/-/sharp-linux-arm64-0.35.5.tgz",
+      "integrity": "sha512-LYVx5JTsOM2CBzmxreh+nl64/3H6Xb09iSLknqH47z2T2DFFxDeFLP5y4dJwe6H7uGQlHPyEEtIqyo3DYsRwdQ==",
+      "inBundle": false,
+      "optional": true,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "2ba164e9d4d2f56bfc2a1b8badff07f49d1c98c061dde23efbf97617d23be07d",
+      "packageDeclaredLicense": "Apache-2.0",
+      "files": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "73ba74dfaa520b49a401b5d21459a8523a146f3b7518a833eea5efa85130bf68",
+          "bytes": 10273
+        }
+      ]
+    },
+    {
+      "location": "node_modules/@img/sharp-linux-ppc64",
+      "name": "@img/sharp-linux-ppc64",
+      "oldVersion": "0.34.5",
+      "version": "0.35.5",
+      "oldLicense": "Apache-2.0",
+      "declaredLicense": "Apache-2.0",
+      "resolved": "https://registry.npmjs.org/@img/sharp-linux-ppc64/-/sharp-linux-ppc64-0.35.5.tgz",
+      "integrity": "sha512-QVxAAq8evVRI9ia2vqgwrmWucn5Dfv+JdWzj75pD8omHLPSP7f8p20O8jxzjCcuCEQEOtYOZUmX1hkiZ0kdevA==",
+      "inBundle": false,
+      "optional": true,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "0aa2fabb9edb8a8689ca9b352b26db9539ab9eca288635086a274427459ab829",
+      "packageDeclaredLicense": "Apache-2.0",
+      "files": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "73ba74dfaa520b49a401b5d21459a8523a146f3b7518a833eea5efa85130bf68",
+          "bytes": 10273
+        }
+      ]
+    },
+    {
+      "location": "node_modules/@img/sharp-linux-riscv64",
+      "name": "@img/sharp-linux-riscv64",
+      "oldVersion": "0.34.5",
+      "version": "0.35.5",
+      "oldLicense": "Apache-2.0",
+      "declaredLicense": "Apache-2.0",
+      "resolved": "https://registry.npmjs.org/@img/sharp-linux-riscv64/-/sharp-linux-riscv64-0.35.5.tgz",
+      "integrity": "sha512-LtdreXguaavKODPIfzJ4kffx7UNt1omwtK0rch4EBbbSTXPnxWmYSayXdLJw0fJzQ97kHt1gL/yh4tvU+nCyRQ==",
+      "inBundle": false,
+      "optional": true,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "0498b72b4e555b80e2eab33693a3fa6e6fd08136ba02e75f6f5449540e7cdcc1",
+      "packageDeclaredLicense": "Apache-2.0",
+      "files": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "73ba74dfaa520b49a401b5d21459a8523a146f3b7518a833eea5efa85130bf68",
+          "bytes": 10273
+        }
+      ]
+    },
+    {
+      "location": "node_modules/@img/sharp-linux-s390x",
+      "name": "@img/sharp-linux-s390x",
+      "oldVersion": "0.34.5",
+      "version": "0.35.5",
+      "oldLicense": "Apache-2.0",
+      "declaredLicense": "Apache-2.0",
+      "resolved": "https://registry.npmjs.org/@img/sharp-linux-s390x/-/sharp-linux-s390x-0.35.5.tgz",
+      "integrity": "sha512-UZasTOFiYzotTsGOCu42BfUzP6Tu6Do/947iRm1RsLKvlllxwGcn4RN27LibGWceix4Y+Pmw3jsnTcCQIgWjqA==",
+      "inBundle": false,
+      "optional": true,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "8148f9c15c46d2687a348a989971049e29b6d3981791d22d9357a263de19353f",
+      "packageDeclaredLicense": "Apache-2.0",
+      "files": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "73ba74dfaa520b49a401b5d21459a8523a146f3b7518a833eea5efa85130bf68",
+          "bytes": 10273
+        }
+      ]
+    },
+    {
+      "location": "node_modules/@img/sharp-linux-x64",
+      "name": "@img/sharp-linux-x64",
+      "oldVersion": "0.34.5",
+      "version": "0.35.5",
+      "oldLicense": "Apache-2.0",
+      "declaredLicense": "Apache-2.0",
+      "resolved": "https://registry.npmjs.org/@img/sharp-linux-x64/-/sharp-linux-x64-0.35.5.tgz",
+      "integrity": "sha512-SxFtLTeJInhAA9Q836kux2vZNeOBQEx658qvbboZScr0wIARym3IcGmW7KpVD5sbVg0Ojy+udFQdayYIZyoNog==",
+      "inBundle": false,
+      "optional": true,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "556787285d3244c07686a355de5b5a4c4d0019a12785bf24764e756a96ea3334",
+      "packageDeclaredLicense": "Apache-2.0",
+      "files": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "73ba74dfaa520b49a401b5d21459a8523a146f3b7518a833eea5efa85130bf68",
+          "bytes": 10273
+        }
+      ]
+    },
+    {
+      "location": "node_modules/@img/sharp-linuxmusl-arm64",
+      "name": "@img/sharp-linuxmusl-arm64",
+      "oldVersion": "0.34.5",
+      "version": "0.35.5",
+      "oldLicense": "Apache-2.0",
+      "declaredLicense": "Apache-2.0",
+      "resolved": "https://registry.npmjs.org/@img/sharp-linuxmusl-arm64/-/sharp-linuxmusl-arm64-0.35.5.tgz",
+      "integrity": "sha512-9HbMclmI1zlNkFRs3z9/eBtDjfD0sGlrX1z6b1qwmiFY5ElDLh4BC0LPBdVp7z1DXFiKlIcznf+ZlsuZzLxQqg==",
+      "inBundle": false,
+      "optional": true,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "876ec01b5233eeed051a621acda8bf9d67d65447d198617bddf52ac3779a04b1",
+      "packageDeclaredLicense": "Apache-2.0",
+      "files": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "73ba74dfaa520b49a401b5d21459a8523a146f3b7518a833eea5efa85130bf68",
+          "bytes": 10273
+        }
+      ]
+    },
+    {
+      "location": "node_modules/@img/sharp-linuxmusl-x64",
+      "name": "@img/sharp-linuxmusl-x64",
+      "oldVersion": "0.34.5",
+      "version": "0.35.5",
+      "oldLicense": "Apache-2.0",
+      "declaredLicense": "Apache-2.0",
+      "resolved": "https://registry.npmjs.org/@img/sharp-linuxmusl-x64/-/sharp-linuxmusl-x64-0.35.5.tgz",
+      "integrity": "sha512-4KOphqB035HrVdqLZfCgMzzERrQkkzOwRhl4OAkRO1YCldbaFjySXMaK534Mo0V+LndnlJk+sbUyLeU0ULyD1A==",
+      "inBundle": false,
+      "optional": true,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "577bca1fabb66b2d8d89fc203851280d2bf604130803382d229544f75bab2ea0",
+      "packageDeclaredLicense": "Apache-2.0",
+      "files": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "73ba74dfaa520b49a401b5d21459a8523a146f3b7518a833eea5efa85130bf68",
+          "bytes": 10273
+        }
+      ]
+    },
+    {
+      "location": "node_modules/@img/sharp-wasm32",
+      "name": "@img/sharp-wasm32",
+      "oldVersion": "0.34.5",
+      "version": "0.35.5",
+      "oldLicense": "Apache-2.0 AND LGPL-3.0-or-later AND MIT",
+      "declaredLicense": "Apache-2.0 AND LGPL-3.0-or-later AND MIT",
+      "resolved": "https://registry.npmjs.org/@img/sharp-wasm32/-/sharp-wasm32-0.35.5.tgz",
+      "integrity": "sha512-Ptsga1su4tQx+LLF1ECS9U6nz5kmrXKo6XVbtR48Ke3ZRxxgaWBu7IDtEe1quo8hiupwm6WFqxVlXaSf7IINGQ==",
+      "inBundle": false,
+      "optional": true,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "c68abdf53e1ad2d7b27b53385a3862e16d4bde02ce6d121892ee36f0bfe5bb38",
+      "packageDeclaredLicense": "Apache-2.0 AND LGPL-3.0-or-later AND MIT",
+      "files": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "73ba74dfaa520b49a401b5d21459a8523a146f3b7518a833eea5efa85130bf68",
+          "bytes": 10273
+        }
+      ]
+    },
+    {
+      "location": "node_modules/@img/sharp-wasm32/node_modules/@emnapi/runtime",
+      "name": "@emnapi/runtime",
+      "oldVersion": null,
+      "version": "1.11.3",
+      "oldLicense": null,
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/@emnapi/runtime/-/runtime-1.11.3.tgz",
+      "integrity": "sha512-Xz4Tpyki7XyrpbUK1jR1AhdAdaXyhhY4lZ3neLodmhpuWfy2PAQN5B46sAiU4liOXGLkHypn/qU+jvfWSCYYLA==",
+      "inBundle": false,
+      "optional": true,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "e6eb8913a08b551436d65f9a5cfbdcc8006f58e6798226d24e695c25679b5e49",
+      "packageDeclaredLicense": "MIT",
+      "files": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "2088f55c6731498410b20c95ebd345ed4a4a800bf74c0fba4d282fd2a021daaa",
+          "bytes": 1076
+        }
+      ]
+    },
+    {
+      "location": "node_modules/@img/sharp-webcontainers-wasm32",
+      "name": "@img/sharp-webcontainers-wasm32",
+      "oldVersion": null,
+      "version": "0.35.5",
+      "oldLicense": null,
+      "declaredLicense": "Apache-2.0",
+      "resolved": "https://registry.npmjs.org/@img/sharp-webcontainers-wasm32/-/sharp-webcontainers-wasm32-0.35.5.tgz",
+      "integrity": "sha512-hfhF/FmoQyTUkA0bIKFOtw536BQSeBMe6BF6QyWlrPxT754+TFLaZ7sKKTfvvM0yJgKgaYTwnFCIZ/GuDw5SUA==",
+      "inBundle": false,
+      "optional": true,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "f710304d7172d5dc676de2fac4648f48cad90f53cc861d17e6cfd257ad26fec0",
+      "packageDeclaredLicense": "Apache-2.0",
+      "files": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "73ba74dfaa520b49a401b5d21459a8523a146f3b7518a833eea5efa85130bf68",
+          "bytes": 10273
+        }
+      ]
+    },
+    {
+      "location": "node_modules/@img/sharp-win32-arm64",
+      "name": "@img/sharp-win32-arm64",
+      "oldVersion": "0.34.5",
+      "version": "0.35.5",
+      "oldLicense": "Apache-2.0 AND LGPL-3.0-or-later",
+      "declaredLicense": "Apache-2.0 AND LGPL-3.0-or-later",
+      "resolved": "https://registry.npmjs.org/@img/sharp-win32-arm64/-/sharp-win32-arm64-0.35.5.tgz",
+      "integrity": "sha512-X4t7g+7ZA5DKblCBEXGjUqqemj4vczING/5viFwAL8h4N3qYeyjwdCvRLHi4EdOUI+2Z7UFlp1VM+p/AuEtm6Q==",
+      "inBundle": false,
+      "optional": true,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "7a8e306ca14032a49efa5e0d3d5bb6af4da0c4bb18c7e070ee0a5253d40e5603",
+      "packageDeclaredLicense": "Apache-2.0 AND LGPL-3.0-or-later",
+      "files": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "dc1f5d2d43c5531dfe0acaf4e950ea5dbe3e61e1850cf0e983bda7efc10d6693",
+          "bytes": 10464
+        }
+      ]
+    },
+    {
+      "location": "node_modules/@img/sharp-win32-ia32",
+      "name": "@img/sharp-win32-ia32",
+      "oldVersion": "0.34.5",
+      "version": "0.35.5",
+      "oldLicense": "Apache-2.0 AND LGPL-3.0-or-later",
+      "declaredLicense": "Apache-2.0 AND LGPL-3.0-or-later",
+      "resolved": "https://registry.npmjs.org/@img/sharp-win32-ia32/-/sharp-win32-ia32-0.35.5.tgz",
+      "integrity": "sha512-5Zm82LoBc43nhwNybZlG7Y1KO//Zhsn306fQl29ZOuStHLGTo3BWL83q3cznX0poxSAMuYL1On/BHBxkBeKr6A==",
+      "inBundle": false,
+      "optional": true,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "683c2fe0f45fa1cc0e8d3cf7877e726f1a2c4fed372f02154a348a762808686e",
+      "packageDeclaredLicense": "Apache-2.0 AND LGPL-3.0-or-later",
+      "files": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "dc1f5d2d43c5531dfe0acaf4e950ea5dbe3e61e1850cf0e983bda7efc10d6693",
+          "bytes": 10464
+        }
+      ]
+    },
+    {
+      "location": "node_modules/@img/sharp-win32-x64",
+      "name": "@img/sharp-win32-x64",
+      "oldVersion": "0.34.5",
+      "version": "0.35.5",
+      "oldLicense": "Apache-2.0 AND LGPL-3.0-or-later",
+      "declaredLicense": "Apache-2.0 AND LGPL-3.0-or-later",
+      "resolved": "https://registry.npmjs.org/@img/sharp-win32-x64/-/sharp-win32-x64-0.35.5.tgz",
+      "integrity": "sha512-x76eH0vEiHlcMQu8Y8IenntaACtddpT6W0wmXtWrnKcnKI7ME5DdgqhAD6SEWOEl1v2zDvkZDhFA9KnURwpfqg==",
+      "inBundle": false,
+      "optional": true,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "16a804181ddd258ca6fe7079b2faa0c0356654c9db3d93ab0a80ec5e5161c3d4",
+      "packageDeclaredLicense": "Apache-2.0 AND LGPL-3.0-or-later",
+      "files": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "dc1f5d2d43c5531dfe0acaf4e950ea5dbe3e61e1850cf0e983bda7efc10d6693",
+          "bytes": 10464
+        }
+      ]
+    },
+    {
+      "location": "node_modules/@next/env",
+      "name": "@next/env",
+      "oldVersion": "16.2.0",
+      "version": "16.4.2",
+      "oldLicense": "MIT",
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/@next/env/-/env-16.4.2.tgz",
+      "integrity": "sha512-nTUTFH7G5/J/fmpkjVLegOkqyKOP0CEsJcMsyO4UCYeN1su+YMW/MfaSErnJskL7XM+UDK6aTvslxsRCyya/sA==",
+      "inBundle": false,
+      "optional": false,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "3689438a836af5958bea785eda04689932c819dc25b7a1e4833d4a32951bd935",
+      "packageDeclaredLicense": "MIT",
+      "files": [],
+      "sourceNotice": "https://raw.githubusercontent.com/vercel/next.js/v16.4.2/license.md"
+    },
+    {
+      "location": "node_modules/@next/eslint-plugin-next",
+      "name": "@next/eslint-plugin-next",
+      "oldVersion": "16.2.0",
+      "version": "16.4.2",
+      "oldLicense": "MIT",
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/@next/eslint-plugin-next/-/eslint-plugin-next-16.4.2.tgz",
+      "integrity": "sha512-gCTWlw0e+Y6kajpFyKKgA195jUJCRhlzJE0lV7ufe8a+ghIsANWZ0/FiJwg6DuOG1+OvRbcZDcFBoRh3mNJx0g==",
+      "inBundle": false,
+      "optional": false,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "8cf391fbf324028ff23d768ea8b1987f54d38af4b5c9da58c770ba7f8691c76f",
+      "packageDeclaredLicense": "MIT",
+      "files": [],
+      "sourceNotice": "https://raw.githubusercontent.com/vercel/next.js/v16.4.2/license.md"
+    },
+    {
+      "location": "node_modules/@next/swc-darwin-arm64",
+      "name": "@next/swc-darwin-arm64",
+      "oldVersion": "16.2.0",
+      "version": "16.4.2",
+      "oldLicense": "MIT",
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/@next/swc-darwin-arm64/-/swc-darwin-arm64-16.4.2.tgz",
+      "integrity": "sha512-ONkhFvZNFWlsEHOM/81AtxdyuJP2KRYKYR0JxPwvcu1AuPMMMgcL+wW2luldJvMtZwKtUxoSkCychW5wIeoYSw==",
+      "inBundle": false,
+      "optional": true,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "f961d419b565b24a222957a52b46133f79b9eeecf4fff7c96f1e094fd3291da7",
+      "packageDeclaredLicense": "MIT",
+      "files": [],
+      "sourceNotice": "https://raw.githubusercontent.com/vercel/next.js/v16.4.2/license.md"
+    },
+    {
+      "location": "node_modules/@next/swc-darwin-x64",
+      "name": "@next/swc-darwin-x64",
+      "oldVersion": "16.2.0",
+      "version": "16.4.2",
+      "oldLicense": "MIT",
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/@next/swc-darwin-x64/-/swc-darwin-x64-16.4.2.tgz",
+      "integrity": "sha512-luPCMbOsCoaF+kXJEUjmjmOZg1lC3BflhmUu+ZmW4tBu2vW/4AXak8JBFvePizGkxVmNiAw/r9ra+6UviCWtWQ==",
+      "inBundle": false,
+      "optional": true,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "e6c49988e811dbcc6dcadcebeac172c27bc877bb3f65e5f5fb85ce187642da5d",
+      "packageDeclaredLicense": "MIT",
+      "files": [],
+      "sourceNotice": "https://raw.githubusercontent.com/vercel/next.js/v16.4.2/license.md"
+    },
+    {
+      "location": "node_modules/@next/swc-linux-arm64-gnu",
+      "name": "@next/swc-linux-arm64-gnu",
+      "oldVersion": "16.2.0",
+      "version": "16.4.2",
+      "oldLicense": "MIT",
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/@next/swc-linux-arm64-gnu/-/swc-linux-arm64-gnu-16.4.2.tgz",
+      "integrity": "sha512-xhwFTAncJyaCNy5KqKKuKaIIdCy1/1ZV1s5S1G0hhT7wGMkDTlfJ6aQbfRFnIG/s3/kDrxQ8aycVe+c5QnP8ow==",
+      "inBundle": false,
+      "optional": true,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "3b17746d360b5f4d77625675a5dd6b4cc7ca6f20ad6cb560bc472ed44349a751",
+      "packageDeclaredLicense": "MIT",
+      "files": [],
+      "sourceNotice": "https://raw.githubusercontent.com/vercel/next.js/v16.4.2/license.md"
+    },
+    {
+      "location": "node_modules/@next/swc-linux-arm64-musl",
+      "name": "@next/swc-linux-arm64-musl",
+      "oldVersion": "16.2.0",
+      "version": "16.4.2",
+      "oldLicense": "MIT",
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/@next/swc-linux-arm64-musl/-/swc-linux-arm64-musl-16.4.2.tgz",
+      "integrity": "sha512-T1PNmfbPcxr5ndtWUL/3wQtLXsz808lq6sc2GrNT5k2oquF7UyqZddHSuAewHVsWsGXe6nsl9HoN1YNriVjuSg==",
+      "inBundle": false,
+      "optional": true,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "9d9daf2817bc8f8bae3ed8f731f494944bb31e187ccaf42fb0350192800d0a95",
+      "packageDeclaredLicense": "MIT",
+      "files": [],
+      "sourceNotice": "https://raw.githubusercontent.com/vercel/next.js/v16.4.2/license.md"
+    },
+    {
+      "location": "node_modules/@next/swc-linux-x64-gnu",
+      "name": "@next/swc-linux-x64-gnu",
+      "oldVersion": "16.2.0",
+      "version": "16.4.2",
+      "oldLicense": "MIT",
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/@next/swc-linux-x64-gnu/-/swc-linux-x64-gnu-16.4.2.tgz",
+      "integrity": "sha512-N9cDUOCGtkJG5PNKDFZUF3xXndrJJcpLp121uAGjIGvO/U2p9tfdNOM9htj7+5f72l0m8rMw/cvYacUJBQoudg==",
+      "inBundle": false,
+      "optional": true,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "d5bcd237f21218718b5cf4ab0fb3fbb9d04c2b25799739a2fa49dba9ff4c9049",
+      "packageDeclaredLicense": "MIT",
+      "files": [],
+      "sourceNotice": "https://raw.githubusercontent.com/vercel/next.js/v16.4.2/license.md"
+    },
+    {
+      "location": "node_modules/@next/swc-linux-x64-musl",
+      "name": "@next/swc-linux-x64-musl",
+      "oldVersion": "16.2.0",
+      "version": "16.4.2",
+      "oldLicense": "MIT",
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/@next/swc-linux-x64-musl/-/swc-linux-x64-musl-16.4.2.tgz",
+      "integrity": "sha512-yY2uh1YhX6ufuYy2FCbw1dqblbhI57GLYAJfCkqD9auTv6pLrH67Uccjc3QMKBeCYAG6lkgu08ExmX1bbjejjQ==",
+      "inBundle": false,
+      "optional": true,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "97a0b9379423e1fa8c715b8a897258cc89be1ef64a57362c02c0aed41f21f3f7",
+      "packageDeclaredLicense": "MIT",
+      "files": [],
+      "sourceNotice": "https://raw.githubusercontent.com/vercel/next.js/v16.4.2/license.md"
+    },
+    {
+      "location": "node_modules/@next/swc-win32-arm64-msvc",
+      "name": "@next/swc-win32-arm64-msvc",
+      "oldVersion": "16.2.0",
+      "version": "16.4.2",
+      "oldLicense": "MIT",
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/@next/swc-win32-arm64-msvc/-/swc-win32-arm64-msvc-16.4.2.tgz",
+      "integrity": "sha512-j/ArWRIHpMMB6wYLMhr2puTguBt70lNU/Cmjl9p6dTDE8DGknYJMP9PdwPk2dqpCNL/KIX9yfngDvIesxJPmsg==",
+      "inBundle": false,
+      "optional": true,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "ddd46f9e075518c7faf65a90a217e6adf130c4a4b8fe4f78bab4ee8887c0fc82",
+      "packageDeclaredLicense": "MIT",
+      "files": [],
+      "sourceNotice": "https://raw.githubusercontent.com/vercel/next.js/v16.4.2/license.md"
+    },
+    {
+      "location": "node_modules/@next/swc-win32-x64-msvc",
+      "name": "@next/swc-win32-x64-msvc",
+      "oldVersion": "16.2.0",
+      "version": "16.4.2",
+      "oldLicense": "MIT",
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/@next/swc-win32-x64-msvc/-/swc-win32-x64-msvc-16.4.2.tgz",
+      "integrity": "sha512-AA4edyWHDko3NCSo0x6GomsdgFb0oR1J3MXU1b5xt6FRFg4AucrMPW3S0hCe/9onU0O1BbpGQBsqo1r0Gneu1g==",
+      "inBundle": false,
+      "optional": true,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "eb79df8b283f3458b43c7ca511b143d3859dcfd1466fca411fb079e2436f57d8",
+      "packageDeclaredLicense": "MIT",
+      "files": [],
+      "sourceNotice": "https://raw.githubusercontent.com/vercel/next.js/v16.4.2/license.md"
+    },
+    {
+      "location": "node_modules/@swc/helpers",
+      "name": "@swc/helpers",
+      "oldVersion": "0.5.15",
+      "version": "0.5.23",
+      "oldLicense": "Apache-2.0",
+      "declaredLicense": "Apache-2.0",
+      "resolved": "https://registry.npmjs.org/@swc/helpers/-/helpers-0.5.23.tgz",
+      "integrity": "sha512-5lSsMOTXURePglDfvuAQUqkGek9Hg2kksOYay2m0+XR++b2NWYL/4sWyuvVBIs8oKnJaxkdi9whaL/sqN13afw==",
+      "inBundle": false,
+      "optional": false,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "3de0ff851b7c1d1c7d79655750b18a3b48cf59f56c8fec7bf8a29b250405b945",
+      "packageDeclaredLicense": "Apache-2.0",
+      "files": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "d96eba1f1881334d50ffc144276dfa98e147a415e7c591ecdfcb81680361dc91",
+          "bytes": 10836
+        }
+      ]
+    },
+    {
+      "location": "node_modules/@tailwindcss/oxide-wasm32-wasi/node_modules/@emnapi/core",
+      "name": "@emnapi/core",
+      "oldVersion": null,
+      "version": "1.8.1",
+      "oldLicense": null,
+      "declaredLicense": "MIT",
+      "resolved": null,
+      "integrity": null,
+      "inBundle": true,
+      "optional": true,
+      "evidence": "bundled metadata; parent artifact unchanged",
+      "files": []
+    },
+    {
+      "location": "node_modules/@tailwindcss/oxide-wasm32-wasi/node_modules/@emnapi/runtime",
+      "name": "@emnapi/runtime",
+      "oldVersion": null,
+      "version": "1.8.1",
+      "oldLicense": null,
+      "declaredLicense": "MIT",
+      "resolved": null,
+      "integrity": null,
+      "inBundle": true,
+      "optional": true,
+      "evidence": "bundled metadata; parent artifact unchanged",
+      "files": []
+    },
+    {
+      "location": "node_modules/@tailwindcss/oxide-wasm32-wasi/node_modules/@emnapi/wasi-threads",
+      "name": "@emnapi/wasi-threads",
+      "oldVersion": null,
+      "version": "1.1.0",
+      "oldLicense": null,
+      "declaredLicense": "MIT",
+      "resolved": null,
+      "integrity": null,
+      "inBundle": true,
+      "optional": true,
+      "evidence": "bundled metadata; parent artifact unchanged",
+      "files": []
+    },
+    {
+      "location": "node_modules/@tailwindcss/oxide-wasm32-wasi/node_modules/@napi-rs/wasm-runtime",
+      "name": "@napi-rs/wasm-runtime",
+      "oldVersion": null,
+      "version": "1.1.1",
+      "oldLicense": null,
+      "declaredLicense": "MIT",
+      "resolved": null,
+      "integrity": null,
+      "inBundle": true,
+      "optional": true,
+      "evidence": "bundled metadata; parent artifact unchanged",
+      "files": []
+    },
+    {
+      "location": "node_modules/@tailwindcss/oxide-wasm32-wasi/node_modules/@tybys/wasm-util",
+      "name": "@tybys/wasm-util",
+      "oldVersion": null,
+      "version": "0.10.1",
+      "oldLicense": null,
+      "declaredLicense": "MIT",
+      "resolved": null,
+      "integrity": null,
+      "inBundle": true,
+      "optional": true,
+      "evidence": "bundled metadata; parent artifact unchanged",
+      "files": []
+    },
+    {
+      "location": "node_modules/@tailwindcss/oxide-wasm32-wasi/node_modules/tslib",
+      "name": "tslib",
+      "oldVersion": null,
+      "version": "2.8.1",
+      "oldLicense": null,
+      "declaredLicense": "0BSD",
+      "resolved": null,
+      "integrity": null,
+      "inBundle": true,
+      "optional": true,
+      "evidence": "bundled metadata; parent artifact unchanged",
+      "files": []
+    },
+    {
+      "location": "node_modules/baseline-browser-mapping",
+      "name": "baseline-browser-mapping",
+      "oldVersion": "2.10.10",
+      "version": "2.11.29",
+      "oldLicense": "Apache-2.0",
+      "declaredLicense": "Apache-2.0",
+      "resolved": "https://registry.npmjs.org/baseline-browser-mapping/-/baseline-browser-mapping-2.11.29.tgz",
+      "integrity": "sha512-YeesxhUmR4h5y5V8KF8iBCqJb8YFrBJ++XBTeGcWIaQOYXGN19JM0FoiOjAhwuDoln8owMgXcWBmgHtYSkky2w==",
+      "inBundle": false,
+      "optional": false,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "5710c27fc54194e8fee1e31a35dca2b572981bf3ec78192fcc4da132c0db65b4",
+      "packageDeclaredLicense": "Apache-2.0",
+      "files": [
+        {
+          "path": "package/LICENSE.txt",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+          "bytes": 11357
+        }
+      ]
+    },
+    {
+      "location": "node_modules/browserslist",
+      "name": "browserslist",
+      "oldVersion": "4.28.1",
+      "version": "4.29.3",
+      "oldLicense": "MIT",
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/browserslist/-/browserslist-4.29.3.tgz",
+      "integrity": "sha512-1R4kiYKXGViqEN0CnoDrXc1StD9niAwu+j2dukWzrD4bJgsD4lDmEp0CRbc6E/vYJIfTHwPmwyaKtVSudICdPA==",
+      "inBundle": false,
+      "optional": false,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "ad38a4b96f6ba1d21a030cee067a6c84f1b9ef1ad63cb1cf93e34dd3bb3421a4",
+      "packageDeclaredLicense": "MIT",
+      "files": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "21c2679a63d7699c0e644409e2f17d0adbc7a965003feb06b3ff4b833d21f722",
+          "bytes": 1118
+        }
+      ]
+    },
+    {
+      "location": "node_modules/caniuse-lite",
+      "name": "caniuse-lite",
+      "oldVersion": "1.0.30001781",
+      "version": "1.0.30001816",
+      "oldLicense": "CC-BY-4.0",
+      "declaredLicense": "CC-BY-4.0",
+      "resolved": "https://registry.npmjs.org/caniuse-lite/-/caniuse-lite-1.0.30001816.tgz",
+      "integrity": "sha512-+8Yx7BXCoqk6IF8yTicjfUR6D/ldJzdlsodlEOiOSPmhK844WIgk67/zIQaGAOxNkZyyvBlrRFnLvqKIoqbAFw==",
+      "inBundle": false,
+      "optional": false,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "8370a3215e4a2fdf0139b8e9672e470f260d1e1ed96de71d97508c2a2e47a3e2",
+      "packageDeclaredLicense": "CC-BY-4.0",
+      "files": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "fd3a263fe19ed8faa9068b43abaebafc02c77897b0c6fc09abc04bb592e5f16e",
+          "bytes": 18651
+        }
+      ]
+    },
+    {
+      "location": "node_modules/electron-to-chromium",
+      "name": "electron-to-chromium",
+      "oldVersion": "1.5.323",
+      "version": "1.5.459",
+      "oldLicense": "ISC",
+      "declaredLicense": "ISC",
+      "resolved": "https://registry.npmjs.org/electron-to-chromium/-/electron-to-chromium-1.5.459.tgz",
+      "integrity": "sha512-4SC9HHSFjO/liAhifpdOL5hG9b4BP7/5G3y3UPZVO8trlAXr1CaUEEJL0gWK3kOcYcZrOA5rkwG45Gra/lTIgg==",
+      "inBundle": false,
+      "optional": false,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "c9e6d1a95b04ed8431bc37b44a8f55f2ad0d89dd8d273e4dae0f8261d20206a6",
+      "packageDeclaredLicense": "ISC",
+      "files": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "25ba5c59dad3e0dd8f9540beaa0f0a86a10e3aec35af5fdc8e88c5f6a5c0d8c6",
+          "bytes": 728
+        }
+      ]
+    },
+    {
+      "location": "node_modules/eslint-config-next",
+      "name": "eslint-config-next",
+      "oldVersion": "16.2.0",
+      "version": "16.4.2",
+      "oldLicense": "MIT",
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/eslint-config-next/-/eslint-config-next-16.4.2.tgz",
+      "integrity": "sha512-P33vjcETMXc+qBjpF77TeJHZLzk6cPcTy8KjpxLucYB3mCIFIORMcZ+cBXcAiIYjE5RM7jyknEEOwMNdnx/ADQ==",
+      "inBundle": false,
+      "optional": false,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "b4fcdfb48e7b72361eb1644e56b65a6d38240ad17045b8bc99f7df88b4d1ca78",
+      "packageDeclaredLicense": "MIT",
+      "files": [],
+      "sourceNotice": "https://raw.githubusercontent.com/vercel/next.js/v16.4.2/license.md"
+    },
+    {
+      "location": "node_modules/eslint-plugin-react-hooks",
+      "name": "eslint-plugin-react-hooks",
+      "oldVersion": "7.0.1",
+      "version": "7.1.1",
+      "oldLicense": "MIT",
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/eslint-plugin-react-hooks/-/eslint-plugin-react-hooks-7.1.1.tgz",
+      "integrity": "sha512-f2I7Gw6JbvCexzIInuSbZpfdQ44D7iqdWX01FKLvrPgqxoE7oMj8clOfto8U6vYiz4yd5oKu39rRSVOe1zRu0g==",
+      "inBundle": false,
+      "optional": false,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "fb92ecd0f8f216877c48283971879bc29041f1d0a39554ba5f0fe0b2fd85df53",
+      "packageDeclaredLicense": "MIT",
+      "files": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "da6d3703ed11cbe42bd212c725957c98da23cbff1998c05fa4b3d976d1a58e93",
+          "bytes": 1088
+        }
+      ]
+    },
+    {
+      "location": "node_modules/fastq",
+      "name": "fastq",
+      "oldVersion": "1.20.1",
+      "version": "1.20.3",
+      "oldLicense": "ISC",
+      "declaredLicense": "ISC",
+      "resolved": "https://registry.npmjs.org/fastq/-/fastq-1.20.3.tgz",
+      "integrity": "sha512-XKv5nnLs6nLF71NgiKJLIZFLkPyIEuOselLG7ujZnGrRfQK8HpvY+WqKhAJUAdLomwVHErVS4LfxFlPq0/FTAw==",
+      "inBundle": false,
+      "optional": false,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "cdcbf6387484c524461ddc4c338d2acb25276c4072ecea495959178d28367fef",
+      "packageDeclaredLicense": "ISC",
+      "files": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "c3367f6d01a79d368fc4fbb41b3615fcd92f243d6597ab96742f6f976f9325af",
+          "bytes": 765
+        }
+      ]
+    },
+    {
+      "location": "node_modules/nanoid",
+      "name": "nanoid",
+      "oldVersion": "3.3.11",
+      "version": "3.3.20",
+      "oldLicense": "MIT",
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/nanoid/-/nanoid-3.3.20.tgz",
+      "integrity": "sha512-uKdg2G3GNCKQn9byYOpxbGqrT2fGO5KRt5J/8b3pok8rT6qxGWF6hxMyJiEYtAf+FVyYuD9hRaDqX5uPFYJ4ZQ==",
+      "inBundle": false,
+      "optional": false,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "5ae134779aa22c2c04b691d361bc1f3c004c354e81c7ee166ea1c6e848eedc4f",
+      "packageDeclaredLicense": "MIT",
+      "files": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "da4db1480d9beea3483a2eda5c53b22238d0827d57da162b48f122e04d2d9987",
+          "bytes": 1095
+        }
+      ]
+    },
+    {
+      "location": "node_modules/next",
+      "name": "next",
+      "oldVersion": "16.2.0",
+      "version": "16.4.2",
+      "oldLicense": "MIT",
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/next/-/next-16.4.2.tgz",
+      "integrity": "sha512-r+oBJojfefUjOiWkBhXgLS+igxX/7BWyK59uHnyOyplMSLtBZ+QLP3okrdYTbrfrbrmNTVWLBPaHDX9KRaIt3w==",
+      "inBundle": false,
+      "optional": false,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "44ad2c420d30f7d1a8e4c511759c57eb40ccbbc36213a1bf32b1698bcebd3a1d",
+      "packageDeclaredLicense": "MIT",
+      "files": [
+        {
+          "path": "package/dist/compiled/@babel/runtime/LICENSE",
+          "sha256": "117da2af0d4ce0fe1c8e19b5cff9dcd806adf973d328d27b11d4448c4ff24f76",
+          "bytes": 1106
+        },
+        {
+          "path": "package/dist/compiled/@hapi/accept/LICENSE",
+          "sha256": "ff96bbd6a7408c166f16dbed7f2c87a8061e5a21289ec8f2d3069f8d3b15fc0a",
+          "bytes": 1541
+        },
+        {
+          "path": "package/dist/compiled/@mswjs/interceptors/ClientRequest/LICENSE",
+          "sha256": "bb3a5cb8fb224f632970e31425348f556f7a83b165d5384ea5e142575f5c412e",
+          "bytes": 1085
+        },
+        {
+          "path": "package/dist/compiled/@napi-rs/triples/LICENSE",
+          "sha256": "7b34e99bc43641767fded49f7f03563ffd50c689b1f3b0d50700b4727bc4ae24",
+          "bytes": 1066
+        },
+        {
+          "path": "package/dist/compiled/@opentelemetry/api/LICENSE",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+          "bytes": 11357
+        },
+        {
+          "path": "package/dist/compiled/@vercel/blob/LICENSE",
+          "sha256": "2b6fc3f4a995e6ad29f4e2ed8881a32979058b8d6557efaa6d86b7e985849f40",
+          "bytes": 10932
+        },
+        {
+          "path": "package/dist/compiled/@vercel/detect-agent/LICENSE",
+          "sha256": "b070d77bfb2c52a1dd6996de0ce5f64c49a0ca55c889b163a963ddf5cb001ee2",
+          "bytes": 11343
+        },
+        {
+          "path": "package/dist/compiled/@vercel/nft/LICENSE",
+          "sha256": "0b31f3a6ab66b272b7de451df39835f310a309a06b1a8aafb3a2fdab20adc166",
+          "bytes": 1051
+        },
+        {
+          "path": "package/dist/compiled/@vercel/og/LICENSE",
+          "sha256": "1f256ecad192880510e84ad60474eab7589218784b9a50bc7ceee34c2b91f1d5",
+          "bytes": 16725
+        },
+        {
+          "path": "package/dist/compiled/@vercel/og/satori/LICENSE",
+          "sha256": "1f256ecad192880510e84ad60474eab7589218784b9a50bc7ceee34c2b91f1d5",
+          "bytes": 16725
+        },
+        {
+          "path": "package/dist/compiled/@vercel/routing-utils/LICENSE",
+          "sha256": "b070d77bfb2c52a1dd6996de0ce5f64c49a0ca55c889b163a963ddf5cb001ee2",
+          "bytes": 11343
+        },
+        {
+          "path": "package/dist/compiled/acorn/LICENSE",
+          "sha256": "76a876cf886ff9be2a8b5e2e86514fed06223c8c9f0c1e9ee9606e93841e00b7",
+          "bytes": 1099
+        },
+        {
+          "path": "package/dist/compiled/anser/LICENSE",
+          "sha256": "6d2abc90a426cf65bbf84f7cedf9487f7ff86a3daf0e130b335a45c112f040d0",
+          "bytes": 1134
+        },
+        {
+          "path": "package/dist/compiled/assert/LICENSE",
+          "sha256": "6239c6144c31e58cf925c34483606969c555574d64ffa96518ab5d7f45c75d43",
+          "bytes": 1096
+        },
+        {
+          "path": "package/dist/compiled/async-retry/LICENSE",
+          "sha256": "8cec82f7beeab8459fa6165c973f5cd6f89aceea7a07de0aa8fc30a9dd339a05",
+          "bytes": 1067
+        },
+        {
+          "path": "package/dist/compiled/async-sema/LICENSE",
+          "sha256": "291ff3e2bd22891edef553930da53ba64adf79d83f0bd1c5b7f6fe9727526b37",
+          "bytes": 1131
+        },
+        {
+          "path": "package/dist/compiled/babel/LICENSE",
+          "sha256": "117da2af0d4ce0fe1c8e19b5cff9dcd806adf973d328d27b11d4448c4ff24f76",
+          "bytes": 1106
+        },
+        {
+          "path": "package/dist/compiled/browserify-zlib/LICENSE",
+          "sha256": "ddd770379e07bf0574dfaa4485be80a23b3248b36d09f33ec79276c09b829daf",
+          "bytes": 3486
+        },
+        {
+          "path": "package/dist/compiled/browserslist/LICENSE",
+          "sha256": "f25bf9bf3ae8984bcd43bf7fb8f78e7eec8d577081fb8d0989cfa7c67ecebb8e",
+          "bytes": 1118
+        },
+        {
+          "path": "package/dist/compiled/buffer/LICENSE",
+          "sha256": "06bafa45fdad2579ba0e43b0c9b2c6290287c99c4203c300254a462b38a307f6",
+          "bytes": 1106
+        },
+        {
+          "path": "package/dist/compiled/busboy/LICENSE",
+          "sha256": "d06b5d27bbbbe22c36b1fd88406b1208876e2d37d795f5b8eaed951a459a3111",
+          "bytes": 1067
+        },
+        {
+          "path": "package/dist/compiled/bytes/LICENSE",
+          "sha256": "e3b44af066615de2ea48d18d852d0762f18c0b2efcea714fa48a6f729d405b85",
+          "bytes": 1153
+        },
+        {
+          "path": "package/dist/compiled/ci-info/LICENSE",
+          "sha256": "25bd22427e27b0d3f1c3da2670bb44b622bcced22ebdf4777d5488ac129370a1",
+          "bytes": 1091
+        },
+        {
+          "path": "package/dist/compiled/cli-select/LICENSE",
+          "sha256": "a8e260b5b60eb27746ff2c5967489e6878c5a6ba99400cbec84c89a9b49a46ca",
+          "bytes": 1069
+        },
+        {
+          "path": "package/dist/compiled/commander/LICENSE",
+          "sha256": "04512a63dce4d2d506ad612dc0bd7681ccf6e3655f7b6eaef7dfac8323d1ec0b",
+          "bytes": 1098
+        },
+        {
+          "path": "package/dist/compiled/comment-json/LICENSE",
+          "sha256": "9dbd86998d3cdafc1d8c298aea636146568d05d429b81386e60cfce11e6cedb6",
+          "bytes": 1086
+        },
+        {
+          "path": "package/dist/compiled/compression/LICENSE",
+          "sha256": "23d466b1b134b415b66fa50c6526b4cf3e7b9258554da88d3abb371721e7ce68",
+          "bytes": 1172
+        },
+        {
+          "path": "package/dist/compiled/conf/LICENSE",
+          "sha256": "48da2f39e100d4085767e94966b43f4fa95ff6a0698fba57ed460914e35f94a0",
+          "bytes": 1109
+        },
+        {
+          "path": "package/dist/compiled/content-disposition/LICENSE",
+          "sha256": "bd47ce7b88c7759630d1e2b9fcfa170a0f1fde522be09e13fb1581a79d090400",
+          "bytes": 1094
+        },
+        {
+          "path": "package/dist/compiled/content-type/LICENSE",
+          "sha256": "257aed98914108e91a337912727b6a802eef218248507f74b76faffaff517a38",
+          "bytes": 1089
+        },
+        {
+          "path": "package/dist/compiled/cookie/LICENSE",
+          "sha256": "c02110eedc16c7114f1a9bdc026c65626ce1d9c7e27fd51a8e0feee8a48a6858",
+          "bytes": 1175
+        },
+        {
+          "path": "package/dist/compiled/cross-spawn/LICENSE",
+          "sha256": "aaa78451b6fecd1b9c4594c796c133c0e90cad100372ff8bc6de615e9ef9adf1",
+          "bytes": 1105
+        },
+        {
+          "path": "package/dist/compiled/crypto-browserify/LICENSE",
+          "sha256": "6134c69bc22c8289252e70de3af20bd67071233459055be74d83acfcc4865e7e",
+          "bytes": 1087
+        },
+        {
+          "path": "package/dist/compiled/debug/LICENSE",
+          "sha256": "98c970de440dcfc77471610aec2377c9d9b0db2b3be6d1add524a586e1d7f422",
+          "bytes": 1107
+        },
+        {
+          "path": "package/dist/compiled/devalue/LICENSE",
+          "sha256": "e399db7e952e45cae84f1b53d72ba8dbad2daaa7ab8cd1f0ab72fea5ab73b225",
+          "bytes": 1121
+        },
+        {
+          "path": "package/dist/compiled/domain-browser/LICENSE",
+          "sha256": "fc06db8dd5e7840db84ab328d9f58bdb91a56fbbf045bb977c11fcd07e2d8e3e",
+          "bytes": 1379
+        },
+        {
+          "path": "package/dist/compiled/edge-runtime/LICENSE",
+          "sha256": "e4f76a7a19ef2989dd79339bd3abf8afcf1d6f065e5a10c76c19415ffd727eb3",
+          "bytes": 1079
+        },
+        {
+          "path": "package/dist/compiled/events/LICENSE",
+          "sha256": "631987b7616a325a5b97566c232418481ddf7dbb5ecadefb991e791876cc2599",
+          "bytes": 1081
+        },
+        {
+          "path": "package/dist/compiled/find-up/LICENSE",
+          "sha256": "48da2f39e100d4085767e94966b43f4fa95ff6a0698fba57ed460914e35f94a0",
+          "bytes": 1109
+        },
+        {
+          "path": "package/dist/compiled/fresh/LICENSE",
+          "sha256": "a0ec0dab16b3666f24950f86d257930ac2ad475557b4bfe245620e0817d8a45d",
+          "bytes": 1174
+        },
+        {
+          "path": "package/dist/compiled/glob/LICENSE",
+          "sha256": "6236fa0b88a4a0cce3dda0367979491b2052b3c8d6b1c10b3668de083e86a7f0",
+          "bytes": 976
+        },
+        {
+          "path": "package/dist/compiled/gzip-size/LICENSE",
+          "sha256": "48da2f39e100d4085767e94966b43f4fa95ff6a0698fba57ed460914e35f94a0",
+          "bytes": 1109
+        },
+        {
+          "path": "package/dist/compiled/hash.js/sha256/LICENSE",
+          "sha256": "7261b3ab93df04c6d8f3398f87275d28f0e87d88cbd0033b788fb50402de03c5",
+          "bytes": 1105
+        },
+        {
+          "path": "package/dist/compiled/https-browserify/LICENSE",
+          "sha256": "ff151c00207c908581639851dd8504ce4255be0650b2b236edec2aa90342b0cd",
+          "bytes": 1103
+        },
+        {
+          "path": "package/dist/compiled/httpxy/LICENSE",
+          "sha256": "4249bd020d1b5c503d20a196c1b686b3bdebcd1c7ac06909c546d9624c64f79b",
+          "bytes": 2232
+        },
+        {
+          "path": "package/dist/compiled/icss-utils/LICENSE",
+          "sha256": "b2b54c738525e98cc42d4a1c239c9d8421507816acce98950e81d0943daae68e",
+          "bytes": 744
+        },
+        {
+          "path": "package/dist/compiled/ignore-loader/LICENSE",
+          "sha256": "62ba766e9b50f9b175b0229f4ea03e93730c9180408acec50dd617e9ae1fa059",
+          "bytes": 1066
+        },
+        {
+          "path": "package/dist/compiled/image-size/LICENSE",
+          "sha256": "3109783dad7527b490aabc49c3cb148573c19b41b843e70cf9388a93f3d7fccd",
+          "bytes": 1112
+        },
+        {
+          "path": "package/dist/compiled/ipaddr.js/LICENSE",
+          "sha256": "62568a2d1337b77171ecca9db10579163446de1ba6151678e81f06cdc199971b",
+          "bytes": 1087
+        },
+        {
+          "path": "package/dist/compiled/is-animated/LICENSE",
+          "sha256": "e08c030e1274fadc495c71e0489612f0c74673b69ae8e41460526c233a94a728",
+          "bytes": 1137
+        },
+        {
+          "path": "package/dist/compiled/is-docker/LICENSE",
+          "sha256": "48da2f39e100d4085767e94966b43f4fa95ff6a0698fba57ed460914e35f94a0",
+          "bytes": 1109
+        },
+        {
+          "path": "package/dist/compiled/is-wsl/LICENSE",
+          "sha256": "48da2f39e100d4085767e94966b43f4fa95ff6a0698fba57ed460914e35f94a0",
+          "bytes": 1109
+        },
+        {
+          "path": "package/dist/compiled/jest-worker/LICENSE",
+          "sha256": "52412d7bc7ce4157ea628bbaacb8829e0a9cb3c58f57f99176126bc8cf2bfc85",
+          "bytes": 1086
+        },
+        {
+          "path": "package/dist/compiled/json5/LICENSE",
+          "sha256": "53e59feb13058722d977c699eb0407c7bce2f93c949b681bbd2ff31698535927",
+          "bytes": 1145
+        },
+        {
+          "path": "package/dist/compiled/jsonwebtoken/LICENSE",
+          "sha256": "2144eb6894cb440fde6b2b3aaae3b617c8f1dc9bb19813079dcf62ec6c517042",
+          "bytes": 1121
+        },
+        {
+          "path": "package/dist/compiled/loader-runner/LICENSE",
+          "sha256": "498d39c83164cf8de195090f5564fc0308ab271344ca2f95484a7f1020952d00",
+          "bytes": 1077
+        },
+        {
+          "path": "package/dist/compiled/loader-utils2/LICENSE",
+          "sha256": "9068a8782d2fb4c6e432cfa25334efa56f722822180570802bf86e71b6003b1e",
+          "bytes": 1071
+        },
+        {
+          "path": "package/dist/compiled/loader-utils3/LICENSE",
+          "sha256": "9068a8782d2fb4c6e432cfa25334efa56f722822180570802bf86e71b6003b1e",
+          "bytes": 1071
+        },
+        {
+          "path": "package/dist/compiled/lodash.curry/LICENSE",
+          "sha256": "ffd8b33b354585f4ce119f19c53728281e48a97b074491eb6bf6d5c5ff305272",
+          "bytes": 1951
+        },
+        {
+          "path": "package/dist/compiled/lru-cache/LICENSE",
+          "sha256": "451ec07eeb9c4e1b86de9abdaa426462a8be48f887ec7421cf0bbb9c769555ab",
+          "bytes": 775
+        },
+        {
+          "path": "package/dist/compiled/mini-css-extract-plugin/LICENSE",
+          "sha256": "9068a8782d2fb4c6e432cfa25334efa56f722822180570802bf86e71b6003b1e",
+          "bytes": 1071
+        },
+        {
+          "path": "package/dist/compiled/nanoid/LICENSE",
+          "sha256": "da4db1480d9beea3483a2eda5c53b22238d0827d57da162b48f122e04d2d9987",
+          "bytes": 1095
+        },
+        {
+          "path": "package/dist/compiled/native-url/LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "bytes": 11358
+        },
+        {
+          "path": "package/dist/compiled/neo-async/LICENSE",
+          "sha256": "811238ba7d85f6fe6b820703a32f92705bcf77bc352ddc3476783491c64a129a",
+          "bytes": 1119
+        },
+        {
+          "path": "package/dist/compiled/node-html-parser/LICENSE",
+          "sha256": "ea75e9321945b7f0bc4644da1e404ad76ce55e9bc05cae3b2f5f2d973aede83b",
+          "bytes": 1050
+        },
+        {
+          "path": "package/dist/compiled/ora/LICENSE",
+          "sha256": "5c932d88256b4ab958f64a856fa48e8bd1f55bc1d96b8149c65689e0c61789d3",
+          "bytes": 1117
+        },
+        {
+          "path": "package/dist/compiled/os-browserify/LICENSE",
+          "sha256": "d25d1d6d28c35cb6f358e2833e405c4e53fec2fa24d156323ddea5cd438d3407",
+          "bytes": 1077
+        },
+        {
+          "path": "package/dist/compiled/p-limit/LICENSE",
+          "sha256": "5c932d88256b4ab958f64a856fa48e8bd1f55bc1d96b8149c65689e0c61789d3",
+          "bytes": 1117
+        },
+        {
+          "path": "package/dist/compiled/p-queue/LICENSE",
+          "sha256": "5c932d88256b4ab958f64a856fa48e8bd1f55bc1d96b8149c65689e0c61789d3",
+          "bytes": 1117
+        },
+        {
+          "path": "package/dist/compiled/path-browserify/LICENSE",
+          "sha256": "a22b9d5763f574e5db347c30acc0b33eaf4846767c03d2e27d012e864e79a824",
+          "bytes": 1071
+        },
+        {
+          "path": "package/dist/compiled/path-to-regexp/LICENSE",
+          "sha256": "4eeb3271453a891df609e5a9f4ee79a68307f730c13417a3bfeffa604ac8cf25",
+          "bytes": 1103
+        },
+        {
+          "path": "package/dist/compiled/picomatch/LICENSE",
+          "sha256": "d0cd141b0c322fded5dfad1d4645bb2fedfc05b7321fe1009469638190d59ef9",
+          "bytes": 1091
+        },
+        {
+          "path": "package/dist/compiled/postcss-flexbugs-fixes/LICENSE",
+          "sha256": "f26c92c1c16e78c6b1f7474792f7195b7abc851caccb4a73dcc5b3c31efc7321",
+          "bytes": 1094
+        },
+        {
+          "path": "package/dist/compiled/postcss-modules-extract-imports/LICENSE",
+          "sha256": "9e534cfb7f7ae1300e16fe1ee7d203fdfe707dc932429c37246f747c3699ee14",
+          "bytes": 726
+        },
+        {
+          "path": "package/dist/compiled/postcss-modules-local-by-default/LICENSE",
+          "sha256": "dd40f37957ddcb6a6157f40b677d6f43697583f956144fbce25443e35630453e",
+          "bytes": 1109
+        },
+        {
+          "path": "package/dist/compiled/postcss-modules-scope/LICENSE",
+          "sha256": "7774c8c4a3f750b294b416818062201a404fc2d6c8756d8b89a1688e24b5d5a7",
+          "bytes": 750
+        },
+        {
+          "path": "package/dist/compiled/postcss-modules-values/LICENSE",
+          "sha256": "655287aefbf8e292057318c385d77767b1dd9819c87709fd26730b7090efe4d9",
+          "bytes": 749
+        },
+        {
+          "path": "package/dist/compiled/postcss-preset-env/LICENSE",
+          "sha256": "597756adcb51f243ef4fb386920377f61d012ace0904364e1a8ee9aaec6afc84",
+          "bytes": 6799
+        },
+        {
+          "path": "package/dist/compiled/postcss-safe-parser/LICENSE",
+          "sha256": "c4630ac8b89cb317ac5bdd60ac5e4e185eab9bd5151a0c7b3afa41aa83d7ec9b",
+          "bytes": 1095
+        },
+        {
+          "path": "package/dist/compiled/postcss-scss/LICENSE",
+          "sha256": "c4630ac8b89cb317ac5bdd60ac5e4e185eab9bd5151a0c7b3afa41aa83d7ec9b",
+          "bytes": 1095
+        },
+        {
+          "path": "package/dist/compiled/postcss-value-parser/LICENSE",
+          "sha256": "3687447039151857a6ba378db062172c7f33d4aa70a615c87a43a9c50e990485",
+          "bytes": 1074
+        },
+        {
+          "path": "package/dist/compiled/process/LICENSE",
+          "sha256": "59a400d04c5078579acc27ddd6452c1bdf763f9506e01364700935fbb1a7c91b",
+          "bytes": 1098
+        },
+        {
+          "path": "package/dist/compiled/querystring-es3/LICENSE",
+          "sha256": "cb72d9714ddc21e758d63f423be0caddf909d23ccbb10a2f5201a870818e4f57",
+          "bytes": 1081
+        },
+        {
+          "path": "package/dist/compiled/raw-body/LICENSE",
+          "sha256": "c8e6bca7230689d536a3bd7158f66e9c4f89f95d0748743a0370ac229e9023ad",
+          "bytes": 1181
+        },
+        {
+          "path": "package/dist/compiled/react-dom-experimental/LICENSE",
+          "sha256": "da6d3703ed11cbe42bd212c725957c98da23cbff1998c05fa4b3d976d1a58e93",
+          "bytes": 1088
+        },
+        {
+          "path": "package/dist/compiled/react-dom/LICENSE",
+          "sha256": "da6d3703ed11cbe42bd212c725957c98da23cbff1998c05fa4b3d976d1a58e93",
+          "bytes": 1088
+        },
+        {
+          "path": "package/dist/compiled/react-experimental/LICENSE",
+          "sha256": "da6d3703ed11cbe42bd212c725957c98da23cbff1998c05fa4b3d976d1a58e93",
+          "bytes": 1088
+        },
+        {
+          "path": "package/dist/compiled/react-is/LICENSE",
+          "sha256": "da6d3703ed11cbe42bd212c725957c98da23cbff1998c05fa4b3d976d1a58e93",
+          "bytes": 1088
+        },
+        {
+          "path": "package/dist/compiled/react-refresh/LICENSE",
+          "sha256": "52412d7bc7ce4157ea628bbaacb8829e0a9cb3c58f57f99176126bc8cf2bfc85",
+          "bytes": 1086
+        },
+        {
+          "path": "package/dist/compiled/react-server-dom-turbopack-experimental/LICENSE",
+          "sha256": "da6d3703ed11cbe42bd212c725957c98da23cbff1998c05fa4b3d976d1a58e93",
+          "bytes": 1088
+        },
+        {
+          "path": "package/dist/compiled/react-server-dom-turbopack/LICENSE",
+          "sha256": "da6d3703ed11cbe42bd212c725957c98da23cbff1998c05fa4b3d976d1a58e93",
+          "bytes": 1088
+        },
+        {
+          "path": "package/dist/compiled/react-server-dom-webpack-experimental/LICENSE",
+          "sha256": "da6d3703ed11cbe42bd212c725957c98da23cbff1998c05fa4b3d976d1a58e93",
+          "bytes": 1088
+        },
+        {
+          "path": "package/dist/compiled/react-server-dom-webpack/LICENSE",
+          "sha256": "da6d3703ed11cbe42bd212c725957c98da23cbff1998c05fa4b3d976d1a58e93",
+          "bytes": 1088
+        },
+        {
+          "path": "package/dist/compiled/react/LICENSE",
+          "sha256": "da6d3703ed11cbe42bd212c725957c98da23cbff1998c05fa4b3d976d1a58e93",
+          "bytes": 1088
+        },
+        {
+          "path": "package/dist/compiled/regenerator-runtime/LICENSE",
+          "sha256": "51887a3d47051ac2fce1210562e5b9fe0830a8a8fabeb272c2d586eeb18a05fd",
+          "bytes": 1080
+        },
+        {
+          "path": "package/dist/compiled/safe-stable-stringify/LICENSE",
+          "sha256": "3a6d6de49d284a36c5d271ef0e62eca1838cc460dd7630e3f2c347c8f5b2232a",
+          "bytes": 1079
+        },
+        {
+          "path": "package/dist/compiled/sass-loader/LICENSE",
+          "sha256": "2af12ca8b612a22e6659ae68e0e59ee7ac792718c45524a989b512c49c5f5879",
+          "bytes": 1070
+        },
+        {
+          "path": "package/dist/compiled/scheduler-experimental/LICENSE",
+          "sha256": "da6d3703ed11cbe42bd212c725957c98da23cbff1998c05fa4b3d976d1a58e93",
+          "bytes": 1088
+        },
+        {
+          "path": "package/dist/compiled/scheduler/LICENSE",
+          "sha256": "da6d3703ed11cbe42bd212c725957c98da23cbff1998c05fa4b3d976d1a58e93",
+          "bytes": 1088
+        },
+        {
+          "path": "package/dist/compiled/schema-utils2/LICENSE",
+          "sha256": "9068a8782d2fb4c6e432cfa25334efa56f722822180570802bf86e71b6003b1e",
+          "bytes": 1071
+        },
+        {
+          "path": "package/dist/compiled/schema-utils3/LICENSE",
+          "sha256": "9068a8782d2fb4c6e432cfa25334efa56f722822180570802bf86e71b6003b1e",
+          "bytes": 1071
+        },
+        {
+          "path": "package/dist/compiled/semver/LICENSE",
+          "sha256": "4ec3d4c66cd87f5c8d8ad911b10f99bf27cb00cdfcff82621956e379186b016b",
+          "bytes": 765
+        },
+        {
+          "path": "package/dist/compiled/send/LICENSE",
+          "sha256": "25a328069fe771f8ed5b6f983ed4b0e6c84b3312ac0f69b28c3d52dc277962c9",
+          "bytes": 1128
+        },
+        {
+          "path": "package/dist/compiled/serve-handler/LICENSE",
+          "sha256": "be8ba42db3b7c3dbb064bcdc1bbbb191c0a39c8851c2a53564e97c7eea301bca",
+          "bytes": 1067
+        },
+        {
+          "path": "package/dist/compiled/shell-quote/LICENSE",
+          "sha256": "8bb16db1b047019e4395965f2cf3611b06c34bf86dc2d0210b3c3f91b53c21fe",
+          "bytes": 1109
+        },
+        {
+          "path": "package/dist/compiled/source-map/LICENSE",
+          "sha256": "6cb0631f71c7749763fd3dd1d5bee52dd1070ec17f2edc1710079ad070bd2fbd",
+          "bytes": 1526
+        },
+        {
+          "path": "package/dist/compiled/source-map08/LICENSE",
+          "sha256": "6cb0631f71c7749763fd3dd1d5bee52dd1070ec17f2edc1710079ad070bd2fbd",
+          "bytes": 1526
+        },
+        {
+          "path": "package/dist/compiled/stacktrace-parser/LICENSE",
+          "sha256": "e1898814043cb5500483d9c8517edda824b352f696d35e5043fcfb537c221531",
+          "bytes": 1076
+        },
+        {
+          "path": "package/dist/compiled/stream-browserify/LICENSE",
+          "sha256": "96e5193183476a03da6667d217ce14110191d26ee105338086e94339edf40d5a",
+          "bytes": 1066
+        },
+        {
+          "path": "package/dist/compiled/stream-http/LICENSE",
+          "sha256": "a0e6357a5e8ea65827addeb383e0948a1874d2f46bc7feaf6349b7a376ed6e98",
+          "bytes": 1086
+        },
+        {
+          "path": "package/dist/compiled/string_decoder/LICENSE",
+          "sha256": "11f2aafb37d06b3ee5bdaf06e9811141d0da05263c316f3d627f45c20d43261b",
+          "bytes": 2338
+        },
+        {
+          "path": "package/dist/compiled/strip-ansi/LICENSE",
+          "sha256": "48da2f39e100d4085767e94966b43f4fa95ff6a0698fba57ed460914e35f94a0",
+          "bytes": 1109
+        },
+        {
+          "path": "package/dist/compiled/superstruct/LICENSE",
+          "sha256": "0f644bc01d85e4b1958bdfe5a851704bd886404c78188d4d6fba43dc8293bc91",
+          "bytes": 1111
+        },
+        {
+          "path": "package/dist/compiled/tar/LICENSE",
+          "sha256": "8a1af140fdfbf5afd3df27f7e662f989c5b963a300020dfafce42033cae9e004",
+          "bytes": 1552
+        },
+        {
+          "path": "package/dist/compiled/terser/LICENSE",
+          "sha256": "901d0a7fcaccaae9917d165039c0473c354e5da2e0e94140dde67aad9ffb19da",
+          "bytes": 1303
+        },
+        {
+          "path": "package/dist/compiled/text-table/LICENSE",
+          "sha256": "435a6722c786b0a56fbe7387028f1d9d3f3a2d0fb615bb8fee118727c3f59b7b",
+          "bytes": 1073
+        },
+        {
+          "path": "package/dist/compiled/timers-browserify/LICENSE",
+          "sha256": "d5f14c3258420dfe5a3b641a143d6e6dd90eabb5962244d937e25699c3a45ec9",
+          "bytes": 2505
+        },
+        {
+          "path": "package/dist/compiled/tty-browserify/LICENSE",
+          "sha256": "435a6722c786b0a56fbe7387028f1d9d3f3a2d0fb615bb8fee118727c3f59b7b",
+          "bytes": 1073
+        },
+        {
+          "path": "package/dist/compiled/ua-parser-js/LICENSE",
+          "sha256": "fb9548e36708f09ae0cc1047ebd8153928bfe5bed67e4051f0ace552bdcbf0b3",
+          "bytes": 1095
+        },
+        {
+          "path": "package/dist/compiled/util/LICENSE",
+          "sha256": "6239c6144c31e58cf925c34483606969c555574d64ffa96518ab5d7f45c75d43",
+          "bytes": 1096
+        },
+        {
+          "path": "package/dist/compiled/vm-browserify/LICENSE",
+          "sha256": "3a62887f73cd035ac1068bc0127ce94291f7a03843391f56df3520e2ca2037f8",
+          "bytes": 1036
+        },
+        {
+          "path": "package/dist/compiled/watchpack/LICENSE",
+          "sha256": "9068a8782d2fb4c6e432cfa25334efa56f722822180570802bf86e71b6003b1e",
+          "bytes": 1071
+        },
+        {
+          "path": "package/dist/compiled/web-vitals-attribution/LICENSE",
+          "sha256": "bfdeded4040e05da31ca9b6239dc83bd23fa26ac8db87342a7ca4363f68916ff",
+          "bytes": 11342
+        },
+        {
+          "path": "package/dist/compiled/web-vitals/LICENSE",
+          "sha256": "bfdeded4040e05da31ca9b6239dc83bd23fa26ac8db87342a7ca4363f68916ff",
+          "bytes": 11342
+        },
+        {
+          "path": "package/dist/compiled/webpack-sources1/LICENSE",
+          "sha256": "214d0ac13edb475ec426df1979d96fd46b443debc466c0fb592e32152ae5a940",
+          "bytes": 1093
+        },
+        {
+          "path": "package/dist/compiled/webpack-sources3/LICENSE",
+          "sha256": "214d0ac13edb475ec426df1979d96fd46b443debc466c0fb592e32152ae5a940",
+          "bytes": 1093
+        },
+        {
+          "path": "package/dist/compiled/webpack/LICENSE",
+          "sha256": "9068a8782d2fb4c6e432cfa25334efa56f722822180570802bf86e71b6003b1e",
+          "bytes": 1071
+        },
+        {
+          "path": "package/dist/compiled/write-file-atomic/LICENSE",
+          "sha256": "ea7f376fe7a1fc28572b83ac8f806d92effb31852b9981bc9ba9d5266caa6b28",
+          "bytes": 734
+        },
+        {
+          "path": "package/dist/compiled/ws/LICENSE",
+          "sha256": "dcd0a622a3a2c94fe3aa6238b76363f87df442afe788cbad966afe943ed62281",
+          "bytes": 1083
+        },
+        {
+          "path": "package/dist/compiled/zod-validation-error/LICENSE",
+          "sha256": "03cc9a630489a2544b799548a0e8b134f382fe09fa06dc22b339091b28b8f4a8",
+          "bytes": 1095
+        },
+        {
+          "path": "package/dist/compiled/zod/LICENSE",
+          "sha256": "3f1189b28e3866e0d979968d466b78f813f76827cfdca1fbb124cc0a5c8841f8",
+          "bytes": 1072
+        },
+        {
+          "path": "package/license.md",
+          "sha256": "ee765244e2d59f5234d474f62e0766fa0c8b99af967fdd4c0cb8dcb0c76ea224",
+          "bytes": 1079
+        }
+      ]
+    },
+    {
+      "location": "node_modules/node-releases",
+      "name": "node-releases",
+      "oldVersion": "2.0.36",
+      "version": "2.0.59",
+      "oldLicense": "MIT",
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/node-releases/-/node-releases-2.0.59.tgz",
+      "integrity": "sha512-5qr2okC4ItAI0hG5SaV0HoYMpnM/Y6+Oqr7AmPYy/2uEoGvS+GbSKLeRxSS1uAdu59yz0ouzcuXievSgg///WA==",
+      "inBundle": false,
+      "optional": false,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "e7a90b5a4a80a614492740b8a925166cf4bc8bb1de56f6fca9470aa373a570c2",
+      "packageDeclaredLicense": "MIT",
+      "files": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "3706296ed611888111ceccc1dff4712844dea4bde0b185c82d718c3b69895abe",
+          "bytes": 1107
+        }
+      ]
+    },
+    {
+      "location": "node_modules/postcss",
+      "name": "postcss",
+      "oldVersion": "8.5.14",
+      "version": "8.5.23",
+      "oldLicense": "MIT",
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/postcss/-/postcss-8.5.23.tgz",
+      "integrity": "sha512-g50586zr4bZmwFiTlflMu8E0bDTb5I5gertgwAKmsdUlTQIhZtunzUlD1WSzwcVWPoAVpsrA6vlfCD7oXvRwgg==",
+      "inBundle": false,
+      "optional": false,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "d2cf324ff10baf8c34e1c79309bf2bfe15ee9b6e957f665737b9a9604c0744f1",
+      "packageDeclaredLicense": "MIT",
+      "files": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "5be1f3465bba68a626777f984878814aaf35e7ef8e9fd314d469bcf887050fb8",
+          "bytes": 1095
+        }
+      ]
+    },
+    {
+      "location": "node_modules/sharp",
+      "name": "sharp",
+      "oldVersion": "0.34.5",
+      "version": "0.35.5",
+      "oldLicense": "Apache-2.0",
+      "declaredLicense": "Apache-2.0",
+      "resolved": "https://registry.npmjs.org/sharp/-/sharp-0.35.5.tgz",
+      "integrity": "sha512-Ywn4OnzGukp7CDMrp08RQ50YKmuwG47brZgIVPTvBaaAfQlRlygrRqSrxdCiL9M+LlzLBiJ68IR1QqvzHyjC7g==",
+      "inBundle": false,
+      "optional": true,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "3b6bbbe6b308f5c383938ca4a31926cd5d79c4651ed8c5fda16a97da2014a9ac",
+      "packageDeclaredLicense": "Apache-2.0",
+      "files": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "73ba74dfaa520b49a401b5d21459a8523a146f3b7518a833eea5efa85130bf68",
+          "bytes": 10273
+        }
+      ]
+    },
+    {
+      "location": "node_modules/sharp/node_modules/semver",
+      "name": "semver",
+      "oldVersion": "7.7.4",
+      "version": "7.8.5",
+      "oldLicense": "ISC",
+      "declaredLicense": "ISC",
+      "resolved": "https://registry.npmjs.org/semver/-/semver-7.8.5.tgz",
+      "integrity": "sha512-Y7/KDsb8LjooZpwaqGyulO6DQlksgCncchHGk+sZIY4SBvUocMBEFH5Ur1fI4dV+Jvl0w6cjvucaIi40puRioA==",
+      "inBundle": false,
+      "optional": true,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "d85045d4300d7d57c891336b95df532e73f34c22ffcd222452b6d08b9d127d5d",
+      "packageDeclaredLicense": "ISC",
+      "files": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "4ec3d4c66cd87f5c8d8ad911b10f99bf27cb00cdfcff82621956e379186b016b",
+          "bytes": 765
+        }
+      ]
+    },
+    {
+      "location": "node_modules/update-browserslist-db",
+      "name": "update-browserslist-db",
+      "oldVersion": "1.2.3",
+      "version": "1.3.4",
+      "oldLicense": "MIT",
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/update-browserslist-db/-/update-browserslist-db-1.3.4.tgz",
+      "integrity": "sha512-t8wonIOdQyOjtPd2VktlBu6QjTVTks6v8bSi7kd0r2Vll8TK1JYDZtRRdbmCHOAMphkZgrzK+L+vXK4pyZ8t4A==",
+      "inBundle": false,
+      "optional": false,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "8804801cca499f383d0dc8d8b78ed0e3775aa99832bddfeb9853d1eaa21e85ca",
+      "packageDeclaredLicense": "MIT",
+      "files": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "9877e90da14aa8c931a1f9d07cc2a20ce119106e5dab1ebb41af865266d0cd2a",
+          "bytes": 1118
+        }
+      ]
+    },
+    {
+      "location": "node_modules/zod",
+      "name": "zod",
+      "oldVersion": "4.3.6",
+      "version": "4.6.7",
+      "oldLicense": "MIT",
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/zod/-/zod-4.6.7.tgz",
+      "integrity": "sha512-g8W2D2kU6a8untc053fX1uVBKzM7yqAxW/3zwk83+6RyF2+SKOuV+c0wBDhUwzV1PaGapmZH+rmcUzPf+3CGwg==",
+      "inBundle": false,
+      "optional": false,
+      "evidence": "registry archive identity, SRI and notices reviewed",
+      "archiveSha256": "84efd155bed93270286e793fc951be270b536cbd5b0eeb111f0fa3967201d698",
+      "packageDeclaredLicense": "MIT",
+      "files": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "3f1189b28e3866e0d979968d466b78f813f76827cfdca1fbb124cc0a5c8841f8",
+          "bytes": 1072
+        }
+      ]
+    }
+  ]
+}

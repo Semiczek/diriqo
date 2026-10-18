@@ -198,14 +198,22 @@ const emptyInitialDetail = {
   initialCostItems: [],
 }
 
+function getSnapshotReferenceTime() {
+  // Server request data: serialize one clock value with the shift snapshot so
+  // hydration agrees with SSR and router.refresh receives a fresh reference.
+  return Date.now()
+}
+
 export default async function JobDetailPage({ params }: JobDetailPageProps) {
   const { jobId } = await params
   const dictionary = await getRequestDictionary()
   const detailMessages = dictionary.jobs.detail
+  const referenceTime = getSnapshotReferenceTime()
 
   if (!jobId) {
     return (
       <JobDetailPageClient
+        referenceTime={referenceTime}
         jobId=""
         initialJob={null}
         initialJobState={null}
@@ -279,6 +287,7 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
     if (jobResponse.error.code === 'PGRST116') {
       return (
         <JobDetailPageClient
+          referenceTime={referenceTime}
           jobId={jobId}
           initialJob={null}
           initialJobState={null}
@@ -294,6 +303,7 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
 
     return (
       <JobDetailPageClient
+        referenceTime={referenceTime}
         jobId={jobId}
         initialJob={null}
         initialJobState={null}
@@ -544,6 +554,7 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
 
   return (
     <JobDetailPageClient
+      referenceTime={referenceTime}
       jobId={jobId}
       canManageJobPhotos={activeCompany.role === 'super_admin' || activeCompany.role === 'company_admin'}
       canManageCommunication={canManageCommunication}
