@@ -1,10 +1,19 @@
 import 'server-only'
-import { getActiveCompanyContext } from '@/lib/active-company'
+import { getActiveCompanyContext, getCompanyContextForSwitch, type ActiveCompanyContext } from '@/lib/active-company'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 import type { OfficeActor } from '@diriqo/office/core'
 
 export async function requireOfficeContext(write = false) {
   const active = await getActiveCompanyContext({ allowedRoles: ['super_admin', 'company_admin', 'manager', 'worker'] })
+  return validateOfficeContext(active, write)
+}
+
+/** Switching checks the new company's permissions, even if the old selection expired. */
+export async function requireOfficeCompanySwitchContext(companyId: string) {
+  return validateOfficeContext(await getCompanyContextForSwitch(companyId), false)
+}
+
+async function validateOfficeContext(active: ActiveCompanyContext | null, write: boolean) {
   if (!active) throw new Error('OFFICE_FORBIDDEN')
   const supabase = await createSupabaseServerClient()
   const auth = await supabase.auth.getUser()

@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server'
 import { assertOfficeRequestOrigin } from '@diriqo/office/server'
-import { resolveActiveCompanySwitch } from '@/lib/active-company-switch'
 import { hasCompanyMemberRole } from '@/lib/hub-access'
-import { requireOfficeContext } from '@/lib/office/context'
+import { requireOfficeCompanySwitchContext } from '@/lib/office/context'
 import { officePublicOrigin } from '@/lib/office/http-limits'
 
 export const dynamic = 'force-dynamic'
@@ -12,15 +11,13 @@ export async function POST(request: Request) {
   const headers = { 'Cache-Control': 'private, no-store' }
   try {
     assertOfficeRequestOrigin(request, officePublicOrigin())
-    const { supabase, actor, active } = await requireOfficeContext()
     const body = await request.text()
     if (body.length > 1024) throw new Error('OFFICE_INVALID_REQUEST')
     const payload: unknown = JSON.parse(body)
     if (!payload || typeof payload !== 'object' || !('companyId' in payload)
       || typeof payload.companyId !== 'string') throw new Error('OFFICE_INVALID_REQUEST')
-    const selection = resolveActiveCompanySwitch(payload.companyId, active.companyMemberships)
-    if (!selection.ok) throw new Error('OFFICE_FORBIDDEN')
-    const companyId = selection.company.companyId
+    const { supabase, actor, active } = await requireOfficeCompanySwitchContext(payload.companyId)
+    const companyId = active.companyId
     // Recheck the target's active membership with the verified current profile.
     const member = await supabase.from('company_members').select('company_id,profile_id,role,is_active')
       .eq('company_id', companyId).eq('profile_id', actor.actorId).eq('is_active', true).maybeSingle()
@@ -30,7 +27,7 @@ export async function POST(request: Request) {
     const settings = await supabase.from('office_settings').select('enabled').eq('company_id', companyId).maybeSingle()
     if (settings.error || settings.data?.enabled !== true) throw new Error('OFFICE_DISABLED')
     const response = NextResponse.json({
-      companyId, companyName: selection.company.companyName,
+      companyId, companyName: active.companyName,
     }, { headers })
     // Preserve the host's active-company cookie contract.
     response.cookies.set({ name: 'active_company_id', value: companyId, path: '/', sameSite: 'lax', maxAge: 60 * 60 * 24 * 365 })

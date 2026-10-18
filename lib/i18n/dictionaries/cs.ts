@@ -56,6 +56,8 @@ export const csDictionary: TranslationDictionary = {
     openMenu: 'Otevřít menu',
     closeMenu: 'Zavřít menu',
     activeCompany: 'Aktivní firma',
+    chooseCompany: 'Vyberte firmu',
+    companySelectionRequired: 'Předchozí výběr firmy není dostupný. Vyberte, ve které firmě chcete pokračovat.',
     unnamedCompany: 'Firma bez názvu',
     noOtherCompanyAvailable: 'Žádná další firma není k dispozici.',
   },

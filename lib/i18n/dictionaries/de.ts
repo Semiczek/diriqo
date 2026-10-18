@@ -56,6 +56,8 @@ export const deDictionary: TranslationDictionary = {
     openMenu: 'Menü öffnen',
     closeMenu: 'Menü schließen',
     activeCompany: 'Aktive Firma',
+    chooseCompany: 'Firma auswählen',
+    companySelectionRequired: 'Die bisherige Firmenauswahl ist nicht verfügbar. Wählen Sie die Firma, in der Sie fortfahren möchten.',
     unnamedCompany: 'Firma ohne Namen',
     noOtherCompanyAvailable: 'Keine weitere Firma ist verfügbar.',
   },

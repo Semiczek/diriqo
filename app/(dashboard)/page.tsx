@@ -3,7 +3,6 @@ import { formatAdvanceMoney, payrollAdvanceTotal } from '@/lib/payroll/advances'
 import Link from 'next/link'
 import { unstable_noStore as noStore } from 'next/cache'
 import Image from 'next/image'
-import { redirect } from 'next/navigation'
 import type { CSSProperties, ReactNode } from 'react'
 import DashboardShell from '../../components/DashboardShell'
 import styles from './dashboard.module.css'
@@ -16,7 +15,7 @@ import { listJobEconomicsSummaries } from '@/lib/dal/economics'
 import { calculateQuotedJobEconomics, type JobEconomicsSummary } from '@/lib/economics'
 import { getCompanyOnboardingChecklist } from '@/lib/onboarding'
 import { resolveCompanyTimeZone } from '@/lib/company-timezone'
-import { getActiveCompanyContext } from '../../lib/active-company'
+import { requireHubAccess } from '@/lib/require-hub-access'
 import {
   endOfTodayPrague,
   endOfTomorrowPrague,
@@ -686,11 +685,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const selectedJobsDay =
     resolvedSearchParams?.jobs_day === 'tomorrow' ? 'tomorrow' : 'today'
 
-  const activeCompany = await getActiveCompanyContext()
-
-  if (!activeCompany) {
-    redirect('/onboarding/company')
-  }
+  const activeCompany = await requireHubAccess()
 
   const companyId = activeCompany.companyId
   const companyTimeZone = resolveCompanyTimeZone(activeCompany.timeZone)

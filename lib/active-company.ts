@@ -2,7 +2,7 @@ import 'server-only'
 
 import { cookies } from 'next/headers'
 
-import { hasAnyCompanyRole, hasHubAccessRole } from '@/lib/hub-access'
+import { COMPANY_MEMBER_ROLES, hasAnyCompanyRole, hasHubAccessRole } from '@/lib/hub-access'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 
 type CompanyRelation =
@@ -69,8 +69,27 @@ function membershipMatchesAllowedRole(
 export async function getActiveCompanyContext(
   options: ActiveCompanyContextOptions = {}
 ): Promise<ActiveCompanyContext | null> {
+  return resolveCompanyContext(options)
+}
+
+/** An explicit switch authorizes its target, independently of the previous cookie. */
+export async function getCompanyContextForSwitch(companyId: string): Promise<ActiveCompanyContext | null> {
+  const targetCompanyId = companyId.trim()
+  if (!targetCompanyId) return null
+  return resolveCompanyContext({ allowedRoles: COMPANY_MEMBER_ROLES }, targetCompanyId)
+}
+
+/** Only membership labels for an explicit recovery choice; no active tenant is selected. */
+export async function getCompanySwitchMemberships(): Promise<{ companyId: string; companyName: string | null }[]> {
+  const context = await readCompanyMemberships()
+  return (context?.activeMemberships ?? [])
+    .filter((membership) => membership.company_id && membership.profile_id
+      && hasAnyCompanyRole(membership.role, COMPANY_MEMBER_ROLES))
+    .map((membership) => ({ companyId: membership.company_id!, companyName: asSingleRelation(membership.companies)?.name ?? null }))
+}
+
+async function readCompanyMemberships() {
   const supabase = await createSupabaseServerClient()
-  const cookieStore = await cookies()
 
   const {
     data: { user },
@@ -123,7 +142,20 @@ export async function getActiveCompanyContext(
     .eq('profile_id', profileId)
     .eq('is_active', true)
 
-  const memberships = ((membershipsResponse.data ?? []) as MembershipRow[]).filter((membership) =>
+  if (membershipsResponse.error) return null
+
+  const activeMemberships = (membershipsResponse.data ?? []) as MembershipRow[]
+  return { supabase, profile, activeMemberships }
+}
+
+async function resolveCompanyContext(
+  options: ActiveCompanyContextOptions,
+  targetCompanyId?: string
+): Promise<ActiveCompanyContext | null> {
+  const context = await readCompanyMemberships()
+  if (!context) return null
+  const { supabase, profile, activeMemberships } = context
+  const memberships = activeMemberships.filter((membership) =>
     membershipMatchesAllowedRole(membership.role, options.allowedRoles)
   )
 
@@ -131,11 +163,15 @@ export async function getActiveCompanyContext(
     return null
   }
 
-  const cookieCompanyId = cookieStore.get('active_company_id')?.value?.trim() ?? ''
-  const membershipFromCookie =
-    memberships.find((membership) => membership.company_id === cookieCompanyId) ?? null
+  const selectedCompanyId = targetCompanyId ?? (await cookies()).get('active_company_id')?.value?.trim() ?? ''
+  const selectedMembership =
+    activeMemberships.find((membership) => membership.company_id === selectedCompanyId) ?? null
 
-  let membership = membershipFromCookie
+  // An explicit selection is a boundary, not a hint to find another authorized tenant.
+  if (selectedCompanyId && (!selectedMembership
+    || !membershipMatchesAllowedRole(selectedMembership.role, options.allowedRoles))) return null
+
+  let membership = selectedMembership
 
   if (!membership && memberships.length > 1) {
     const companyIds = memberships

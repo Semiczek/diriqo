@@ -318,6 +318,17 @@ export async function proxy(request: NextRequest) {
     return ensureLocaleCookie(NextResponse.redirect(new URL('/onboarding/company', request.url)))
   }
 
+  const selectedCompanyId = request.cookies.get('active_company_id')?.value?.trim()
+  // Let the user explicitly recover an unavailable selection before role routing.
+  // API handlers keep their own denial responses and authorize new switch targets.
+  if (selectedCompanyId && !pathname.startsWith('/api/') && !memberships.some(
+    (item) => item.company_id === selectedCompanyId && hasCompanyMemberRole(item.role)
+  )) {
+    const recoveryResponse = NextResponse.redirect(new URL('/onboarding/company', request.url))
+    for (const cookie of response.cookies.getAll()) recoveryResponse.cookies.set(cookie)
+    return ensureLocaleCookie(recoveryResponse)
+  }
+
   const hasHubAccess = hasAnyHubAccessRole(memberships.map((item) => item.role))
   const hasCompanyAccess = memberships.some((item) => hasCompanyMemberRole(item.role))
   // Office performs active-company, role and feature checks at its server boundary.

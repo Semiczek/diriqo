@@ -56,6 +56,8 @@ export const enDictionary: TranslationDictionary = {
     openMenu: 'Open menu',
     closeMenu: 'Close menu',
     activeCompany: 'Active company',
+    chooseCompany: 'Choose a company',
+    companySelectionRequired: 'The previous company selection is unavailable. Choose the company you want to continue in.',
     unnamedCompany: 'Unnamed company',
     noOtherCompanyAvailable: 'No other company is available.',
   },
