@@ -44,7 +44,7 @@ export default function OfficeNavigation({ navigation, companyName, locale, disa
 
   return <>
     <a className={styles.skip} href="#office-workspace-content">{messages.skip}</a>
-    <div className={styles.rail}>
+    <div className={styles.rail} data-pinned={!isMobile && pinned}>
       <div className={styles.mobileBar}>
         <button ref={mobileToggle} type="button" className={styles.mobileToggle}
           aria-label={mobileOpen ? messages.collapse : messages.expand}
