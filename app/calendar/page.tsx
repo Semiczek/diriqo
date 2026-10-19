@@ -1,13 +1,13 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useMemo, useState } from 'react'
+import { startTransition, useEffect, useMemo, useState } from 'react'
 
 import DashboardShell from '../../components/DashboardShell'
 import { useI18n } from '../../components/I18nProvider'
 import { getIntlLocale } from '../../lib/i18n/config'
 import type { CalendarMessages } from '../../lib/i18n/dictionaries/types'
-import { supabase } from '../../lib/supabase'
+import { readCalendarListAction } from './actions'
 
 type CalendarView = 'list' | 'week' | 'month'
 type ItemFilter = 'all' | 'jobs' | 'events'
@@ -250,85 +250,64 @@ export default function CalendarPage() {
   }
 
   useEffect(() => {
+    let cancelled = false
     async function loadCalendar() {
       setLoading(true)
       setError(null)
-
-      const { data: jobsData, error: jobsError } = await supabase.from('jobs').select(`
-        id,
-        parent_job_id,
-        title,
-        description,
-        status,
-        start_at,
-        end_at,
-        customer_id,
-        customers (
-          name
+      try {
+        const result = await readCalendarListAction()
+        if (cancelled) return
+        if (!result.ok) {
+          setItems([])
+          setError(result.error || dictionary.calendar.loadError)
+          return
+        }
+        const jobs: JobRow[] = result.data.jobs
+        const parentJobIds = new Set(
+          jobs
+            .map((job) => job.parent_job_id)
+            .filter((parentJobId): parentJobId is string => Boolean(parentJobId))
         )
-      `).order('start_at', { ascending: true })
+        const visibleJobs = jobs.filter((job) => !parentJobIds.has(job.id))
 
-      if (jobsError) {
-        console.error('Calendar jobs load error', jobsError)
-        setError(dictionary.calendar.loadError)
-        setLoading(false)
-        return
+        const mappedJobs: CalendarItem[] = visibleJobs.map((job) => ({
+          id: job.id,
+          type: 'job',
+          title: job.title || dictionary.calendar.untitledJob,
+          description: job.description || '',
+          status: job.status,
+          start_at: job.start_at,
+          end_at: job.end_at,
+          customerName: job.customers?.[0]?.name || null,
+        }))
+
+        const mappedEvents: CalendarItem[] = result.data.eventRows.map((event: CalendarEventRow) => ({
+          id: event.id,
+          type: 'event',
+          title: event.title || dictionary.calendar.untitledEvent,
+          description: event.description || '',
+          status: null,
+          start_at: event.start_at,
+          end_at: event.end_at,
+          customerName: null,
+        }))
+
+        const merged = [...mappedJobs, ...mappedEvents].sort(
+          (a, b) => (getItemStart(a)?.getTime() ?? 0) - (getItemStart(b)?.getTime() ?? 0)
+        )
+        setItems(merged)
+      } catch {
+        if (!cancelled) {
+          setItems([])
+          setError(dictionary.calendar.loadError)
+        }
+      } finally {
+        if (!cancelled) setLoading(false)
       }
-
-      const { data: eventsData, error: eventsError } = await supabase.from('calendar_events').select(`
-        id,
-        title,
-        description,
-        start_at,
-        end_at,
-        job_id
-      `).is('job_id', null).order('start_at', { ascending: true })
-
-      if (eventsError) {
-        console.error('Calendar events load error', eventsError)
-        setError(dictionary.calendar.loadError)
-        setLoading(false)
-        return
-      }
-
-      const jobs = ((jobsData as JobRow[]) || [])
-      const parentJobIds = new Set(
-        jobs
-          .map((job) => job.parent_job_id)
-          .filter((parentJobId): parentJobId is string => Boolean(parentJobId))
-      )
-      const visibleJobs = jobs.filter((job) => !parentJobIds.has(job.id))
-
-      const mappedJobs: CalendarItem[] = visibleJobs.map((job) => ({
-        id: job.id,
-        type: 'job',
-        title: job.title || dictionary.calendar.untitledJob,
-        description: job.description || '',
-        status: job.status,
-        start_at: job.start_at,
-        end_at: job.end_at,
-        customerName: job.customers?.[0]?.name || null,
-      }))
-
-      const mappedEvents: CalendarItem[] = ((eventsData as CalendarEventRow[]) || []).map((event) => ({
-        id: event.id,
-        type: 'event',
-        title: event.title || dictionary.calendar.untitledEvent,
-        description: event.description || '',
-        status: null,
-        start_at: event.start_at,
-        end_at: event.end_at,
-        customerName: null,
-      }))
-
-      const merged = [...mappedJobs, ...mappedEvents].sort(
-        (a, b) => (getItemStart(a)?.getTime() ?? 0) - (getItemStart(b)?.getTime() ?? 0)
-      )
-      setItems(merged)
-      setLoading(false)
     }
 
-    void loadCalendar()
+    startTransition(() => { void loadCalendar() })
+    return () => { cancelled = true }
   }, [dictionary.calendar.loadError, dictionary.calendar.untitledEvent, dictionary.calendar.untitledJob])
 
   const presetBounds = useMemo(() => getRangeBoundsFromPreset(view, range, anchorDate), [view, range, anchorDate])

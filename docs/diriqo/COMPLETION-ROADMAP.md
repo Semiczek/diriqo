@@ -29,7 +29,7 @@ PDF export faktury vrací `permission denied for table invoices`: firemní PDF r
 
 ## 2. Kritické P0 chyby a blokující ověření
 
-**Nový neuzavřený nález 18. 10.: smíšené role a fallback aktivní firmy.** Po přepnutí uživatele z administrátora firmy A do worker členství firmy B ukazuje hlavička firmu B, ale `/` načte dashboard firmy A. `app/(dashboard)/page.tsx` volá `getActiveCompanyContext()` s výchozím filtrem `hasHubAccessRole` před vyhodnocením cookie; worker firmu odfiltruje a použije fallback administrátorské firmy. C08 používá správné `requireWorkerAccess`. Globální resolver/dashboard vyžaduje samostatnou opravu a regresi admin A / worker B; celá tenant matice zůstává otevřená. V tomto C08 balíku se resolver nemění.
+**Opravený resolver aktivní firmy, 18. 10.:** [PR #29](https://github.com/Semiczek/diriqo/pull/29) je sloučené a nasazené z `1d65810391cbb3c45ae5c4f835d05ce18d51c47f`; main CI 39158480814 PASS. Původní nesoulad worker firmy B v hlavičce a admin dashboardu firmy A byl před nasazením reprodukován. Po opravě skutečné přihlášené UI ověřilo vybranou worker firmu, odebrání členství a výslovné obnovení platného výběru; dočasné přístupy uklizené (19 syntetických firem, 0 aktivních testovacích členství). Managed důkaz `artifacts/active-company/live-ui-20261018.json`, SHA-256 `d11a13ea35982c1458ef23d5b95d42a2df1b0df62f2c47364dd9414caa7af2d5`. Uzavírá se tento konkrétní resolverový bug; celá tenant matice a C03 s rolí manager zůstávají částečně ověřené.
 
 
 Konkrétní kódové vady se odlišují od neprovedeného testu. Následující vady byly zjištěny čtením baseline; případná následná oprava a její důkaz jsou uvedeny v příslušném řádku. U ostatních vad se netvrdí živá reprodukce ani nasazená oprava.
@@ -38,7 +38,7 @@ Konkrétní kódové vady se odlišují od neprovedeného testu. Následující 
 |---|---|---|
 | P0-01 | Baseline: start směny používal SELECT před INSERT bez atomického invariantu. | Dvě zařízení mohla založit souběžné směny. Baseline vada opravena migrací 20261011191250; 27+3 DB kontrol a souběh dvou spojení PASS. PR #10 je nasazené; přihlášený start/reload/stop/Hotovo i následná DB kontrola PASS. Původní C04-01 je HOTOVO: následný skutečný dvojklik i současné kliky ze dvou webových karet na revizi 915705d doložily jedinou běžící směnu. Viz report směn. |
 | P0-02 | Baseline: paid před samostatným worker_advances upsertem; první souběhový test navíc odhalil retry smyčku při business SQLSTATE40001. | Opraveno atomickým append-only ledgerem a forward PT409 migrací. Hosted SQL81+5, čtyři Auth/HTTP souběhy a stejná-operation reconciliace PASS; request/payment reautorizace4+7 PASS. PR #27 nasazené z 010a3643; původní C08-02 HOTOVO na základě skutečného Auth/HTTP/DB opakování. [Důkaz](../worker-advances-c08-implementation-20261018.md). |
-| P0-03 | Calendar update nemá očekávanou verzi; přidělení se maže a vkládá odděleně. | Tiché přepsání druhého vedoucího nebo ztráta přiřazení. Atomická změna s verzí. C06-03. |
+| P0-03 | Baseline: calendar update neměl očekávanou verzi a přiřazení měnil odděleně. | Kandidát PR #30 ukládá celý agregát atomicky, vrací PT409 při staré revizi a zachovává návrh v UI. Full Vitest 1686, lokální i hosted SQL 66 + 4, lint/TypeScript/build PASS. Migrace 20261018194423 aplikovaná, původní 4 events + 4 assignments zachovány. HTTP dvě identity: A 200 / B 409 PT409, úplný vítěz, kontrolní firma beze změny, 2 odhlášení PASS. C06-03 ČÁSTEČNĚ: aplikace, důkaz překryvu DB zámků a dvě přihlášená okna zatím čekají. [Hranice důkazů a rollout](../calendar-atomic-edits-20261018.md). |
 | P0-04 | Core převod nabídky zapisuje rodiče a podzakázky odděleně; catch vrací nalezeného rodiče jako úspěch i po selhání potomků. | Neúplná vícedenní zakázka se tváří dokončeně. Samostatná transakční oprava core cesty; smart quote RPC je jiná implementace. C01-02. |
 | P0-05 | Základní PDF nabídky načítá dnešní customers místo uloženého snapshotu. | Změna adresy změní pozdější export staré nabídky. Snapshot při vydání a regresní test. C02-02. |
 | P0-06 | Ekonomika při absenci historické sazby bere dnešní profilovou sazbu; úplnou absenci převede na nulu. | Historie nákladů se může přepočítat a marže působí úplně bez sazby. Historické sazby a stav neúplnosti. C03-03/C10-02/P17. |
@@ -73,7 +73,7 @@ Licenční audit již staticky potvrzuje: limit počtu pracovníků není aktuá
 
 ## 5. Aktualizovaná matice 73 scénářů
 
-**HOTOVO: 3 · ČÁSTEČNĚ: 48 · CHYBÍ: 11 · CHYBA: 6 · NEOVĚŘENO: 5.** Původních 30 core + 18 modulových + 25 platformních ID a texty jsou beze změny v [acceptance-scenarios.json](acceptance-scenarios.json). Manifest obsahuje pro každý řádek implementaci/soubory, bezpečnost, typ testů, datum zdrojového důkazu, E2E, komerční připravenost a chybějící kroky.
+**HOTOVO: 3 · ČÁSTEČNĚ: 49 · CHYBÍ: 11 · CHYBA: 5 · NEOVĚŘENO: 5.** Původních 30 core + 18 modulových + 25 platformních ID a texty jsou beze změny v [acceptance-scenarios.json](acceptance-scenarios.json). Manifest obsahuje pro každý řádek implementaci/soubory, bezpečnost, typ testů, datum zdrojového důkazu, E2E, komerční připravenost a chybějící kroky.
 
 - HOTOVO = celý původní scénář má uzavřený relevantní důkaz; nyní C04-01 pro přesný invariant dvojkliku/dvou karet a C08-01/02 pro dílčí výplaty, obě salda a idempotenci. Nejde o akceptaci celého mobilního produktu nebo komerční připravenosti.
 - ČÁSTEČNĚ = implementace nebo dílčí testy existují, úplný průchod chybí.
@@ -102,7 +102,7 @@ Sloupec důkaz odkazuje na zdrojové soubory a dřívější reporty v JSON. Př
 | C05-03 | Neměnná přijatá verze | ČÁSTEČNĚ | Dřívější dílčí SQL; související unit/mock; kód | Sjednotit kontrakt základní nabídky bez vynucení placeného modulu a ověřit navazující zakázku. |
 | C06-01 | Absence a plán | ČÁSTEČNĚ | kód | Doplnit nebo prokázat konflikt přidělení ihned po schválení, včetně načteného kalendáře. |
 | C06-02 | Pracovník nesmí plánovat | ČÁSTEČNĚ | kód | Skutečným worker účtem ověřit Server Action, přímý REST a DB/RPC všech přesunů. |
-| C06-03 | Konflikt přesunu | CHYBA | kód | Zavést optimistickou verzi a atomickou událost s přiřazeními; druhý vedoucí dostane řízený konflikt. |
+| C06-03 | Konflikt přesunu | ČÁSTEČNĚ | Atomická RPC/revize; 54 cílených kontrol, lokální i hosted SQL 66 + 4 a dvě Auth/HTTP relace 200/409 PASS | Nasadit RPC aplikaci, doložit skutečný překryv DB zámků a řešitelný konflikt se zachovaným návrhem ve dvou přihlášených oknech. |
 | C07-01 | Místní data absence | NEOVĚŘENO | kód | Otestovat celé místní dny a DST v nejméně dvou firemních zónách bez posunu žádosti. |
 | C07-02 | Konflikty a soukromí absence | ČÁSTEČNĚ | kód | Ověřit viditelnost důvodu absence, konfliktní směnu a výstupy worker/manager rolí. |
 | C07-03 | Zrušení schválené absence | CHYBÍ | kód | Doplnit žádost/zrušení, historii a přepočet dostupnosti bez vytváření směn. |

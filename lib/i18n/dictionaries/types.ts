@@ -1229,6 +1229,20 @@ export type CalendarMessages = {
     endMustBeAfterStart: string
     companyRequired: string
     unexpectedError: string
+    conflictDetected: string
+    unavailableWorker: string
+    draftPreserved: string
+    currentSavedVersion: string
+    loadLatest: string
+    confirmLoadLatest: string
+    uncertainSave: string
+    companyChanged: string
+    dangerZone: string
+    confirmDelete: string
+    deleteDescription: string
+    deleteEvent: string
+    deleting: string
+    uncertainDelete: string
   }
   newEvent: {
     loadJobsFailed: string
@@ -1241,6 +1255,8 @@ export type CalendarMessages = {
     createFailed: string
     workerAssignFailed: string
     unexpectedError: string
+    uncertainSave: string
+    checkCalendar: string
     pageSubtitle: string
     backToCalendar: string
     mainSectionTitle: string

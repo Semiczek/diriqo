@@ -1,50 +1,76 @@
 'use client'
 
-import { useState } from 'react'
+import { startTransition, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { deleteCalendarEventAction } from '@/app/calendar/actions'
+import { useI18n } from '@/components/I18nProvider'
+import type { CalendarSnapshot } from '@/lib/calendar/types'
 
 type CalendarEventDangerZoneProps = {
   eventId: string
-}
-
-function getErrorMessage(error: unknown, fallback: string) {
-  if (error instanceof Error && error.message) {
-    return error.message
-  }
-
-  return fallback
+  companyId: string
+  expectedRevision: string
+  disabled?: boolean
+  onConflict: (current?: CalendarSnapshot) => void
+  onUncertainResult: (message?: string) => void
+  onBusyChange: (busy: boolean) => void
 }
 
 export default function CalendarEventDangerZone({
   eventId,
+  companyId,
+  expectedRevision,
+  disabled = false,
+  onConflict,
+  onUncertainResult,
+  onBusyChange,
 }: CalendarEventDangerZoneProps) {
   const router = useRouter()
+  const { dictionary } = useI18n()
+  const t = dictionary.calendar.eventDetail
   const [isDeleting, setIsDeleting] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const writeInFlight = useRef(false)
 
   async function handleDeleteEvent() {
-    const confirmed = window.confirm(
-      'Opravdu smazat tuto interní událost? Tato akce smaže i přiřazení pracovníků k události.'
-    )
+    if (disabled || writeInFlight.current) return
+    const confirmed = window.confirm(t.confirmDelete)
 
     if (!confirmed) return
 
+    let deleted = false
     try {
+      writeInFlight.current = true
       setIsDeleting(true)
+      onBusyChange(true)
       setErrorMessage(null)
 
-      const response = await deleteCalendarEventAction(eventId)
+      const response = await deleteCalendarEventAction({ eventId, companyId, expectedRevision })
 
       if (!response.ok) {
-        throw new Error(response.error)
+        if (response.code === 'conflict') {
+          onConflict(response.current)
+        } else if (response.code === 'unknown' || response.code === 'unavailable') {
+          setErrorMessage(t.uncertainDelete)
+          onUncertainResult(t.uncertainDelete)
+        } else {
+          setErrorMessage(response.error)
+        }
+        return
       }
 
+      deleted = true
       router.push('/calendar')
       router.refresh()
-    } catch (error: unknown) {
-      setErrorMessage(getErrorMessage(error, 'Nepodařilo se smazat interní událost.'))
-      setIsDeleting(false)
+    } catch {
+      setErrorMessage(t.uncertainDelete)
+      onUncertainResult(t.uncertainDelete)
+    } finally {
+      if (!deleted) {
+        writeInFlight.current = false
+        setIsDeleting(false)
+        onBusyChange(false)
+      }
     }
   }
 
@@ -66,7 +92,7 @@ export default function CalendarEventDangerZone({
           color: '#991b1b',
         }}
       >
-        Nebezpečná zóna
+        {t.dangerZone}
       </h3>
 
       <p
@@ -77,28 +103,29 @@ export default function CalendarEventDangerZone({
           lineHeight: 1.5,
         }}
       >
-        Smazání události odstraní samotnou interní událost i její přiřazení pracovníků.
+        {t.deleteDescription}
       </p>
 
       <button
         type="button"
-        onClick={handleDeleteEvent}
-        disabled={isDeleting}
+        onClick={() => startTransition(() => { void handleDeleteEvent() })}
+        disabled={isDeleting || disabled}
         style={{
           padding: '10px 14px',
           borderRadius: 8,
           border: '1px solid #dc2626',
           background: '#dc2626',
           color: '#ffffff',
-          cursor: isDeleting ? 'not-allowed' : 'pointer',
+          cursor: isDeleting || disabled ? 'not-allowed' : 'pointer',
           fontWeight: 700,
         }}
       >
-        {isDeleting ? 'Mažu událost...' : 'Smazat událost'}
+        {isDeleting ? t.deleting : t.deleteEvent}
       </button>
 
       {errorMessage && (
         <p
+          role="alert"
           style={{
             marginTop: 12,
             marginBottom: 0,
