@@ -14,7 +14,7 @@ assert.ok(runtime && path.isAbsolute(runtime), 'PGLITE_MODULE must name an exist
 const { PGlite } = await import(pathToFileURL(runtime).href)
 const db = new PGlite()
 const sql = (name) => readFile(path.join(root, name), 'utf8')
-const migration = 'supabase/migrations/20261018192055_atomic_calendar_event_edits.sql'
+const migration = 'supabase/migrations/20261018194423_atomic_calendar_event_edits.sql'
 
 try {
   await db.exec(`

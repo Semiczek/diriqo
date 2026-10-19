@@ -1,6 +1,6 @@
-# C06-03: atomic calendar edits — local release candidate
+# C06-03: atomic calendar edits — database applied, application candidate
 
-This package targets only Diriqo and test Supabase `wfcpfraxiuhuglnuaxqj`. It is prepared locally on `codex/diriqo-calendar-atomic`, based on main `1d65810391cbb3c45ae5c4f835d05ce18d51c47f` including the selected-company fix. No migration, hosted fixture or calendar data mutation has been applied by this package. Local checks below are not hosted or browser acceptance.
+This package targets only Diriqo and test Supabase `wfcpfraxiuhuglnuaxqj`. The application candidate is in draft PR #30 on `codex/diriqo-calendar-atomic`, based on main `1d65810391cbb3c45ae5c4f835d05ce18d51c47f` including the selected-company fix. The release owner applied migration `20261018194423_atomic_calendar_event_edits` on 18 October; its reviewed bytes are unchanged. Hosted sequential SQL and the two-session HTTP winner/conflict check passed. The application release, owner-barrier proof of overlapping database waits and browser acceptance remain pending.
 
 ## Original acceptance boundary
 
@@ -41,4 +41,12 @@ Immutable SHA-256: migration `08fa80e9e55c636f7a3dd10fd19b6d9e69800de0f2fade2043
 
 Initial UI test startup failed because the harness lacked a `server-only` mock and treated asynchronous dictionary loading as synchronous. Both harness issues were fixed before the successful targeted and full runs. The restricted Windows runner also rejected Vite process spawning; the successful runs used the approved local execution path. These attempts are not presented as successful tests.
 
-Hosted sequential SQL, actual overlapping Auth/HTTP edits, lock-wait reauthorization and two authenticated UI sessions are still pending. The local paid cases do not prove payment provenance or a real paid-receipt barrier. Complex privileged owner/FK deletion concurrency may abort atomically and is not claimed as a proven successful workflow. C06-03 is not declared complete by local tests alone.
+The release owner ran only `supabase/tests/calendar-events.sql` against hosted test Supabase after the successful provider receipt: **66 contract cases + 4 cleanup assertions PASS**, with fixtures rolled back. All four original event rows and four assignment rows match their pre-apply values; the four new revisions are zero. The five existing advisor finding groups are unchanged. This is sequential hosted SQL and preservation proof, not HTTP overlap or browser evidence. The local-only paid suite was not run hosted.
+
+Managed hosted evidence: `artifacts/calendar/hosted-migration-and-contracts-20261018.json`, SHA-256 `76c937b684553687548c3b3e3b1a0f642a66f3a5d11266ef60f69ed0b168931e`. It retains the provider receipt, SQL results, full original-row comparison and advisor comparison; raw data remains private.
+
+On 18 October the release owner ran two independent authenticated HTTP sessions against the synthetic event with the same revision `1`. Editor A returned HTTP 200; editor B returned HTTP 409 / `PT409` / `CALENDAR_STALE`. The final snapshot exactly matches A's complete header and assignments at revision `2`; unrelated events and the control company are unchanged. Both sessions logged out. Private receipt: `calendar-concurrency-20261018-01.json` in the validation directory, SHA-256 `76b6e5f7c484339f7b9d7ec8f9eeee400ca51a1ec41fadaf3efea6bea2ab285b`. Its `passed: true` confirms these HTTP assertions. The receipt explicitly retains `REQUIRED_SEPARATE_OWNER_ROW_LOCK_BARRIER`; start timestamps alone do not establish overlapping database lock waits.
+
+On 19 October the release owner verified cleanup of the synthetic access: all six memberships and four profiles inactive, both Auth accounts banned until 2099, both test grants revoked, and zero remaining sessions. Synthetic business history remains preserved; these accounts and grants must not be reused for another run.
+
+Owner-barrier proof of overlapping database waits, lock-wait reauthorization and two authenticated UI sessions remain pending. The local paid cases do not prove payment provenance or a real paid-receipt barrier. Complex privileged owner/FK deletion concurrency may abort atomically and is not claimed as a proven successful workflow. C06-03 remains partial.

@@ -1061,11 +1061,11 @@
     "scenario": "Souběžné přesunutí stejné události dvěma vedoucími vyvolá řešitelný konflikt, ne tiché přepsání.",
     "status": "ČÁSTEČNĚ",
     "title": "Konflikt přesunu",
-    "reviewedAt": "2026-10-18",
+    "reviewedAt": "2026-10-19",
     "reviewedCommit": "7d94d318d9a3e0ff91a6bace496b5308272894d1",
     "implementation": {
       "state": "IMPLEMENTOVÁNO, ŽIVÁ AKCEPTACE ČEKÁ",
-      "detail": "Snapshot a atomické create/update/delete RPC ukládají hlavičku i přiřazení společně. Očekávaná revize chrání před tichým přepsáním; PT409 zachová návrh a vyžaduje výslovnou obnovu aktuální verze. Lokální kandidát, zatím nenasazeno.",
+      "detail": "Snapshot a atomické create/update/delete RPC ukládají hlavičku i přiřazení společně. Očekávaná revize chrání před tichým přepsáním; PT409 zachová návrh a vyžaduje výslovnou obnovu aktuální verze. Databázová migrace 20261018194423 aplikovaná v Diriqo test projektu; RPC aplikace zatím čeká na nasazení.",
       "files": [
         "app/calendar/actions.ts",
         "lib/dal/calendar.ts",
@@ -1074,12 +1074,12 @@
         "app/calendar/new/page.tsx",
         "app/calendar/events/[eventId]/page.tsx",
         "components/CalendarEventDangerZone.tsx",
-        "supabase/migrations/20261018192055_atomic_calendar_event_edits.sql"
+        "supabase/migrations/20261018194423_atomic_calendar_event_edits.sql"
       ]
     },
     "functionality": {
       "fullyVerified": false,
-      "basis": "44 action/DAL a 10 UI-handler testů PASS; lokální PostgreSQL 66 kontraktů + 4 kontroly úklidu PASS. Skutečný HTTP souběh a dvě přihlášená okna dosud neproběhly."
+      "basis": "44 action/DAL a 10 UI-handler testů PASS; lokální i hosted PostgreSQL 66 kontraktů + 4 kontroly úklidu PASS. Dvě nezávislé Auth/HTTP relace ze stejné revize: A 200, B 409 PT409, úplný vítěz revize 1→2, kontrolní firma beze změny, obě relace odhlášeny. Důkaz překryvu DB zámků ani dvě přihlášená okna dosud doloženy nejsou."
     },
     "security": {
       "state": "LOKÁLNĚ OVĚŘENO, HOSTED HRANICE ČEKÁ",
@@ -1100,20 +1100,29 @@
           "supabase/tests/calendar-events-local-paid.sql",
           "scripts/test-calendar-events-sql.mjs"
         ],
-        "state": "LOKÁLNÍ POSTGRESQL PASS; HOSTED DOSUD NEPROVEDENO",
+        "state": "LOKÁLNÍ I HOSTED POSTGRESQL 66 + 4 PASS",
         "reportedAt": "2026-10-18",
         "reports": [
           "docs/calendar-preflight-20261018.md",
-          "docs/calendar-atomic-edits-20261018.md"
+          "docs/calendar-atomic-edits-20261018.md",
+          "artifacts/calendar/hosted-migration-and-contracts-20261018.json"
         ],
-        "scope": "PGlite: 66 kontraktů + 4 úklid; migrace odmítla rozporné aliasy. Dalších 12 + 2 pouze nad zjednodušenou lokální paid tabulkou, tento soubor nesmí běžet hosted. Žádný live HTTP/barrier důkaz.",
+        "scope": "Hosted hlavní sada 66 kontraktů + 4 úklid PASS po migraci 20261018194423; testovací fixtures rollback. Původní 4 events a 4 assignments zachovány, revisions0. PGlite navíc odmítnutí rozporných aliasů a 12 + 2 paid případů pouze lokálně; local-paid soubor nesmí běžet hosted. HTTP důkaz je evidován samostatně; owner-barrier důkaz skutečného překryvu DB zámků chybí.",
         "executedThisReview": true
       }
     },
     "e2e": {
       "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
       "executedThisReview": false,
-      "partialEvidence": []
+      "partialEvidence": [
+        {
+          "kind": "authenticated-http",
+          "reportedAt": "2026-10-18",
+          "report": "calendar-concurrency-20261018-01.json",
+          "sha256": "76b6e5f7c484339f7b9d7ec8f9eeee400ca51a1ec41fadaf3efea6bea2ab285b",
+          "scope": "Dvě identity a dvě Auth relace, stejná revize 1, A HTTP200/B HTTP409 PT409 CALENDAR_STALE, úplný vítěz revize2 bez smíšených přiřazení, kontrolní firma a ostatní události beze změny, dvě odhlášení. Bez owner-barrier důkazu DB lock overlap a bez browser UX."
+        }
+      ]
     },
     "productionReadiness": {
       "ready": false,
@@ -1121,11 +1130,14 @@
     },
     "evidence": [
       "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: updateCalendarEventAction aktualizuje podle id/company bez očekávané verze; přiřazení pak maže a vkládá samostatně.",
-      "Lokální implementace 7d94d318d9a3e0ff91a6bace496b5308272894d1 dne 2026-10-18: cílené testy 54/54, full Vitest 63 souborů / 1686 testů, uncached TypeScript, ESLint a produkční Next 16.4.2 build PASS. Viz docs/calendar-atomic-edits-20261018.md; nejde o hosted ani browser E2E."
+      "Lokální implementace 7d94d318d9a3e0ff91a6bace496b5308272894d1 dne 2026-10-18: cílené testy 54/54, full Vitest 63 souborů / 1686 testů, uncached TypeScript, ESLint a produkční Next 16.4.2 build PASS. Viz docs/calendar-atomic-edits-20261018.md; nejde o hosted ani browser E2E.",
+      "2026-10-18: provider migrace 20261018194423 aplikovaná se shodným SHA 08fa80e9e55c636f7a3dd10fd19b6d9e69800de0f2fade2043dde2cc3e2a32f7. Hosted SQL 66 + 4 PASS, fixtures rollback a původní 4 events + 4 assignments zachovány; revisions 0, advisor baseline beze změny. Důkaz artifacts/calendar/hosted-migration-and-contracts-20261018.json, SHA 76c937b684553687548c3b3e3b1a0f642a66f3a5d11266ef60f69ed0b168931e. Aplikace a browser akceptace ještě čekají; následný HTTP důkaz je uveden samostatně.",
+      "2026-10-18: dvě skutečné Auth/HTTP relace ze stejné revize1, A200 / B409 PT409; úplný vítěz revize2, kontrolní firma nezměněna, dvě odhlášení. Receipt calendar-concurrency-20261018-01.json SHA 76b6e5f7c484339f7b9d7ec8f9eeee400ca51a1ec41fadaf3efea6bea2ab285b. Neobsahuje owner-barrier důkaz skutečného DB lock overlap.",
+      "2026-10-19: release owner ověřil úklid testovacího přístupu: 6 memberships inactive, 4 profiles inactive, 2 Auth účty banned2099, 2 test grants revoked, 0 sessions. Syntetická obchodní historie zachována."
     ],
     "remaining": [
-      "Koordinovaně aplikovat ověřené bytes migrace a RPC aplikaci, zachovat původní data a doložit hosted SQL sadu.",
-      "Dvě skutečné Auth/HTTP relace musí měnit stejnou revizi: právě jeden úplný vítěz a jeden PT409, bez smíšených přiřazení; pak řešitelný konflikt se zachovaným návrhem ve dvou přihlášených oknech."
+      "Nasadit připravenou RPC aplikaci; migrace i hosted SQL jsou ověřené, staré přímé zápisy mezitím bezpečně odmítnuté.",
+      "Doložit skutečný překryv DB zámků samostatnou owner bariérou a dva přihlášené prohlížeče s řešitelným konfliktem a zachovaným návrhem. HTTP dvě identity 200/409 a úplný vítěz již prošly; lock-wait revokace/expirace zůstává samostatným nedoloženým důkazem."
     ]
   },
   {

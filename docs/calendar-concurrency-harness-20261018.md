@@ -62,7 +62,7 @@ The baseline target can be `Synthetic calendar baseline`, description null, 2026
 
 Payloads must contain exactly `title`, `description`, `start_at`, `end_at`, `job_id`, `assigned_profile_ids`. The harness validates trimmed title/description, UUIDs, unique assignments, explicit timezones, valid time ordering and decimal-string bigint revision. It normalizes timestamps to ISO UTC before recording and sending the exact two request bodies. Neither passwords nor access/refresh tokens, password hashes or session IDs are written into the report.
 
-## Later execution
+## Reproducing a separately authorized run
 
 After the reviewed migration/application release, explicit synthetic setup and authorization for the test, run:
 
@@ -107,3 +107,10 @@ The harness requires exactly one HTTP 200 and exactly one HTTP 409 with code `PT
 `passed: true` means these **authenticated HTTP assertions and logout checks** passed. `databaseOverlapEvidence` intentionally remains `REQUIRED_SEPARATE_OWNER_ROW_LOCK_BARRIER`: only the separately captured owner barrier evidence can satisfy that part. This script does not prove browser conflict handling, role/license revocation during waits, paid-receipt provenance, hardware behavior or overall commercial readiness.
 
 On a timeout, malformed response or failed assertion, preserve the private evidence and fixture. Inspect the recorded attempts, current event revision and complete persisted snapshot before deciding whether anything committed. Do not rerun against the same changed fixture or reset its revision to recreate the race. Fixture access cleanup belongs to the separately authorized owner workflow; the harness neither deletes historical data nor disables accounts itself.
+
+
+## Recorded execution and cleanup
+
+On 18 October the release owner ran two independent authenticated HTTP sessions against the synthetic event with the same revision `1`. Editor A returned HTTP 200; editor B returned HTTP 409 / `PT409` / `CALENDAR_STALE`. The final snapshot exactly matches A's complete header and assignments at revision `2`; unrelated events and the control company are unchanged. Both sessions logged out. Private receipt: `calendar-concurrency-20261018-01.json` in the validation directory, SHA-256 `76b6e5f7c484339f7b9d7ec8f9eeee400ca51a1ec41fadaf3efea6bea2ab285b`. Its `passed: true` confirms these HTTP assertions. The receipt explicitly retains `REQUIRED_SEPARATE_OWNER_ROW_LOCK_BARRIER`; start timestamps alone do not establish overlapping database lock waits.
+
+On 19 October the release owner verified cleanup of the synthetic access: all six memberships and four profiles inactive, both Auth accounts banned until 2099, both test grants revoked, and zero remaining sessions. Synthetic business history remains preserved; these accounts and grants must not be reused for another run.
