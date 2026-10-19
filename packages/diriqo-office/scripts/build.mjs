@@ -7,7 +7,9 @@ const output=resolve('dist');
 if(dirname(output)!==resolve('.')||basename(output)!=='dist'||(await lstat(output).catch(()=>null))?.isSymbolicLink())throw Error('Unsafe build output directory');
 await rm(output,{recursive:true,force:true});
 await mkdir(output, { recursive: true });
-const shared = { bundle: true, minify: true, sourcemap: false, logLevel: 'info', legalComments: 'linked', target: 'es2022', plugins:[fortuneSafeTransformPlugin()] };
+// Resolve dependencies through the package-local path even when node_modules is a junction.
+// Otherwise esbuild chunk hashes embed the external checkout layout and differ from CI.
+const shared = { preserveSymlinks: true, bundle: true, minify: true, sourcemap: false, logLevel: 'info', legalComments: 'linked', target: 'es2022', plugins:[fortuneSafeTransformPlugin()] };
 const client = await build({ ...shared, plugins:[...shared.plugins,browserReactPeerPlugin()], entryPoints: { client: 'src/client/index.ts' }, outdir: 'dist', format: 'esm', splitting: true, platform: 'browser', external: ['react', 'react-dom', 'react/*', 'react-dom/*'], banner: { js: '"use client";' }, metafile: true, loader: { '.woff2': 'file', '.woff': 'file', '.ttf': 'file' } });
 assertBrowserEsmPeerEdges(client.metafile);
 await build({ ...shared, entryPoints: ['src/server/index.ts'], outfile: 'dist/server.js', format: 'esm', platform: 'node', banner: { js: "import { createRequire as __createRequire } from 'node:module'; const require = __createRequire(import.meta.url);" } });

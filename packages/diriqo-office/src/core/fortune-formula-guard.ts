@@ -1,4 +1,5 @@
 import {assertFormulaGraph} from './formula-graph.ts';
+import {formulaGraphRequiresPreview} from './spreadsheet-execution.ts';
 import {isOfficeFormulaSafe} from './formula-policy.ts';
 import type {SpreadsheetContent} from './types.ts';
 
@@ -45,7 +46,7 @@ export function guardFortuneCalculation(ctx:any,formula:string,row?:number,colum
   const signature=JSON.stringify(sheets);
   if(signature===lastSignature)return lastError;
   let failure:string|null=null;
-  try{assertFormulaGraph({schemaVersion:1,kind:'spreadsheet',workbook:{id:'engine',name:'Engine',sheetOrder:order,sheets}} as SpreadsheetContent);}
+  try{const stats=assertFormulaGraph({schemaVersion:1,kind:'spreadsheet',workbook:{id:'engine',name:'Engine',sheetOrder:order,sheets}} as SpreadsheetContent);if(formulaGraphRequiresPreview(stats))failure='#OFFICE_LIMIT!';}
   catch(error){const code=String((error as any)?.code??'');failure=/CYCLE/.test(code)?'#CYCLE!':/LIMIT|RANGE|BOUNDS/.test(code)?'#OFFICE_LIMIT!':'#OFFICE_BLOCKED!';}
   lastSignature=signature;lastError=failure;return failure;
  }catch{return '#OFFICE_LIMIT!';}

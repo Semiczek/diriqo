@@ -1,4 +1,7 @@
 import {isOfficeFormulaSafe} from '../core/formula-policy.ts';
+import {FormulaGraphError} from '../core/formula-graph.ts';
+import {translateSharedFormula} from './xlsx-shared-formulas.ts';
+import {isSpreadsheetCachedPreview,CACHED_PREVIEW_MODE} from '../core/spreadsheet-execution.ts';
 /** Bounded, deliberately partial OOXML adapters authored for Diriqo. No macros or network I/O. */
 import { FORMAT_LIMITS, readSafeZip } from './container-safety.ts';
 export { FORMAT_LIMITS, readSafeZip } from './container-safety.ts';
@@ -23,6 +26,29 @@ function xml(data: Buffer | string | undefined): any[] {
   const text = String(data);
   if (/<!DOCTYPE|<!ENTITY/i.test(text)) fail('XML entities are disabled');
   return new XMLParser({ preserveOrder: true, ignoreAttributes: false, attributeNamePrefix: '', parseTagValue: false, parseAttributeValue: false, trimValues: false, processEntities: true }).parse(text);
+}
+/** Canonicalize XLSX names by namespace URI, not by an assumed prefix. */
+function xlsxXml(data:Buffer|undefined):any[]{
+ const spreadsheet='http://schemas.openxmlformats.org/spreadsheetml/2006/main';
+ const relationships='http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+ const packageRelationships='http://schemas.openxmlformats.org/package/2006/relationships';
+ function visit(items:any[],inherited:Record<string,string>,depth=0):any[]{
+  if(depth>64)fail('XLSX XML nesting limit exceeded');
+  return items.map(item=>{
+   const attrs=item[':@']??{},scope={...inherited};
+   for(const[key,value]of Object.entries(attrs))if(key==='xmlns')scope['']=String(value);else if(key.startsWith('xmlns:'))scope[key.slice(6)]=String(value);
+   const canonical=(name:string,attribute=false)=>{const parts=name.split(':'),local=parts.at(-1)!,uri=scope[parts.length>1?parts[0]:''];
+    if(attribute)return parts.length===1?name:uri===relationships?'r:'+local:name;
+    return uri===spreadsheet||uri===packageRelationships?local:'foreign:'+name;
+   };
+   const result:Record<string,any>={};
+   for(const[key,value]of Object.entries(item)){
+    if(key===':@')result[key]=Object.fromEntries(Object.entries(attrs).map(([name,v])=>[canonical(name,true),v]));
+    else if(key.startsWith('#')||key.startsWith('?'))result[key]=value;
+    else result[canonical(key)]=Array.isArray(value)?visit(value,scope,depth+1):value;
+   }return result;
+  });
+ }return visit(xml(data),{});
 }
 function nodes(data: any[], name?: string): X[] { return (data ?? []).flatMap(n => Object.keys(n).filter(k => k !== ':@' && k !== '#text' && !k.startsWith('?') && (!name || k === name)).map(k => ({ name: k, attrs: n[':@'] ?? {}, children: n[k] }))); }
 function child(x: X | undefined, name: string) { return x && nodes(x.children, name)[0]; }
@@ -153,9 +179,9 @@ export function importXlsx(input: Uint8Array): { content: SpreadsheetContent; wa
   const zip = readSafeZip(input); if (!zip['xl/workbook.xml']) fail('File is not XLSX');
   const bookId = importedWorkbookId('xlsx', input);
   const warnings = ['XLSX subset: cells, ordinary formulas, basic styles, sizes, merges and freezes. Charts, pivots, validations and advanced workbook features are not preserved; the original is retained.'];
-  const relations = new Map(descendants(xml(zip['xl/_rels/workbook.xml.rels']), 'Relationship').filter(r => r.attrs.TargetMode !== 'External').map(r => [r.attrs.Id, r.attrs.Target]));
-  const shared = descendants(xml(zip['xl/sharedStrings.xml']), 'si').map(n => descendants(n.children, 't').map(t => textOf(t.children)).join(''));
-  const styleXml = xml(zip['xl/styles.xml']); const xfs = child(nodes(styleXml)[0], 'cellXfs'); const styles = xfs ? nodes(xfs.children, 'xf') : [];
+  const relations = new Map(descendants(xlsxXml(zip['xl/_rels/workbook.xml.rels']), 'Relationship').filter(r => r.attrs.TargetMode !== 'External').map(r => [r.attrs.Id, r.attrs.Target]));
+  const shared = descendants(xlsxXml(zip['xl/sharedStrings.xml']), 'si').map(n => descendants(n.children, 't').map(t => textOf(t.children)).join(''));
+  const styleXml = xlsxXml(zip['xl/styles.xml']); const xfs = child(nodes(styleXml)[0], 'cellXfs'); const styles = xfs ? nodes(xfs.children, 'xf') : [];
   const fonts = child(nodes(styleXml)[0], 'fonts'); const fontList = fonts ? nodes(fonts.children, 'font') : [];
   const fills = child(nodes(styleXml)[0], 'fills'); const fillList = fills ? nodes(fills.children, 'fill') : [];
   const formats = new Map(descendants(styleXml, 'numFmt').map(x => [Number(x.attrs.numFmtId), x.attrs.formatCode]));
@@ -163,12 +189,12 @@ export function importXlsx(input: Uint8Array): { content: SpreadsheetContent; wa
   const styleMap: Record<string, any> = {};
   styles.forEach((xf, i) => { const f = fontList[Number(xf.attrs.fontId) || 0], fill = fillList[Number(xf.attrs.fillId) || 0]; const color = child(f, 'color')?.attrs.rgb; const bg = child(child(fill, 'patternFill'), 'fgColor')?.attrs.rgb; styleMap[String(i)] = { ...(child(f, 'b') ? { bl: 1 } : {}), ...(child(f, 'i') ? { it: 1 } : {}), ...(child(f, 'u') ? { ul: { s: 1 } } : {}), ...(child(f, 'sz') ? { fs: Number(child(f, 'sz')!.attrs.val) } : {}), ...(child(f, 'name') ? { ff: child(f, 'name')!.attrs.val } : {}), ...(color ? { cl: { rgb: `#${color.slice(-6)}` } } : {}), ...(bg ? { bg: { rgb: `#${bg.slice(-6)}` } } : {}), n: { pattern: formats.get(Number(xf.attrs.numFmtId)) ?? basic[Number(xf.attrs.numFmtId)] ?? 'General' } }; });
   const sheets: Record<string, any> = {}, order: string[] = []; let cells = 0;
-  const sourceSheets = descendants(xml(zip['xl/workbook.xml']), 'sheet'); if (!sourceSheets.length || sourceSheets.length > FORMAT_LIMITS.sheets) fail('Invalid sheet count');
+  const sourceSheets = descendants(xlsxXml(zip['xl/workbook.xml']), 'sheet'); if (!sourceSheets.length || sourceSheets.length > FORMAT_LIMITS.sheets) fail('Invalid sheet count');
   for (const source of sourceSheets) {
     const target = relations.get(source.attrs['r:id']); if (!target) fail('Missing worksheet relationship');
     const path = target.startsWith('/') ? target.slice(1) : posix.normalize(posix.join('xl', target)); if (!path.startsWith('xl/') || !zip[path]) fail('Invalid worksheet path');
     const id = `${bookId}-sheet-${order.length + 1}`, s = sheet(id, source.attrs.name); order.push(id); sheets[id] = s;
-    const sheetXml = xml(zip[path]);
+    const sheetXml = xlsxXml(zip[path]);
     for (const row of descendants(sheetXml, 'row')) {
       const ri = Number(row.attrs.r) - 1;
       if (!Number.isInteger(ri) || ri < 0 || ri >= FORMAT_LIMITS.rows) continue;
@@ -187,20 +213,45 @@ export function importXlsx(input: Uint8Array): { content: SpreadsheetContent; wa
       warnings.push('XLSX filter range and hidden rows are retained; filter criteria are not preserved.');
     }
     for (const col of descendants(sheetXml, 'col')) { const min = Number(col.attrs.min) - 1, max = Number(col.attrs.max) - 1; if (min < 0 || max >= FORMAT_LIMITS.columns || max - min > 4096) fail('Oversized column range'); for (let c = min; c <= max; c++) s.columnData[c] = { w: Math.max(10, Number(col.attrs.width) * 7 + 5) }; }
-    for (const c of descendants(sheetXml, 'c')) {
+    const sourceCells=descendants(sheetXml,'c');
+    const sharedFormulas=new Map<string,{formula:string;row:number;col:number;start:{row:number;col:number};end:{row:number;col:number}}>();
+    for(const c of sourceCells){
+      const f=child(c,'f');if(f?.attrs.t!=='shared')continue;
+      const key=f.attrs.si;if(!/^(0|[1-9][0-9]{0,8})$/.test(key??''))fail('Invalid shared formula index');
+      const body=textOf(f.children);if(!body)continue;
+      if(sharedFormulas.has(key))fail('Duplicate shared formula anchor');
+      const refs=(f.attrs.ref??'').split(':');if(refs.length<1||refs.length>2)fail('Invalid shared formula range');
+      const anchor=address(c.attrs.r),start=address(refs[0]),end=address(refs[1]??refs[0]);
+      if(end.row<start.row||end.col<start.col||anchor.row<start.row||anchor.row>end.row||anchor.col<start.col||anchor.col>end.col)fail('Invalid shared formula range');
+      sharedFormulas.set(key,{formula:'='+body,...anchor,start,end});
+    }
+    for (const c of sourceCells) {
       if (++cells > FORMAT_LIMITS.cells) fail('Too many populated cells'); const { row, col } = address(c.attrs.r); const type = c.attrs.t; const value = textOf(child(c, 'v')?.children ?? []); let v: any = value;
       if (type === 's') v = shared[Number(value)] ?? ''; else if (type === 'inlineStr') v = descendants(c.children, 't').map(t => textOf(t.children)).join(''); else if (type === 'b') v = value === '1'; else if (!type || type === 'n') v = value === '' ? null : Number(value); else if (type === 'e') v = value;
-      const f = child(c, 'f'); const formula = f ? `=${textOf(f.children)}` : undefined;
-      if (formula && (!safeFormula(formula) || f?.attrs.t === 'shared' || f?.attrs.t === 'array' || formula === '=')) { warnings.push(`Unsupported or unsafe formula at ${source.attrs.name}!${c.attrs.r}; cached result retained.`); }
+      const f = child(c, 'f'); let formula = f ? `=${textOf(f.children)}` : undefined;
+      if(f?.attrs.t==='shared'){
+        const master=sharedFormulas.get(f.attrs.si);
+        if(!master||row<master.start.row||row>master.end.row||col<master.start.col||col>master.end.col)fail('Missing or invalid shared formula anchor');
+        formula=translateSharedFormula(master.formula,row-master.row,col-master.col);
+      }
+      if (formula && (!safeFormula(formula) || ['array','dataTable'].includes(f?.attrs.t??'') || formula === '=')) { warnings.push(`Unsupported or unsafe formula at ${source.attrs.name}!${c.attrs.r}; cached result retained.`); }
       const cell: any = { v, t: typeof v === 'number' ? 2 : typeof v === 'boolean' ? 3 : 1, ...(c.attrs.s ? { s: c.attrs.s } : {}) };
-      if (formula && formula !== '=' && safeFormula(formula) && !['shared', 'array', 'dataTable'].includes(f?.attrs.t ?? '')) cell.f = formula;
+      if (formula && formula !== '=' && safeFormula(formula) && !['array', 'dataTable'].includes(f?.attrs.t ?? '')) cell.f = formula;
       (s.cellData[row] ??= {})[col] = cell; s.rowCount = Math.max(s.rowCount, row + 20); s.columnCount = Math.max(s.columnCount, col + 5);
     }
     s.rowCount = Math.min(FORMAT_LIMITS.rows, s.rowCount); s.columnCount = Math.min(FORMAT_LIMITS.columns, s.columnCount);
     for (const merge of descendants(sheetXml, 'mergeCell')) { const [a, b] = merge.attrs.ref.split(':').map(address); if (!a || !b) fail('Invalid merge'); s.mergeData.push({ startRow: a.row, startColumn: a.col, endRow: b.row, endColumn: b.col }); }
     const pane = descendants(sheetXml, 'pane')[0]; if (pane?.attrs.state === 'frozen') { const x = Number(pane.attrs.xSplit) || 0, y = Number(pane.attrs.ySplit) || 0; s.freeze = { startRow: y ? y : -1, startColumn: x ? x : -1, xSplit: x, ySplit: y }; }
   }
-  const content = workbook(bookId, sheets, order, 'Imported workbook'); content.workbook.styles = styleMap; return { content, warnings: [...new Set(warnings)] };
+  const content = workbook(bookId, sheets, order, 'Imported workbook'); content.workbook.styles = styleMap;
+  // Parsing preserves content; the import worker's final validation rejects invalid graphs.
+  // Only validated graphs can select a durable, non-calculating preview here.
+  try {
+    if (isSpreadsheetCachedPreview(content)) content.workbook.officeCalculationMode = CACHED_PREVIEW_MODE;
+  } catch (error) {
+    if (!(error instanceof FormulaGraphError)) throw error;
+  }
+  return { content, warnings: [...new Set(warnings)] };
 }
 
 export function exportXlsx(content: SpreadsheetContent): { bytes: Buffer; warnings: string[] } {
@@ -210,7 +261,7 @@ export function exportXlsx(content: SpreadsheetContent): { bytes: Buffer; warnin
   const files: Record<string, string> = {}; const names = new Set<string>(); const exportNames:Record<string,string>={};
   order.forEach((id, i) => {
     const s = wb.sheets[id]; if (!s) fail('Missing sheet'); let name = String(s.name || `Sheet ${i + 1}`).replace(/[\\/?*\[\]:]/g, '_').slice(0, 31); if (names.has(name)) name = `${name.slice(0, 25)}_${i + 1}`; names.add(name); exportNames[id] = name;
-    const rows = Object.keys(s.cellData ?? {}).sort((a, b) => Number(a) - Number(b)).map(r => `<row r="${Number(r) + 1}"${s.rowData?.[r]?.h ? ` ht="${Number(s.rowData[r].h) * .75}" customHeight="1"` : ''}>${Object.entries(s.cellData[r]).sort(([a], [b]) => Number(a) - Number(b)).map(([c, cell]: [string, any]) => { if (!cell) return ''; const ref = `${columnName(Number(c))}${Number(r) + 1}`; const f = cell.f; if (f && !safeFormula(f)) fail('Unsafe formula'); const v = cell.v; const sid = styleId(cell.s); if (f) return `<c r="${ref}" s="${sid}"><f>${escapeXml(f.replace(/^=/, ''))}</f>${typeof v === 'number' && Number.isFinite(v) ? `<v>${v}</v>` : ''}</c>`; if (typeof v === 'number' && Number.isFinite(v)) return `<c r="${ref}" s="${sid}"><v>${v}</v></c>`; if (typeof v === 'boolean') return `<c r="${ref}" s="${sid}" t="b"><v>${v ? 1 : 0}</v></c>`; const value = v ?? cell.p?.body?.dataStream?.replace(/\r?\n$/, '') ?? ''; return `<c r="${ref}" s="${sid}" t="inlineStr"><is><t xml:space="preserve">${escapeXml(value)}</t></is></c>`; }).join('')}</row>`).join('');
+    const rows = Object.keys(s.cellData ?? {}).sort((a, b) => Number(a) - Number(b)).map(r => `<row r="${Number(r) + 1}"${s.rowData?.[r]?.h ? ` ht="${Number(s.rowData[r].h) * .75}" customHeight="1"` : ''}>${Object.entries(s.cellData[r]).sort(([a], [b]) => Number(a) - Number(b)).map(([c, cell]: [string, any]) => { if (!cell) return ''; const ref = `${columnName(Number(c))}${Number(r) + 1}`; const f = cell.f; if (f && !safeFormula(f)) fail('Unsafe formula'); const v = cell.v; const sid = styleId(cell.s); if (f) {const type=typeof v==='string'?' t="str"':typeof v==='boolean'?' t="b"':'';const cache=v===null||v===undefined?'':`<v>${escapeXml(typeof v==='boolean'?(v?1:0):v)}</v>`;return `<c r="${ref}" s="${sid}"${type}><f>${escapeXml(f.replace(/^=/, ''))}</f>${cache}</c>`;} if (typeof v === 'number' && Number.isFinite(v)) return `<c r="${ref}" s="${sid}"><v>${v}</v></c>`; if (typeof v === 'boolean') return `<c r="${ref}" s="${sid}" t="b"><v>${v ? 1 : 0}</v></c>`; const value = v ?? cell.p?.body?.dataStream?.replace(/\r?\n$/, '') ?? ''; return `<c r="${ref}" s="${sid}" t="inlineStr"><is><t xml:space="preserve">${escapeXml(value)}</t></is></c>`; }).join('')}</row>`).join('');
     const freeze = s.freeze; const pane = freeze && (freeze.xSplit || freeze.ySplit) ? `<pane xSplit="${freeze.xSplit || 0}" ySplit="${freeze.ySplit || 0}" topLeftCell="${columnName(freeze.xSplit || 0)}${(freeze.ySplit || 0) + 1}" state="frozen"/>` : '';
     const columns = Object.entries(s.columnData ?? {}).filter(([, v]: any) => v?.w).map(([c, v]: any) => `<col min="${Number(c) + 1}" max="${Number(c) + 1}" width="${Math.max(1, (Number(v.w) - 5) / 7)}" customWidth="1"/>`).join('');
     const merges = (s.mergeData ?? []).map((m: any) => `<mergeCell ref="${columnName(m.startColumn)}${m.startRow + 1}:${columnName(m.endColumn)}${m.endRow + 1}"/>`).join('');

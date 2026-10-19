@@ -1,3 +1,51 @@
+# Diriqo Office – kandidát 0.3.5 (19. 10. 2026)
+
+Aktuální změna je na větvi `codex/diriqo-office-inventory-workspace`, nad základem Diriqo main `b0a6da013b`. **Aplikační kandidát zatím není nasazený a přihlášené ověření nové obrazovky v prohlížeči čeká.** Následující výsledky rozlišují lokální balíček, testy a databázovou ochranu; historická nasazení níže nedokládají tuto verzi.
+
+## Rozhraní a firemní kontext
+
+Office přebírá uspořádání ověřené proti zdroji JSPD Hub `origin/main` v revizi `2ca84af`: úzkou levou navigační lištu, rozbalení nebo připnutí nabídky a velkou pracovní plochu dokumentu. Používá skutečné logo Diriqo a jeho paletu. Výchozí náhradní logo „d.“ a duplicitní hlavička balíčku jsou v hostiteli skryté. Firma a její přepnutí jsou v kompaktní nabídce; mobilní navigace má samostatné otevírání, zavření a ovládání klávesnicí.
+
+Navigace zůstává odvozená od rolí a dostupných modulů Diriqo. Kopírování vzhledu nezavádí Hub organizační model ani vyšší oprávnění. Dokument je připnutý k původní firmě a identitě; změna firmy, role nebo dostupnosti kontextu pozastaví operace. Návrat z výběru souboru při nezměněné firmě rozpracovaný import neruší. Serverové ověřování identity, členství, aktivní firmy a oprávnění zůstává zachované. Přechody mezi Office a ostatními agendami nadále používají plné načtení dokumentu kvůli izolaci stylů editoru.
+
+## XLSX a skutečné soubory FNOL
+
+Import rozpozná SpreadsheetML namespace i s XML prefixy a rozvine sdílené vzorce včetně relativních, absolutních a smíšených odkazů. Neúplná nebo neplatná skupina sdílených vzorců se odmítne; vzorce se tiše nezplošťují na hodnoty. Chyby vzorců mají srozumitelné zprávy místo holého `OFFICE_FORMULA_LIMIT`.
+
+Lokálně bylo znovu importováno všech pět uživatelem určených FNOL XLSX. Originály se nezměnily a nejsou v repozitáři:
+
+| Soubor | Výsledek |
+| --- | --- |
+| FNOL_B_kalkulace_2028 | Editovatelný; 236 výsledků vzorců odpovídá hodnotám uloženým Excelem. |
+| FNOL_SO01_samostatne_pevna_okna_a_svetliky | Editovatelný; 10 výsledků vzorců odpovídá uloženým hodnotám. |
+| Vycisteni_budov_FNOL_B_s_okny | Editovatelný; 20 výsledků vzorců odpovídá uloženým hodnotám. |
+| FNOL_B_detailni_soupis_pro_naceneni | Náhled pouze pro čtení; zachováno všech 5 972 vzorců a jejich uložené výsledky. |
+| FNOL_B_pracovni soubor | Náhled pouze pro čtení; zachováno všech 5 972 vzorců a jejich uložené výsledky. |
+
+U tří editovatelných sešitů tedy souhlasí 266/266 porovnaných výsledků. U všech pěti prošlo zachování vzorců i uložených výsledků přes XLSX export a opětovný import. Každý velký sešit obsahuje přibližně 12,1 milionu referenčních přístupů; běžný přepočet Fortune u něj není dostatečně spolehlivý. Náhled proto zobrazuje uložené hodnoty bez spuštění výpočtů a nabízí zachovaný originál pro úpravy v Excelu. Nejde o dokončenou plnou editaci těchto dvou sešitů ani o úplnou věrnost formátování Excelu.
+
+Režim náhledu se ukládá jako `workbook.officeCalculationMode = cached-readonly-v1`. Zápis obsahu, návrh AI, schválení a obnovení obsahu blokuje editor i aplikační služby; přejmenování, přesun, kopie a export zůstávají dostupné. Původní interaktivní rozpočet 2 000 vzorců / 200 000 referenčních přístupů se nezvýšil. Import má samostatně ohraničenou analýzu grafu. Přesná omezení a důkazy jsou v [dokumentaci kompatibility](../packages/diriqo-office/docs/XLSX_IMPORT_COMPATIBILITY.md).
+
+Databázová ochrana je aplikovaná v testovacím Diriqu jako `20261019071710_office_cached_preview_guard.sql`, SHA-256 `eaba6e1c6c61a6be3c2c3a29a151bd796cafd03ce693951d8a12c8c3bf471c57`. Dva privátní triggery chrání obsah a návrhy i před přímým authenticated RPC nebo starším klientem. Hosted ověření: 16 scénářů + 14 kontrol rollbacku PASS; místní SQL: 34 + 3 PASS. Původní dva soubory a čtyři verze zůstaly nezměněné; otisk dat i definice/OID/owner/ACL veřejného RPC jsou shodné před a po. Soukromý preflight SHA-256 `7329ff29086e5de8efec7563bfdd44a570d1926584ad530b39b3a15437240bd6`, hosted důkaz `7b8d43c8b74d5d4878b1cba9c989c58e7276be4d797ff0951bbb0c381efd1cc1`. Cílený preflight není úplná záloha produktu.
+
+## Balíček a doložené ověření
+
+- Runtime: `vendor/diriqo-office-0.3.5.tgz`, SHA-256 `457614b65d35c036980308149e9b44d97ca7508c79a004d59d0f18d9cdd11e5d`.
+- Kanonický zdroj: `packages/diriqo-office`; manifest 563 souborů, obsahový SHA-256 `954788fba553c9940e3fc663f05cb077e4acf0cbbf1ba4e279f5175504f797fa`. Vazbu dokládá `vendor/office-source.json`.
+- Office source suite: 293/293 PASS; TypeScript PASS. Hostitelské testy mapování chyb importu: 6/6 PASS.
+- Znovusestavení ověřilo všech 47 runtime souborů proti archivu. Licenční preflight a jeho kontrola prošly pro 130 přesných artefaktů; změnila se identita verze, nikoli graf závislostí.
+- Výsledná hostitelská integrace: 1 740 Vitest testů / 66 souborů PASS, 61 Office host testů PASS (včetně samostatně zopakovaného SQL export testu s PGlite 0.5.8), uncached TypeScript a webpack build 107 stránek PASS. ESLint bez chyb, čtyři zděděná varování navigace. Git/CI a přihlášený průchod budou doloženy výsledným vydáním.
+
+Uložené výsledky vzorců jsou cache z původního souboru, nikoli nový výpočet či finanční ověření. Office import není OCR ani automatické zaúčtování materiálu. OCR příjem skladu má samostatný kontrolovaný tok: návrh položek → lidské spárování a kontrola množství/cen → koncept příjemky → výslovné potvrzení skladu. Podrobnosti nové skladové plochy a její aplikované migrace uvádí [report skladu](inventory-workspace-20261019.md).
+
+Při návratu použijte předchozí aplikační verzi, zachovejte dokumenty, originály a přídavné schéma. Označené náhledy nesmí starší zapisující klient zbavit ochrany; databázový guard je proto samostatnou podmínkou bezpečného přístupu takového klienta. Nemažte historii ani nepřehrávejte staré migrace.
+
+---
+
+## Archiv předchozích vydání
+
+Následující reporty zůstávají zachované jako historické důkazy. Jejich označení „aktuální“, revize, testy a nasazení patří k uvedené starší verzi a nepřebírají stav kandidáta 0.3.5.
+
 # Diriqo Office – aktuální rozšíření 0.3.4
 
 Aktuální hostitelská větev je `codex/office-import-release`, vychází z Diriqo main `ac07949537852d02fa69654433eb6353db052a1f`. Používá stejné sdílené jádro jako JSPD Hub: `vendor/diriqo-office-0.3.4.tgz`, SHA-256 `f293524d6fa5f9382a06f8e685d04f79898932d9c85cce0fedcc8df29961d9c0`. Kanonické zdroje jsou `packages/diriqo-office`; aktuální doklady původu, licencí a SBOM jsou součástí balíčku.

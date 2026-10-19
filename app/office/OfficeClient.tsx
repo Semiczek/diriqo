@@ -8,10 +8,12 @@ import { officeContextMessages, officeShellMessages } from '@/lib/office/context
 import { assertOfficeHostPayload, assertOfficeHostUpload } from '@/lib/office/http-limits'
 import '@diriqo/office/styles.css'
 import { officeUploadUserMessage } from '@/lib/office/upload-messages'
+import OfficeNavigation, { type OfficeNavigationContext } from './OfficeNavigation'
+import styles from './office.module.css'
 
 const OfficeWorkspace = dynamic(() => import('@diriqo/office/client').then(m => m.OfficeWorkspace), {
   ssr: false,
-  loading: () => <p>Diriqo Office…</p>,
+  loading: () => <p className={styles.loading}>Diriqo Office…</p>,
 })
 
 async function fileResponse<T>(response: Response, locale: OfficeLocale = 'cs'): Promise<T> {
@@ -39,18 +41,19 @@ async function fileResponse<T>(response: Response, locale: OfficeLocale = 'cs'):
   return body as T
 }
 
-export default function OfficeClient({ readOnly, tenantId, actorId, companyName, companies, locale = 'cs' }: {
+export default function OfficeClient({ readOnly, tenantId, actorId, companyName, companies, navigation, locale = 'cs' }: {
   readOnly: boolean
   tenantId: string
   actorId: string
   companyName?: string | null
   companies?: OfficeCompanyOption[]
+  navigation: OfficeNavigationContext
   locale?: OfficeLocale
 }) {
   // A refreshed server tree must not remount the editor and discard its draft.
   // Only an explicit new tab/navigation opens a different company.
   const [pinned] = useState(() => ({
-    tenantId, actorId, readOnly, companyName: companyName || tenantId,
+    tenantId, actorId, readOnly, companyName: companyName || tenantId, navigation,
     companies: companies?.length ? companies : [{ companyId: tenantId, companyName: companyName || tenantId }],
   }))
   const [contextState, setContextState] = useState<OfficeContextState>('ready')
@@ -158,34 +161,59 @@ export default function OfficeClient({ readOnly, tenantId, actorId, companyName,
   }, [guard, pinned, locale])
   const messages = officeContextMessages[locale] ?? officeContextMessages.cs
   const shell = officeShellMessages[locale] ?? officeShellMessages.cs
-  return <>
-    <section aria-label={shell.company} style={{ padding: '12px 24px', borderBottom: '1px solid #d8dfeb' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-        <strong>{shell.company}: {pinned.companyName}</strong>
-        {pinned.companies.length > 1 && <>
-          <select aria-label={shell.switchCompany} value={selectedCompanyId} disabled={switching}
-            onChange={event => setSelectedCompanyId(event.target.value)}>
-            {pinned.companies.map(company => <option key={company.companyId} value={company.companyId}>{company.companyName || company.companyId}</option>)}
-          </select>
-          <button type="button" disabled={switching} onClick={() => { void changeCompany() }}>{shell.switchCompany}</button>
-        </>}
-        <a href="/logout" target="_blank" rel="noopener noreferrer" title={shell.logoutHint}>{shell.logout}</a>
-      </div>
-      {pinned.companies.length > 1 && <p style={{ margin: '8px 0 0', fontSize: 13 }}>{shell.switchHint}</p>}
-      {switchFailed && <p role="alert">{shell.switchFailed}</p>}
+  return <div className={styles.layout}>
+    <OfficeNavigation navigation={pinned.navigation} companyName={pinned.companyName}
+      locale={locale} disabled={contextState !== 'ready'} />
+    <section className={styles.content} id="office-workspace-content" tabIndex={-1} aria-label="Diriqo Office">
+      <header className={styles.workspaceHeader}>
+        <span className={styles.workspaceTitle}>Office</span>
+        <details className={styles.companyMenu}
+          onKeyDown={event => {
+            if (event.key === 'Escape') {
+              event.preventDefault()
+              event.currentTarget.removeAttribute('open')
+              event.currentTarget.querySelector('summary')?.focus()
+            }
+          }}>
+          <summary aria-label={`${shell.company}: ${pinned.companyName}`} title={pinned.companyName}>
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+              <path d="M4 21V5h10v16M14 10h6v11M2 21h20M7 8h4M7 12h4M7 16h4M17 13h1M17 17h1" />
+            </svg>
+            <span>{pinned.companyName}</span>
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+          </summary>
+          <div className={styles.companyPopover}>
+            <strong>{shell.company}: {pinned.companyName}</strong>
+            {pinned.companies.length > 1 && <>
+              <label>{shell.switchCompany}
+                <select aria-label={shell.switchCompany} value={selectedCompanyId} disabled={switching}
+                  onChange={event => setSelectedCompanyId(event.target.value)}>
+                  {pinned.companies.map(company => <option key={company.companyId} value={company.companyId}>{company.companyName || company.companyId}</option>)}
+                </select>
+              </label>
+              <p>{shell.switchHint}</p>
+              <button type="button" disabled={switching} onClick={() => { void changeCompany() }}>{shell.switchCompany}</button>
+            </>}
+            {switchFailed && <p role="alert">{shell.switchFailed}</p>}
+            <div className={styles.companyFooter}>
+              <a href="/logout" target="_blank" rel="noopener noreferrer" title={shell.logoutHint}>{shell.logout}</a>
+            </div>
+          </div>
+        </details>
+      </header>
+      <OfficeWorkspace key={pinned.tenantId} transport={transport} readOnly={pinned.readOnly} locale={locale} hideHeader
+        headerSecondary={contextState !== 'ready' ? <aside role="status" aria-live="polite" data-office-context={contextState}
+          className={styles.contextNotice}>
+          <p>{messages[contextState]}</p>
+          {contextState !== 'checking' && <>
+            <p>{messages.recovery}</p>
+            <div className={styles.contextActions}>
+              <button type="button" onClick={() => { void guard.check(fetchOfficeContext, true) }}>{messages.verify}</button>
+              {/* Keep this panel and its draft open; never auto-refresh on a company switch. */}
+              <a href="/office" target="_blank" rel="noopener noreferrer">{messages.open}</a>
+            </div>
+          </>}
+        </aside> : undefined} />
     </section>
-    {contextState !== 'ready' && <aside role="status" aria-live="polite" data-office-context={contextState}
-      style={{ padding: '16px 24px', background: '#fff7db', color: '#513b00', borderBottom: '1px solid #ddc87c' }}>
-      <p style={{ margin: '0 0 8px' }}>{messages[contextState]}</p>
-      {contextState !== 'checking' && <>
-        <p style={{ margin: '0 0 12px', maxWidth: 1000 }}>{messages.recovery}</p>
-        <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
-          <button type="button" onClick={() => { void guard.check(fetchOfficeContext, true) }}>{messages.verify}</button>
-          {/* Keep this panel and its draft open; never auto-refresh on a company switch. */}
-          <a href="/office" target="_blank" rel="noopener noreferrer">{messages.open}</a>
-        </div>
-      </>}
-    </aside>}
-    <OfficeWorkspace key={pinned.tenantId} transport={transport} readOnly={pinned.readOnly} locale={locale} />
-  </>
+  </div>
 }

@@ -235,18 +235,69 @@ test('Diriqo settings return through a full navigation so the company menu reads
   assert.equal(tree.find(node => node.props.href === '/office').type, 'a', 'Opening the editor cannot inherit the settings document styles');
 });
 
-test('Diriqo Office exits through a native link while keeping the server-verified company in the editor', async () => {
-  const page = await authored('app/office/page.tsx', {
-    requireOfficeContext: async () => ({ actor: { tenantId: A, actorId: 'profile-A', role: 'reader' }, active: { companyName: 'A', companyMemberships: [{ companyId: A, companyName: 'A' }] } }),
-    getRequestLocale: async () => 'cs', OfficeClient: 'OfficeClient', FloatingDiriqent: 'FloatingDiriqent',
-  }, 'OfficePage');
-  const nodes = flatten(await page());
-  assert.equal(nodes.find(node => node.props.href === '/').type, 'a', 'Leaving Office releases its global CSS and print rules');
-  const editor = nodes.find(node => node.type === 'OfficeClient');
-  assert.equal(editor.props.tenantId, A);
-  assert.equal(editor.props.readOnly, true);
-  assert.equal(nodes.find(node => node.type === 'FloatingDiriqent').props.keepWorkspaceOpen, true,
-    'Assistant links must preserve the open Office editor instead of replacing its draft');
+test('Diriqo Office pins its verified company and scopes navigation to the same tenant and role', async () => {
+  for (const role of ['worker', 'manager', 'company_admin', 'super_admin']) {
+    const calls = [];
+    const page = await authored('app/office/page.tsx', {
+      requireOfficeContext: async () => ({
+        actor: { tenantId: A, actorId: 'profile-A', role: role === 'worker' ? 'reader' : 'owner' },
+        active: { role, companyName: 'A', companyMemberships: [{ companyId: A, companyName: 'A' }] },
+        supabase: { from: table => ({ select() { return this; }, eq: async (column, company) => { calls.push([table, company]); assert.equal(column, 'company_id'); return { data: [{ module_key: 'jobs', is_enabled: false }], error: null }; } }), rpc: async (name, args) => { calls.push([name, args.company]); return { data: ['inventory'], error: null }; } },
+      }),
+      COMPANY_MODULE_KEYS: ['jobs', 'calendar'],
+      getRequestLocale: async () => 'cs', OfficeClient: 'OfficeClient', FloatingDiriqent: 'FloatingDiriqent',
+    }, 'OfficePage');
+    const nodes = flatten(await page());
+    const editor = nodes.find(node => node.type === 'OfficeClient');
+    assert.equal(editor.props.tenantId, A);
+    assert.equal(editor.props.readOnly, role === 'worker');
+    assert.deepEqual(calls, [['company_modules', A], ['module_navigation', A]]);
+    assert.equal(editor.props.navigation.enabledModules.jobs, false);
+    assert.equal(editor.props.navigation.enabledModules.calendar, true);
+    assert.equal(editor.props.navigation.showCoreNavigation, ['company_admin', 'super_admin'].includes(role));
+    assert.deepEqual(editor.props.navigation.availableProducts, ['inventory']);
+    assert.equal(nodes.find(node => node.type === 'FloatingDiriqent').props.keepWorkspaceOpen, true,
+      'Assistant links must preserve the open Office editor instead of replacing its draft');
+  }
+});
+
+test('Office navigation remains closed on mobile, expands on demand, and Escape restores the opener', async () => {
+  for (const mobile of [false, true]) {
+    const values = [], refs = [], styles = new Proxy({}, { get: (_target, key) => key });
+    let index = 0, refIndex = 0, restored = 0;
+    const navigation = await authored('app/office/OfficeNavigation.tsx', {
+      Image: 'Image', DashboardSidebar: 'Sidebar', styles,
+      officeRailMessages: { cs: { expand: 'Expand', collapse: 'Collapse', skip: 'Skip' } },
+      useState: initial => { const i = index++; if (!(i in values)) values[i] = initial; return [values[i], value => { values[i] = value; }]; },
+      useRef: () => { const i = refIndex++; refs[i] ??= { current: { focus: () => restored++, contains: () => false } }; return refs[i]; },
+      useSyncExternalStore: () => mobile,
+    }, 'OfficeNavigation');
+    const render = (disabled = false) => {
+      index = refIndex = 0;
+      return flatten(navigation({ navigation: { enabledModules: {}, availableProducts: [], showCoreNavigation: false, showModuleCatalog: false },
+        companyName: 'Synthetic company', locale: 'cs', disabled }));
+    };
+    let nodes = render();
+    let frame = nodes.find(node => node.props.className === 'railFrame');
+    assert.equal(frame.props['data-expanded'], false);
+    assert.equal(frame.props.inert, mobile);
+    const sidebar = nodes.find(node => node.type === 'Sidebar');
+    assert.equal(sidebar.props.documentNavigation, true, 'Native links preserve unsaved-change guards');
+    assert.equal(sidebar.props.compact, true);
+    assert.ok(nodes.some(node => node.props.src === '/diriqo-logo-icon.png'), 'Mobile branding uses the canonical Diriqo asset');
+    const opener = nodes.find(node => node.props.className === (mobile ? 'mobileToggle' : 'railToggle'));
+    opener.props.onClick();
+    nodes = render();
+    frame = nodes.find(node => node.props.className === 'railFrame');
+    assert.equal(frame.props['data-expanded'], true);
+    assert.equal(frame.props.inert, false);
+    frame.props.onKeyDown({ key: 'Escape', preventDefault() {} });
+    assert.equal(restored, 1);
+    nodes = render(true);
+    assert.equal(nodes.find(node => node.props.className === 'railFrame').props['data-expanded'], false);
+    assert.equal(nodes.find(node => node.props.id === 'office-diriqo-navigation').props.inert, true,
+      'Unavailable or changed company access disables the pinned navigation');
+  }
 });
 
 test('global cookie banner and preferences leave Office natively without changing POS navigation', async () => {
@@ -265,5 +316,47 @@ test('global cookie banner and preferences leave Office natively without changin
         assert.equal(link.type, pathname === '/office' || pathname.startsWith('/office/') ? 'a' : 'Link');
       }
     }
+  }
+});
+
+
+test('Office compact navigation preserves full document leaving guards and expands nested menus', async () => {
+  let expanded = 0, prevented = 0;
+  const sidebar = await authored('components/DashboardSidebar.tsx', {
+    Link: 'Link', Image: 'Image', AppIcon: 'AppIcon', usePathname: () => '/office',
+    useI18n: () => ({ locale: 'cs', dictionary: { navigation: {}, common: {} } }),
+    useEffect: () => {}, useRef: () => ({ current: null }),
+  }, 'DashboardSidebar');
+  const nodes = flatten(sidebar({ officeEnabled: true, showCoreNavigation: true, availableProducts: ['inventory', 'pos'],
+    compact: true, documentNavigation: true, onExpand: () => expanded++ }));
+  assert.ok(nodes.filter(n => n.props.href).every(n => n.type === 'a'), 'Every Office exit must allow beforeunload');
+  const stock = nodes.find(n => n.type === 'summary' && n.props['aria-label'] === 'Sklad');
+  assert.ok(stock);
+  stock.props.onClick({ preventDefault: () => prevented++ });
+  assert.equal(expanded, 1);
+  assert.equal(prevented, 1);
+  assert.ok(nodes.some(n => n.props.href === '/inventory?tab=warehouses'));
+  assert.ok(nodes.some(n => n.props.href === '/inventory?tab=documents&kind=transfer'));
+  const absent = flatten(sidebar({ availableProducts: [], officeEnabled: true }));
+  assert.equal(absent.some(n => String(n.props.href).startsWith('/inventory')), false, 'A hidden product must not expose navigation');
+});
+
+test('inventory sidebar keeps the selected warehouse for every subpage and OCR', async () => {
+  const sidebar = await authored('components/DashboardSidebar.tsx', {
+    Link: 'Link', Image: 'Image', AppIcon: 'AppIcon', usePathname: () => '/inventory',
+    useI18n: () => ({ locale: 'cs', dictionary: { navigation: {}, common: {} } }),
+    useEffect: () => {}, useRef: () => ({ current: null }),
+  }, 'DashboardSidebar');
+  for (const documentNavigation of [false, true]) {
+    const nodes = flatten(sidebar({ availableProducts: ['inventory'], inventoryWarehouseId: A, documentNavigation }));
+    const links = nodes.filter(node => node.props.href?.startsWith('/inventory?') || node.props.href?.startsWith('/diriqent/ocr?'));
+    assert.equal(links.length, 8);
+    for (const link of links) {
+      const url = new URL(link.props.href, 'https://example.invalid');
+      assert.equal(url.searchParams.get('warehouse'), A);
+      assert.equal(link.type, documentNavigation ? 'a' : 'Link');
+    }
+    const transfer = links.find(node => new URL(node.props.href, 'https://example.invalid').searchParams.get('kind') === 'transfer');
+    assert.ok(transfer, 'The transfer subtype must survive alongside the warehouse');
   }
 });

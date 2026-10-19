@@ -3,13 +3,14 @@ import { isOfficeFormulaSafe } from './formula-policy.ts';
 
 /** Deliberately bounded A1-only grammar. This analyzes dependencies; it never evaluates formulas. */
 export const FORMULA_GRAPH_LIMITS = Object.freeze({
- rows:10_000, columns:256, sheets:32, formulas:2_000, formulaLength:4_096,
+ rows:10_000, columns:256, sheets:32, formulas:8_000, formulaLength:4_096,
  tokens:2_048, depth:64, functionArguments:255, referencesPerFormula:100_000,
- expandedReferences:200_000, scannedCells:100_000,
+ expandedReferences:15_000_000, scannedCells:100_000, formulaCharacters:1_000_000,
+ dependencyEdges:200_000, dependencyChecks:200_000, dependencyDepth:2_000,
 });
 export const OFFICE_FORMULA_FUNCTIONS = Object.freeze([
  'SUM','SUBTOTAL','AVERAGE','MIN','MAX','COUNT','COUNTA','IF','AND','OR','SUMIF','COUNTIF','ROUND',
- 'IFERROR','NOT','ABS','ROUNDUP','ROUNDDOWN','VLOOKUP','HLOOKUP','MATCH','INDEX',
+ 'SUMIFS','COUNTIFS','ISNUMBER','IFERROR','NOT','ABS','ROUNDUP','ROUNDDOWN','VLOOKUP','HLOOKUP','MATCH','INDEX',
  'TODAY','DATE','YEAR','MONTH','DAY','TIMEVALUE',
 ] as const);
 const allowedFunctions=new Set<string>(OFFICE_FORMULA_FUNCTIONS);
@@ -178,7 +179,7 @@ export function assertFormulaGraph(content:SpreadsheetContent):FormulaGraphStats
  const sheets:FormulaSheetDescriptor[]=sheetEntries.map(([id,sheet])=>({id,name:sheet?.name,rowCount:sheet?.rowCount,columnCount:sheet?.columnCount}));
  const environment=descriptors(sheets);
  const formulas=new Map<string,{formula:string;sheet:FormulaSheetDescriptor;row:number;column:number;label:string}>();
- let scanned=0;
+ let scanned=0,formulaCharacters=0;
  for(const [sheetId,source] of sheetEntries){
   const sheet=environment.byId.get(sheetId)!;
   if(source.cellData!=null&&!record(source.cellData))fail('FORMULA_WORKBOOK','Invalid cell data.');
@@ -193,31 +194,47 @@ export function assertFormulaGraph(content:SpreadsheetContent):FormulaGraphStats
     if(cell.f==null)continue;
     const at=label(sheet,r,c);
     if(typeof cell.f!=='string')fail('FORMULA_SYNTAX','Formula must be a string.',at);
-    if(formulas.size>=FORMULA_GRAPH_LIMITS.formulas)fail('FORMULA_LIMIT','Workbook may contain at most 2,000 formulas.',at);
+    if(formulas.size>=FORMULA_GRAPH_LIMITS.formulas)fail('FORMULA_LIMIT','Workbook formula count limit exceeded.',at);
+    formulaCharacters+=cell.f.length;if(formulaCharacters>FORMULA_GRAPH_LIMITS.formulaCharacters)fail('FORMULA_LIMIT','Workbook formula text limit exceeded.',at);
     formulas.set(coordinate(sheetId,r,c),{formula:cell.f,sheet,row:r,column:c,label:at});
    }
   }
  }
- const graph=new Map<string,string[]>(),subtotals=new Map<string,FormulaReference[]>();let expandedReferences=0,dependencyEdges=0;
+ // Index only formula cells. Repeated criteria ranges over source values must not
+ // allocate millions of coordinates just to discover that they contain no formulas.
+ const index=new Map<string,Map<number,Map<number,string>>>();
+ for(const[key,item]of formulas){let columns=index.get(item.sheet.id);if(!columns){columns=new Map();index.set(item.sheet.id,columns);}let rows=columns.get(item.column);if(!rows){rows=new Map();columns.set(item.column,rows);}rows.set(item.row,key);}
+ const sortedRows=new Map([...index].map(([id,columns])=>[id,new Map([...columns].map(([column,rows])=>[column,[...rows.keys()].sort((a,b)=>a-b)]))]));
+ const lowerBound=(values:number[],target:number)=>{let start=0,end=values.length;while(start<end){const middle=(start+end)>>>1;if(values[middle]<target)start=middle+1;else end=middle;}return start;};
+ const graph=new Map<string,string[]>(),subtotals=new Map<string,FormulaReference[]>();let expandedReferences=0,dependencyEdges=0,dependencyChecks=0;
  for(const [key,item] of formulas){
   const parsed=new ReferenceParser(item.formula,item.sheet,environment,item.label).parse();
   if(parsed.subtotalReferences)subtotals.set(key,parsed.subtotalReferences);
   expandedReferences+=parsed.expandedReferences;
-  if(expandedReferences>FORMULA_GRAPH_LIMITS.expandedReferences)fail('FORMULA_LIMIT','Workbook formulas may expand at most 200,000 referenced cells in total.',item.label);
+  if(expandedReferences>FORMULA_GRAPH_LIMITS.expandedReferences)fail('FORMULA_LIMIT','Workbook formula calculation budget exceeded.',item.label);
   const targets=new Set<string>();
-  for(const range of parsed.references)for(let row=range.startRow;row<=range.endRow;row++)for(let column=range.startColumn;column<=range.endColumn;column++){
-   const target=coordinate(range.sheetId,row,column);if(formulas.has(target))targets.add(target);
+  for(const range of parsed.references){
+   const columns=sortedRows.get(range.sheetId),byColumn=index.get(range.sheetId);
+   for(let column=range.startColumn;column<=range.endColumn;column++){
+    const rows=columns?.get(column)??[];
+    for(let i=lowerBound(rows,range.startRow);i<rows.length&&rows[i]<=range.endRow;i++){
+     if(++dependencyChecks>FORMULA_GRAPH_LIMITS.dependencyChecks)fail('FORMULA_LIMIT','Workbook dependency inspection budget exceeded.',item.label);
+     targets.add(byColumn!.get(column)!.get(rows[i])!);
+    }
+   }
   }
-  const edges=[...targets];dependencyEdges+=edges.length;graph.set(key,edges);
+  const edges=[...targets];dependencyEdges+=edges.length;
+  if(dependencyEdges>FORMULA_GRAPH_LIMITS.dependencyEdges)fail('FORMULA_LIMIT','Workbook dependency edge limit exceeded.',item.label);
+  graph.set(key,edges);
  }
  // Iterative DFS avoids JavaScript call-stack exhaustion for long dependency chains.
- const state=new Map<string,0|1|2>();
+ const state=new Map<string,0|1|2>(),heights=new Map<string,number>();
  for(const start of formulas.keys()){
   if(state.get(start)===2)continue;
   const stack:Array<{key:string;next:number}>=[{key:start,next:0}];state.set(start,1);
   while(stack.length){
    const frame=stack[stack.length-1],edges=graph.get(frame.key)!;
-   if(frame.next>=edges.length){state.set(frame.key,2);stack.pop();continue;}
+   if(frame.next>=edges.length){const height=1+edges.reduce((max,key)=>Math.max(max,heights.get(key)??0),0);if(height>FORMULA_GRAPH_LIMITS.dependencyDepth)fail('FORMULA_LIMIT','Formula dependency chain is too deep.',formulas.get(frame.key)!.label);heights.set(frame.key,height);state.set(frame.key,2);stack.pop();continue;}
    const target=edges[frame.next++],color=state.get(target)??0;
    if(color===1){
     const position=stack.findIndex(value=>value.key===target);

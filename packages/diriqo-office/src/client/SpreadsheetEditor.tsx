@@ -6,6 +6,8 @@ import type {OfficeLocale,SpreadsheetContent} from '../core/types';
 import {fromFortuneSheets,toFortuneSheets,isFortuneInputSafe,isOfficeFormulaSafe} from '../core/fortune-adapter';
 import {getOfficeMessages} from './locales';
 import {guardFortuneCalculation} from '../core/fortune-formula-guard';
+import {isSpreadsheetCachedPreview} from '../core/spreadsheet-execution';
+import {SpreadsheetReadonlyPreview} from './SpreadsheetReadonlyPreview';
 const languageNote:Record<OfficeLocale,string>={
  cs:'Nabídky tabulkového enginu jsou zatím v angličtině. Vzorce používají anglické názvy a čárku mezi argumenty; čísla zadávejte s desetinnou tečkou. Číselné a měnové formáty nastavíte v nástrojové liště.',
  sk:'Ponuky tabuľkového enginu sú zatiaľ v angličtine. Vzorce používajú anglické názvy a čiarku medzi argumentmi; čísla zadávajte s desatinnou bodkou. Formáty nastavíte v paneli nástrojov.',
@@ -36,7 +38,7 @@ function safePaste(text:string,html='',row=0,column=0){
 }
 type PendingCell={element:HTMLElement;sheetId?:string;row:number;column:number;text:string};
 export type SpreadsheetEditorProps={content:SpreadsheetContent;onChange:(content:SpreadsheetContent)=>void;readOnly?:boolean;disabled?:boolean;locale?:OfficeLocale};
-export function SpreadsheetEditor({content,onChange,readOnly=false,disabled=false,locale='cs'}:SpreadsheetEditorProps){
+function InteractiveSpreadsheetEditor({content,onChange,readOnly=false,disabled=false,locale='cs'}:SpreadsheetEditorProps){
  const m=getOfficeMessages(locale);const workbook=useRef<WorkbookInstance>(null);const container=useRef<HTMLDivElement>(null);const latest=useRef(content);const callback=useRef(onChange);const readonlyRef=useRef(readOnly);const blockedRef=useRef(readOnly||disabled);const selection=useRef({sheetId:undefined as string|undefined,row:0,column:0});const pending=useRef<PendingCell|null>(null);const composing=useRef(false);const calculated=useRef(false);latest.current=content;callback.current=onChange;readonlyRef.current=readOnly;blockedRef.current=readOnly||disabled;
  const [notice,setNotice]=useState('');const [ready,setReady]=useState(false);
  const notifyPending=useCallback((value:boolean)=>{queueMicrotask(()=>document.dispatchEvent(new CustomEvent('diriqo-office-pending-cell',{detail:{pending:value}})));},[]);
@@ -117,5 +119,9 @@ export function SpreadsheetEditor({content,onChange,readOnly=false,disabled=fals
   </div>
   {!ready&&<div className="office-loading" style={{padding:12}}>{m.loading}</div>}
  </section>;
+}
+export function SpreadsheetEditor(props:SpreadsheetEditorProps){
+ if(isSpreadsheetCachedPreview(props.content))return <SpreadsheetReadonlyPreview content={props.content} locale={props.locale}/>;
+ return <InteractiveSpreadsheetEditor {...props}/>;
 }
 export default SpreadsheetEditor;

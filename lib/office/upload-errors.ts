@@ -1,4 +1,4 @@
-import { officeUploadStatuses, type OfficeUploadErrorCode } from './upload-messages'
+import { officeUploadStatuses, officeFormulaUploadCategories, type OfficeUploadErrorCode } from './upload-messages'
 
 // Exact known parser messages only. Do not search arbitrary exception text for
 // words such as "encrypted", a path, filename or Office code embedded in data.
@@ -28,6 +28,7 @@ const limitMessages = new Set([
   'ODS row limit exceeded', 'ODS expanded cell limit exceeded', 'Too many sheets', 'Cell limit exceeded',
   'Too many merged ranges', 'Sheet dimensions exceed limit', 'Oversized column range',
   'Too many populated cells', 'CSV limit exceeded', 'Too many CSV rows',
+  'Shared formula exceeds length limit', 'XLSX XML nesting limit exceeded',
 ])
 const runtimeCodes = new Set(['ERR_MODULE_NOT_FOUND', 'MODULE_NOT_FOUND', 'ERR_UNKNOWN_FILE_EXTENSION',
   'ERR_REQUIRE_ESM', 'ERR_WORKER_INIT_FAILED', 'ERR_WORKER_PATH', 'ERR_WORKER_UNSUPPORTED_OPERATION'])
@@ -56,6 +57,10 @@ export function classifyOfficeUploadError(error: unknown, stage: 'multipart' | '
   if (Object.hasOwn(officeUploadStatuses, message)) return result(message as OfficeUploadErrorCode)
   if (message === 'OFFICE_FORMAT: Upload size exceeds limit') return result('OFFICE_HOST_LIMIT')
   if (stage === 'multipart') return result('OFFICE_UPLOAD_INVALID')
+  const formulaCode=code.startsWith('FORMULA_')?'OFFICE_'+code:code
+  if (Object.hasOwn(officeFormulaUploadCategories,formulaCode)) return result(officeFormulaUploadCategories[formulaCode])
+  const serializedCode=/^(OFFICE_FORMULA_[A-Z_]+): /.exec(message)?.[1]
+  if (serializedCode&&Object.hasOwn(officeFormulaUploadCategories,serializedCode)) return result(officeFormulaUploadCategories[serializedCode])
   if (code === 'ERR_WORKER_OUT_OF_MEMORY') return result('OFFICE_IMPORT_LIMIT')
   if (runtimeCodes.has(code) || /^OFFICE_FORMAT: Import worker exited \(-?\d{1,3}\)$/.test(message)) return result('OFFICE_IMPORT_RUNTIME')
   if (message === 'OFFICE_FORMAT: Import processing time limit exceeded') return result('OFFICE_IMPORT_TIMEOUT')

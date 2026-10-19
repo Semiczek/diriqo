@@ -1,3 +1,4 @@
+import {isSpreadsheetCachedPreview} from '../core/spreadsheet-execution.ts';
 import { createHash, randomUUID } from 'node:crypto';
 import type { OfficeActor, OfficeContent, OfficeFile, OfficeLink, OfficeRequest, OfficeResponse, OfficeProposal } from '../core/types.ts';
 import { check, id, title, validateContent, validateRequest, validateExportAuditFormat, OFFICE_LIMITS } from '../core/validation.ts';
@@ -37,7 +38,9 @@ export class OfficeService {
       }
       else if (r.op === 'create') { parent(s, actor, r.parentId ?? null); check(Object.values(s.files).filter(f => !f.deletedAt).length < 10000, 'FILE_LIMIT', 'Company file quota reached.'); const f: OfficeFile = { id: randomUUID(), tenantId: actor.tenantId, ownerId: actor.actorId, title: title(r.title), kind: r.kind, parentId: r.parentId ?? null, revision: 1, content: r.kind === 'folder' ? null : validateContent(r.content), updatedAt: new Date().toISOString(), link: null }; s.files[f.id] = f; snapshot(s, actor, f); audit(s, actor, 'create', f); result = { file: f }; }
       else {
-        const f = file(s, actor, r.id); switch (r.op) {
+        const f = file(s, actor, r.id);
+        if(['save','propose','approve','restore'].includes(r.op))check(!isSpreadsheetCachedPreview(f.content),'SPREADSHEET_PREVIEW_ONLY','This workbook is retained as a read-only snapshot. Download the original to edit it.',409);
+        switch (r.op) {
           case 'read': result = { file: f }; break;
           case 'permissions': result = { permissions: { role: actor.role, ownerId: f.ownerId, canWrite: actor.role !== 'reader', canDelete: actor.role === 'owner' || (actor.role === 'editor' && f.ownerId === actor.actorId) } }; break;
           case 'versions': result = { versions: s.versions[f.id] ?? [] }; break;
@@ -60,7 +63,7 @@ export class OfficeService {
           case 'restore': { expect(f, r.expectedRevision); const old = s.versions[f.id]?.find(v => v.revision === r.revision); check(old, 'NOT_FOUND', 'Version was not found.', 404); f.content = old.content ? validateContent(old.content) : null; f.title = old.title; advance(s, actor, f); result = { file: f }; break; }
           case 'link': { expect(f, r.expectedRevision); check(this.options.resolveEntity, 'UNSUPPORTED_OPERATION', 'This host has no entity resolver.', 501); const resolved = await this.options.resolveEntity(actor, { type: r.type, id: r.entityId }); check(resolved && resolved.id === r.entityId, 'NOT_FOUND', 'Entity was not found in the active company.', 404); f.link = { type: r.type, id: resolved.id, label: title(resolved.label) } satisfies OfficeLink; advance(s, actor, f); result = { file: f }; break; }
           case 'propose': { expect(f, r.expectedRevision); check(f.kind === r.content.kind, 'INVALID_CONTENT', 'Content kind cannot change.'); const p: OfficeProposal = { id: randomUUID(), fileId: f.id, baseRevision: f.revision, status: 'pending', summary: title(r.summary, 2000), content: validateContent(r.content), createdBy: actor.actorId, createdAt: new Date().toISOString() }; s.proposals[p.id] = p; result = { proposal: p }; break; }
-          case 'approve': { check(actor.principal === 'human', 'HUMAN_APPROVAL_REQUIRED', 'Explicit human approval required.', 403); expect(f, r.expectedRevision); const p = s.proposals[r.proposalId]; check(p && p.fileId === f.id, 'NOT_FOUND', 'Proposal was not found.', 404); check(p.status === 'pending', 'PROPOSAL_FINAL', 'Proposal has already been resolved.', 409); expect(f, p.baseRevision); check(p.content.kind === f.kind, 'INVALID_CONTENT', 'Content kind mismatch.'); f.content = validateContent(p.content); advance(s, actor, f); p.status = 'applied'; result = { file: f, proposal: p }; break; }
+          case 'approve': { check(actor.principal === 'human', 'HUMAN_APPROVAL_REQUIRED', 'Explicit human approval required.', 403); expect(f, r.expectedRevision); const p = s.proposals[r.proposalId]; check(p && p.fileId === f.id, 'NOT_FOUND', 'Proposal was not found.', 404); check(p.status === 'pending', 'PROPOSAL_FINAL', 'Proposal has already been resolved.', 409); expect(f, p.baseRevision); check(p.content.kind === f.kind, 'INVALID_CONTENT', 'Content kind mismatch.');check(!isSpreadsheetCachedPreview(p.content),'SPREADSHEET_PREVIEW_ONLY','This workbook is retained as a read-only snapshot.',409); f.content = validateContent(p.content); advance(s, actor, f); p.status = 'applied'; result = { file: f, proposal: p }; break; }
           case 'reject': { check(actor.principal === 'human', 'HUMAN_APPROVAL_REQUIRED', 'Explicit human approval required.', 403); const p = s.proposals[r.proposalId]; check(p && p.fileId === f.id, 'NOT_FOUND', 'Proposal was not found.', 404); check(p.status === 'pending', 'PROPOSAL_FINAL', 'Proposal has already been resolved.', 409); p.status = 'rejected'; result = { proposal: p }; break; }
           default: throw new Error('Unreachable Office operation.');
         } audit(s, actor, r.op, result.file ?? f);
