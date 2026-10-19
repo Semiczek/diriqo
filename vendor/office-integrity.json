@@ -2,7 +2,7 @@
   "name": "@diriqo/office",
   "version": "0.3.5",
   "archive": "diriqo-office-0.3.5.tgz",
-  "sha256": "d4271b7fdc98a7bbb358eb4f6f22a771ac5ae0219b41087bafab36cc764bb612",
-  "integrity": "sha512-oCP4FWaw/sMrTfxECFwZlkRZgYfObONegUjiX8ze4AEZv6b2vttziecG9ybnoEqvey8xND71GUHZ808UAebA2Q==",
+  "sha256": "457614b65d35c036980308149e9b44d97ca7508c79a004d59d0f18d9cdd11e5d",
+  "integrity": "sha512-SStI87eXWFqxpkHRhvACy2iNz1BeJiEzecEZL45pnWuiquLkb7a3jiTbUk7P9MHjqBLf1z00l+aAxofUnoyGVw==",
   "licenseEvidence": "beee77eed53e5a9dc3158ef3c18d2e831b1011857aba05bfbf22fe24c1a31c17"
 }

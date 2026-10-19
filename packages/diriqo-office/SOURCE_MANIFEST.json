@@ -3,12 +3,12 @@
   "repository": "https://github.com/Semiczek/diriqo",
   "sourceDirectory": "packages/diriqo-office",
   "ownership": "One canonical source; both hosts consume the identical reviewed vendor runtime.",
-  "sourceSha256": "87e59853354979c3714ef51a60df65fec5cad112c0b9d6e82c7fdb853ff4c9c2",
+  "sourceSha256": "954788fba553c9940e3fc663f05cb077e4acf0cbbf1ba4e279f5175504f797fa",
   "runtime": {
     "name": "@diriqo/office",
     "version": "0.3.5",
     "archive": "vendor/diriqo-office-0.3.5.tgz",
-    "sha256": "d4271b7fdc98a7bbb358eb4f6f22a771ac5ae0219b41087bafab36cc764bb612"
+    "sha256": "457614b65d35c036980308149e9b44d97ca7508c79a004d59d0f18d9cdd11e5d"
   },
   "files": [
     {
@@ -1868,8 +1868,8 @@
     },
     {
       "path": "scripts/build.mjs",
-      "bytes": 2347,
-      "sha256": "77e146c3e89dfb551d7dff1c50cf360395ae0090caa4c65d4e958ab5ce58d7e6"
+      "bytes": 2553,
+      "sha256": "c13f80e2e42ac853658bf56ceb4734a19e6937fe5c8831c158e584e341f1ed30"
     },
     {
       "path": "scripts/check-host-office.mjs",

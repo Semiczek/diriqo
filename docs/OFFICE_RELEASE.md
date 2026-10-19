@@ -30,8 +30,8 @@ Databázová ochrana je aplikovaná v testovacím Diriqu jako `20261019071710_of
 
 ## Balíček a doložené ověření
 
-- Runtime: `vendor/diriqo-office-0.3.5.tgz`, SHA-256 `d4271b7fdc98a7bbb358eb4f6f22a771ac5ae0219b41087bafab36cc764bb612`.
-- Kanonický zdroj: `packages/diriqo-office`; manifest 563 souborů, obsahový SHA-256 `87e59853354979c3714ef51a60df65fec5cad112c0b9d6e82c7fdb853ff4c9c2`. Vazbu dokládá `vendor/office-source.json`.
+- Runtime: `vendor/diriqo-office-0.3.5.tgz`, SHA-256 `457614b65d35c036980308149e9b44d97ca7508c79a004d59d0f18d9cdd11e5d`.
+- Kanonický zdroj: `packages/diriqo-office`; manifest 563 souborů, obsahový SHA-256 `954788fba553c9940e3fc663f05cb077e4acf0cbbf1ba4e279f5175504f797fa`. Vazbu dokládá `vendor/office-source.json`.
 - Office source suite: 293/293 PASS; TypeScript PASS. Hostitelské testy mapování chyb importu: 6/6 PASS.
 - Znovusestavení ověřilo všech 47 runtime souborů proti archivu. Licenční preflight a jeho kontrola prošly pro 130 přesných artefaktů; změnila se identita verze, nikoli graf závislostí.
 - Výsledná hostitelská integrace: 1 740 Vitest testů / 66 souborů PASS, 61 Office host testů PASS (včetně samostatně zopakovaného SQL export testu s PGlite 0.5.8), uncached TypeScript a webpack build 107 stránek PASS. ESLint bez chyb, čtyři zděděná varování navigace. Git/CI a přihlášený průchod budou doloženy výsledným vydáním.

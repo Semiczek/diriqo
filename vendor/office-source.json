@@ -3,6 +3,6 @@
   "sourceRepository": "https://github.com/Semiczek/diriqo",
   "sourceBranch": "codex/diriqo-office-inventory-workspace",
   "sourceDirectory": "packages/diriqo-office",
-  "sourceContentSha256": "87e59853354979c3714ef51a60df65fec5cad112c0b9d6e82c7fdb853ff4c9c2",
-  "runtimeArchiveSha256": "d4271b7fdc98a7bbb358eb4f6f22a771ac5ae0219b41087bafab36cc764bb612"
+  "sourceContentSha256": "954788fba553c9940e3fc663f05cb077e4acf0cbbf1ba4e279f5175504f797fa",
+  "runtimeArchiveSha256": "457614b65d35c036980308149e9b44d97ca7508c79a004d59d0f18d9cdd11e5d"
 }
