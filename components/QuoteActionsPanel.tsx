@@ -1,95 +1,15 @@
-﻿'use client'
+'use client'
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { FormEvent, useMemo, useState } from 'react'
+import QuoteConversionDialog from './QuoteConversionDialog'
 import {
-  createJobFromQuoteAction,
   deleteQuoteAction,
   markQuoteSentAction,
   rejectQuoteAction,
   syncQuotePricingFromCalculationAction,
 } from '@/app/business-actions'
-
-function toLocalDateTimeInput(date: Date) {
-  const pad = (value: number) => String(value).padStart(2, '0')
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(
-    date.getMinutes(),
-  )}`
-}
-
-type GeneratedWorkDay = {
-  dateKey: string
-  label: string
-  startAt: Date
-  endAt: Date
-}
-
-function padDatePart(value: number) {
-  return String(value).padStart(2, '0')
-}
-
-function getLocalDateKey(date: Date) {
-  return `${date.getFullYear()}-${padDatePart(date.getMonth() + 1)}-${padDatePart(date.getDate())}`
-}
-
-function makeDateOnDay(dateKey: string, sourceTime: Date) {
-  const [year, month, day] = dateKey.split('-').map(Number)
-
-  return new Date(
-    year,
-    month - 1,
-    day,
-    sourceTime.getHours(),
-    sourceTime.getMinutes(),
-    sourceTime.getSeconds(),
-    sourceTime.getMilliseconds(),
-  )
-}
-
-function isDifferentLocalDay(start: Date | null, end: Date | null) {
-  if (!start || !end) return false
-  return getLocalDateKey(start) !== getLocalDateKey(end)
-}
-
-function formatWorkDayLabel(date: Date) {
-  return new Intl.DateTimeFormat('cs-CZ', {
-    weekday: 'long',
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  }).format(date)
-}
-
-function generateWorkDays(start: Date | null, end: Date | null): GeneratedWorkDay[] {
-  if (!start || !end || end <= start || !isDifferentLocalDay(start, end)) return []
-
-  const days: GeneratedWorkDay[] = []
-  const endDateKey = getLocalDateKey(end)
-  const cursor = new Date(start.getFullYear(), start.getMonth(), start.getDate())
-
-  while (getLocalDateKey(cursor) <= endDateKey) {
-    const dateKey = getLocalDateKey(cursor)
-    const occurrenceStart = makeDateOnDay(dateKey, start)
-    let occurrenceEnd = makeDateOnDay(dateKey, end)
-
-    if (occurrenceEnd <= occurrenceStart) {
-      occurrenceEnd = new Date(occurrenceEnd)
-      occurrenceEnd.setDate(occurrenceEnd.getDate() + 1)
-    }
-
-    days.push({
-      dateKey,
-      label: formatWorkDayLabel(cursor),
-      startAt: occurrenceStart,
-      endAt: occurrenceEnd,
-    })
-
-    cursor.setDate(cursor.getDate() + 1)
-  }
-
-  return days
-}
 
 function buttonStyle(backgroundColor: string, color: string, border: string, disabled: boolean) {
   return {
@@ -110,6 +30,7 @@ type QuoteActionsPanelProps = {
   customerId: string | null
   quoteId: string
   companyId: string
+  actorProfileId: string
   shareUrl?: string | null
   contactName?: string | null
   contactEmail?: string | null
@@ -127,16 +48,11 @@ function escapeHtml(value: string) {
     .replace(/\n/g, '<br />')
 }
 
-function buildHtmlMessage(text: string) {
-  return `<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6;white-space:pre-wrap;">${escapeHtml(
-    text,
-  )}</div>`
-}
-
 export default function QuoteActionsPanel({
   customerId,
   quoteId,
   companyId,
+  actorProfileId,
   shareUrl,
   contactName,
   contactEmail,
@@ -151,14 +67,8 @@ export default function QuoteActionsPanel({
   const [syncingPricing, setSyncingPricing] = useState(false)
   const [sendingUpdate, setSendingUpdate] = useState(false)
   const [rejecting, setRejecting] = useState(false)
-  const [creatingJob, setCreatingJob] = useState(false)
   const [showCreateJobModal, setShowCreateJobModal] = useState(false)
   const [showSendOfferModal, setShowSendOfferModal] = useState(false)
-  const [jobAddress, setJobAddress] = useState('')
-  const [jobDescription, setJobDescription] = useState(workDescription?.trim() || proposedSolution?.trim() || '')
-  const [jobCreationMode, setJobCreationMode] = useState<'single' | 'split'>('single')
-  const [sendJobConfirmation, setSendJobConfirmation] = useState(Boolean(contactEmail?.trim()))
-  const [selectedWorkDates, setSelectedWorkDates] = useState<string[]>([])
   const [offerRecipientEmail, setOfferRecipientEmail] = useState(contactEmail?.trim() || '')
   const [offerRecipientName, setOfferRecipientName] = useState(contactName?.trim() || '')
   const [offerSubject, setOfferSubject] = useState(
@@ -178,42 +88,6 @@ export default function QuoteActionsPanel({
       'Diriqo',
     ].join('\n'),
   )
-  const [jobStartAt, setJobStartAt] = useState(() => {
-    const start = new Date()
-    start.setMinutes(0, 0, 0)
-    return toLocalDateTimeInput(start)
-  })
-  const [jobEndAt, setJobEndAt] = useState(() => {
-    const end = new Date()
-    end.setHours(end.getHours() + 1, 0, 0, 0)
-    return toLocalDateTimeInput(end)
-  })
-  const parsedJobStartAt = useMemo(() => {
-    const date = new Date(jobStartAt)
-    return Number.isNaN(date.getTime()) ? null : date
-  }, [jobStartAt])
-  const parsedJobEndAt = useMemo(() => {
-    const date = new Date(jobEndAt)
-    return Number.isNaN(date.getTime()) ? null : date
-  }, [jobEndAt])
-  const generatedWorkDays = useMemo(
-    () => generateWorkDays(parsedJobStartAt, parsedJobEndAt),
-    [parsedJobEndAt, parsedJobStartAt],
-  )
-
-  const [previousJobRange, setPreviousJobRange] = useState<{ start: string; end: string } | null>(null)
-  if (previousJobRange?.start !== jobStartAt || previousJobRange?.end !== jobEndAt) {
-    setPreviousJobRange({ start: jobStartAt, end: jobEndAt })
-    if (generatedWorkDays.length === 0) {
-      setSelectedWorkDates([])
-      setJobCreationMode('single')
-    } else {
-      const validDateKeys = new Set(generatedWorkDays.map((day) => day.dateKey))
-      const keptDates = selectedWorkDates.filter((dateKey) => validDateKeys.has(dateKey))
-      setSelectedWorkDates(keptDates.length > 0 ? keptDates : generatedWorkDays.map((day) => day.dateKey))
-    }
-  }
-
   const createJobDisabledReason = useMemo(() => {
     if (!companyId) return 'Nabídka nemá dostupné company_id.'
     return undefined
@@ -372,138 +246,6 @@ export default function QuoteActionsPanel({
       alert(error instanceof Error ? error.message : 'Nepodařilo se změnit stav nabídky.')
     } finally {
       setRejecting(false)
-    }
-  }
-
-  function toggleWorkDate(dateKey: string) {
-    setSelectedWorkDates((current) =>
-      current.includes(dateKey)
-        ? current.filter((item) => item !== dateKey)
-        : [...current, dateKey].sort(),
-    )
-  }
-
-  async function handleCreateJobFromQuote(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    if (creatingJob) return
-
-    if (!companyId) {
-      alert('Chybí company_id nabídky, zakázku teď nelze bezpečně vytvořit.')
-      return
-    }
-
-    if (sendJobConfirmation && !contactEmail) {
-      alert('Pro odeslání potvrzení zákazníkovi chybí kontaktní e-mail. Vypněte odeslání nebo doplňte e-mail v nabídce.')
-      return
-    }
-
-    const parsedStartAt = new Date(jobStartAt)
-    const parsedEndAt = new Date(jobEndAt)
-
-    if (Number.isNaN(parsedStartAt.getTime()) || Number.isNaN(parsedEndAt.getTime())) {
-      alert('Vyplňte prosím platný začátek a konec realizace.')
-      return
-    }
-
-    if (parsedEndAt <= parsedStartAt) {
-      alert('Konec realizace musí být později než začátek.')
-      return
-    }
-
-    const shouldSplitIntoDailyJobs = jobCreationMode === 'split' && generatedWorkDays.length > 1
-    const selectedDailyJobs = generatedWorkDays.filter((day) => selectedWorkDates.includes(day.dateKey))
-
-    if (jobCreationMode === 'split' && generatedWorkDays.length <= 1) {
-      alert('Rozpis na jednotlivé dny je dostupný až u vícedenní zakázky.')
-      return
-    }
-
-    if (shouldSplitIntoDailyJobs && selectedDailyJobs.length === 0) {
-      alert('Vyberte alespoň jeden den, pro který se má vytvořit dílčí zakázka.')
-      return
-    }
-
-    setCreatingJob(true)
-
-    try {
-      const result = await createJobFromQuoteAction({
-        quoteId,
-        title: quoteTitle?.trim() || 'Zakázka z cenové nabídky',
-        description: jobDescription.trim() || null,
-        address: jobAddress.trim() || null,
-        startAt: parsedStartAt.toISOString(),
-        endAt: parsedEndAt.toISOString(),
-        splitDays: shouldSplitIntoDailyJobs
-          ? selectedDailyJobs.map((day) => ({
-              label: day.label,
-              startAt: day.startAt.toISOString(),
-              endAt: day.endAt.toISOString(),
-            }))
-          : [],
-      })
-
-      if (!result.ok) throw new Error(result.error)
-
-      const createdJobId = result.data.jobId
-
-      const formatter = new Intl.DateTimeFormat('cs-CZ', {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-      })
-
-      const scheduleMessage = `Dobrý den${contactName ? ` ${contactName}` : ''},
-
-potvrzujeme termín realizace k Vaší cenové nabídce.
-
-Název zakázky:
-${quoteTitle || 'Zakázka z cenové nabídky'}
-
-Začátek realizace:
-${formatter.format(parsedStartAt)}
-
-Konec realizace:
-${formatter.format(parsedEndAt)}
-${jobAddress.trim() ? `\nMísto realizace:\n${jobAddress.trim()}\n` : '\n'}${
-        shareUrl ? `\nOnline nabídka:\n${shareUrl}\n` : ''
-      }
-Pokud budete potřebovat něco doplnit, dejte nám prosím vědět.
-
-S pozdravem
-Diriqo`
-
-      if (sendJobConfirmation) {
-        const scheduleEmailResponse = await fetch('/api/mail/send', {
-          method: 'POST',
-          headers: {
-            'content-type': 'application/json',
-          },
-          body: JSON.stringify({
-            relatedEntityType: 'job',
-            relatedEntityId: createdJobId,
-            customerId: customerId ?? null,
-            messageType: 'job_confirmation',
-            toEmail: contactEmail,
-            toName: contactName ?? null,
-            subject: `Potvrzení termínu realizace: ${quoteTitle || 'Diriqo'}`,
-            text: scheduleMessage,
-            html: buildHtmlMessage(scheduleMessage),
-          }),
-        })
-
-        const scheduleEmailPayload = (await scheduleEmailResponse.json().catch(() => null)) as { error?: string } | null
-
-        if (!scheduleEmailResponse.ok) {
-          throw new Error(scheduleEmailPayload?.error ?? 'Potvrzovací email k zakázce se nepodařilo odeslat.')
-        }
-      }
-
-      setShowCreateJobModal(false)
-      router.refresh()
-      window.location.assign(`/jobs/${createdJobId}`)
-    } catch (error) {
-      alert(error instanceof Error ? error.message : 'Nepodařilo se vytvořit zakázku z nabídky.')
-    } finally {
-      setCreatingJob(false)
     }
   }
 
@@ -776,270 +518,11 @@ Diriqo`
         </div>
       ) : null}
 
-      {showCreateJobModal ? (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(15, 23, 42, 0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '20px',
-            zIndex: 1000,
-          }}
-        >
-          <form
-            onSubmit={handleCreateJobFromQuote}
-            style={{
-              width: '100%',
-              maxWidth: '620px',
-              maxHeight: 'calc(100vh - 48px)',
-              borderRadius: '18px',
-              backgroundColor: '#ffffff',
-              boxShadow: '0 24px 64px rgba(15, 23, 42, 0.18)',
-              display: 'flex',
-              flexDirection: 'column',
-              overflow: 'hidden',
-            }}
-          >
-            <div style={{ padding: '22px 24px 14px', borderBottom: '1px solid #e5e7eb' }}>
-              <h3 style={{ margin: '0 0 8px 0', fontSize: '24px' }}>Vytvořit zakázku z nabídky</h3>
-              <p style={{ margin: 0, color: '#475569', lineHeight: 1.6 }}>
-                Založíme zakázku se stejným zákazníkem. Můžete ji vytvořit interně bez odeslání, nebo rovnou poslat potvrzení zákazníkovi.
-              </p>
-            </div>
-
-            <div
-              style={{
-                display: 'grid',
-                gap: '14px',
-                padding: '18px 24px',
-                overflowY: 'auto',
-                maxHeight: 'calc(100vh - 220px)',
-              }}
-            >
-            <label style={{ display: 'grid', gap: '6px' }}>
-              <span style={{ fontWeight: 600 }}>Začátek realizace</span>
-              <input
-                type="datetime-local"
-                value={jobStartAt}
-                onChange={(event) => setJobStartAt(event.target.value)}
-                required
-                style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid #d1d5db' }}
-              />
-            </label>
-
-            <label style={{ display: 'grid', gap: '6px' }}>
-              <span style={{ fontWeight: 600 }}>Konec realizace</span>
-              <input
-                type="datetime-local"
-                value={jobEndAt}
-                onChange={(event) => setJobEndAt(event.target.value)}
-                required
-                style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid #d1d5db' }}
-              />
-            </label>
-
-            <div style={{ display: 'grid', gap: '10px' }}>
-              <div style={{ fontWeight: 600 }}>Způsob vytvoření</div>
-              <label
-                style={{
-                  display: 'flex',
-                  gap: '10px',
-                  alignItems: 'flex-start',
-                  padding: '12px',
-                  border: '1px solid #d1d5db',
-                  borderRadius: '12px',
-                  backgroundColor: jobCreationMode === 'single' ? '#f8fafc' : '#ffffff',
-                }}
-              >
-                <input
-                  type="radio"
-                  name="jobCreationMode"
-                  value="single"
-                  checked={jobCreationMode === 'single'}
-                  onChange={() => setJobCreationMode('single')}
-                />
-                <span>
-                  <strong>Jedna zakázka</strong>
-                  <span style={{ display: 'block', color: '#64748b', fontSize: '13px', marginTop: '3px' }}>
-                    Vytvoří se jedna zakázka v celém vybraném rozsahu.
-                  </span>
-                </span>
-              </label>
-
-              <label
-                style={{
-                  display: 'flex',
-                  gap: '10px',
-                  alignItems: 'flex-start',
-                  padding: '12px',
-                  border: '1px solid #d1d5db',
-                  borderRadius: '12px',
-                  backgroundColor: jobCreationMode === 'split' ? '#eef2ff' : '#ffffff',
-                  opacity: generatedWorkDays.length > 1 ? 1 : 0.65,
-                }}
-              >
-                <input
-                  type="radio"
-                  name="jobCreationMode"
-                  value="split"
-                  checked={jobCreationMode === 'split'}
-                  disabled={generatedWorkDays.length <= 1}
-                  onChange={() => setJobCreationMode('split')}
-                />
-                <span>
-                  <strong>Rozepsat na jednotlivé dny</strong>
-                  <span style={{ display: 'block', color: '#64748b', fontSize: '13px', marginTop: '3px' }}>
-                    Vytvoří se souhrnná zakázka a pod ní dílčí jednodenní zakázky.
-                  </span>
-                </span>
-              </label>
-            </div>
-
-            {jobCreationMode === 'split' && generatedWorkDays.length > 1 ? (
-              <div
-                style={{
-                  border: '1px solid #c7d2fe',
-                  borderRadius: '12px',
-                  padding: '12px',
-                  backgroundColor: '#eef2ff',
-                  display: 'grid',
-                  gap: '10px',
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap' }}>
-                  <div>
-                    <div style={{ fontWeight: 700 }}>Dny realizace</div>
-                    <div style={{ color: '#64748b', fontSize: '13px', marginTop: '3px' }}>
-                      Vybrané dny se vytvoří jako dílčí zakázky.
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedWorkDates(generatedWorkDays.map((day) => day.dateKey))}
-                      style={buttonStyle('#ffffff', '#111827', '1px solid #d1d5db', false)}
-                    >
-                      Vybrat vše
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedWorkDates([])}
-                      style={buttonStyle('#ffffff', '#111827', '1px solid #d1d5db', false)}
-                    >
-                      Zrušit výběr
-                    </button>
-                  </div>
-                </div>
-
-                <div style={{ display: 'grid', gap: '8px' }}>
-                  {generatedWorkDays.map((day) => (
-                    <label
-                      key={day.dateKey}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '10px',
-                        padding: '10px',
-                        borderRadius: '10px',
-                        backgroundColor: selectedWorkDates.includes(day.dateKey) ? '#ffffff' : '#f8fafc',
-                        border: '1px solid #dbeafe',
-                      }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedWorkDates.includes(day.dateKey)}
-                        onChange={() => toggleWorkDate(day.dateKey)}
-                      />
-                      <span style={{ display: 'grid', gap: '2px' }}>
-                        <strong>{day.label}</strong>
-                        <span style={{ color: '#64748b', fontSize: '13px' }}>
-                          {toLocalDateTimeInput(day.startAt).replace('T', ' ')} - {toLocalDateTimeInput(day.endAt).replace('T', ' ')}
-                        </span>
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-
-            <label style={{ display: 'grid', gap: '6px' }}>
-              <span style={{ fontWeight: 600 }}>Adresa realizace</span>
-              <input
-                type="text"
-                value={jobAddress}
-                onChange={(event) => setJobAddress(event.target.value)}
-                placeholder="Např. Vídeňská 12, Brno"
-                style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid #d1d5db' }}
-              />
-            </label>
-
-            <label style={{ display: 'grid', gap: '6px' }}>
-              <span style={{ fontWeight: 600 }}>Popis zakázky</span>
-              <textarea
-                value={jobDescription}
-                onChange={(event) => setJobDescription(event.target.value)}
-                rows={5}
-                style={{ width: '100%', padding: '10px 12px', borderRadius: '10px', border: '1px solid #d1d5db' }}
-              />
-            </label>
-
-            <div style={{ color: '#475569', fontSize: '14px' }}>
-              E-mail zákazníka: <strong style={{ color: '#111827' }}>{contactEmail || '—'}</strong>
-            </div>
-
-            <label
-              style={{
-                display: 'flex',
-                gap: '10px',
-                alignItems: 'flex-start',
-                padding: '12px',
-                border: '1px solid #d1d5db',
-                borderRadius: '12px',
-                backgroundColor: '#f8fafc',
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={sendJobConfirmation}
-                onChange={(event) => setSendJobConfirmation(event.target.checked)}
-              />
-              <span>
-                <strong>Odeslat zákazníkovi potvrzení termínu</strong>
-                <span style={{ display: 'block', color: '#64748b', fontSize: '13px', marginTop: '3px' }}>
-                  Když vypnete, zakázka se vytvoří jen interně a zákazníkovi se nic nepošle.
-                </span>
-              </span>
-            </label>
-            </div>
-
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'flex-end',
-                gap: '10px',
-                flexWrap: 'wrap',
-                padding: '14px 24px 20px',
-                borderTop: '1px solid #e5e7eb',
-                backgroundColor: '#ffffff',
-              }}
-            >
-              <button type="button" onClick={() => setShowCreateJobModal(false)} disabled={creatingJob} style={buttonStyle('#ffffff', '#111827', '1px solid #d1d5db', creatingJob)}>
-                Zrušit
-              </button>
-              <button type="submit" disabled={creatingJob} style={buttonStyle('#111827', '#ffffff', '1px solid #111827', creatingJob)}>
-                {creatingJob
-                  ? 'Vytvářím zakázku...'
-                  : sendJobConfirmation
-                    ? 'Vytvořit zakázku a odeslat potvrzení'
-                    : 'Vytvořit zakázku bez odeslání'}
-              </button>
-            </div>
-          </form>
-        </div>
-      ) : null}
+      {showCreateJobModal ? <QuoteConversionDialog
+        companyId={companyId} actorProfileId={actorProfileId} quoteId={quoteId} customerId={customerId}
+        quoteTitle={quoteTitle} description={workDescription?.trim() || proposedSolution?.trim() || ''}
+        contactName={contactName} contactEmail={contactEmail} shareUrl={shareUrl}
+        onClose={() => setShowCreateJobModal(false)} /> : null}
     </>
   )
 }

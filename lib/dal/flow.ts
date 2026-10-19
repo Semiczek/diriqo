@@ -4,8 +4,10 @@ import { randomBytes } from 'crypto'
 
 import type { DalContext, SupabaseServerClient } from '@/lib/dal/auth'
 import { TenantScopeError } from '@/lib/dal/companies'
-import { canAcceptQuote, canCreateJobFromQuote } from '@/lib/flow-status'
+import { canAcceptQuote } from '@/lib/flow-status'
 import { issueInvoiceAtomic, type InvoiceIssueContext } from '@/lib/dal/invoices'
+import { convertCoreQuoteToJobAtomic } from '@/lib/dal/core-quote-conversion'
+import type { CoreQuoteConversionInput } from '@/lib/core-quote-conversion'
 
 type CalculationItemRow = {
   sort_order: number | null
@@ -52,19 +54,6 @@ function toMoney(value: unknown) {
   const numberValue = Number(value ?? 0)
   if (!Number.isFinite(numberValue)) return 0
   return Math.round(numberValue * 100) / 100
-}
-
-async function findExistingJobForQuote(ctx: FlowContext, quoteId: string) {
-  const { data, error } = await ctx.supabase
-    .from('jobs')
-    .select('id')
-    .eq('company_id', ctx.companyId)
-    .eq('source_quote_id', quoteId)
-    .is('parent_job_id', null)
-    .maybeSingle()
-
-  if (error) throw error
-  return data?.id ?? null
 }
 
 export async function createQuoteFromCalculation(ctx: DalContext, calculationId: string) {
@@ -202,106 +191,8 @@ export async function acceptPublicOffer(ctx: FlowContext & { visitorId?: string 
   return result
 }
 
-export async function createJobFromQuote(
-  ctx: DalContext,
-  input: {
-    quoteId: string
-    title: string
-    description: string | null
-    address: string | null
-    startAt: string
-    endAt: string
-    splitDays?: {
-      label: string
-      startAt: string
-      endAt: string
-    }[]
-  },
-) {
-  const existingJobId = await findExistingJobForQuote(ctx, input.quoteId)
-  if (existingJobId) return { jobId: existingJobId, created: false }
-
-  const { data: quote, error: quoteError } = await ctx.supabase
-    .from('quotes')
-    .select('id, customer_id, title, status, accepted_at, total_price')
-    .eq('id', input.quoteId)
-    .eq('company_id', ctx.companyId)
-    .maybeSingle()
-
-  if (quoteError || !quote?.id) throw new TenantScopeError('Nabídka nepatří do aktivní firmy.')
-  if (!canCreateJobFromQuote(quote.status)) throw new Error('Z této nabídky už nelze vytvořit zakázku.')
-
-  const baseJob = {
-    company_id: ctx.companyId,
-    customer_id: quote.customer_id,
-    title: input.title || quote.title || 'Zakázka z cenové nabídky',
-    description: input.description,
-    address: input.address,
-    status: 'planned',
-    work_state: 'not_started',
-    billing_status: 'waiting_for_invoice',
-    billing_state: 'waiting_for_invoice',
-    is_paid: false,
-  }
-
-  const splitDays = input.splitDays ?? []
-  const shouldSplit = splitDays.length > 1
-
-  try {
-    if (shouldSplit) {
-      const { data: parentJob, error: parentError } = await ctx.supabase
-        .from('jobs')
-        .insert({
-          ...baseJob,
-          price: toMoney(quote.total_price),
-          start_at: input.startAt,
-          end_at: input.endAt,
-          parent_job_id: null,
-          source_quote_id: input.quoteId,
-        })
-        .select('id')
-        .single()
-
-      if (parentError || !parentJob?.id) throw parentError ?? new Error('Zakázku se nepodařilo vytvořit.')
-
-      const childJobs = splitDays.map((day) => ({
-        ...baseJob,
-        title: `${baseJob.title} - ${day.label}`,
-        price: 0,
-        start_at: day.startAt,
-        end_at: day.endAt,
-        parent_job_id: parentJob.id,
-        source_quote_id: null,
-      }))
-
-      const { error: childError } = await ctx.supabase.from('jobs').insert(childJobs)
-      if (childError) throw childError
-
-      await approveQuote(ctx, input.quoteId)
-      return { jobId: parentJob.id, created: true }
-    }
-
-    const { data: jobs, error: insertError } = await ctx.supabase
-      .from('jobs')
-      .insert({
-        ...baseJob,
-        price: toMoney(quote.total_price),
-        start_at: input.startAt,
-        end_at: input.endAt,
-        parent_job_id: null,
-        source_quote_id: input.quoteId,
-      })
-      .select('id')
-
-    if (insertError || !jobs?.[0]?.id) throw insertError ?? new Error('Zakázku se nepodařilo vytvořit.')
-
-    await approveQuote(ctx, input.quoteId)
-    return { jobId: jobs[0].id, created: true }
-  } catch (error) {
-    const existingAfterRace = await findExistingJobForQuote(ctx, input.quoteId)
-    if (existingAfterRace) return { jobId: existingAfterRace, created: false }
-    throw error
-  }
+export async function createJobFromQuote(ctx: DalContext, input: CoreQuoteConversionInput) {
+  return convertCoreQuoteToJobAtomic(ctx, input)
 }
 
 export async function markJobCompleted(ctx: FlowContext, jobId: string) {
