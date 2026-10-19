@@ -300,6 +300,57 @@ test('Office navigation remains closed on mobile, expands on demand, and Escape 
   }
 });
 
+for (const preview of ['pointer', 'keyboard']) {
+  test(`Office rail click pins an already ${preview}-expanded menu until collapse or Escape`, async () => {
+    const values = [], refs = [], styles = new Proxy({}, { get: (_target, key) => key });
+    let index = 0, refIndex = 0, restored = 0;
+    const navigation = await authored('app/office/OfficeNavigation.tsx', {
+      Image: 'Image', DashboardSidebar: 'Sidebar', styles,
+      officeRailMessages: { cs: { expand: 'Expand', collapse: 'Collapse', skip: 'Skip' } },
+      useState: initial => { const i = index++; if (!(i in values)) values[i] = initial; return [values[i], value => { values[i] = value; }]; },
+      useRef: () => { const i = refIndex++; refs[i] ??= { current: { focus: () => restored++, contains: () => false } }; return refs[i]; },
+      useSyncExternalStore: () => false,
+    }, 'OfficeNavigation');
+    const render = () => {
+      index = refIndex = 0;
+      const nodes = flatten(navigation({ navigation: { enabledModules: {}, availableProducts: [], showCoreNavigation: false, showModuleCatalog: false },
+        companyName: 'Synthetic company', locale: 'cs' }));
+      return { frame: nodes.find(node => node.props.className === 'railFrame'),
+        toggle: nodes.find(node => node.props.className === 'railToggle') };
+    };
+    const enterPreview = () => {
+      const { frame } = render();
+      if (preview === 'pointer') frame.props.onPointerEnter({ pointerType: 'mouse' });
+      else frame.props.onFocusCapture({ target: {} });
+    };
+    const leavePreview = () => {
+      const { frame } = render();
+      frame.props.onPointerLeave();
+      frame.props.onBlurCapture({ currentTarget: { contains: () => false }, relatedTarget: null });
+    };
+
+    enterPreview();
+    let state = render();
+    assert.equal(state.frame.props['data-expanded'], true, 'Hover or keyboard focus previews the menu before the click');
+    state.toggle.props.onClick();
+    leavePreview();
+    state = render();
+    assert.equal(state.frame.props['data-expanded'], true, 'Click pins the preview open even after pointer and focus leave');
+    assert.equal(state.toggle.props['aria-label'], 'Collapse');
+    assert.equal(state.toggle.props['aria-expanded'], true);
+    state.toggle.props.onClick();
+    state = render();
+    assert.equal(state.frame.props['data-expanded'], false, 'A second click explicitly closes the pinned menu');
+    assert.equal(state.toggle.props['aria-label'], 'Expand');
+
+    enterPreview();
+    render().toggle.props.onClick();
+    leavePreview();
+    render().frame.props.onKeyDown({ key: 'Escape', preventDefault() {} });
+    assert.equal(render().frame.props['data-expanded'], false, 'Escape closes a pinned menu');
+    assert.equal(restored, 1, 'Escape restores focus to the opener');
+  });
+}
 test('global cookie banner and preferences leave Office natively without changing POS navigation', async () => {
   for (const pathname of ['/office', '/office/settings', '/pos', '/office-other']) {
     for (const preferencesOpen of [false, true]) {

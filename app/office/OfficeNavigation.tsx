@@ -74,12 +74,13 @@ export default function OfficeNavigation({ navigation, companyName, locale, disa
         }}
         onKeyDown={event => { if (event.key === 'Escape') { event.preventDefault(); collapse(true) } }}>
         <button ref={toggle} type="button" className={styles.railToggle}
-          aria-label={expanded ? messages.collapse : messages.expand} title={expanded ? messages.collapse : messages.expand}
+          aria-label={pinned ? messages.collapse : messages.expand} title={pinned ? messages.collapse : messages.expand}
           aria-expanded={expanded} aria-controls="office-diriqo-navigation"
-          onClick={() => { if (expanded) collapse(); else setPinned(true) }}>
+          // Hover and focus only preview the rail; the first click must pin that preview open.
+          onClick={() => { if (pinned) collapse(); else setPinned(true) }}>
           <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
             <rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/>
-            <path d={expanded ? 'm16 9-3 3 3 3' : 'm13 9 3 3-3 3'} />
+            <path d={pinned ? 'm16 9-3 3 3 3' : 'm13 9 3 3-3 3'} />
           </svg>
           {expanded ? <span>Office</span> : null}
         </button>
