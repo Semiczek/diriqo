@@ -1,4 +1,4 @@
-/* Office uses the same expanding rail as Hub. Opening it does not resize the editor. */
+/* Temporary rail previews overlay the workspace; a pinned desktop rail reserves its full width. */
 .layout { display: flex; min-height: 100dvh; background: var(--dq-bg, #f5f6fa); }
 .content { flex: 1; min-width: 0; }
 .content :global(.diriqo-office) {
@@ -77,6 +77,10 @@
 .skip { position: fixed; left: 82px; top: -80px; z-index: 110; padding: 12px 16px; color: #fff; background: #6240d5; border-radius: 8px; }
 .skip:focus { top: 10px; }
 .srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+@media (min-width: 768px) {
+  .rail[data-pinned='true'] { flex-basis: 292px; width: 292px; }
+  .rail[data-pinned='true'] .railFrame { box-shadow: none; }
+}
 @media (max-width: 767px) {
   .layout { --office-mobile-header-height: calc(56px + env(safe-area-inset-top, 0px)); padding-top: var(--office-mobile-header-height); }
   .rail { flex: 0 0 0; width: 0; }

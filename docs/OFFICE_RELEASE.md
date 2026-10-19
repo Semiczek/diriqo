@@ -1,6 +1,6 @@
-# Diriqo Office – kandidát 0.3.5 (19. 10. 2026)
+# Diriqo Office – vydání 0.3.5 (19. 10. 2026)
 
-Aktuální změna je na větvi `codex/diriqo-office-inventory-workspace`, nad základem Diriqo main `b0a6da013b`. **Aplikační kandidát zatím není nasazený a přihlášené ověření nové obrazovky v prohlížeči čeká.** Následující výsledky rozlišují lokální balíček, testy a databázovou ochranu; historická nasazení níže nedokládají tuto verzi.
+[PR #31](https://github.com/Semiczek/diriqo/pull/31) byl nejprve sloučen do main jako `9463f39efc0a7c91f3e1fb19d9d0ff17dfc3558f` a nasazen deploymentem `dpl_5h5G652JEcS3f7FhBkwwmdT9C2rG` ve stavu READY. Následná oprava navigace [PR #32](https://github.com/Semiczek/diriqo/pull/32) byla sloučena jako **`4016d1112fd9bcf1d18ce415de0ef4b299df2b89`**; ověřený READY deployment tohoto průchodu je **`dpl_4bb8VGcvb5mjBKkC96n2AVYKuPZe`** na [app.diriqo.com](https://app.diriqo.com). Přihlášené ověření níže proběhlo ve firmě **Diriqo Demo s.r.o.**; importy FNOL byly ověřené po PR #31 a oprava připínání po PR #32. Historická nasazení na konci dokumentu zůstávají důkazem pouze svých starších verzí.
 
 ## Rozhraní a firemní kontext
 
@@ -24,9 +24,17 @@ Lokálně bylo znovu importováno všech pět uživatelem určených FNOL XLSX. 
 
 U tří editovatelných sešitů tedy souhlasí 266/266 porovnaných výsledků. U všech pěti prošlo zachování vzorců i uložených výsledků přes XLSX export a opětovný import. Každý velký sešit obsahuje přibližně 12,1 milionu referenčních přístupů; běžný přepočet Fortune u něj není dostatečně spolehlivý. Náhled proto zobrazuje uložené hodnoty bez spuštění výpočtů a nabízí zachovaný originál pro úpravy v Excelu. Nejde o dokončenou plnou editaci těchto dvou sešitů ani o úplnou věrnost formátování Excelu.
 
-Režim náhledu se ukládá jako `workbook.officeCalculationMode = cached-readonly-v1`. Zápis obsahu, návrh AI, schválení a obnovení obsahu blokuje editor i aplikační služby; přejmenování, přesun, kopie a export zůstávají dostupné. Původní interaktivní rozpočet 2 000 vzorců / 200 000 referenčních přístupů se nezvýšil. Import má samostatně ohraničenou analýzu grafu. Přesná omezení a důkazy jsou v [dokumentaci kompatibility](../packages/diriqo-office/docs/XLSX_IMPORT_COMPATIBILITY.md).
+Režim náhledu se ukládá jako `workbook.officeCalculationMode = cached-readonly-v1`. Zápis obsahu, návrh AI, schválení a obnovení obsahu blokuje editor i aplikační služby. Databázová ochrana dovoluje změny metadat, které nezmění uložený obsah; to samo nedokládá dostupnost každé takové akce v UI. **V živě ověřeném náhledu je přejmenování deaktivované.** Stažení zachovaného originálu bylo ověřeno v prohlížeči. Původní interaktivní rozpočet 2 000 vzorců / 200 000 referenčních přístupů se nezvýšil. Import má samostatně ohraničenou analýzu grafu. Přesná omezení a důkazy jsou v [dokumentaci kompatibility](../packages/diriqo-office/docs/XLSX_IMPORT_COMPATIBILITY.md).
 
 Databázová ochrana je aplikovaná v testovacím Diriqu jako `20261019071710_office_cached_preview_guard.sql`, SHA-256 `eaba6e1c6c61a6be3c2c3a29a151bd796cafd03ce693951d8a12c8c3bf471c57`. Dva privátní triggery chrání obsah a návrhy i před přímým authenticated RPC nebo starším klientem. Hosted ověření: 16 scénářů + 14 kontrol rollbacku PASS; místní SQL: 34 + 3 PASS. Původní dva soubory a čtyři verze zůstaly nezměněné; otisk dat i definice/OID/owner/ACL veřejného RPC jsou shodné před a po. Soukromý preflight SHA-256 `7329ff29086e5de8efec7563bfdd44a570d1926584ad530b39b3a15437240bd6`, hosted důkaz `7b8d43c8b74d5d4878b1cba9c989c58e7276be4d797ff0951bbb0c381efd1cc1`. Cílený preflight není úplná záloha produktu.
+
+## Přihlášené ověření vydání
+
+V Diriqo Demo s.r.o. prošel import všech pěti výše uvedených FNOL souborů. Po obnovení stránky zůstaly uložené a šly znovu otevřít: tři v editovatelném režimu, dva v náhledu pouze pro čtení. Stažený originál souboru FNOL_B_detailni_soupis_pro_naceneni má SHA-256 `81c442c44d449ed5dac4fc028fa15e740595edfd61a49d5f3340ab9a87445cd3`, shodný s původním souborem. Všech pět importů zůstává záměrně uložených v Demo firmě. Tento průchod nedokládá nově provedené uložení změn ve všech třech editovatelných sešitech ani plnou editaci dvou velkých sešitů.
+
+Po nasazení PR #32 prošla živá kontrola navigace Office: kliknutí nabídku rozbalí, po přesunu fokusu do vyhledávání zůstane připnutá, druhé kliknutí ji sbalí a Escape ji sbalí s vrácením fokusu. Tato oprava nemění Office runtime archiv ani obsahový otisk kanonického balíčku uvedený níže.
+
+Přihlášené testy jiných rolí, přepnutí firmy v prohlížeči a mobilní průchod zatím nejsou doložené. Známé omezení skladového formuláře při SPA návratu/vpřed historií zůstává; fyzický hardware se neověřoval. Živá cancel cesta upozornění na neuložený skladový formulář není doložená: pokus přerušil timeout CDP a nedostupné ovládání dialogu v automatizaci, což samo neprokazuje chybu produktu. V agentově kartě může zůstat jeden neodeslaný syntetický formulář. Tři testovací sklady i skladová položka byly archivované, potvrzené doklady zachovávají historii; přesný úklid popisuje report skladu. Pět FNOL importů bylo záměrně ponecháno.
 
 ## Balíček a doložené ověření
 
@@ -34,7 +42,7 @@ Databázová ochrana je aplikovaná v testovacím Diriqu jako `20261019071710_of
 - Kanonický zdroj: `packages/diriqo-office`; manifest 563 souborů, obsahový SHA-256 `954788fba553c9940e3fc663f05cb077e4acf0cbbf1ba4e279f5175504f797fa`. Vazbu dokládá `vendor/office-source.json`.
 - Office source suite: 293/293 PASS; TypeScript PASS. Hostitelské testy mapování chyb importu: 6/6 PASS.
 - Znovusestavení ověřilo všech 47 runtime souborů proti archivu. Licenční preflight a jeho kontrola prošly pro 130 přesných artefaktů; změnila se identita verze, nikoli graf závislostí.
-- Výsledná hostitelská integrace: 1 740 Vitest testů / 66 souborů PASS, 61 Office host testů PASS (včetně samostatně zopakovaného SQL export testu s PGlite 0.5.8), uncached TypeScript a webpack build 107 stránek PASS. ESLint bez chyb, čtyři zděděná varování navigace. Git/CI a přihlášený průchod budou doloženy výsledným vydáním.
+- Výsledná hostitelská integrace: 1 740 Vitest testů / 66 souborů PASS, 61 Office host testů PASS (včetně samostatně zopakovaného SQL export testu s PGlite 0.5.8), uncached TypeScript a webpack build 107 stránek PASS. ESLint bez chyb, čtyři zděděná varování navigace. Čerstvé GitHub kontroly PR #31 nad head `c39f425cb70120b8f24ef24b4fe797aaf44b78a1` prošly včetně shody zdroje a runtime. Výsledná nasazená main revize a přihlášený průchod jsou uvedené výše.
 
 Uložené výsledky vzorců jsou cache z původního souboru, nikoli nový výpočet či finanční ověření. Office import není OCR ani automatické zaúčtování materiálu. OCR příjem skladu má samostatný kontrolovaný tok: návrh položek → lidské spárování a kontrola množství/cen → koncept příjemky → výslovné potvrzení skladu. Podrobnosti nové skladové plochy a její aplikované migrace uvádí [report skladu](inventory-workspace-20261019.md).
 
@@ -44,7 +52,7 @@ Při návratu použijte předchozí aplikační verzi, zachovejte dokumenty, ori
 
 ## Archiv předchozích vydání
 
-Následující reporty zůstávají zachované jako historické důkazy. Jejich označení „aktuální“, revize, testy a nasazení patří k uvedené starší verzi a nepřebírají stav kandidáta 0.3.5.
+Následující reporty zůstávají zachované jako historické důkazy. Jejich označení „aktuální“, revize, testy a nasazení patří k uvedené starší verzi a nepřebírají stav vydání 0.3.5.
 
 # Diriqo Office – aktuální rozšíření 0.3.4
 

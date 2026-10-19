@@ -281,6 +281,7 @@ test('Office navigation remains closed on mobile, expands on demand, and Escape 
     let frame = nodes.find(node => node.props.className === 'railFrame');
     assert.equal(frame.props['data-expanded'], false);
     assert.equal(frame.props.inert, mobile);
+    assert.equal(nodes.find(node => node.props.className === 'rail').props['data-pinned'], false);
     const sidebar = nodes.find(node => node.type === 'Sidebar');
     assert.equal(sidebar.props.documentNavigation, true, 'Native links preserve unsaved-change guards');
     assert.equal(sidebar.props.compact, true);
@@ -291,10 +292,13 @@ test('Office navigation remains closed on mobile, expands on demand, and Escape 
     frame = nodes.find(node => node.props.className === 'railFrame');
     assert.equal(frame.props['data-expanded'], true);
     assert.equal(frame.props.inert, false);
+    assert.equal(nodes.find(node => node.props.className === 'rail').props['data-pinned'], !mobile,
+      'Only an explicitly pinned desktop menu reserves content space; mobile remains an overlay');
     frame.props.onKeyDown({ key: 'Escape', preventDefault() {} });
     assert.equal(restored, 1);
     nodes = render(true);
     assert.equal(nodes.find(node => node.props.className === 'railFrame').props['data-expanded'], false);
+    assert.equal(nodes.find(node => node.props.className === 'rail').props['data-pinned'], false, 'Escape releases the reserved content space');
     assert.equal(nodes.find(node => node.props.id === 'office-diriqo-navigation').props.inert, true,
       'Unavailable or changed company access disables the pinned navigation');
   }
@@ -315,7 +319,7 @@ for (const preview of ['pointer', 'keyboard']) {
       index = refIndex = 0;
       const nodes = flatten(navigation({ navigation: { enabledModules: {}, availableProducts: [], showCoreNavigation: false, showModuleCatalog: false },
         companyName: 'Synthetic company', locale: 'cs' }));
-      return { frame: nodes.find(node => node.props.className === 'railFrame'),
+      return { rail: nodes.find(node => node.props.className === 'rail'), frame: nodes.find(node => node.props.className === 'railFrame'),
         toggle: nodes.find(node => node.props.className === 'railToggle') };
     };
     const enterPreview = () => {
@@ -332,15 +336,22 @@ for (const preview of ['pointer', 'keyboard']) {
     enterPreview();
     let state = render();
     assert.equal(state.frame.props['data-expanded'], true, 'Hover or keyboard focus previews the menu before the click');
+    assert.equal(state.rail.props['data-pinned'], false, 'Temporary previews do not move document content');
+    leavePreview();
+    assert.equal(render().frame.props['data-expanded'], false, 'Unpinned preview closes when pointer and focus leave');
+    enterPreview();
+    state = render();
     state.toggle.props.onClick();
     leavePreview();
     state = render();
     assert.equal(state.frame.props['data-expanded'], true, 'Click pins the preview open even after pointer and focus leave');
+    assert.equal(state.rail.props['data-pinned'], true, 'Pinned menu keeps its content space after pointer and focus leave');
     assert.equal(state.toggle.props['aria-label'], 'Collapse');
     assert.equal(state.toggle.props['aria-expanded'], true);
     state.toggle.props.onClick();
     state = render();
     assert.equal(state.frame.props['data-expanded'], false, 'A second click explicitly closes the pinned menu');
+    assert.equal(state.rail.props['data-pinned'], false, 'Explicit collapse releases content space');
     assert.equal(state.toggle.props['aria-label'], 'Expand');
 
     enterPreview();
@@ -348,6 +359,7 @@ for (const preview of ['pointer', 'keyboard']) {
     leavePreview();
     render().frame.props.onKeyDown({ key: 'Escape', preventDefault() {} });
     assert.equal(render().frame.props['data-expanded'], false, 'Escape closes a pinned menu');
+    assert.equal(render().rail.props['data-pinned'], false, 'Escape releases content space');
     assert.equal(restored, 1, 'Escape restores focus to the opener');
   });
 }
