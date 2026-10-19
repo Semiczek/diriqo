@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import Link from 'next/link'
 import { ReactNode, useCallback, useEffect, useRef, useState } from 'react'
@@ -18,6 +18,7 @@ import { getCompanyRoleLabel } from '@/lib/hub-access'
 
 type DashboardShellProps = {
   children: ReactNode
+  inventoryWarehouseId?: string
   activeItem?:
     | 'dashboard'
     | 'jobs'
@@ -36,6 +37,7 @@ type DashboardShellProps = {
     | 'companySettings'
     | 'billing'
     | 'modules'
+    | 'inventory'
     | 'setupGuide'
     | 'legalTerms'
     | 'legalPrivacy'
@@ -122,6 +124,7 @@ async function loadDashboardContext() {
 export default function DashboardShell({
   children,
   activeItem = 'dashboard',
+  inventoryWarehouseId,
 }: DashboardShellProps) {
   const router = useRouter()
   const [loggingOut, setLoggingOut] = useState(false)
@@ -290,7 +293,7 @@ export default function DashboardShell({
         <a href="#workspace-content" className="dq-skip-link">{shellText.skip}</a>
         <div className="dashboard-layout">
           {mobileMenuOpen ? <button type="button" className="dashboard-sidebar-backdrop" aria-label={dictionary.common.closeMenu} onClick={closeMobileMenu} /> : null}
-          <DashboardSidebar officeEnabled={activeCompany?.officeEnabled === true} activeItem={activeItem} enabledModules={companyModules} availableProducts={availableProducts} showModuleCatalog={canManageModules} showCoreNavigation={canManageModules}
+          <DashboardSidebar inventoryWarehouseId={inventoryWarehouseId} officeEnabled={activeCompany?.officeEnabled === true} activeItem={activeItem} enabledModules={companyModules} availableProducts={availableProducts} showModuleCatalog={canManageModules} showCoreNavigation={canManageModules}
             mobileOpen={mobileMenuOpen} onNavigate={closeMobileMenu} />
           <div className="dashboard-main" inert={mobileMenuOpen}>
             <header className="dashboard-topbar" ref={topbarRef}>

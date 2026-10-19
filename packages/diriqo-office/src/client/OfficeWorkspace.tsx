@@ -1,5 +1,5 @@
 'use client';
-import React,{useEffect,useId,useRef,useState,lazy,Suspense} from 'react';
+import React,{useEffect,useId,useRef,useState,useMemo,lazy,Suspense} from 'react';
 import type {OfficeContent,OfficeFile,OfficeLocale,OfficeProposal,OfficeRequest,OfficeResponse,OfficeTransport,OfficeVersionSummary,OfficeProposalSummary} from '../core/types';
 import {OFFICE_DOCUMENT_EXPORT_FORMATS,OFFICE_SPREADSHEET_EXPORT_FORMATS,OFFICE_IMPORT_FORMATS,OFFICE_IMPORT_EXTENSIONS,isOfficeDownloadFormat,type OfficeDownloadFormat} from '../core/formats';
 import {blankDocument,blankSpreadsheet,createTemplate,OFFICE_TEMPLATES,type TemplateId,type TemplateVariables} from '../core/templates';
@@ -7,6 +7,7 @@ const DocumentEditor=lazy(()=>import('./DocumentEditor'));
 const SpreadsheetEditor=lazy(()=>import('./SpreadsheetEditor'));
 import {getOfficeMessages} from './locales';
 import {SharingDialog} from './SharingDialog';
+import {isSpreadsheetCachedPreview} from '../core/spreadsheet-execution';
 type SaveState='saved'|'saving'|'unsaved'|'offline'|'saveError'|'conflict';
 type Modal='document'|'spreadsheet'|'folder'|'rename'|'move'|'link'|'templates'|null;
 type Permissions=NonNullable<OfficeResponse['permissions']>;
@@ -27,7 +28,8 @@ export function OfficeWorkspace({transport,locale='cs',readOnly=false,canCreate=
  const upload=useRef<HTMLInputElement>(null);const liveFile=useRef<OfficeFile|null>(null);const draft=useRef<OfficeContent|null>(null);const edits=useRef(0);const savedEdits=useRef(0);const failed=useRef(false);const timer=useRef<ReturnType<typeof setTimeout>|null>(null);const inflight=useRef<Promise<boolean>|null>(null);const mounted=useRef(true);const busyRef=useRef(false);
  const attempt=useRef<{fileId:string;revision:number;seq:number;content:OfficeContent;key:string}|null>(null);
  const [restoreIntent,setRestoreIntent]=useState<RestoreIntent|null>(null);const restoreRef=useRef<RestoreIntent|null>(null);const restoreDialog=useRef<HTMLDialogElement>(null);const restoreCancel=useRef<HTMLButtonElement>(null);const restoreTitleId=useId();const restoreDescriptionId=useId();
- const writable=!readOnly&&permissions?.canWrite===true;
+ const cachedPreview=useMemo(()=>isSpreadsheetCachedPreview(content),[content]);
+ const writable=!readOnly&&permissions?.canWrite===true&&!cachedPreview;
  const canAdd=!readOnly&&canCreate;
  const [sharingFile,setSharingFile]=useState<OfficeFile|null>(null);
  const hasSharing=Boolean(transport.sharingRead&&transport.sharingUpdate);
@@ -50,7 +52,7 @@ export function OfficeWorkspace({transport,locale='cs',readOnly=false,canCreate=
   if(timer.current)clearTimeout(timer.current);
   if(inflight.current){const ok=await inflight.current;return ok?flush():false;}
   if(edits.current===savedEdits.current)return true;
-  if(!liveFile.current||!draft.current||readOnly||failed.current)return false;
+  if(!liveFile.current||!draft.current||readOnly||isSpreadsheetCachedPreview(draft.current)||failed.current)return false;
   if(!navigator.onLine){setSaveState('offline');return false;}
   const current=liveFile.current;
   const pending=attempt.current??{fileId:current.id,revision:current.revision,seq:edits.current,content:structuredClone(draft.current),key:key()};attempt.current=pending;
@@ -64,7 +66,7 @@ export function OfficeWorkspace({transport,locale='cs',readOnly=false,canCreate=
   inflight.current=task;const ok=await task;inflight.current=null;
   if(ok&&edits.current!==savedEdits.current)return flush();return ok;
  }
- function change(value:OfficeContent){if(JSON.stringify(draft.current)===JSON.stringify(value))return;invalidateRestore();draft.current=value;edits.current++;setContent(value);setEditTick(edits.current);if(!failed.current)setSaveState(navigator.onLine?'unsaved':'offline');}
+ function change(value:OfficeContent){if(isSpreadsheetCachedPreview(draft.current))return;if(JSON.stringify(draft.current)===JSON.stringify(value))return;invalidateRestore();draft.current=value;edits.current++;setContent(value);setEditTick(edits.current);if(!failed.current)setSaveState(navigator.onLine?'unsaved':'offline');}
  function install(next:OfficeFile){invalidateRestore(false);liveFile.current=next;draft.current=next.content;edits.current=0;savedEdits.current=0;attempt.current=null;failed.current=false;setFile(next);setContent(next.content);setSaveState('saved');setEditTick(0);setEpoch(n=>n+1);setPanel(null);setError('');}
  async function run(action:()=>Promise<void>){if(busyRef.current)return;busyRef.current=true;setError('');try{if(!await capture(true)){setError(m.leaveBlocked);return;}setBusy(true);await action();}catch(e){setError(problem(e));}finally{busyRef.current=false;if(mounted.current)setBusy(false);}}
  async function open(item:OfficeFile){await run(async()=>{if(!await flush()){setError(m.leaveBlocked);return;}if(item.kind==='folder'){setFolder(item.id);setTrail(list=>[...list,{id:item.id,title:item.title}]);setQuery('');return;}const [result,rights]=await Promise.all([transport.request({op:'read',id:item.id}),transport.request({op:'permissions',id:item.id})]);if(!result.file)throw new Error(m.loadError);setPermissions(rights.permissions??{role:'reader',ownerId:item.ownerId,canWrite:false,canDelete:false});install(result.file);});}

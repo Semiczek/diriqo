@@ -1,6 +1,8 @@
+import { uuidPattern, inventoryDocumentKinds } from '@/lib/inventory/domain'
 import { NextRequest } from 'next/server'
 import { requireCompanyRoleDalContext } from '@/lib/dal/auth'
 const tables:Record<string,{table:string;columns:string}>={
+ warehouses:{table:'gastro_warehouses',columns:'id,name,warehouse_kind,job_id,location,notes,archived'},
  stock:{table:'gastro_stock_balances',columns:'item_id,warehouse_id,quantity,reserved,value_minor'},
  documents:{table:'inventory_documents',columns:'id,kind,status,reason,created_at,posted_at'},
  orders:{table:'inventory_orders',columns:'id,title,status,warehouse_id,created_at'},
@@ -16,9 +18,16 @@ export async function GET(request:NextRequest){
   if(access.error||!access.data?.can_export)return new Response('Pro export potřebujete oprávnění k exportu skladu.',{status:403})
   const kind=request.nextUrl.searchParams.get('kind')??'movements';const source=tables[kind]
   if(!source)return new Response('Neplatný typ exportu.',{status:400})
+  const warehouse=request.nextUrl.searchParams.get('warehouse')??''
+  const documentKind=request.nextUrl.searchParams.get('documentKind')??''
+  if(warehouse&&!uuidPattern.test(warehouse))return new Response('Neplatný sklad.',{status:400})
+  if(documentKind&&!inventoryDocumentKinds.includes(documentKind as never))return new Response('Neplatný typ dokladu.',{status:400})
   const rows:Record<string,unknown>[]=[]
   for(let offset=0;offset<10000;offset+=1000){
    let query=ctx.supabase.from(source.table).select(source.columns,{count:'exact'}).eq('company_id',ctx.companyId)
+   if(warehouse&&kind==='documents')query=query.or(`warehouse_id.eq.${warehouse},destination_id.eq.${warehouse}`)
+   else if(warehouse&&!['suppliers','warehouses'].includes(kind))query=query.eq('warehouse_id',warehouse)
+   if(kind==='documents'&&documentKind)query=query.eq('kind',documentKind)
    query=kind==='stock'?query.order('warehouse_id').order('item_id'):query.order('id')
    const result=await query.range(offset,offset+999)
    if(result.error)return new Response('Export se nepodařilo vytvořit.',{status:503})

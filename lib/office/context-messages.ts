@@ -64,3 +64,13 @@ export const officeShellMessages: Record<OfficeLocale, {
   tr: { company: 'Bu belgenin şirketi', switchCompany: 'Etkin şirketi değiştir', switchHint: 'Şirket değiştikten sonra taslağınız bu sekmede kalır. Yeni şirketi ayrı bağlantıyla yeni sekmede açın.', logout: 'Yeni sekmede çıkış yap', logoutHint: 'Çıkış onayı yeni sekmede açılır. Önce değişikliklerinizi kaydedin veya çalışma yedeğini indirin.', switchFailed: 'Şirket değiştirilemedi. Erişimi tekrar doğrulayın.' },
   sq: { company: 'Kompania e këtij dokumenti', switchCompany: 'Ndrysho kompaninë aktive', switchHint: 'Drafti mbetet në këtë skedë pas ndryshimit. Hapeni kompaninë e re me lidhjen e veçantë në një skedë të re.', logout: 'Dil nga llogaria në skedë të re', logoutHint: 'Dalja hap një konfirmim në skedë të re. Ruani ndryshimet ose shkarkoni një kopje pune më parë.', switchFailed: 'Kompania nuk mund të ndryshohej. Verifikoni qasjen përsëri.' },
 }
+
+export const officeRailMessages: Record<OfficeLocale, { expand: string; collapse: string; skip: string }> = {
+  cs: { expand: 'Rozbalit nabídku Diriqa', collapse: 'Sbalit nabídku Diriqa', skip: 'Přejít do Office' },
+  sk: { expand: 'Rozbaliť ponuku Diriqa', collapse: 'Zbaliť ponuku Diriqa', skip: 'Prejsť do Office' },
+  en: { expand: 'Expand Diriqo menu', collapse: 'Collapse Diriqo menu', skip: 'Skip to Office' },
+  de: { expand: 'Diriqo-Menü erweitern', collapse: 'Diriqo-Menü einklappen', skip: 'Zu Office springen' },
+  pl: { expand: 'Rozwiń menu Diriqo', collapse: 'Zwiń menu Diriqo', skip: 'Przejdź do Office' },
+  tr: { expand: 'Diriqo menüsünü genişlet', collapse: 'Diriqo menüsünü daralt', skip: 'Office’e geç' },
+  sq: { expand: 'Zgjero menynë Diriqo', collapse: 'Mbyll menynë Diriqo', skip: 'Kalo te Office' },
+}

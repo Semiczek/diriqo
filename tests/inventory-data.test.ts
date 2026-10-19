@@ -6,7 +6,7 @@ import { getInventoryData, inventoryRelatedRows } from '../lib/inventory/data'
 import { GET as lookup } from '../app/inventory/lookup/route'
 
 type Row=Record<string,unknown>
-type Query={table:string;equal:[string,unknown][];included:[string,string[]][];from:number;to:number;search:string;select:ReturnType<typeof vi.fn>;eq:ReturnType<typeof vi.fn>;in:ReturnType<typeof vi.fn>;order:ReturnType<typeof vi.fn>;range:ReturnType<typeof vi.fn>;ilike:ReturnType<typeof vi.fn>;or:ReturnType<typeof vi.fn>;is:ReturnType<typeof vi.fn>;then:PromiseLike<{data:Row[];error:null;count:number}>['then']}
+type Query={table:string;equal:[string,unknown][];included:[string,string[]][];from:number;to:number;search:string;match:ReturnType<typeof vi.fn>;select:ReturnType<typeof vi.fn>;eq:ReturnType<typeof vi.fn>;in:ReturnType<typeof vi.fn>;order:ReturnType<typeof vi.fn>;range:ReturnType<typeof vi.fn>;ilike:ReturnType<typeof vi.fn>;or:ReturnType<typeof vi.fn>;is:ReturnType<typeof vi.fn>;then:PromiseLike<{data:Row[];error:null;count:number}>['then']}
 const queries:Query[]=[]
 let records:Record<string,Row[]>
 const company='test-company'
@@ -15,12 +15,12 @@ beforeEach(()=>{
  mocks.context.mockResolvedValue({companyId:company,supabase:{rpc:mocks.rpc,from:mocks.from}})
  mocks.rpc.mockResolvedValue({data:{can_read:true,can_write:true},error:null})
  mocks.from.mockImplementation((table:string)=>{
-  const query:Query={table,equal:[],included:[],from:0,to:Infinity,search:'',select:vi.fn(),eq:vi.fn(),in:vi.fn(),order:vi.fn(),range:vi.fn(),ilike:vi.fn(),or:vi.fn(),is:vi.fn(),then(resolve,reject){
+  const query:Query={table,equal:[],included:[],from:0,to:Infinity,search:'',match:vi.fn(),select:vi.fn(),eq:vi.fn(),in:vi.fn(),order:vi.fn(),range:vi.fn(),ilike:vi.fn(),or:vi.fn(),is:vi.fn(),then(resolve,reject){
    let data=records[table]??[]
    for(const [key,ids] of query.included)data=data.filter(row=>ids.includes(String(row[key])))
    return Promise.resolve({data:data.slice(query.from,query.to+1),error:null,count:data.length}).then(resolve,reject)
   }}
-  query.select.mockReturnValue(query);query.eq.mockImplementation((key,value)=>{query.equal.push([key,value]);return query});query.in.mockImplementation((key,values)=>{query.included.push([key,values]);return query})
+  query.match.mockImplementation(values=>{for(const [key,value] of Object.entries(values))query.equal.push([key,value]);return query});query.select.mockReturnValue(query);query.eq.mockImplementation((key,value)=>{query.equal.push([key,value]);return query});query.in.mockImplementation((key,values)=>{query.included.push([key,values]);return query})
   query.order.mockReturnValue(query);query.range.mockImplementation((from,to)=>{query.from=from;query.to=to;return query});query.ilike.mockReturnValue(query);query.is.mockReturnValue(query);query.or.mockImplementation(value=>{query.search=value;return query})
   queries.push(query);return query
  })
@@ -89,5 +89,34 @@ describe('inventory page dependencies',()=>{
  it('fails closed instead of showing a partially loaded dependency',async()=>{
   const load=vi.fn().mockResolvedValueOnce({data:Array(500).fill({id:'row'}),error:null}).mockResolvedValueOnce({data:null,error:{message:'failed'}})
   await expect(inventoryRelatedRows(load)).rejects.toThrow('nepodařilo načíst')
+ })
+})
+
+describe('warehouse workspace context',()=>{
+ const warehouse='10000000-0000-4000-8000-000000000002'
+ it('loads empty and archived warehouses independently of current stock rows',async()=>{
+  records.gastro_warehouses=[{id:warehouse,name:'Empty main',archived:false},{id:'old',name:'Archived',archived:true}]
+  const data=await getInventoryData('stock','',1,warehouse)
+  expect(data?.items).toEqual([]);expect(data?.warehouseOptions).toHaveLength(2);expect(data?.warehouseId).toBe(warehouse)
+ })
+ it('rejects a malformed selected warehouse before accessing business records',async()=>{
+  await expect(getInventoryData('stock','',1,'bad,(id.eq.evil)')).rejects.toThrow('Neplatný sklad')
+  expect(mocks.from).not.toHaveBeenCalled()
+ })
+ it('rejects an unavailable warehouse instead of silently falling back to another one',async()=>{
+  records.gastro_warehouses=[{id:'other',name:'Other'}]
+  await expect(getInventoryData('stock','',1,warehouse)).rejects.toThrow('Sklad není dostupný')
+ })
+ it('filters transfer documents on source or destination within the active company',async()=>{
+  records.gastro_warehouses=[{id:warehouse,name:'Destination'}]
+  await getInventoryData('documents','',1,warehouse,'transfer')
+  const query=queries.find(q=>q.table==='inventory_documents')!
+  expect(query.equal).toContainEqual(['company_id',company]);expect(query.equal).toContainEqual(['kind','transfer'])
+  expect(query.search).toBe(`warehouse_id.eq.${warehouse},destination_id.eq.${warehouse}`)
+ })
+ it.each(['orders','movements','reservations','valuation'])('passes selected warehouse to the %s server query',async tab=>{
+  records.gastro_warehouses=[{id:warehouse,name:'Selected'}]
+  await getInventoryData(tab,'',1,warehouse)
+  expect(queries[0].equal).toContainEqual(['company_id',company]);expect(queries[0].equal).toContainEqual(['warehouse_id',warehouse])
  })
 })

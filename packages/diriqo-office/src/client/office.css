@@ -31,3 +31,24 @@ dialog.office-edit-dialog{width:min(600px,calc(100vw - 32px));max-height:calc(10
 dialog.office-sharing-dialog{width:min(600px,calc(100vw - 32px));max-height:calc(100dvh - 48px);overflow:auto;margin:auto;border:1px solid var(--office-line);color:var(--office-ink)}dialog.office-sharing-dialog::backdrop{background:#17283f66;backdrop-filter:blur(3px)}
 .office-sharing-dialog .office-panel-heading{align-items:flex-start}.office-sharing-dialog .office-panel-heading p{color:var(--office-muted);margin-bottom:0;overflow-wrap:anywhere}.office-sharing-owner{display:flex;justify-content:space-between;gap:16px;padding:12px 0;border-top:1px solid var(--office-line);border-bottom:1px solid var(--office-line)}.office-sharing-dialog h3{font-size:14px;margin-top:20px}.office-sharing-muted{color:var(--office-muted)}.office-sharing-members{list-style:none;padding:0;margin:0 0 20px}.office-sharing-members li{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 0;border-bottom:1px solid var(--office-line)}.office-sharing-members li>span{flex:1;min-width:120px;overflow-wrap:anywhere}.office-sharing-members small{color:var(--office-muted)}.office-sharing-search{display:flex;align-items:flex-end;gap:10px;margin-top:24px}.office-sharing-search label{flex:1}.office-sharing-search>button{margin-bottom:14px}.office-sharing-automatic summary{cursor:pointer;color:var(--office-muted)}.office-sharing-saved{color:#126344;background:#eaf8f0;border-radius:8px;padding:10px 12px}
 @media print{.office-header-secondary,.office-sharing-dialog{display:none!important}}
+
+.office-cached-preview{border:1px solid #e3e1ec;border-radius:10px;overflow:hidden;background:#fff;color:#252234}
+.office-preview-note{margin:0!important;padding:16px 20px!important;border:0!important;border-radius:0!important;background:#f7f5ff!important;color:#51466d!important}
+.office-preview-note p{margin:6px 0 0;font-size:13px;line-height:1.6;max-width:960px}
+.office-preview-sheet-tabs{display:flex;gap:4px;padding:10px 12px;overflow-x:auto;border-bottom:1px solid #e3e1ec;background:#fff}
+.office-preview-sheet-tabs button{white-space:nowrap;border:0;border-radius:6px;padding:8px 12px;background:transparent;color:#666076;font-size:13px}
+.office-preview-sheet-tabs button[aria-selected=true]{background:#eee9ff;color:#6941c6;font-weight:600}
+.office-preview-formula{display:flex;gap:12px;align-items:center;padding:9px 12px;border-bottom:1px solid #e3e1ec;font-size:12px}
+.office-preview-formula>span{min-width:55px;font-variant-numeric:tabular-nums;color:#666076}
+.office-preview-formula label{display:flex;align-items:center;gap:12px;flex:1;min-width:0;color:#666076}
+.office-preview-formula input{flex:1;min-width:0;border:0!important;border-radius:0!important;background:#fff!important;padding:6px!important;font-family:monospace;font-size:12px}
+.office-preview-grid{overflow:auto;max-height:65vh;min-height:240px}
+.office-preview-grid table{border-collapse:separate;border-spacing:0;table-layout:fixed;width:max-content;min-width:100%;font-size:12px}
+.office-preview-grid th,.office-preview-grid td{padding:0!important;border-right:1px solid #eceaf1;border-bottom:1px solid #eceaf1;min-width:110px;max-width:280px;height:28px}
+.office-preview-grid th{background:#f6f5f9;color:#777084;text-align:center;font-weight:400;position:sticky;left:0;z-index:1;min-width:44px}
+.office-preview-grid thead th{top:0;z-index:2}
+.office-preview-grid td button{display:block;border:0;border-radius:0!important;width:100%;height:100%;padding:5px 8px!important;background:#fff;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;color:inherit;min-height:28px}
+.office-preview-grid td button.is-selected{outline:2px solid #8060d8;outline-offset:-2px}
+.office-preview-pagination{display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:10px 12px;border-top:1px solid #e3e1ec;font-size:12px;color:#666076}
+.office-preview-pagination span{margin-right:auto}
+.office-preview-pagination button{border:1px solid #e3e1ec;border-radius:6px;padding:6px 10px;background:#fff;color:#51466d}

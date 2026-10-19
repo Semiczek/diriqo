@@ -38,6 +38,9 @@ export function validateInventoryCommand(operation: string, payload: unknown, re
 export function inventoryError(message: string): string {
   if (message.includes('MODULE_REQUIRED')) return 'Modul není aktivní. Historii si můžete dál prohlížet podle platnosti licence.'
   if (message.includes('FORBIDDEN')) return 'K této operaci nemáte oprávnění.'
+  if (message.includes('WAREHOUSE_BUSY')) return 'Sklad nelze archivovat: má zásoby, rezervace nebo rozpracované doklady a objednávky.'
+  if (message.includes('WAREHOUSE_MAIN')) return 'Firma už má hlavní sklad. Nejprve změňte typ původního hlavního skladu.'
+  if (message.includes('WAREHOUSE_JOB')) return 'Vyberte platnou zakázku této firmy.'
   if (message.includes('COUNT_CONFLICT')) return 'Od zahájení inventury se zásoba změnila. Založte novou inventuru s aktuálním stavem.'
   if (message.includes('CONFLICT')) return 'Záznam mezitím někdo změnil. Obnovte stránku před dalším pokusem.'
   if (message.includes('INSUFFICIENT') || message.includes('RESERVED')) return 'Na skladě není dostatek volného množství. Zkontrolujte zásobu a rezervace.'
@@ -48,3 +51,23 @@ export function inventoryError(message: string): string {
   return 'Změnu se nepodařilo uložit. Zkontrolujte údaje a zkuste to znovu.'
 }
 export const money = (minor: number|string) => new Intl.NumberFormat('cs-CZ',{style:'currency',currency:'CZK'}).format(Number(minor)/100)
+
+export const warehouseKinds = ['main','job','mobile','other'] as const
+export type WarehouseKind = typeof warehouseKinds[number]
+export const warehouseKindLabels: Record<WarehouseKind,string> = {main:'Hlavní sklad',job:'Příruční sklad na zakázce',mobile:'Mobilní sklad',other:'Další sklad'}
+export const inventoryDocumentKinds = ['receipt','issue','transfer','count','correction'] as const
+export function validateWarehouseSettings(value:unknown):asserts value is Record<string,unknown> {
+ if (!value || typeof value!=='object' || Array.isArray(value)) throw new Error('Neplatné nastavení skladu.')
+ const p=value as Record<string,unknown>
+ if(typeof p.name!=='string'||!p.name.trim()||p.name.trim().length>160)throw new Error('Vyplňte název skladu, nejvýše 160 znaků.')
+ if(!warehouseKinds.includes(p.warehouse_kind as WarehouseKind))throw new Error('Vyberte typ skladu.')
+ for(const key of ['location','notes'])if(typeof p[key]!=='string'||(p[key] as string).length>(key==='location'?300:1000))throw new Error('Zkraťte umístění nebo poznámku skladu.')
+ if(typeof p.archived!=='boolean')throw new Error('Neplatný stav skladu.')
+ if(p.warehouse_kind==='job' && (typeof p.job_id!=='string'||!uuidPattern.test(p.job_id)))throw new Error('Pro příruční sklad vyberte zakázku.')
+ if(p.warehouse_kind!=='job' && p.job_id!==null)throw new Error('Zakázku přiřaďte pouze příručnímu skladu.')
+ if(p.id!==null && (typeof p.id!=='string'||!uuidPattern.test(p.id)||!Number.isSafeInteger(p.version)||(p.version as number)<1))throw new Error('Obnovte nastavení skladu před další změnou.')
+}
+export function inventoryHref(tab:string,warehouseId='',extra:Record<string,string|number>={}) {
+ const query=new URLSearchParams({tab,...(warehouseId?{warehouse:warehouseId}:{}),...Object.fromEntries(Object.entries(extra).map(([k,v])=>[k,String(v)]))})
+ return '/inventory?'+query.toString()
+}

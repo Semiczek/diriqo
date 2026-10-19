@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import Link from 'next/link'
 import Image from 'next/image'
@@ -26,6 +26,7 @@ type SidebarItemKey =
   | 'companySettings'
   | 'billing'
   | 'modules'
+  | 'inventory'
   | 'setupGuide'
   | 'legalTerms'
   | 'legalPrivacy'
@@ -33,6 +34,7 @@ type SidebarItemKey =
 
 type DashboardSidebarProps = {
   officeEnabled?: boolean
+  inventoryWarehouseId?: string
   activeItem?: SidebarItemKey
   enabledModules?: Partial<Record<CompanyModuleKey, boolean>> | null
   availableProducts?: string[]
@@ -40,10 +42,14 @@ type DashboardSidebarProps = {
   showCoreNavigation?: boolean
   mobileOpen?: boolean
   onNavigate?: () => void
+  compact?: boolean
+  documentNavigation?: boolean
+  onExpand?: () => void
 }
 
 export default function DashboardSidebar({
   officeEnabled = false,
+  inventoryWarehouseId = '',
   activeItem,
   enabledModules = null,
   availableProducts = [],
@@ -51,8 +57,13 @@ export default function DashboardSidebar({
   showCoreNavigation = false,
   mobileOpen = false,
   onNavigate,
+  compact = false,
+  documentNavigation = false,
+  onExpand,
 }: DashboardSidebarProps) {
   const pathname = usePathname()
+  // Office uses document navigation so pending edits can block leaving.
+  const NavigationLink = documentNavigation ? 'a' : Link
   const { dictionary, locale } = useI18n()
   const sidebarRef = useRef<HTMLElement>(null)
   const navigationText = {
@@ -117,12 +128,22 @@ export default function DashboardSidebar({
     { href: '/advance-requests', label: dictionary.navigation.advanceRequests, key: 'advanceRequests', icon: 'costs', module: 'payroll' },
   ]
   const productItems: (NavItem & { product: string })[] = [
-    { href: '/inventory', label: 'Sklad', key: 'modules', icon: 'modules', product: 'inventory' },
     { href: '/smart-quotes', label: 'Chytré nabídky', key: 'modules', icon: 'quotes', product: 'smart_quotes' },
     { href: '/fleet', label: 'Vozidla', key: 'modules', icon: 'calendar', product: 'fleet' },
     { href: '/pos', label: 'DiriPOS', key: 'modules', icon: 'costs', product: 'pos' },
   ]
   const visibleProducts = productItems.filter(item => availableProducts.includes(item.product))
+  const inventoryEnabled = availableProducts.includes('inventory')
+  const inventoryActive = pathname === '/inventory' || pathname.startsWith('/inventory/')
+  const inventoryText = {
+    cs: { title: 'Sklad', stock: 'Zásoby', documents: 'Příjem a výdej', transfers: 'Převody', orders: 'Objednávky', suppliers: 'Dodavatelé', movements: 'Historie pohybů', warehouses: 'Nastavení skladů', ocr: 'Načíst doklad (OCR)', expand: 'Rozbalit navigaci' },
+    en: { title: 'Inventory', stock: 'Stock', documents: 'Receipts and issues', transfers: 'Transfers', orders: 'Orders', suppliers: 'Suppliers', movements: 'Movement history', warehouses: 'Warehouse settings', ocr: 'Read document (OCR)', expand: 'Expand navigation' },
+    de: { title: 'Lager', stock: 'Bestände', documents: 'Ein- und Ausgänge', transfers: 'Umlagerungen', orders: 'Bestellungen', suppliers: 'Lieferanten', movements: 'Bewegungen', warehouses: 'Lagereinstellungen', ocr: 'Beleg lesen (OCR)', expand: 'Navigation erweitern' },
+  }[locale]
+  const inventoryLinks = [
+    ['stock', inventoryText.stock], ['documents', inventoryText.documents], ['documents&kind=transfer', inventoryText.transfers],
+    ['orders', inventoryText.orders], ['suppliers', inventoryText.suppliers], ['movements', inventoryText.movements], ['warehouses', inventoryText.warehouses],
+  ]
   const settingsItems: NavItem[] = showCoreNavigation ? [
     ...(showModuleCatalog ? [{ href: '/billing/modules', label: navigationText.modules, key: 'modules' as const, icon: 'modules' as const }] : []),
     { href: '/?onboarding=open', label: dictionary.navigation.setupGuide, key: 'setupGuide', icon: 'guide' },
@@ -139,23 +160,24 @@ export default function DashboardSidebar({
   function renderItem(item: NavItem) {
     const isActive = isItemActive(item)
     return (
-      <Link key={item.href} className={`dashboard-sidebar-link${isActive ? ' is-active' : ''}`} href={item.href}
-        aria-current={isActive ? 'page' : undefined} data-tour={`nav-${item.key}`} onClick={onNavigate}>
+      <NavigationLink key={item.href} className={`dashboard-sidebar-link${isActive ? ' is-active' : ''}`} href={item.href}
+        aria-label={item.label} title={compact ? item.label : undefined} aria-current={isActive ? 'page' : undefined} data-tour={`nav-${item.key}`} onClick={onNavigate}>
         <AppIcon name={item.icon} size={19} />
         <span>{item.label}</span>
-      </Link>
+      </NavigationLink>
     )
   }
 
   return (
     <aside id="dashboard-navigation" ref={sidebarRef} aria-label={navigationText.label}
       role={mobileOpen ? 'dialog' : undefined} aria-modal={mobileOpen ? true : undefined}
-      className={`dashboard-sidebar${mobileOpen ? ' is-mobile-open' : ''}`}>
+      className={`dashboard-sidebar${compact ? ' is-compact' : ''}${mobileOpen ? ' is-mobile-open' : ''}`}>
       <div className="dq-sidebar-brand">
-        <Link href={showCoreNavigation ? '/' : '/moje-prace'} aria-label="Diriqo" onClick={onNavigate}>
+        {compact && <button type="button" className="office-navigation-expand" aria-label={inventoryText.expand} title={inventoryText.expand} onClick={onExpand}><AppIcon name="more" /></button>}
+        <NavigationLink href={showCoreNavigation ? '/' : '/moje-prace'} aria-label="Diriqo" onClick={onNavigate}>
           <Image src="/diriqo-logo-icon.png" alt="" width={34} height={34} priority />
           <span>diriqo<span className="dq-brand-dot">.</span></span>
-        </Link>
+        </NavigationLink>
         <button type="button" className="dashboard-sidebar-close" aria-label={dictionary.common.closeMenu} onClick={onNavigate}>
           <AppIcon name="close" />
         </button>
@@ -168,17 +190,21 @@ export default function DashboardSidebar({
           {officeEnabled ? (
             // A new document prevents Office's global CSS/print rules from leaking to the host.
             // eslint-disable-next-line @next/next/no-html-link-for-pages
-            <a href="/office" onClick={onNavigate} className="dashboard-sidebar-link"><span>Diriqo Office</span></a>
+            <a href="/office" onClick={onNavigate} className={`dashboard-sidebar-link${pathname === '/office' ? ' is-active' : ''}`} aria-label="Diriqo Office" title={compact ? 'Diriqo Office' : undefined} aria-current={pathname === '/office' ? 'page' : undefined}><AppIcon name="quotes" size={19} /><span>Diriqo Office</span></a>
           ) : null}
         </div>
         {visibleMore.length > 0 ? (
           <details className="dq-nav-more" open={visibleMore.some(isItemActive) ? true : undefined}>
-            <summary><AppIcon name="more" size={19} /><span>{moreLabel}</span><AppIcon name="down" size={15} /></summary>
+            <summary aria-label={moreLabel} title={compact ? moreLabel : undefined} onClick={event => { if (compact) { event.preventDefault(); onExpand?.() } }}><AppIcon name="more" size={19} /><span>{moreLabel}</span><AppIcon name="down" size={15} /></summary>
             <div className="dq-nav-more-items">{visibleMore.map(renderItem)}</div>
           </details>
         ) : null}
-        {visibleProducts.length > 0 ? <div className="dq-nav-section">
+        {visibleProducts.length > 0 || inventoryEnabled ? <div className="dq-nav-section">
           <p className="dq-nav-label">{ { cs: 'Vaše moduly', en: 'Your modules', de: 'Ihre Module' }[locale] }</p>
+          {inventoryEnabled && <details className={`dq-nav-more dq-nav-inventory${inventoryActive ? ' is-active' : ''}`} open={!compact && inventoryActive ? true : undefined}>
+            <summary aria-label={inventoryText.title} title={compact ? inventoryText.title : undefined} onClick={event => { if (compact) { event.preventDefault(); onExpand?.() } }}><AppIcon name="modules" size={19} /><span>{inventoryText.title}</span><AppIcon name="down" size={15} /></summary>
+            <div className="dq-nav-more-items">{inventoryLinks.map(([tab, label]) => <NavigationLink key={tab} href={`/inventory?tab=${tab}${inventoryWarehouseId ? `&warehouse=${encodeURIComponent(inventoryWarehouseId)}` : ''}`} className="dashboard-sidebar-link" onClick={onNavigate}>{label}</NavigationLink>)}<NavigationLink href={`/diriqent/ocr?domain=inventory${inventoryWarehouseId ? `&warehouse=${encodeURIComponent(inventoryWarehouseId)}` : ''}`} className="dashboard-sidebar-link" onClick={onNavigate}>{inventoryText.ocr}</NavigationLink></div>
+          </details>}
           {visibleProducts.map(renderItem)}
         </div> : null}
         {settingsItems.length > 0 ? <div className="dq-nav-section dq-nav-settings">
@@ -189,9 +215,9 @@ export default function DashboardSidebar({
       {showCoreNavigation ? <div className="dq-sidebar-footer">
         {renderItem({ href: '/help', label: dictionary.navigation.help, key: 'help', icon: 'help' })}
         <div className="dq-legal-links">
-          <Link href="/settings/legal?doc=terms" onClick={onNavigate}>{dictionary.navigation.terms}</Link>
-          <Link href="/settings/legal?doc=privacy" onClick={onNavigate}>{dictionary.navigation.privacy}</Link>
-          <Link href="/settings/legal?doc=dpa" onClick={onNavigate}>{dictionary.navigation.gdpr}</Link>
+          <NavigationLink href="/settings/legal?doc=terms" onClick={onNavigate}>{dictionary.navigation.terms}</NavigationLink>
+          <NavigationLink href="/settings/legal?doc=privacy" onClick={onNavigate}>{dictionary.navigation.privacy}</NavigationLink>
+          <NavigationLink href="/settings/legal?doc=dpa" onClick={onNavigate}>{dictionary.navigation.gdpr}</NavigationLink>
         </div>
       </div> : null}
     </aside>

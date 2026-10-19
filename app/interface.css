@@ -144,3 +144,6 @@ button, a[href] { transition: background-color .15s, border-color .15s, color .1
   .dq-card { padding: 19px; }
   .dq-skip-link { left: 16px; }
 }
+
+/* Inventory remains a separate workspace within the Diriqo navigation. */
+.dq-nav-inventory.is-active > summary { background: var(--dq-accent-soft); color: #5e3cdc; font-weight: 650; }

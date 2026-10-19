@@ -104,3 +104,14 @@ test('Client messages require an exact code allowlist, never parser text or arbi
   }
   assert.deepEqual(logs,[])
 })
+
+
+test('Formula policy errors have fixed localized messages before and after worker serialization',()=>{
+ for(const code of ['FORMULA_LIMIT','FORMULA_CYCLE','FORMULA_UNSUPPORTED_FUNCTION','FORMULA_UNKNOWN_SHEET','FORMULA_UNSAFE']){
+  const category=code==='FORMULA_LIMIT'?'OFFICE_IMPORT_LIMIT':code==='FORMULA_UNSAFE'?'OFFICE_IMPORT_PROTECTED':'OFFICE_IMPORT_FORMULA'
+  for(const error of [withCode(secret,code),new Error('OFFICE_'+code+': '+secret)])assert.equal(classifyOfficeUploadError(error,'import').code,category)
+  for(const locale of Object.keys(officeUploadMessages))assert.equal(officeUploadUserMessage('OFFICE_'+code,locale),officeUploadUserMessage(category,locale))
+ }
+ assert.equal(officeUploadUserMessage('OFFICE_FORMULA_LIMIT '+secret,'cs'),undefined)
+ assert.equal(classifyOfficeUploadError(new Error(secret+' OFFICE_FORMULA_LIMIT: x'),'import').code,'OFFICE_IMPORT_RUNTIME')
+})

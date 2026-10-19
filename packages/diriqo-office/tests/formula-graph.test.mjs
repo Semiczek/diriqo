@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {assertFormulaGraph,parseFormulaReferences,FormulaGraphError} from '../src/core/formula-graph.ts';
+import {assertFormulaGraph,parseFormulaReferences,FormulaGraphError,FORMULA_GRAPH_LIMITS} from '../src/core/formula-graph.ts';
 function book(names=['Sheet 1']){
  const sheets=Object.fromEntries(names.map((name,i)=>['sheet-'+i,{id:'sheet-'+i,name,rowCount:10000,columnCount:256,cellData:{}}]));
  return {schemaVersion:1,kind:'spreadsheet',workbook:{sheetOrder:Object.keys(sheets),sheets}};
@@ -48,11 +48,11 @@ test('reference coordinates and expansion budgets reject oversized ranges before
  for(const formula of ['=SUM(A1:XFD1048576)','=IW1','=A10001','=A0','=SUM(C3:A1)'])
   assert.throws(()=>assertFormulaGraph(put(book(),0,0,0,formula)),FormulaGraphError);
  expectCode(()=>assertFormulaGraph(put(book(),0,0,0,'=SUM(B1:K10000)+B1')),'FORMULA_LIMIT');
- const content=book();put(content,0,0,0,'=SUM(B1:K10000)');put(content,0,1,0,'=SUM(L1:U10000)');put(content,0,2,0,'=Z1');
+ const content=book();for(let i=0;i<=Math.floor(FORMULA_GRAPH_LIMITS.expandedReferences/100000);i++)put(content,0,i,0,'=SUM(B1:K10000)');
  expectCode(()=>assertFormulaGraph(content),'FORMULA_LIMIT');
 });
 test('formula count, nesting and ambiguous sheet names are bounded',()=>{
- const content=book();for(let i=0;i<2001;i++)put(content,0,i,0,'=1+1');
+ const content=book();for(let i=0;i<=FORMULA_GRAPH_LIMITS.formulas;i++)put(content,0,i,0,'=1+1');
  expectCode(()=>assertFormulaGraph(content),'FORMULA_LIMIT');
  expectCode(()=>assertFormulaGraph(put(book(),0,0,0,'='+'('.repeat(65)+'1'+')'.repeat(65))),'FORMULA_LIMIT');
  expectCode(()=>assertFormulaGraph(book(['Same','same'])),'FORMULA_WORKBOOK');

@@ -3,9 +3,9 @@ import { useEffect, useId, useState } from 'react'
 import s from './inventory.module.css'
 
 type Option={id:string;name:string}
-export default function SearchSelect({companyId,kind,name,label,required=true,placeholder='Vyberte…'}:{companyId:string;kind:'items'|'suppliers'|'jobs'|'warehouses';name:string;label:string;required?:boolean;placeholder?:string}){
+export default function SearchSelect({companyId,kind,name,label,required=true,placeholder='Vyberte…',initialOption}:{companyId:string;kind:'items'|'suppliers'|'jobs'|'warehouses';name:string;label:string;required?:boolean;placeholder?:string;initialOption?:Option}){
  const id=useId();const [search,setSearch]=useState('');const [page,setPage]=useState(1);const [reload,setReload]=useState(0)
- const [result,setResult]=useState<{options:Option[];total:number}|null>(null);const [selected,setSelected]=useState<Option|null>(null)
+ const [result,setResult]=useState<{options:Option[];total:number}|null>(null);const [selected,setSelected]=useState<Option|null>(initialOption??null)
  const [loading,setLoading]=useState(true);const [error,setError]=useState<string|null>(null)
  useEffect(()=>{
   const controller=new AbortController()

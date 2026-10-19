@@ -5,8 +5,9 @@ import {runInNewContext} from 'node:vm';
 import {randomUUID} from 'node:crypto';
 import {transformSync} from 'esbuild';
 import {getOfficeMessages} from '../src/client/locales.ts';
-import {blankDocument} from '../src/core/templates.ts';
+import {blankDocument,blankSpreadsheet} from '../src/core/templates.ts';
 import * as officeFormats from '../src/core/formats.ts';
+import {isSpreadsheetCachedPreview} from '../src/core/spreadsheet-execution.ts';
 
 // Exercise the actual workspace handlers with deterministic hooks, timers and RPCs.
 // This is not a browser/focus-trap simulation; native dialog keyboard proof is separate.
@@ -53,12 +54,13 @@ async function workspace(options={}){
  const React={
   createElement(type,attributes,...children){return {type,props:attributes??{},children};},Fragment:Symbol('Fragment'),Suspense:Symbol('Suspense'),lazy:()=>Symbol('Editor'),
   useState(initial){const index=cursor++;if(!slots[index])slots[index]={value:typeof initial==='function'?initial():initial};return [slots[index].value,value=>{const next=typeof value==='function'?value(slots[index].value):value;if(!Object.is(next,slots[index].value)){slots[index].value=next;dirty=true;}}];},
+  useMemo(factory,deps){const index=cursor++,previous=slots[index];if(!previous||deps.some((dep,i)=>!Object.is(dep,previous.deps[i])))slots[index]={deps,value:factory()};return slots[index].value;},
   useRef(initial){const index=cursor++;if(!slots[index])slots[index]={current:initial};return slots[index];},
   useId(){const index=cursor++;return 'restore-test-'+index;},
   useEffect(effect,deps){const index=cursor++,previous=slots[index];if(!previous||deps.some((dep,i)=>!Object.is(dep,previous.deps[i]))){slots[index]={deps,cleanup:previous?.cleanup};effects.push(()=>{slots[index].cleanup?.();slots[index].cleanup=effect();});}}
  };
  const module={exports:{}};
- runInNewContext(code,{module,exports:module.exports,require(name){if(name==='react')return React;if(name==='./locales')return {getOfficeMessages};if(name==='./SharingDialog')return {SharingDialog:Symbol('SharingDialog')};if(name==='../core/templates')return {OFFICE_TEMPLATES:[]};if(name==='../core/formats')return officeFormats;throw Error('Unexpected dependency '+name);},structuredClone,crypto:{randomUUID},document,window,navigator:{onLine:true},Event,Intl,Date,console,
+ runInNewContext(code,{module,exports:module.exports,require(name){if(name==='react')return React;if(name==='./locales')return {getOfficeMessages};if(name==='./SharingDialog')return {SharingDialog:Symbol('SharingDialog')};if(name==='../core/templates')return {OFFICE_TEMPLATES:[]};if(name==='../core/formats')return officeFormats;if(name==='../core/spreadsheet-execution')return {isSpreadsheetCachedPreview};throw Error('Unexpected dependency '+name);},structuredClone,crypto:{randomUUID},document,window,navigator:{onLine:true},Event,Intl,Date,console,
   requestAnimationFrame:fn=>queueMicrotask(fn),setTimeout(fn,delay){const id=++timerId;timers.set(id,{fn,delay});return id;},clearTimeout:id=>timers.delete(id)});
  function render(){
   if(!dirty)return;dirty=false;cursor=0;tree=module.exports.OfficeWorkspace(props);
@@ -340,4 +342,13 @@ test('workspace export menus offer document and spreadsheet formats separately a
   let called=false;app.transport.exportFile=async()=>{called=true;throw Error('Unexpected export');};
   select.props.onChange({target:{value:'doc'}});await app.settle();assert.equal(called,false);
  }
+});
+
+test('cached spreadsheet preview disables editor, saving and restoration, including a stale editor callback',async()=>{
+ const preview=blankSpreadsheet();preview.workbook.officeCalculationMode='cached-readonly-v1';preview.workbook.sheets['sheet-1'].cellData={0:{0:{f:'=1+1',v:2}}};
+ const app=await workspace({file:{kind:'spreadsheet',content:preview}});
+ assert.equal(app.editor().props.readOnly,true);assert.equal(app.button('Save').props.disabled,true);
+ for(const node of app.find(n=>n.type==='button'&&text(n)==='Restore'))assert.equal(node.props.disabled,true);
+ app.editor().props.onChange(content('Stale editor must not overwrite imported workbook'));
+ await app.settle();await app.fireTimers(900);assert.equal(app.writes().length,0);assert.deepEqual(app.file.content,preview);
 });
