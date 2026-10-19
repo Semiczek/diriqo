@@ -920,6 +920,7 @@ export default async function QuoteDetailPage({ params }: PageProps) {
             customerId={quoteCustomerId}
             quoteId={quoteId}
             companyId={normalizedQuote.company_id}
+            actorProfileId={activeCompany.profileId}
             shareUrl={shareUrl}
             contactName={normalizedQuote.contact_name}
             contactEmail={normalizedQuote.contact_email}

@@ -28,6 +28,8 @@ import {
 import { updateQuote } from '@/lib/dal/quotes'
 import { assertCustomerInCompany, TenantScopeError } from '@/lib/dal/companies'
 import type { QuoteStatus } from '@/lib/quote-status'
+import type { CoreQuoteConversionInput, CoreQuoteConversionResult } from '@/lib/core-quote-conversion'
+import { coreQuoteConversionError } from '@/lib/dal/core-quote-conversion'
 
 export type ActionResult<T = void> =
   | {
@@ -137,17 +139,6 @@ function moneyValue(value: unknown) {
 function optionalNonNegativeNumber(value: unknown, fieldName: string) {
   if (value === null || value === undefined || value === '') return null
   return nonNegativeNumber(value, fieldName)
-}
-
-function isoString(value: unknown, fieldName: string) {
-  const rawValue = requiredString(value, fieldName)
-  const date = new Date(rawValue)
-
-  if (Number.isNaN(date.getTime())) {
-    throw new Error(`${fieldName} musí být platné datum.`)
-  }
-
-  return date.toISOString()
 }
 
 function parseCalculationItems(value: unknown): CalculationItemInput[] {
@@ -284,9 +275,7 @@ export async function deleteQuoteAction(input: {
 
     await getScopedQuote(ctx, quoteId, customerId)
 
-    const itemsResponse = await ctx.supabase.from('quote_items').delete().eq('quote_id', quoteId)
-    if (itemsResponse.error) throw itemsResponse.error
-
+    // The FK cascade removes items in the same transaction as the quote.
     const { data, error } = await ctx.supabase
       .from('quotes')
       .delete()
@@ -511,46 +500,20 @@ export async function createQuoteFromCalculationAction(input: {
   }
 }
 
-export async function createJobFromQuoteAction(input: {
-  quoteId: string
-  title: string
-  description: string | null
-  address: string | null
-  startAt: string
-  endAt: string
-  splitDays?: {
-    label: string
-    startAt: string
-    endAt: string
-  }[]
-}): Promise<ActionResult<{ jobId: string; created: boolean }>> {
+export async function createJobFromQuoteAction(input: CoreQuoteConversionInput): Promise<CoreQuoteConversionResult> {
   try {
     const ctx = await requireCompanyRoleDalContext('company_admin', 'super_admin')
-    const splitDays = Array.isArray(input.splitDays)
-      ? input.splitDays.map((day) => ({
-          label: requiredString(day.label, 'Den realizace'),
-          startAt: isoString(day.startAt, 'Začátek realizace dne'),
-          endAt: isoString(day.endAt, 'Konec realizace dne'),
-        }))
-      : []
-
-    const result = await createJobFromQuote(ctx, {
-      quoteId: requiredString(input.quoteId, 'Nabídka'),
-      title: requiredString(input.title, 'Název zakázky'),
-      description: optionalString(input.description),
-      address: optionalString(input.address),
-      startAt: isoString(input.startAt, 'Začátek realizace'),
-      endAt: isoString(input.endAt, 'Konec realizace'),
-      splitDays,
-    })
-
-    revalidatePath(`/jobs/${result.jobId}`)
+    const result = await createJobFromQuote(ctx, input)
+    revalidatePath('/jobs/' + result.jobId)
     revalidatePath('/jobs')
     revalidatePath('/cenove-nabidky')
-
+    revalidatePath('/customers')
     return { ok: true, data: result }
   } catch (error) {
-    return actionError(error)
+    const mapped = error instanceof DalAuthError || error instanceof TenantScopeError
+      ? coreQuoteConversionError({ message: 'CORE_QUOTE_FORBIDDEN' })
+      : coreQuoteConversionError(error)
+    return { ok: false, error: mapped.message, code: mapped.code, uncertain: mapped.uncertain }
   }
 }
 
