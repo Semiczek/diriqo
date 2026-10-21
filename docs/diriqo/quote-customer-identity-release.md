@@ -1,8 +1,8 @@
-# Historické údaje zákazníka v běžné nabídce — kandidát 21. 10. 2026
+# Historické údaje zákazníka v běžné nabídce — 21. 10. 2026
 
 ## Stav
 
-Lokální kandidát pro původní C02-02: „Změna aktuální adresy zákazníka nezmění adresu v již vydané nabídce.“ Migrace je aplikovaná v hostované testovací databázi a skutečné SQL sady prošly. Aplikační kandidát ještě čeká na nasazení na app.diriqo.com. C02-02 zůstává v akceptační matici CHYBA, dokud neproběhne přihlášené ověření nasazené aplikace. Celkový stav zůstává 4 HOTOVO / 49 ČÁSTEČNĚ / 4 CHYBA / 11 CHYBÍ / 5 NEOVĚŘENO.
+Oprava původního C02-02: „Změna aktuální adresy zákazníka nezmění adresu v již vydané nabídce.“ Migrace je aplikovaná v hostované testovací databázi a skutečné SQL sady prošly. PR #36 je sloučený, hlavní větev 86e26b71d05f58d9dfe50c606e924f46098d932f prošla CI a běží na app.diriqo.com v deploymentu dpl_B13BmQjzXbEyKu9bzgWaJ87pH1fZ (READY, ověřená shoda SHA). C02-02 zůstává v akceptační matici CHYBA, dokud neproběhne přihlášené ověření změny adresy a výsledného PDF. Celkový stav zůstává 4 HOTOVO / 49 ČÁSTEČNĚ / 4 CHYBA / 11 CHYBÍ / 5 NEOVĚŘENO.
 
 ## Chování
 
@@ -68,6 +68,12 @@ Po obou sadách zůstalo 5 nabídek, 8 zákazníků a 45 zakázek. Otisky všech
 
 ## Otevřené kroky a hranice
 
-Čeká finální commit/PR/CI, přesné nasazení a přihlášený průchod: vytvořit syntetického zákazníka A, vydat nabídku, změnit zákazníka na B a doložit původní A v nabídce a jejím PDF po novém načtení. Před tím se C02-02 neuzavírá.
+Commit, PR #36, CI a přesné nasazení jsou ověřené. Čeká přihlášený průchod: vytvořit syntetického zákazníka A, vydat nabídku, změnit zákazníka na B a doložit původní A v nabídce a jejím PDF po novém načtení. Před tím se C02-02 neuzavírá.
 
 Tato oprava neřeší neměnnost celého obsahu a cen nabídky, historickou identitu dodavatele ani celou veřejnou autorizační matici. Dosavadní veřejný RPC nevyhodnocuje revokaci a expiraci tokenu; migrace tento původní predikát nerozšiřuje a jeho náprava zůstává samostatným otevřeným bezpečnostním bodem. Fakturační PDF je jiná cesta a jeho uživatelem odložená oprava není součástí tohoto balíku.
+
+## Stav přípravy kontroly v nasazené aplikaci
+
+Přihlášená příprava v Diriqo Demo odhalila dvě samostatné chyby: zákaznický formulář hlásil úspěch bez uložení fakturační adresy a vytvoření kalkulace selhalo na chybějícím sloupci internal_note. U položek kalkulace navíc chybí další runtime sloupce i RLS pravidla; samostatné doplnění prvního sloupce bez atomického uložení by mohlo ponechat neúplnou hlavičku. Kalkulační tok proto tento release neoznačuje za funkční. Oprava zákazníka je oddělená v customer-billing-save-release.md.
+
+Pro izolované ověření C02-02 byl vytvořen označený syntetický zákazník přes UI a navázaný neveřejný koncept nabídky přímo v testovací databázi. Koncept má nulovou cenu, nemá položky, veřejný token ani odeslaný e-mail. Není důkazem celého toku zákazník → kalkulace → nabídka. Plánovaná publikace, změna adresy a kontrola PDF musí proběhnout přes přihlášené rozhraní. Privátní záznam přípravy: artifacts/quote-customer/live-ui-preparation-20261021.json, SHA-256 755eb030f4ce5893da75522a7eee49366a789dc21c27559256e16838c1c8bd4f.
