@@ -268,60 +268,93 @@
   {
     "id": "C02-02",
     "scenario": "Změna aktuální adresy zákazníka nezmění adresu v již vydané nabídce.",
-    "status": "CHYBA",
+    "status": "HOTOVO",
     "title": "Historická adresa nabídky",
-    "reviewedAt": "2026-10-11",
-    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "reviewedAt": "2026-10-21",
+    "reviewedCommit": "0889678747bf1a6ebf062fe6fb6c80375d668cc9",
     "implementation": {
-      "state": "EXISTUJE S KONKRÉTNÍ CHYBOU",
-      "detail": "Základní PDF vytváří customerToSnapshot z aktuálního joinu customers při každém exportu. Nejde o uložený historický snapshot.",
+      "state": "IMPLEMENTOVÁNO; PŮVODNÍ INVARIANT OVĚŘEN V DB A NASAZENÉM UI/PDF",
+      "detail": "Běžná nabídka při výslovném zpřístupnění odkazu nebo vydání atomicky zachytí historickou identitu zákazníka. Interní detail, PDF a portál čtou snapshot bez doplňování dnešními údaji; legacy_unknown pravdivě označuje nedostupnou historii. PR #36 dodal ochranu identity, PR #37 opravil skutečné ukládání fakturační adresy zákazníka. Na nasazeném merge 0889678 změna zákazníka z adresy A na B nezměnila vydanou nabídku ani nově stažené PDF.",
       "files": [
-        "lib/dal/calculations.ts",
-        "lib/dal/flow.ts",
-        "lib/dal/quotes.ts",
+        "supabase/migrations/20261021062831_protect_quote_customer_identity.sql",
+        "lib/quote-customer-identity.ts",
+        "lib/dal/quote-publication.ts",
+        "app/business-actions.ts",
+        "app/api/mail/send/route.ts",
+        "components/QuoteActionsPanel.tsx",
+        "app/customers/[customerId]/quotes/[quoteId]/page.tsx",
         "app/api/quotes/[quoteId]/pdf/route.ts",
+        "lib/customer-portal/data.ts",
+        "app/portal/offers/[offerId]/page.tsx",
+        "app/offer/[token]/page.tsx",
         "app/api/offers/[token]/pdf/route.ts"
       ]
     },
     "functionality": {
-      "fullyVerified": false,
-      "basis": "Konkrétní porušení kontraktu je doložené čtením aktuálního kódu."
+      "fullyVerified": true,
+      "basis": "Původní C02-02 požaduje zachování adresy v již vydané nabídce po změně aktuální adresy zákazníka. V přihlášeném UI byla uložená adresa A, nabídka výslovně zpřístupněna, zákazník změněn na B a nabídka znovu navštívena. DB potvrdila aktuální B a neměnný captured snapshot A; dvě skutečně stažená PDF před změnou a po ní jsou byte-for-byte shodná a obsahují A, nikoli B. Výslovné zveřejnění a vydané PDF tvoří pro tento scénář hranici vydání, i když provozní status zůstává draft. Skutečný e-mail ani přijetí zákazníkem nejsou podmínkou původního textu."
     },
     "security": {
-      "state": "NEOVĚŘENO V CELÉM ROZSAHU",
-      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+      "state": "CÍLENÉ HOSTED SQL A STATICKÉ REVIEW PASS; CELÁ BEZPEČNOSTNÍ MATICE OTEVŘENÁ",
+      "detail": "Doložená hosted sada ověřila ochranu snapshotu, scope zákazníka a firmy, role, revokaci/expiraci a FK cleanup; společná regrese převodu zachování již zachycené identity a rollback při odmítnutí. Samostatné přehodnocení čte uložené důkazy. Úplná veřejná autorizační matice ani známé historické omezení revokace/expirace veřejného tokenu tím nejsou uzavřené."
     },
     "tests": {
       "unitOrMock": {
         "files": [
-          "tests/public-token-security.test.ts"
+          "tests/quote-customer-identity.test.ts",
+          "tests/quote-publication.test.ts",
+          "tests/quote-publication-mail.test.ts",
+          "tests/customer-billing.test.ts"
         ],
-        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "state": "DOLOŽENO: 32 TESTŮ ČTENÍ/PDF/PORTÁLU A 17 MAIL TESTŮ PASS; PR #37 CELÁ SADA 1886/1886 PASS",
+        "reportedAt": "2026-10-21",
         "executedThisReview": false
       },
       "database": {
-        "files": [],
-        "state": "BĚH SCÉNÁŘE NEDOLOŽEN",
-        "reportedAt": null,
-        "reports": [],
-        "scope": "Žádné konkrétní živé DB ověření této scénářové hranice se netvrdí.",
+        "files": [
+          "supabase/tests/quote-customer-snapshot.sql",
+          "supabase/tests/core-quote-conversion.sql",
+          "scripts/test-quote-customer-snapshot-sql.mjs",
+          "scripts/test-core-quote-conversion-sql.mjs"
+        ],
+        "state": "HOSTED: IDENTITA 67 SCÉNÁŘŮ + 3 KONTROLY ÚKLIDU; PŘEVOD 61 + 8 INTEGRAČNÍCH + 5 KONTROL ÚKLIDU PASS",
+        "reportedAt": "2026-10-21",
+        "reports": [
+          "docs/diriqo/quote-customer-identity-release.md",
+          "docs/diriqo/customer-billing-save-release.md",
+          "artifacts/quote-customer/migration-and-hosted-tests-20261021.json",
+          "artifacts/quote-customer/ui-pdf-acceptance-20261021.json"
+        ],
+        "scope": "Skutečné SQL role a rollback syntetických fixtures. Read-only DB porovnání při UI průchodu potvrzuje zákazníka B a snapshot A. Tři kontroly předmigračního stavu jsou pouze lokální PGlite důkaz; toto přehodnocení nespouštělo nové hosted testy.",
         "executedThisReview": false
       }
     },
     "e2e": {
-      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "state": "PŮVODNÍ C02-02 OVĚŘEN: PŘIHLÁŠENÉ UI, DB A DVĚ NOVĚ STAŽENÁ PDF",
+      "reportedAt": "2026-10-21",
       "executedThisReview": false,
-      "partialEvidence": []
+      "partialEvidence": [
+        "docs/diriqo/quote-customer-identity-release.md",
+        "docs/diriqo/customer-billing-save-release.md",
+        "artifacts/quote-customer/ui-pdf-acceptance-20261021.json"
+      ],
+      "scope": "Diriqo Demo, nasazený merge 0889678747bf1a6ebf062fe6fb6c80375d668cc9. Syntetický zákazník a2472f19-b40a-436a-8051-11077058ab33, nabídka 5c04122f-5a2c-4fd3-9413-5de30f177a4f. Neveřejný koncept nabídky byl připraven přímo v testovací DB; zveřejnění odkazu, uložení adres A/B a nové návštěvy dokumentu proběhly přes UI. Snapshot zachycen 2026-10-21T07:30:34.247399+00:00, share_enabled=true; PDF má označení Cenová nabídka. Nulová cena, bez položek, bez skutečného e-mailu a bez přijetí zákazníkem. Nejde o důkaz vytvoření nabídky přes kalkulaci ani celého Core procesu."
     },
     "productionReadiness": {
       "ready": false,
-      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+      "reason": "Přesný původní C02-02 je HOTOVO v nasazeném webu. Celý Core/kalkulační proces, komerční připravenost, historická identita dodavatele, neměnnost cen a obsahu nabídky ani celá veřejná autorizační matice tím nejsou schválené."
     },
     "evidence": [
-      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Základní PDF vytváří customerToSnapshot z aktuálního joinu customers při každém exportu. Nejde o uložený historický snapshot."
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Základní PDF vytváří customerToSnapshot z aktuálního joinu customers při každém exportu. Nejde o uložený historický snapshot.",
+      "2026-10-21: PR #36 zavedl atomický neměnný snapshot a pravdivé legacy_unknown. Hosted identita 67 + 3 kontroly úklidu a společný převod 61 + 8 integračních + 5 kontrol úklidu PASS. Zdroj: docs/diriqo/quote-customer-identity-release.md.",
+      "2026-10-21: release owner ověřil PR #37, přesný main merge 0889678747bf1a6ebf062fe6fb6c80375d668cc9, čtyři hlavní CI jobs PASS a app.diriqo.com READY deployment dpl_GvJSykjDc61pfFZXohhitLUtGFUo. Oprava fakturačního ukládání je doložená v docs/diriqo/customer-billing-save-release.md.",
+      "2026-10-21: přihlášené UI uložilo TEST C02 HISTORIE A / Testovací A 10 / Testovice A / 10000. Akce Zpřístupnit odkaz zachytila A skutečným aktérem 10000000-0000-4000-8000-000000000101. Po UI změně zákazníka na Testovací B 20 / Testovice B / 20000 DB i nově načtená nabídka zachovaly původní A.",
+      "2026-10-21: obě skutečně nově stažená dvoustránková PDF před změnou i po změně jsou byte-for-byte identická, SHA-256 f8f2587118b4c7c6ba9fc77bf0acdc65455eade25b9327a7b6263ff90c440681. Text obsahuje adresu A a neobsahuje B; obě stránky prošly Poppler vizuální kontrolou. Toto nezávislé přehodnocení znovu ověřilo shodné lokální hashe a prohlédlo obě vykreslené stránky; živý UI tok neopakovalo.",
+      "2026-10-21: původních 8 zákazníků a 5 nabídek zachováno; otisky d555e1e4f60b9c7b813d07592a9d12db a a4214b60e736c6e0cb77ab7319af3d0d. Řízený privátní artefakt artifacts/quote-customer/ui-pdf-acceptance-20261021.json, SHA-256 256263226900bb70eb6ade961b0241576178301525cd7e2bfaae486f3b854380; nezávisle ověřený otisk. Veřejné tokeny ani soukromá metadata nasazení nejsou v repozitáři."
     ],
     "remaining": [
-      "Uložit kontaktní snapshot při vydání základní nabídky a používat jej v každém pozdějším exportu. Nové smart quotes tuto starou cestu nenahrazují."
+      "Žádný chybějící krok pro přesný původní invariant C02-02.",
+      "Mimo původní scénář: celý zákazník → kalkulace → nabídka → zakázka tok, skutečné odeslání/přijetí, neměnnost cen a obsahu, identita dodavatele a oprava veřejné revokace/expirace. Starší neuložené adresy nelze bezpečně rekonstruovat."
     ]
   },
   {

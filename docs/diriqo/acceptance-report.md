@@ -1,5 +1,7 @@
 # Akceptační report Diriqa
 
+> **Historický report k 10. 10. 2026.** Níže uvedené stavy a počty jsou dobovým záznamem, nikoli aktuální akceptací. Aktuální stav všech 73 původních scénářů a novější důkazy uvádí [acceptance-scenarios.json](acceptance-scenarios.json).
+
 Datum 10. 10. 2026. Všech 73 scénářů z uživatelského zadání je evidováno níže. Stav NEPROVEDENO znamená absenci úplného doloženého průchodu; DÍLČÍ DŮKAZ označuje ověřenou část se zbývajícím rozsahem. Ani jeden z těchto stavů není plnou akceptací cílového scénáře. Fáze 1 zůstává částečně hotová.
 
 Aktuální checkpoint společné autority placených operací: **664/664 aplikačních testů, 361/361 DB asercí a 23 kontrol úklidu PASS**. Migrace `20261010193801_add_module_capability_authority` je aplikovaná ve stejném testovacím projektu. Všech 73 řádků níže zůstává beze změny: **4 dílčí důkazy, 69 neprovedeno, 0 plných akceptací**. Podrobný kontrakt a hranice: [module-operation-authority.md](module-operation-authority.md), [uložená evidence](evidence/module-operation-20261010.json). Níže uvedené fakturační a UI důkazy zůstávají platné ve svém původním rozsahu.

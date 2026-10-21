@@ -2,7 +2,7 @@
 
 ## Stav
 
-Oprava původního C02-02: „Změna aktuální adresy zákazníka nezmění adresu v již vydané nabídce.“ Migrace je aplikovaná v hostované testovací databázi a skutečné SQL sady prošly. PR #36 je sloučený, hlavní větev 86e26b71d05f58d9dfe50c606e924f46098d932f prošla CI a běží na app.diriqo.com v deploymentu dpl_B13BmQjzXbEyKu9bzgWaJ87pH1fZ (READY, ověřená shoda SHA). C02-02 zůstává v akceptační matici CHYBA, dokud neproběhne přihlášené ověření změny adresy a výsledného PDF. Celkový stav zůstává 4 HOTOVO / 49 ČÁSTEČNĚ / 4 CHYBA / 11 CHYBÍ / 5 NEOVĚŘENO.
+Oprava původního C02-02: „Změna aktuální adresy zákazníka nezmění adresu v již vydané nabídce.“ Migrace je aplikovaná v hostované testovací databázi a skutečné SQL sady prošly. PR #36 je sloučený, hlavní větev 86e26b71d05f58d9dfe50c606e924f46098d932f prošla CI a byla nasazená na app.diriqo.com v deploymentu dpl_B13BmQjzXbEyKu9bzgWaJ87pH1fZ (READY, ověřená shoda SHA). Přihlášené ověření změny adresy a výsledného PDF nyní prošlo na následném nasazení 0889678747bf1a6ebf062fe6fb6c80375d668cc9 s opravou zákaznického formuláře z PR #37. Původní C02-02 je HOTOVO. Aktuální počty: 5 HOTOVO / 49 ČÁSTEČNĚ / 3 CHYBA / 11 CHYBÍ / 5 NEOVĚŘENO. Důkazy a přesné hranice akceptace jsou uvedeny na konci dokumentu.
 
 ## Chování
 
@@ -68,7 +68,7 @@ Po obou sadách zůstalo 5 nabídek, 8 zákazníků a 45 zakázek. Otisky všech
 
 ## Otevřené kroky a hranice
 
-Commit, PR #36, CI a přesné nasazení jsou ověřené. Čeká přihlášený průchod: vytvořit syntetického zákazníka A, vydat nabídku, změnit zákazníka na B a doložit původní A v nabídce a jejím PDF po novém načtení. Před tím se C02-02 neuzavírá.
+Commit, PR #36, CI a přesné nasazení jsou ověřené. Následující původně chybějící přihlášený průchod již proběhl: vydat syntetickou nabídku zákazníka A, změnit zákazníka na B a doložit původní A v nabídce a jejím PDF po novém načtení.
 
 Tato oprava neřeší neměnnost celého obsahu a cen nabídky, historickou identitu dodavatele ani celou veřejnou autorizační matici. Dosavadní veřejný RPC nevyhodnocuje revokaci a expiraci tokenu; migrace tento původní predikát nerozšiřuje a jeho náprava zůstává samostatným otevřeným bezpečnostním bodem. Fakturační PDF je jiná cesta a jeho uživatelem odložená oprava není součástí tohoto balíku.
 
@@ -76,4 +76,14 @@ Tato oprava neřeší neměnnost celého obsahu a cen nabídky, historickou iden
 
 Přihlášená příprava v Diriqo Demo odhalila dvě samostatné chyby: zákaznický formulář hlásil úspěch bez uložení fakturační adresy a vytvoření kalkulace selhalo na chybějícím sloupci internal_note. U položek kalkulace navíc chybí další runtime sloupce i RLS pravidla; samostatné doplnění prvního sloupce bez atomického uložení by mohlo ponechat neúplnou hlavičku. Kalkulační tok proto tento release neoznačuje za funkční. Oprava zákazníka je oddělená v customer-billing-save-release.md.
 
-Pro izolované ověření C02-02 byl vytvořen označený syntetický zákazník přes UI a navázaný neveřejný koncept nabídky přímo v testovací databázi. Koncept má nulovou cenu, nemá položky, veřejný token ani odeslaný e-mail. Není důkazem celého toku zákazník → kalkulace → nabídka. Plánovaná publikace, změna adresy a kontrola PDF musí proběhnout přes přihlášené rozhraní. Privátní záznam přípravy: artifacts/quote-customer/live-ui-preparation-20261021.json, SHA-256 755eb030f4ce5893da75522a7eee49366a789dc21c27559256e16838c1c8bd4f.
+Pro izolované ověření C02-02 byl vytvořen označený syntetický zákazník přes UI a navázaný neveřejný koncept nabídky přímo v testovací databázi. V přípravné fázi měl koncept nulovou cenu a neměl položky, veřejný token ani odeslaný e-mail. Není důkazem celého toku zákazník → kalkulace → nabídka. Následující publikace, změna adresy a kontrola PDF proběhly přes přihlášené rozhraní, jak dokládá následující záznam. Privátní záznam přípravy: artifacts/quote-customer/live-ui-preparation-20261021.json, SHA-256 755eb030f4ce5893da75522a7eee49366a789dc21c27559256e16838c1c8bd4f.
+
+## Výsledek C02-02 v nasazené aplikaci
+
+Na deploymentu dpl_GvJSykjDc61pfFZXohhitLUtGFUo, commit 0889678747bf1a6ebf062fe6fb6c80375d668cc9, skutečný uživatel v Diriqo Demo uložil zákazníkovu adresu A a výslovnou akcí Zpřístupnit odkaz vydal syntetickou nabídku. Před tímto kliknutím otevření detailu nevytvořilo token ani snapshot. Publikace uložila snapshot A s časem 2026-10-21T07:30:34.247399Z a skutečným aktérem. Stav obchodního procesu zůstal draft, ale dokument byl výslovně zpřístupněný a jeho PDF již nebylo označené jako koncept. Žádný e-mail ani přijetí závazku se neprovedly.
+
+Uživatel následně přes formulář změnil zákazníkovo jméno, fakturační název, ulici, město i PSČ na B. Detail zákazníka i read-only DB dotaz potvrzují B; nově načtený detail nabídky a uložený snapshot zůstávají A. PDF bylo skutečně stažené před změnou i znovu po ní. Oba soubory mají 2 stránky a shodný SHA-256 f8f2587118b4c7c6ba9fc77bf0acdc65455eade25b9327a7b6263ff90c440681. Porovnání všech bajtů a extrahovaného textu PASS; původní A je přítomná a nové B chybí. Obě stránky byly vyrenderované Popplerem a vizuálně zkontrolované bez překryvů či ořezu.
+
+Privátní důkaz: artifacts/quote-customer/ui-pdf-acceptance-20261021.json, SHA-256 256263226900bb70eb6ade961b0241576178301525cd7e2bfaae486f3b854380. Originálních 8 zákazníků a 5 nabídek zachovalo původní otisky uvedené v tomto dokumentu. Tím je doložen původní invariant C02-02; vznik syntetického draftu přímo v testovací DB nepředstavuje průchod zákazník → kalkulace → nabídka. Celý Core tok, odesílání e-mailu, přijetí nabídky a obecné zabezpečení veřejných odkazů zůstávají samostatnými otevřenými akceptacemi.
+
+Skutečné soubory obou PDF, JSON porovnání a snímky zákaznického rozhraní jsou navíc trvale uchované mimo repozitář v privátní evidenci artifacts/quote-customer/ui-files-20261021/. Kopie obou PDF mají stejný ověřený SHA-256 uvedený výše.
