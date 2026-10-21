@@ -4,6 +4,10 @@ import type { DalContext } from './auth'
 import { CoreQuoteConversionError, coreQuoteId, parseCoreQuoteConversion, type CoreQuoteConversionInput } from '@/lib/core-quote-conversion'
 
 const errors: Record<string, [CoreQuoteConversionError['code'], string]> = {
+  QUOTE_CUSTOMER_FORBIDDEN: ['forbidden', 'K převodu nemáte oprávnění v aktivní firmě.'],
+  QUOTE_CUSTOMER_MODULE_REQUIRED: ['forbidden', 'Pro přijetí nabídky je potřeba aktivní základ Diriqo a nabídky.'],
+  QUOTE_CUSTOMER_SCOPE_INVALID: ['forbidden', 'Zákazník nabídky není v aktivní firmě dostupný.'],
+  QUOTE_CUSTOMER_SNAPSHOT_IMMUTABLE: ['conflict', 'Údaje vydané nabídky jsou chráněné. Obnovte její detail.'],
   CORE_QUOTE_FORBIDDEN: ['forbidden', 'K převodu nemáte oprávnění v aktivní firmě. Ověřte přihlášení a vybranou firmu.'],
   CORE_QUOTE_MODULE_REQUIRED: ['forbidden', 'Pro vytvoření zakázky je potřeba aktivní základ Diriqo.'],
   CORE_QUOTE_INPUT_INVALID: ['validation', 'Zkontrolujte název, termín a vybrané dny realizace.'],

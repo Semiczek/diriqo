@@ -1,9 +1,9 @@
 import Link from 'next/link'
-import type { SupabaseClient } from '@supabase/supabase-js'
 import type { CSSProperties } from 'react'
 import DashboardShell from '@/components/DashboardShell'
 import EntityCommunicationTimeline from '@/components/EntityCommunicationTimeline'
 import QuoteActionsPanel from '@/components/QuoteActionsPanel'
+import { resolveQuoteCustomerIdentity, QUOTE_CUSTOMER_IDENTITY_UNAVAILABLE_LABEL, type QuoteCustomerIdentitySource } from '@/lib/quote-customer-identity'
 import {
   pageShellStyle,
 } from '@/components/SaasPageLayout'
@@ -12,7 +12,6 @@ import { listEntityThreadMessages } from '@/lib/email/listEntityThreadMessages'
 import { getRequestDictionary } from '@/lib/i18n/server'
 import { getPublicAppBaseUrl } from '@/lib/public-app-url'
 import { getQuoteStatusLabel, getQuoteStatusStyle, resolveQuoteStatus } from '@/lib/quote-status'
-import { createSupabaseAdminClient } from '@/lib/supabase-admin'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 
 type PageProps = {
@@ -22,7 +21,7 @@ type PageProps = {
   }>
 }
 
-type QuoteRow = {
+type QuoteRow = QuoteCustomerIdentitySource & {
   id: string
   company_id: string
   customer_id: string | null
@@ -161,125 +160,6 @@ function formatDateTime(value: string | null | undefined) {
 
 function getAppBaseUrl() {
   return getPublicAppBaseUrl()
-}
-
-function buildShareToken() {
-  const bytes = new Uint8Array(24)
-  crypto.getRandomValues(bytes)
-  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
-}
-
-function buildShareTokenExpiresAt(validUntil: string | null | undefined) {
-  if (validUntil) return `${validUntil}T23:59:59.999Z`
-
-  const expiresAt = new Date()
-  expiresAt.setDate(expiresAt.getDate() + 30)
-  return expiresAt.toISOString()
-}
-
-function getQuoteShareTokenErrorLog(error: unknown) {
-  if (error instanceof Error) {
-    return {
-      message: error.message,
-      details: null,
-      hint: null,
-      code: null,
-    }
-  }
-
-  if (error && typeof error === 'object') {
-    const errorRecord = error as {
-      message?: unknown
-      details?: unknown
-      hint?: unknown
-      code?: unknown
-    }
-
-    return {
-      message:
-        typeof errorRecord.message === 'string'
-          ? errorRecord.message
-          : 'Unknown Supabase quote share token backfill error',
-      details: typeof errorRecord.details === 'string' ? errorRecord.details : null,
-      hint: typeof errorRecord.hint === 'string' ? errorRecord.hint : null,
-      code: typeof errorRecord.code === 'string' ? errorRecord.code : null,
-    }
-  }
-
-  return {
-    message: 'Unknown Supabase quote share token backfill error',
-    details: null,
-    hint: null,
-    code: null,
-  }
-}
-
-function isMissingQuoteShareMetadataError(error: unknown) {
-  const errorLog = getQuoteShareTokenErrorLog(error)
-  const searchableText = [
-    errorLog.message,
-    errorLog.details,
-    errorLog.hint,
-    errorLog.code,
-  ]
-    .filter(Boolean)
-    .join(' ')
-    .toLowerCase()
-
-  return (
-    searchableText.includes('share_token_scope') ||
-    searchableText.includes('share_token_expires_at') ||
-    searchableText.includes('share_token_revoked_at') ||
-    searchableText.includes('schema cache') ||
-    searchableText.includes('column')
-  )
-}
-
-async function backfillQuoteShareToken(input: {
-  client: SupabaseClient
-  quoteId: string
-  companyId: string
-  generatedShareToken: string
-  validUntil: string | null
-}) {
-  const fullPayload = {
-    share_token: input.generatedShareToken,
-    share_token_scope: 'quote_public_offer',
-    share_token_expires_at: buildShareTokenExpiresAt(input.validUntil),
-    share_token_revoked_at: null,
-  }
-
-  const fullUpdate = await input.client
-    .from('quotes')
-    .update(fullPayload)
-    .eq('id', input.quoteId)
-    .eq('company_id', input.companyId)
-
-  if (!fullUpdate.error) {
-    return { ok: true as const, mode: 'metadata' as const }
-  }
-
-  const tokenOnlyUpdate = await input.client
-    .from('quotes')
-    .update({ share_token: input.generatedShareToken })
-    .eq('id', input.quoteId)
-    .eq('company_id', input.companyId)
-
-  if (!tokenOnlyUpdate.error) {
-    return {
-      ok: true as const,
-      mode: isMissingQuoteShareMetadataError(fullUpdate.error)
-        ? ('token-only-missing-metadata' as const)
-        : ('token-only' as const),
-      metadataError: fullUpdate.error,
-    }
-  }
-
-  return {
-    ok: false as const,
-    metadataError: fullUpdate.error,
-    tokenError: tokenOnlyUpdate.error,
-  }
 }
 
 function getSectionLabel(
@@ -535,7 +415,7 @@ export default async function QuoteDetailPage({ params }: PageProps) {
     supabase
       .from('quotes')
       .select(
-        'id, company_id, customer_id, source_calculation_id, quote_number, title, status, quote_date, valid_until, subtotal_price, total_price, share_token, sent_at',
+        'id, company_id, customer_id, source_calculation_id, quote_number, title, status, quote_date, valid_until, subtotal_price, total_price, share_token, sent_at, customer_identity_state, customer_snapshot, customer_snapshot_captured_at',
       )
       .eq('id', quoteId)
       .eq('company_id', activeCompany.companyId)
@@ -636,8 +516,9 @@ export default async function QuoteDetailPage({ params }: PageProps) {
   const { data: customer, error: customerError } = quoteCustomerId
     ? await supabase
         .from('customers')
-        .select('name')
+        .select('id, company_id, name, email, phone, billing_name, billing_street, billing_city, billing_postal_code, billing_country, company_number, vat_number')
         .eq('id', quoteCustomerId)
+        .eq('company_id', activeCompany.companyId)
         .maybeSingle()
     : { data: null, error: null }
 
@@ -737,74 +618,8 @@ export default async function QuoteDetailPage({ params }: PageProps) {
       : { data: [], error: null }
 
   const resolvedStatus = resolveQuoteStatus(normalizedQuote.status, normalizedQuote.valid_until)
-  let effectiveShareToken = normalizedQuote.share_token?.trim() || null
-
-  if (!effectiveShareToken) {
-    const generatedShareToken = buildShareToken()
-
-    try {
-      const supabaseAdmin = createSupabaseAdminClient()
-      const shareTokenResult = await backfillQuoteShareToken({
-        client: supabaseAdmin,
-        quoteId,
-        companyId: activeCompany.companyId,
-        generatedShareToken,
-        validUntil: normalizedQuote.valid_until,
-      })
-
-      if (shareTokenResult.ok) {
-        effectiveShareToken = generatedShareToken
-        normalizedQuote.share_token = generatedShareToken
-      } else {
-        const fallbackShareTokenResult = await backfillQuoteShareToken({
-          client: supabase,
-          quoteId,
-          companyId: activeCompany.companyId,
-          generatedShareToken,
-          validUntil: normalizedQuote.valid_until,
-        })
-
-        if (fallbackShareTokenResult.ok) {
-          effectiveShareToken = generatedShareToken
-          normalizedQuote.share_token = generatedShareToken
-        } else {
-          console.warn('[QUOTES] Failed to backfill quote share token', {
-            quoteId,
-            customerId: quoteCustomerId,
-            companyId: activeCompany.companyId,
-            adminMetadataError: getQuoteShareTokenErrorLog(shareTokenResult.metadataError),
-            adminTokenError: getQuoteShareTokenErrorLog(shareTokenResult.tokenError),
-            fallbackMetadataError: getQuoteShareTokenErrorLog(
-              fallbackShareTokenResult.metadataError,
-            ),
-            fallbackTokenError: getQuoteShareTokenErrorLog(fallbackShareTokenResult.tokenError),
-          })
-        }
-      }
-    } catch (error: unknown) {
-      const shareTokenResult = await backfillQuoteShareToken({
-        client: supabase,
-        quoteId,
-        companyId: activeCompany.companyId,
-        generatedShareToken,
-        validUntil: normalizedQuote.valid_until,
-      })
-
-      if (shareTokenResult.ok) {
-        effectiveShareToken = generatedShareToken
-        normalizedQuote.share_token = generatedShareToken
-      } else {
-        console.warn('[QUOTES] Failed to initialize quote share token backfill', {
-          quoteId,
-          customerId: quoteCustomerId,
-          companyId: activeCompany.companyId,
-          adminClientError: getQuoteShareTokenErrorLog(error),
-          metadataError: getQuoteShareTokenErrorLog(shareTokenResult.metadataError),
-          tokenError: getQuoteShareTokenErrorLog(shareTokenResult.tokenError),
-        })
-      }
-    }
-  }
+  const customerIdentity = resolveQuoteCustomerIdentity(normalizedQuote, customer)
+  const effectiveShareToken = normalizedQuote.share_token?.trim() || null
 
   const shareUrl = effectiveShareToken
     ? (() => {
@@ -873,7 +688,9 @@ export default async function QuoteDetailPage({ params }: PageProps) {
             <div style={quoteNumberPillStyle}>{normalizedQuote.quote_number}</div>
             <h1 style={quoteTitleStyle}>{normalizedQuote.title}</h1>
             <div style={quoteCustomerStyle}>
-              {customer?.name || dictionary.customers.quoteDetail.customerFallback}
+              {customerIdentity.state === 'legacy_unknown'
+                ? QUOTE_CUSTOMER_IDENTITY_UNAVAILABLE_LABEL
+                : customerIdentity.customer?.billingName || customerIdentity.customer?.name || dictionary.customers.quoteDetail.customerFallback}
             </div>
           </div>
 
@@ -917,10 +734,12 @@ export default async function QuoteDetailPage({ params }: PageProps) {
 
         <section style={actionBarStyle}>
           <QuoteActionsPanel
+            key={normalizedQuote.company_id + ":" + activeCompany.profileId + ":" + quoteId}
             customerId={quoteCustomerId}
             quoteId={quoteId}
             companyId={normalizedQuote.company_id}
             actorProfileId={activeCompany.profileId}
+            isDraft={customerIdentity.state === 'draft'}
             shareUrl={shareUrl}
             contactName={normalizedQuote.contact_name}
             contactEmail={normalizedQuote.contact_email}

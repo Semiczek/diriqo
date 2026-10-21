@@ -41,12 +41,6 @@ type QuoteEditFormProps = {
   }
 }
 
-function buildShareToken() {
-  const bytes = new Uint8Array(24)
-  crypto.getRandomValues(bytes)
-  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
-}
-
 export default function QuoteEditForm({ customerId, quoteId, initialValues }: QuoteEditFormProps) {
   const router = useRouter()
   const { dictionary } = useI18n()
@@ -55,7 +49,7 @@ export default function QuoteEditForm({ customerId, quoteId, initialValues }: Qu
   const [quoteDate, setQuoteDate] = useState(initialValues.quoteDate)
   const [validUntil, setValidUntil] = useState(initialValues.validUntil)
   const [discountAmount, setDiscountAmount] = useState(initialValues.discountAmount)
-  const [shareToken] = useState(initialValues.shareToken || buildShareToken())
+  const [shareToken] = useState(initialValues.shareToken)
   const [contactName, setContactName] = useState(initialValues.contactName)
   const [contactEmail, setContactEmail] = useState(initialValues.contactEmail)
   const [introText, setIntroText] = useState(initialValues.introText)

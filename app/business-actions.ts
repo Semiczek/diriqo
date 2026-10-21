@@ -26,6 +26,8 @@ import {
   markReadyForInvoice,
 } from '@/lib/dal/flow'
 import { updateQuote } from '@/lib/dal/quotes'
+import { publishCoreQuoteCustomerIdentity } from '@/lib/dal/quote-publication'
+import { getPublicAppBaseUrl } from '@/lib/public-app-url'
 import { assertCustomerInCompany, TenantScopeError } from '@/lib/dal/companies'
 import type { QuoteStatus } from '@/lib/quote-status'
 import type { CoreQuoteConversionInput, CoreQuoteConversionResult } from '@/lib/core-quote-conversion'
@@ -389,6 +391,22 @@ export async function syncQuotePricingFromCalculationAction(input: {
     revalidateQuotePaths(customerId, quoteId)
 
     return { ok: true, data: { subtotalPrice, totalPrice } }
+  } catch (error) {
+    return actionError(error)
+  }
+}
+
+export async function publishQuoteAction(input: {
+  quoteId: string
+  companyId: string
+}): Promise<ActionResult<{ shareUrl: string }>> {
+  try {
+    const quoteId = requiredString(input.quoteId, 'Nabídka')
+    const ctx = await requireCompanyRoleDalContext('manager', 'company_admin', 'super_admin')
+    if (ctx.companyId !== input.companyId) throw new TenantScopeError('Aktivní firma se změnila. Obnovte nabídku.')
+    const publication = await publishCoreQuoteCustomerIdentity(ctx, quoteId)
+    revalidatePath('/cenove-nabidky')
+    return { ok: true, data: { shareUrl: getPublicAppBaseUrl() + '/offer/' + encodeURIComponent(publication.shareToken) } }
   } catch (error) {
     return actionError(error)
   }

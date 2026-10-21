@@ -5,6 +5,7 @@ import PublicOfferPage from '@/components/PublicOfferPage'
 import PortalShell from '@/components/portal/PortalShell'
 import { requirePortalUserContext } from '@/lib/customer-portal/auth'
 import { getPortalOfferDetail } from '@/lib/customer-portal/data'
+import { QUOTE_CUSTOMER_IDENTITY_UNAVAILABLE_LABEL } from '@/lib/quote-customer-identity'
 
 type OfferDetailPageProps = {
   params: Promise<{
@@ -28,11 +29,22 @@ export default async function PortalOfferDetailPage({ params }: OfferDetailPageP
           ← Zpět na nabídky
         </Link>
 
+        {offer.customerIdentityState === 'legacy_unknown' ? <p role="status" style={{
+          margin: 0, padding: '12px 16px', borderRadius: '12px', background: '#f5f3ff', color: '#4c1d95',
+        }}>{QUOTE_CUSTOMER_IDENTITY_UNAVAILABLE_LABEL}</p> : null}
+
+        {offer.customerAddressLabel ? <section aria-label="Adresa zákazníka v nabídce" style={{
+          padding: '12px 16px', border: '1px solid #e2e8f0', borderRadius: '12px', background: '#ffffff',
+        }}>
+          <strong>Adresa zákazníka v nabídce</strong>
+          <p style={{ margin: '6px 0 0', color: '#475569' }}>{offer.customerAddressLabel}</p>
+        </section> : null}
+
         <PublicOfferPage
           token={offer.id}
           context="portal"
           title={offer.title}
-          customerName={portalUser.customerName}
+          customerName={offer.customerName}
           defaultCustomerEmail={portalUser.email}
           defaultCustomerPhone={null}
           validUntil={offer.validUntil}

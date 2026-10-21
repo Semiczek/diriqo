@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 import { formatCurrency } from '@/lib/invoices'
+import { QUOTE_CUSTOMER_IDENTITY_UNAVAILABLE_LABEL } from '@/lib/quote-customer-identity'
 import { isLikelyPublicOfferToken } from '@/lib/public-offer-security'
 import { resolveQuoteStatus } from '@/lib/quote-status'
 import { createSupabasePublicClient } from '@/lib/supabase-public'
@@ -174,7 +175,7 @@ function buildPdf(quote: PublicQuoteRow, items: PublicQuoteItemRow[]) {
 
   addRect(lines, 44, 642, 507, 70, { fill: [0.97, 0.98, 0.99], stroke: [0.88, 0.9, 0.94] })
   addText(lines, 62, 688, 8, 'ZÁKAZNÍK', { color: [0.39, 0.45, 0.55], font: 'bold' })
-  addWrappedText(lines, 62, 668, 12, quote.customer_name || '-', 26, 12, 2, { font: 'bold' })
+  addWrappedText(lines, 62, 668, 12, quote.customer_name || QUOTE_CUSTOMER_IDENTITY_UNAVAILABLE_LABEL, 26, 12, 2, { font: 'bold' })
   addText(lines, 238, 688, 8, 'PLATNOST DO', { color: [0.39, 0.45, 0.55], font: 'bold' })
   addText(lines, 238, 668, 13, formatDate(quote.valid_until), { font: 'bold' })
   addText(lines, 414, 688, 8, 'KONTAKT', { color: [0.39, 0.45, 0.55], font: 'bold' })

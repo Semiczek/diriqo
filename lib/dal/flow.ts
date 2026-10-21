@@ -31,16 +31,6 @@ function nowIso() {
   return new Date().toISOString()
 }
 
-function buildShareToken() {
-  return randomBytes(24).toString('hex')
-}
-
-function buildShareTokenExpiresAt() {
-  const expiresAt = new Date()
-  expiresAt.setDate(expiresAt.getDate() + 30)
-  return expiresAt.toISOString()
-}
-
 function buildQuoteNumber() {
   const now = new Date()
   const pad = (value: number) => String(value).padStart(2, '0')
@@ -105,10 +95,8 @@ export async function createQuoteFromCalculation(ctx: DalContext, calculationId:
       customer_id: calculation.customer_id ?? null,
       source_calculation_id: calculationId,
       quote_number: buildQuoteNumber(),
-      share_token: buildShareToken(),
-      share_token_scope: 'quote_public_offer',
-      share_token_expires_at: buildShareTokenExpiresAt(),
-      share_token_revoked_at: null,
+      share_token: null,
+      share_enabled: false,
       title: calculation.title,
       status: 'draft',
       quote_date: new Date().toISOString().slice(0, 10),

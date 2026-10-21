@@ -3,7 +3,8 @@ import fs from 'node:fs'
 import path from 'node:path'
 
 import { buildSupplierSnapshot, formatCurrency } from '@/lib/invoices'
-import { requireHubAccess } from '@/lib/require-hub-access'
+import { requireHubAccess } from '@/lib/server-guards'
+import { resolveQuoteCustomerIdentity, QUOTE_CUSTOMER_IDENTITY_UNAVAILABLE_LABEL, type QuoteCustomerIdentitySource } from '@/lib/quote-customer-identity'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 
 export const runtime = 'nodejs'
@@ -14,7 +15,7 @@ type RouteContext = {
   }>
 }
 
-type QuoteRow = {
+type QuoteRow = QuoteCustomerIdentitySource & {
   id: string
   company_id: string
   customer_id: string
@@ -41,6 +42,8 @@ type QuoteRow = {
   total_price: number | null
   customers?:
     | {
+        id: string
+        company_id: string
         name: string | null
         email?: string | null
         phone?: string | null
@@ -53,6 +56,8 @@ type QuoteRow = {
         vat_number?: string | null
       }[]
     | {
+        id: string
+        company_id: string
         name: string | null
         email?: string | null
         phone?: string | null
@@ -580,21 +585,6 @@ function addWrappedText(
   return y
 }
 
-function customerToSnapshot(quote: QuoteRow): Snapshot {
-  const customer = Array.isArray(quote.customers) ? quote.customers[0] ?? null : quote.customers ?? null
-  return {
-    name: customer?.name ?? null,
-    billingName: customer?.billing_name ?? customer?.name ?? null,
-    companyNumber: customer?.company_number ?? null,
-    vatNumber: customer?.vat_number ?? null,
-    billingStreet: customer?.billing_street ?? null,
-    billingCity: customer?.billing_city ?? null,
-    billingPostalCode: customer?.billing_postal_code ?? null,
-    email: quote.contact_email ?? customer?.email ?? null,
-    phone: customer?.phone ?? null,
-  }
-}
-
 function addInfoSection(lines: string[], title: string, text: string | null | undefined, y: number) {
   const trimmed = text?.trim()
   if (!trimmed || y < 175) return y
@@ -609,11 +599,12 @@ function addQuoteHeader(
   supplierName: string,
   quote: Pick<QuoteRow, 'quote_number' | 'title'>,
   total: number,
-  subtitle = quote.title || quote.quote_number
+  subtitle = quote.title || quote.quote_number,
+  isDraft = false
 ) {
   addRect(lines, 0, 742, 595, 100, { fill: [0.05, 0.09, 0.16] })
   addText(lines, 44, 802, 10, supplierName, { color: [0.78, 0.84, 0.95], font: 'bold' })
-  addText(lines, 44, 771, 27, 'Cenová nabídka', {
+  addText(lines, 44, 771, 27, isDraft ? 'Koncept nabídky' : 'Cenová nabídka', {
     color: [1, 1, 1],
     font: 'bold',
   })
@@ -629,12 +620,14 @@ function addQuoteHeader(
   })
 }
 
-function addQuoteFooter(lines: string[], text: string | null | undefined, page: number) {
+function addQuoteFooter(lines: string[], text: string | null | undefined, page: number, isDraft = false) {
   if (text?.trim()) {
     addWrappedText(lines, 44, 54, 8, text, 104, 10, 2, { color: [0.39, 0.45, 0.55] })
   }
 
-  addText(lines, 44, 22, 7, 'Cenová nabídka byla vystavena elektronicky v Diriqo.', {
+  addText(lines, 44, 22, 7, isDraft
+    ? 'Koncept nabídky. Údaje zákazníka nejsou historicky uzavřené.'
+    : 'Cenová nabídka byla vystavena elektronicky v Diriqo.', {
     color: [0.55, 0.6, 0.68],
   })
   addRightText(lines, 551, 22, 7, `${page} / 2`, { color: [0.55, 0.6, 0.68] })
@@ -643,14 +636,17 @@ function addQuoteFooter(lines: string[], text: string | null | undefined, page: 
 function buildPdf(quote: QuoteRow, items: QuoteItemRow[], supplier: Snapshot) {
   const firstPageLines: string[] = []
   const secondPageLines: string[] = []
-  const customer = customerToSnapshot(quote)
+  const currentCustomer = Array.isArray(quote.customers) ? quote.customers[0] : quote.customers
+  const identity = resolveQuoteCustomerIdentity(quote, currentCustomer)
+  const customer: Snapshot = identity.customer ?? {}
   const supplierName = snapshotValue(supplier, 'billingName') || snapshotValue(supplier, 'name') || '-'
-  const customerName = snapshotValue(customer, 'billingName') || snapshotValue(customer, 'name') || '-'
+  const customerName = snapshotValue(customer, 'billingName') || snapshotValue(customer, 'name') ||
+    (identity.state === 'legacy_unknown' ? QUOTE_CUSTOMER_IDENTITY_UNAVAILABLE_LABEL : '-')
   const subtotal = toMoney(quote.subtotal_price)
   const discount = toMoney(quote.discount_amount)
   const total = toMoney(quote.total_price)
 
-  addQuoteHeader(firstPageLines, supplierName, quote, total)
+  addQuoteHeader(firstPageLines, supplierName, quote, total, undefined, identity.state === 'draft')
 
   addRect(firstPageLines, 44, 642, 507, 70, { fill: [0.97, 0.98, 0.99], stroke: [0.88, 0.9, 0.94] })
   addText(firstPageLines, 62, 688, 8, 'DATUM NABÍDKY', { color: [0.39, 0.45, 0.55], font: 'bold' })
@@ -658,7 +654,7 @@ function buildPdf(quote: QuoteRow, items: QuoteItemRow[], supplier: Snapshot) {
   addText(firstPageLines, 238, 688, 8, 'PLATNOST DO', { color: [0.39, 0.45, 0.55], font: 'bold' })
   addText(firstPageLines, 238, 668, 13, formatDate(quote.valid_until), { font: 'bold' })
   addText(firstPageLines, 414, 688, 8, 'KONTAKT', { color: [0.39, 0.45, 0.55], font: 'bold' })
-  addWrappedText(firstPageLines, 414, 668, 10, quote.contact_name || quote.contact_email || '-', 22, 11, 2, { font: 'bold' })
+  addWrappedText(firstPageLines, 414, 668, 10, snapshotValue(customer, 'email') || snapshotValue(customer, 'phone') || '-', 22, 11, 2, { font: 'bold' })
 
   addText(firstPageLines, 44, 604, 13, 'Dodavatel', { font: 'bold' })
   addText(firstPageLines, 315, 604, 13, 'Zákazník', { font: 'bold' })
@@ -685,7 +681,7 @@ function buildPdf(quote: QuoteRow, items: QuoteItemRow[], supplier: Snapshot) {
   customerY -= 13
   addText(firstPageLines, 315, customerY, 9, snapshotValue(customer, 'billingStreet') || '-')
   customerY -= 13
-  addText(firstPageLines, 315, customerY, 9, `${snapshotValue(customer, 'billingPostalCode')} ${snapshotValue(customer, 'billingCity')}`.trim() || '-')
+  addText(firstPageLines, 315, customerY, 9, [`${snapshotValue(customer, 'billingPostalCode')} ${snapshotValue(customer, 'billingCity')}`.trim(), snapshotValue(customer, 'billingCountry')].filter(Boolean).join(', ') || '-')
   customerY -= 13
   addText(firstPageLines, 315, customerY, 9, snapshotValue(customer, 'email') || '-')
 
@@ -694,9 +690,9 @@ function buildPdf(quote: QuoteRow, items: QuoteItemRow[], supplier: Snapshot) {
   y = addInfoSection(firstPageLines, quote.our_solution_title || 'Navržené řešení', quote.proposed_solution, y)
   y = addInfoSection(firstPageLines, 'Rozsah práce', quote.work_description, y)
   addInfoSection(firstPageLines, quote.timeline_title || 'Termín a organizace', quote.work_schedule, y)
-  addQuoteFooter(firstPageLines, null, 1)
+  addQuoteFooter(firstPageLines, null, 1, identity.state === 'draft')
 
-  addQuoteHeader(secondPageLines, supplierName, quote, total, 'Kalkulace a platební podmínky')
+  addQuoteHeader(secondPageLines, supplierName, quote, total, 'Kalkulace a platební podmínky', identity.state === 'draft')
   let pricingY = 666
   addText(secondPageLines, 44, pricingY, 16, quote.pricing_title || 'Cenová kalkulace', { font: 'bold' })
   pricingY -= 30
@@ -735,13 +731,15 @@ function buildPdf(quote: QuoteRow, items: QuoteItemRow[], supplier: Snapshot) {
     color: [0.39, 0.45, 0.55],
   })
 
-  addQuoteFooter(secondPageLines, quote.intro_text, 2)
+  addQuoteFooter(secondPageLines, quote.intro_text, 2, identity.state === 'draft')
 
   return buildPdfBuffer([firstPageLines.join('\n'), secondPageLines.join('\n')])
 }
 
 export async function GET(_request: NextRequest, context: RouteContext) {
-  const activeCompany = await requireHubAccess()
+  const access = await requireHubAccess()
+  if (!access.ok) return NextResponse.json({ error: access.error }, { status: access.status })
+  const activeCompany = access.value
   const { quoteId } = await context.params
   const supabase = await createSupabaseServerClient()
 
@@ -749,7 +747,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     supabase
       .from('quotes')
       .select(
-        'id, company_id, customer_id, quote_number, title, quote_date, valid_until, subtotal_price, total_price, customers(name, email, phone, billing_name, billing_street, billing_city, billing_postal_code, billing_country, company_number, vat_number)'
+        'id, company_id, customer_id, customer_identity_state, customer_snapshot, customer_snapshot_captured_at, quote_number, title, quote_date, valid_until, subtotal_price, total_price, customers(id, company_id, name, email, phone, billing_name, billing_street, billing_city, billing_postal_code, billing_country, company_number, vat_number)'
       )
       .eq('id', quoteId)
       .eq('company_id', activeCompany.companyId)
