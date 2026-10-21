@@ -66,65 +66,82 @@
   {
     "id": "C01-02",
     "scenario": "Opakovaný požadavek na převod stejné přijaté nabídky vrátí již vytvořenou zakázku, nevytvoří další.",
-    "status": "CHYBA",
+    "status": "HOTOVO",
     "title": "Jednorázová konverze nabídky",
-    "reviewedAt": "2026-10-11",
-    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "reviewedAt": "2026-10-21",
+    "reviewedCommit": "b0c37bbdffdf955ed3dcd7aeba4395373875875b",
     "implementation": {
-      "state": "EXISTUJE S KONKRÉTNÍ CHYBOU",
-      "detail": "Core cesta kontroluje existující source_quote_id; smart quotes mají atomickou konverzi. Core vícedenní cesta ale může po selhání child INSERT vrátit existujícího rodiče jako úspěch.",
+      "state": "IMPLEMENTOVÁNO; PŮVODNÍ INVARIANT OVĚŘEN V DB I NASAZENÉM WEBU",
+      "detail": "Core převod ukládá rodiče, podzakázky, přijetí nabídky i soukromý záznam operace atomicky. Stejná operace i nový požadavek se shodným obsahem vracejí původní úplnou zakázku; odlišný obsah se odmítá. PR #34 je nasazené z b0c37bb; historický nález neúplného stromu je opravený.",
       "files": [
-        "app/jobs/actions.ts",
-        "lib/dal/jobs.ts",
+        "app/business-actions.ts",
         "lib/dal/flow.ts",
-        "app/moje-prace/actions.ts"
+        "lib/core-quote-conversion.ts",
+        "lib/dal/core-quote-conversion.ts",
+        "components/QuoteConversionDialog.tsx",
+        "components/quote-conversion-state.ts",
+        "supabase/migrations/20261019081209_atomic_core_quote_conversion.sql"
       ]
     },
     "functionality": {
-      "fullyVerified": false,
-      "basis": "Konkrétní porušení kontraktu je doložené čtením aktuálního kódu."
+      "fullyVerified": true,
+      "basis": "Původní C01-02 požaduje vrácení stejné zakázky při opakovaném převodu přijaté nabídky bez další zakázky. Dva skutečné Auth/HTTP souběhy s doloženými čekajícími DB backendy i přihlášený UI dvojklik, reload a nové potvrzení stejného obsahu prokázaly jediný úplný strom. UI po opakování vrátilo existující zakázku; DB potvrdila jednoho rodiče, dvě děti a dva aliasy operace. Obnova po skutečně ztracené UI odpovědi není dodatečnou podmínkou původního scénáře."
     },
     "security": {
-      "state": "DÍLČÍ DŮKAZ",
-      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+      "state": "CÍLENÉ HOSTED SQL A AUTH/HTTP OVĚŘENÍ PASS",
+      "detail": "Hosted sada ověřila role a firemní scope, odebrání oprávnění, expiraci během zápisu, rollback neúplného stromu a ochranu soukromých registrů. Skutečný souběh doložil dva čekající PostgreSQL backendy. Celá tenant/API matice ani platební původ licence tím nejsou ověřené."
     },
     "tests": {
       "unitOrMock": {
         "files": [
-          "tests/module-operation-entrypoints.test.ts",
-          "tests/mobile-worker-actions.test.ts"
+          "tests/core-quote-conversion.test.ts",
+          "tests/core-quote-conversion-ui.test.ts"
         ],
-        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "state": "44 SERVEROVÝCH + 18 UI KONTROL PASS; HISTORICKÁ CELÁ SADA 1802/1802 PASS",
+        "reportedAt": "2026-10-19",
         "executedThisReview": false
       },
       "database": {
         "files": [
-          "supabase/tests/module-capability-authority.sql"
+          "supabase/tests/core-quote-conversion.sql",
+          "scripts/test-core-quote-conversion-sql.mjs"
         ],
-        "state": "DÍLČÍ PŘEDCHOZÍ BĚH",
-        "reportedAt": "2026-10-10",
+        "state": "HOSTED SQL 61 + 5 CLEANUP; DVA SKUTEČNÉ AUTH/HTTP SOUBĚHY PASS",
+        "reportedAt": "2026-10-19",
         "reports": [
-          "docs/diriqo/acceptance-report.md"
+          "docs/diriqo/core-quote-conversion-release.md",
+          "artifacts/core-quote-concurrency-complete-20261019.json",
+          "artifacts/quota-pause-20261019.json"
         ],
-        "scope": "Dílčí skutečné SQL autority schopností; nikoli celý core tok.",
+        "scope": "První souběh: jeden created=true, jeden replay a shodný úplný strom. Druhý souběh: původní požadavek 200, změněný 409/PT409 a nezměněný snapshot. PostgreSQL zámky potvrzeny pozorováním backendů; nejde o odhad z časů HTTP.",
         "executedThisReview": false
       }
     },
     "e2e": {
-      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "state": "PŮVODNÍ C01-02 OVĚŘEN: AUTH/HTTP/DB A PŘIHLÁŠENÉ UI OPAKOVÁNÍ",
+      "reportedAt": "2026-10-19",
       "executedThisReview": false,
-      "partialEvidence": []
+      "partialEvidence": [
+        "docs/diriqo/core-quote-conversion-release.md",
+        "artifacts/quota-pause-20261019.json"
+      ],
+      "scope": "Nasazený merge b0c37bb, Diriqo Demo s.r.o.: dvojklik, dokončená odpověď, reload a nové potvrzení shodného obsahu. UI vrací existující zakázku; DB root=1, children=2, requests=2, quote accepted. Nulová cena, bez e-mailu. Skutečně ztracená odpověď v prohlížeči nebyla vyvolána."
     },
     "productionReadiness": {
       "ready": false,
-      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+      "reason": "Přesný původní C01-02 je HOTOVO v nasazeném webu. Celý Core proces, komerční připravenost produktu, širší UX ztracené odpovědi a souběžná editace obsahu nabídky nejsou tímto úzkým invariantem schválené."
     },
     "evidence": [
       "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Core cesta kontroluje existující source_quote_id; smart quotes mají atomickou konverzi. Core vícedenní cesta ale může po selhání child INSERT vrátit existujícího rodiče jako úspěch.",
-      "Předchozí doložené dílčí DB běhy 2026-10-10: Dílčí skutečné SQL autority schopností; nikoli celý core tok. Zdroj: docs/diriqo/acceptance-report.md."
+      "Předchozí doložené dílčí DB běhy 2026-10-10: Dílčí skutečné SQL autority schopností; nikoli celý core tok. Zdroj: docs/diriqo/acceptance-report.md.",
+      "2026-10-19: PR #34 opravil baseline chybu atomickou migrací 20261019081209. Hosted SQL 61 scénářů + 5 kontrol rollback úklidu PASS; 1802/1802 Vitest, 18 platformních kontraktů, TypeScript, lint a build PASS. Zdroj: docs/diriqo/core-quote-conversion-release.md.",
+      "2026-10-19: dva Auth/HTTP souběhy s pozorovanými DB backendy 746469/746473 a 746529/746530: první jediný úplný strom, druhý 200/replay a 409/PT409 beze změny snapshotu. Managed důkaz artifacts/core-quote-concurrency-complete-20261019.json, SHA-256 5094b0ad90d2117bd61e3ba7d03f9346708e9c5e768fadf5f2b6a04428d9d453. Testovací přístupy uzavřené; původních 39 zakázek a 3 nabídky zachovány.",
+      "2026-10-19: přihlášené UI v Diriqo Demo na merge b0c37bbdffdf955ed3dcd7aeba4395373875875b. Nabídka 7b18b6bc-c8c6-442c-b560-d7f28af67e5c, rodič 8d6054b3-be36-4024-aebd-28dac33fbe32, dvě děti a dva aliasy operace. Dvojklik a po dokončené odpovědi reload + nové shodné potvrzení: „Zakázka již existuje. Další jsme nevytvořili.“ Cena 0, e-mail neodeslán, Demo fixture zachovaná. Managed důkaz artifacts/quota-pause-20261019.json; screenshot C:/Users/semis/AppData/Local/Temp/diriqo-core-quote-paused-20261019.png. Nejde o živý test ztracené odpovědi.",
+      "2026-10-21: release owner znovu ověřil přesný main merge b0c37bbdffdf955ed3dcd7aeba4395373875875b, CI verify 39231775006 a Office 39231775020 SUCCESS, app.diriqo.com READY deployment dpl_FuSHRb4rsq94qL8FenzzE7FW8FFC. Toto přehodnocení čte uložené důkazy; aplikační, hosted ani UI testy se v něm neopakovaly."
     ],
     "remaining": [
-      "Atomizovat core rodiče/podzakázky/přijetí a otestovat retry po vložení rodiče i skutečný souběh."
+      "Žádný chybějící krok pro přesný původní invariant C01-02. Skutečná ztráta odpovědi v přihlášeném UI zůstává samostatnou širší UX hranicí.",
+      "Mimo původní scénář: potvrzení nabídky souběžně změněné v jiné kartě nemá očekávanou revizi; historické neúplné převody se neopravují odhadem. Celý Core E2E a komerční připravenost zůstávají otevřené."
     ]
   },
   {
