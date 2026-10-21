@@ -44,6 +44,7 @@ import type { MessageFeedItem } from '@/lib/email/types'
 import { getIntlLocale } from '@/lib/i18n/config'
 import { getRequestDictionary, getRequestLocale } from '@/lib/i18n/server'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
+import { loadCustomerBillingDetail } from '@/lib/customer-billing'
 
 type CustomerDetailPageProps = {
   params: Promise<{
@@ -79,54 +80,6 @@ type CustomerQuoteRow = {
   status: 'draft' | 'ready' | 'sent' | 'accepted' | 'rejected' | null
   quote_date: string | null
   total_price: number | null
-}
-
-type CustomerDetailRow = {
-  id: string
-  name: string | null
-  email: string | null
-  phone: string | null
-  created_at: string | null
-  billing_name: string | null
-  billing_street: string | null
-  billing_city: string | null
-  billing_postal_code: string | null
-  billing_country: string | null
-  company_number: string | null
-  vat_number: string | null
-  ares_last_checked_at: string | null
-  lead_contact_name: string | null
-  lead_source: string | null
-  lead_locale: string | null
-  lead_service_slug: string | null
-  lead_message: string | null
-  lead_page_url: string | null
-  lead_referrer: string | null
-  lead_user_agent: string | null
-  lead_submitted_at: string | null
-}
-
-function isMissingCustomerBillingColumns(error: { message?: string | null } | null | undefined) {
-  const message = error?.message ?? ''
-  return (
-    message.includes('billing_name') ||
-    message.includes('billing_street') ||
-    message.includes('billing_city') ||
-    message.includes('billing_postal_code') ||
-    message.includes('billing_country') ||
-    message.includes('company_number') ||
-    message.includes('vat_number') ||
-    message.includes('ares_last_checked_at') ||
-    message.includes('lead_contact_name') ||
-    message.includes('lead_source') ||
-    message.includes('lead_locale') ||
-    message.includes('lead_service_slug') ||
-    message.includes('lead_message') ||
-    message.includes('lead_page_url') ||
-    message.includes('lead_referrer') ||
-    message.includes('lead_user_agent') ||
-    message.includes('lead_submitted_at')
-  )
 }
 
 function formatPrice(value: number | null | undefined, locale = 'cs-CZ') {
@@ -391,55 +344,15 @@ export default async function CustomerDetailPage({
   })
   if (!activeCompany) notFound()
 
-  const customerQuery = supabase
-    .from('customers')
-    .select(
-      'id, name, email, phone, created_at, billing_name, billing_street, billing_city, billing_postal_code, billing_country, company_number, vat_number, ares_last_checked_at, lead_contact_name, lead_source, lead_locale, lead_service_slug, lead_message, lead_page_url, lead_referrer, lead_user_agent, lead_submitted_at'
-    )
-    .eq('id', customerId)
-    .eq('company_id', activeCompany.companyId)
-    .maybeSingle()
-
-  let { data: customer, error: customerError } = await customerQuery
-
-  if (customerError && isMissingCustomerBillingColumns(customerError)) {
-    const fallbackResult = await supabase
-      .from('customers')
-      .select('id, name, email, phone, created_at')
-      .eq('id', customerId)
-      .eq('company_id', activeCompany.companyId)
-      .maybeSingle()
-
-    customer = (fallbackResult.data
-      ? {
-          ...fallbackResult.data,
-          billing_name: null,
-          billing_street: null,
-          billing_city: null,
-          billing_postal_code: null,
-          billing_country: null,
-          company_number: null,
-          vat_number: null,
-          ares_last_checked_at: null,
-          lead_contact_name: null,
-          lead_source: null,
-          lead_locale: null,
-          lead_service_slug: null,
-          lead_message: null,
-          lead_page_url: null,
-          lead_referrer: null,
-          lead_user_agent: null,
-          lead_submitted_at: null,
-        }
-      : null) as CustomerDetailRow | null
-    customerError = fallbackResult.error
-  }
+  const { customer, error: customerError, leadMetadataUnavailable } = await loadCustomerBillingDetail(
+    { supabase, companyId: activeCompany.companyId }, customerId,
+  )
 
   if (customerError || !customer) {
     return (
       <DashboardShell activeItem="customers">
         <main style={pageShellStyle}>
-          <div style={errorStateStyle}>{t.customerNotFound}</div>
+          <div style={errorStateStyle}>{customerError || t.customerNotFound}</div>
         </main>
       </DashboardShell>
     )
@@ -713,6 +626,10 @@ export default async function CustomerDetailPage({
             </div>
           </div>
         </section>
+
+        {leadMetadataUnavailable ? (
+          <p role="status" style={mutedTextStyle}>Údaje webové poptávky se nepodařilo načíst.</p>
+        ) : null}
 
         {(customer.lead_message ||
           customer.lead_contact_name ||

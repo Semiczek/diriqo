@@ -53,41 +53,6 @@ function normalizeCompanyNumber(value: unknown) {
   return cleanString(value).replace(/\D/g, '')
 }
 
-function normalizeCountry(value: string | null) {
-  return (value ?? '')
-    .trim()
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-}
-
-function isCzechBillingCountry(value: string | null) {
-  const normalizedCountry = normalizeCountry(value)
-
-  return (
-    normalizedCountry === 'cz' ||
-    normalizedCountry === 'cr' ||
-    normalizedCountry === 'cesko' ||
-    normalizedCountry === 'ceska republika' ||
-    normalizedCountry === 'czechia' ||
-    normalizedCountry === 'czech republic'
-  )
-}
-
-function isMissingCustomerBillingColumns(error: { message?: string | null } | null | undefined) {
-  const message = error?.message ?? ''
-  return (
-    message.includes('billing_name') ||
-    message.includes('billing_street') ||
-    message.includes('billing_city') ||
-    message.includes('billing_postal_code') ||
-    message.includes('billing_country') ||
-    message.includes('company_number') ||
-    message.includes('vat_number') ||
-    message.includes('ares_last_checked_at')
-  )
-}
-
 export async function createCustomerAction(
   input: CreateCustomerInput
 ): Promise<CreateCustomerResult> {
@@ -114,7 +79,8 @@ export async function createCustomerAction(
       return { ok: false, error: 'ICO musi mit 8 cislic.' }
     }
 
-    let { data, error } = await supabase
+    // A manual save neither verifies ARES nor replaces the last real check timestamp.
+    const { data, error } = await supabase
       .from('customers')
       .insert({
         company_id: companyId,
@@ -128,30 +94,12 @@ export async function createCustomerAction(
         billing_country: billingCountry,
         company_number: companyNumber || null,
         vat_number: vatNumber,
-        ares_last_checked_at:
-          companyNumber && isCzechBillingCountry(billingCountry) ? new Date().toISOString() : null,
       })
       .select('id')
       .single()
 
-    if (error && isMissingCustomerBillingColumns(error)) {
-      const fallbackResult = await supabase
-        .from('customers')
-        .insert({
-          company_id: companyId,
-          name,
-          email,
-          phone,
-        })
-        .select('id')
-        .single()
-
-      data = fallbackResult.data
-      error = fallbackResult.error
-    }
-
     if (error || !data?.id) {
-      return { ok: false, error: error?.message ?? 'Zákazníka se nepodařilo vytvořit.' }
+      return { ok: false, error: 'Uložení zákazníka včetně fakturačních údajů se nepodařilo potvrdit. Zkuste to prosím znovu.' }
     }
 
     revalidatePath('/customers')
@@ -210,7 +158,8 @@ export async function updateCustomerAction(input: UpdateCustomerInput): Promise<
       return { ok: false, error: 'ICO musi mit 8 cislic.' }
     }
 
-    let { error } = await supabase
+    // A manual save neither verifies ARES nor replaces the last real check timestamp.
+    const { data, error } = await supabase
       .from('customers')
       .update({
         name,
@@ -223,28 +172,14 @@ export async function updateCustomerAction(input: UpdateCustomerInput): Promise<
         billing_country: billingCountry,
         company_number: companyNumber || null,
         vat_number: vatNumber,
-        ares_last_checked_at:
-          companyNumber && isCzechBillingCountry(billingCountry) ? new Date().toISOString() : null,
       })
       .eq('id', customerId)
       .eq('company_id', companyId)
+      .select('id')
+      .maybeSingle()
 
-    if (error && isMissingCustomerBillingColumns(error)) {
-      const fallbackResult = await supabase
-        .from('customers')
-        .update({
-          name,
-          email,
-          phone,
-        })
-        .eq('id', customerId)
-        .eq('company_id', companyId)
-
-      error = fallbackResult.error
-    }
-
-    if (error) {
-      return { ok: false, error: error.message || 'Zákazníka se nepodařilo uložit.' }
+    if (error || !data?.id) {
+      return { ok: false, error: 'Uložení zákazníka včetně fakturačních údajů se nepodařilo potvrdit. Zkuste to prosím znovu.' }
     }
 
     revalidatePath('/customers')

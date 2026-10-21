@@ -189,15 +189,15 @@ describe('real active company resolver and guards', () => {
     expect(queries.some(query => ['customer_contacts', 'jobs_with_state', 'calculations', 'quotes'].includes(query.table))).toBe(false)
   })
 
-  it.each([false, true])('keeps legitimate selected-company customer access with legacy schema=%s', async legacy => {
+  it.each([false, true])('keeps customer queries tenant-scoped and fails closed when billing columns are missing=%s', async legacy => {
     rows.company_members[1] = member(B, 'manager')
     rows.customers = [{ id: 'customer-B', company_id: B, name: 'Customer B', created_at: '2026-10-18T10:00:00Z' }]
     missingCustomerColumns = legacy
     expect(await CustomerDetailPage({ params: Promise.resolve({ customerId: 'customer-B' }) })).toBeDefined()
     const customerQueries = queries.filter(query => query.table === 'customers')
-    expect(customerQueries).toHaveLength(legacy ? 2 : 1)
+    expect(customerQueries).toHaveLength(legacy ? 1 : 3)
     for (const query of customerQueries) expect(query.filters).toContainEqual(['company_id', B])
-    expect(queries.some(query => query.table === 'customer_contacts')).toBe(true)
+    expect(queries.some(query => query.table === 'customer_contacts')).toBe(!legacy)
   })
 
   it('excludes inconsistent foreign-company child rows from the selected customer page', async () => {
