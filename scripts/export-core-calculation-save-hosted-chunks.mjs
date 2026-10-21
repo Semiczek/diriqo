@@ -94,7 +94,10 @@ for (const part of definitions) {
     + "  assert to_regprocedure('private.core_calculation_test_fault()') is null\n"
     + "   and to_regprocedure('private.core_calculation_test_expiry()') is null,'no_test_functions_after_rollback';\n"
     + "  assert not exists(select 1 from pg_trigger where not tgisinternal and tgname in('core_calculation_test_fault','core_calculation_test_expiry')),'no_test_triggers_after_rollback';\n"
-  reportFooter = reportFooter.replace("  perform set_config(", cleanupProof + "  perform set_config(")
+  const reportAnchor = " perform set_config("
+  assert.equal(reportFooter.split(reportAnchor).length, 2, 'Expected one report anchor inside rollback footer')
+  reportFooter = reportFooter.replace(reportAnchor, cleanupProof + reportAnchor)
+  assert.equal(reportFooter.split(cleanupProof).length, 2, 'Rollback footer must contain the actual scenario count and DDL cleanup assertions')
   const requiresDdlTool = ['c2-late-faults','c3-expiry','c-licence-rollback'].includes(part.id)
   const collisionGuard = "  assert to_regprocedure('private.core_calculation_test_fault()') is null\n"
     + "   and to_regprocedure('private.core_calculation_test_expiry()') is null,'test_function_names_must_be_unused';\n"
@@ -104,6 +107,11 @@ for (const part of definitions) {
   const sql = '-- Generated from immutable core-calculation-save.sql; source lines '
     + part.first + '-' + part.last + '. Independent synthetic rollback only.\n'
     + guardedHeader + part.setup + body + reportFooter
+  // Regression: successful local result checks cannot substitute for guards in the exported DO block.
+  assert.equal(sql.split(cleanupProof).length, 2, 'Export omitted the internal count/function/trigger cleanup proof')
+  for (const required of ['expected_scenario_count_' + part.id, 'no_test_functions_after_rollback', 'no_test_triggers_after_rollback']) {
+    assert.equal(sql.split(required).length, 2, 'Export must contain each rollback guard exactly once: ' + required)
+  }
   assert.ok(sql.length < 18000, 'Unexpected transport growth: keep requests readable and small')
   const file = path.join(outputDir, part.id + '.sql')
   await writeFile(file, sql, 'utf8')
