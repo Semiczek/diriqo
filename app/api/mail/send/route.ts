@@ -10,6 +10,8 @@ import {
 import { sendMailgunMessage } from '@/lib/mail/mailgun'
 import { requireAuthenticatedUser, requireCompanyRole } from '@/lib/server-guards'
 import { createSupabaseAdminClient } from '@/lib/supabase-admin'
+import { createSupabaseServerClient } from '@/lib/supabase-server'
+import { publishCoreQuoteCustomerIdentity } from '@/lib/dal/quote-publication'
 
 export const runtime = 'nodejs'
 
@@ -313,6 +315,13 @@ export async function POST(request: NextRequest) {
 
     if (!entityContext) {
       return NextResponse.json({ ok: false, error: 'Target entity was not found.' }, { status: 404 })
+    }
+
+    // Freeze the quote identity before any mail thread, message or provider send.
+    // Existing threads resolve their offer from the verified database row above.
+    if (entityContext.offerId) {
+      const supabase = await createSupabaseServerClient()
+      await publishCoreQuoteCustomerIdentity({ supabase, companyId: activeCompany.companyId }, entityContext.offerId)
     }
 
     const mailThread = thread ?? await createThread(admin, {

@@ -2,6 +2,7 @@ import 'server-only'
 
 import { buildQrPaymentPayload, formatInvoiceStatus } from '@/lib/invoices'
 import { createSupabaseAdminClient } from '@/lib/supabase-admin'
+import { resolveQuoteCustomerIdentity, type QuoteCustomerIdentitySource } from '@/lib/quote-customer-identity'
 
 const JOB_PHOTO_BUCKET = 'job-photos'
 
@@ -35,7 +36,7 @@ type JobPhotoRow = {
   thumb_storage_path: string | null
 }
 
-type QuoteRow = {
+type QuoteRow = QuoteCustomerIdentitySource & {
   id: string
   quote_number: string
   title: string
@@ -747,7 +748,7 @@ export async function getPortalOfferDetail(customerId: string, companyId: string
   const quoteResult = await admin
     .from('quotes')
     .select(
-      'id, quote_number, title, status, quote_date, valid_until, total_price, created_at, updated_at, accepted_at, profiles!quotes_created_by_fkey(full_name)'
+      'id, company_id, customer_id, customer_identity_state, customer_snapshot, customer_snapshot_captured_at, quote_number, title, status, quote_date, valid_until, total_price, created_at, updated_at, accepted_at, profiles!quotes_created_by_fkey(full_name)'
     )
     .eq('customer_id', customerId)
     .eq('company_id', companyId)
@@ -817,9 +818,18 @@ export async function getPortalOfferDetail(customerId: string, companyId: string
     >),
   } as QuoteRow
   const profile = asSingleRelation(quote.profiles)
+  const identity = resolveQuoteCustomerIdentity(quote)
+  const customer = identity.customer
 
   return {
     id: quote.id,
+    customerIdentityState: identity.state,
+    customerName: customer?.billingName || customer?.name || null,
+    customerAddressLabel: customer ? [customer.billingStreet,
+      [customer.billingPostalCode, customer.billingCity].filter(Boolean).join(' '), customer.billingCountry]
+      .filter(Boolean).join(', ') || null : null,
+    customerEmail: customer?.email ?? null,
+    customerPhone: customer?.phone ?? null,
     quoteNumber: quote.quote_number,
     title: quote.title,
     statusLabel: mapPortalOfferStatus(quote.status, quote.valid_until),

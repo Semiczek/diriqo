@@ -75,6 +75,8 @@ describe('core quote conversion action', () => {
     expect(mocks.rpc).not.toHaveBeenCalled()
   })
   it.each([
+    ['QUOTE_CUSTOMER_FORBIDDEN', 'forbidden'], ['QUOTE_CUSTOMER_MODULE_REQUIRED', 'forbidden'],
+    ['QUOTE_CUSTOMER_SCOPE_INVALID', 'forbidden'], ['QUOTE_CUSTOMER_SNAPSHOT_IMMUTABLE', 'conflict'],
     ['CORE_QUOTE_FORBIDDEN', 'forbidden'], ['CORE_QUOTE_MODULE_REQUIRED', 'forbidden'],
     ['CORE_QUOTE_SCOPE_INVALID', 'forbidden'], ['CORE_QUOTE_NOT_FOUND', 'forbidden'],
     ['CORE_QUOTE_INPUT_INVALID', 'validation'], ['CORE_QUOTE_STATUS_INVALID', 'conflict'],

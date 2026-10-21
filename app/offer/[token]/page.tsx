@@ -1,4 +1,5 @@
 ﻿import PublicOfferPage from '@/components/PublicOfferPage'
+import { QUOTE_CUSTOMER_IDENTITY_UNAVAILABLE_LABEL } from '@/lib/quote-customer-identity'
 import { getRequestDictionary } from '@/lib/i18n/server'
 import { resolveQuoteStatus } from '@/lib/quote-status'
 import { createSupabasePublicClient } from '@/lib/supabase-public'
@@ -126,7 +127,11 @@ export default async function PublicOfferDetailPage({ params }: PageProps) {
     )
   }
 
-  return (
+  return (<>
+    {!normalizedQuote.customer_name ? <p role="status" style={{
+      margin: '16px auto', padding: '12px 16px', maxWidth: '1100px', borderRadius: '12px',
+      background: '#f5f3ff', color: '#4c1d95',
+    }}>{QUOTE_CUSTOMER_IDENTITY_UNAVAILABLE_LABEL}</p> : null}
     <PublicOfferPage
       token={token}
       title={normalizedQuote.title}
@@ -187,7 +192,7 @@ export default async function PublicOfferDetailPage({ params }: PageProps) {
         note: item.note,
       }))}
     />
-  )
+  </>)
 }
 
 

@@ -7,9 +7,9 @@ declare
  customer_a uuid:=gen_random_uuid(); customer_b uuid:=gen_random_uuid(); qa uuid:=gen_random_uuid(); qb uuid:=gen_random_uuid(); qo uuid:=gen_random_uuid();
  qp uuid:=gen_random_uuid(); qf uuid:=gen_random_uuid(); ql uuid:=gen_random_uuid(); op uuid:=gen_random_uuid(); alias_op uuid:=gen_random_uuid();
  qe uuid:=gen_random_uuid(); short_end timestamptz; started timestamptz;
- job uuid; manual_job uuid:=gen_random_uuid(); legacy_job uuid:=gen_random_uuid(); grant_id uuid:=gen_random_uuid();
- input jsonb; plain jsonb; result jsonb; original_customer jsonb; before_state jsonb; after_state jsonb;
- c record; actor uuid; problem text; code text; passed jsonb:='[]'; marker text:='CoreQuoteTest'||replace(gen_random_uuid()::text,'-','');
+ job uuid; manual_job uuid:=gen_random_uuid(); legacy_job uuid:=gen_random_uuid(); grant_id uuid:=gen_random_uuid(); jobs_only_grant_id uuid:=gen_random_uuid();
+ input jsonb; plain jsonb; result jsonb; original_customer jsonb; original_identity jsonb; before_state jsonb; after_state jsonb;
+ c record; actor uuid; problem text; code text; passed jsonb:='[]'; snapshot_passed jsonb:='[]'; marker text:='CoreQuoteTest'||replace(gen_random_uuid()::text,'-','');
  state_sql constant text:=$q$select jsonb_build_object(
  'jobs',(select coalesce(jsonb_agg(to_jsonb(x) order by id),'[]') from public.jobs x where company_id=$1),
  'quotes',(select coalesce(jsonb_agg(to_jsonb(x) order by id),'[]') from public.quotes x where company_id=$1),
@@ -24,10 +24,20 @@ begin
   insert into public.company_modules(company_id,module_key,is_enabled) values(ca,'jobs',true),(ca,'quotes',true);
   insert into public.customers(id,company_id,name,email,address,note) values(customer_a,ca,'Original customer','original@example.invalid','Original address','Preserve unchanged'),(customer_b,cb,'Foreign customer',null,null,null);
   select to_jsonb(x) into original_customer from public.customers x where id=customer_a;
+  -- Published fixture rows must pass the real snapshot guard as the authorized
+  -- company actor. Owner is used only for fixture setup, never to skip that guard.
+  perform set_config('request.jwt.claims',jsonb_build_object('sub',ua,'role','authenticated')::text,true);
+  perform set_config('request.jwt.claim.sub',ua::text,true);
   insert into public.quotes(id,company_id,customer_id,title,total_price,currency,status,accepted_at) values
    (qa,ca,customer_a,'Original offer',1234.56,'EUR','sent',null),(qb,cb,customer_b,'Foreign offer',50,'CZK','draft',null),
    (qo,ca,customer_a,'One day',100,'CZK','accepted','2026-01-01T12:00:00Z'),(qp,ca,null,'No customer',200,'CZK','draft',null),
    (qf,ca,customer_a,'Rollback target',300,'CZK','draft',null),(ql,ca,customer_a,'Legacy ambiguous',400,'CZK','sent',null);
+  select jsonb_build_object('state',customer_identity_state,'snapshot',customer_snapshot,
+   'at',customer_snapshot_captured_at,'by',customer_snapshot_captured_by) into original_identity from public.quotes where id=qa;
+  assert original_identity->>'state'='captured' and original_identity->'snapshot'->>'name'='Original customer'
+   and (original_identity->>'by')::uuid=pa and original_identity->>'at' is not null,'issued_fixture_captures_authorized_identity';
+  assert exists(select 1 from public.quotes where id=qp and customer_identity_state='draft' and customer_snapshot is null),'unissued_fixture_has_no_snapshot';
+  snapshot_passed:=snapshot_passed||jsonb_build_array('issued_fixture_captures_authorized_identity');
   insert into public.quote_items(company_id,quote_id,name,quantity,unit_price) values(ca,qa,'Preserve on rejected delete',1,1234.56),(ca,qp,'Cascade on permitted delete',1,200);
   insert into public.jobs(id,company_id,title) values(manual_job,ca,'Manual job');
   -- Owner-only fixture represents rows predating the migration. Never enabled for API clients.
@@ -50,6 +60,10 @@ begin
   assert exists(select 1 from public.quotes where id=qa and status='accepted' and accepted_at is not null),'quote_accepted_atomically';
   assert (select to_jsonb(x) from public.customers x where id=customer_a)=original_customer,'customer_record_untouched';
   passed:=passed||jsonb_build_array('atomic_result_contract','all_split_children_created','source_price_currency_customer_preserved','quote_accepted_atomically','customer_record_untouched');
+  assert (select jsonb_build_object('state',customer_identity_state,'snapshot',customer_snapshot,
+   'at',customer_snapshot_captured_at,'by',customer_snapshot_captured_by) from public.quotes where id=qa)=original_identity,
+   'conversion_preserves_previously_captured_identity';
+  snapshot_passed:=snapshot_passed||jsonb_build_array('conversion_preserves_previously_captured_identity');
   execute 'set local role authenticated';
   result:=public.convert_core_quote_to_job_atomic(ca,qa,op,input);
   assert (result->>'jobId')::uuid=job and result->>'created'='false','same_operation_retry';
@@ -67,6 +81,10 @@ begin
   assert exists(select 1 from public.jobs where id=(result->>'jobId')::uuid and customer_id is null)
    and not exists(select 1 from public.jobs where parent_job_id=(result->>'jobId')::uuid),'unsplit_no_customer_supported';
   passed:=passed||jsonb_build_array('one_selected_day_has_child','original_acceptance_preserved','unsplit_no_customer_supported');
+  assert exists(select 1 from public.quotes where id=qp and customer_identity_state='captured'
+   and customer_snapshot->'version'='1'::jsonb and customer_snapshot->'name'='null'::jsonb
+   and customer_snapshot_captured_by=pa and customer_snapshot_captured_at is not null),'draft_conversion_captures_absent_customer';
+  snapshot_passed:=snapshot_passed||jsonb_build_array('draft_conversion_captures_absent_customer');
   execute state_sql into before_state using ca; execute 'set local role authenticated';
   for c in select * from(values
    (format('select public.convert_core_quote_to_job_atomic(%L,%L,%L,%L)',ca,qa,op,input||'{"title":"Changed"}'),'CORE_QUOTE_REQUEST_CONFLICT','PT409'),
@@ -120,13 +138,20 @@ begin
    ('customer_id='||quote_literal(customer_b),'CORE_QUOTE_SCOPE_INVALID'),('status=''rejected''','CORE_QUOTE_STATUS_INVALID'),
    ('status=''expired''','CORE_QUOTE_STATUS_INVALID'),('currency=''bad''','CORE_QUOTE_CURRENCY_UNSUPPORTED'),('total_price=-1','CORE_QUOTE_INPUT_INVALID')
   ) x(mutation,expected) loop
-   update public.quotes set customer_id=customer_a,status='draft',currency='CZK',total_price=300 where id=qf;
-   execute 'update public.quotes set '||c.mutation||' where id=$1' using qf; execute 'set local role authenticated'; problem:=null;
-   begin perform public.convert_core_quote_to_job_atomic(ca,qf,gen_random_uuid(),plain); exception when others then get stacked diagnostics problem=message_text; end;
-   assert problem=c.expected,'invalid_source_'||c.expected; execute 'reset role';
-   assert not exists(select 1 from public.jobs where source_quote_id=qf),'invalid_source_no_job'; passed:=passed||jsonb_build_array(c.expected);
+   -- Each invalid source is isolated. A rejected fixture legitimately captures
+   -- identity, but its rollback must not turn the next fixture into a published quote.
+   begin
+    execute 'update public.quotes set '||c.mutation||' where id=$1' using qf; execute 'set local role authenticated'; problem:=null;
+    begin perform public.convert_core_quote_to_job_atomic(ca,qf,gen_random_uuid(),plain); exception when others then get stacked diagnostics problem=message_text; end;
+    assert problem=c.expected,'invalid_source_'||c.expected; execute 'reset role';
+    assert not exists(select 1 from public.jobs where source_quote_id=qf),'invalid_source_no_job'; passed:=passed||jsonb_build_array(c.expected);
+    raise exception 'ROLLBACK_INVALID_SOURCE_FIXTURE' using errcode='PT002';
+   exception when sqlstate 'PT002' then null; end;
+   assert exists(select 1 from public.quotes where id=qf and customer_id=customer_a and status='draft'
+    and currency='CZK' and total_price=300 and customer_identity_state='draft' and customer_snapshot is null),
+    'invalid_source_fixture_does_not_leak_snapshot';
   end loop;
-  update public.quotes set customer_id=customer_a,status='draft',currency='CZK',total_price=300 where id=qf;
+  snapshot_passed:=snapshot_passed||jsonb_build_array('invalid_source_fixture_does_not_leak_snapshot');
   for actor in select unnest(array[uw,um,ub]) loop
    perform set_config('request.jwt.claim.sub',actor::text,true); execute 'set local role authenticated'; problem:=null;
    begin perform public.convert_core_quote_to_job_atomic(ca,qf,gen_random_uuid(),plain); exception when others then get stacked diagnostics problem=message_text; end;
@@ -172,10 +197,12 @@ begin
   end;
   $fault$;
   create trigger core_quote_test_fault after insert on public.jobs for each row execute function private.core_quote_test_fault();
-  for c in select * from(values('Injected child failure','INJECTED_CHILD_FAILURE'),('Injected late revoke','CORE_QUOTE_FORBIDDEN')) x(title,expected) loop
-   execute state_sql into before_state using ca; execute 'set local role authenticated'; problem:=null;
-   begin perform public.convert_core_quote_to_job_atomic(ca,qf,gen_random_uuid(),input||jsonb_build_object('title',c.title)); exception when others then get stacked diagnostics problem=message_text; end;
-   assert problem=c.expected,'injected_failure_'||coalesce(problem,'NO_ERROR'); execute 'reset role';
+  -- The publication trigger detects a late revocation before the final conversion
+  -- check; both must still roll back every job, receipt and snapshot field.
+  for c in select * from(values('Injected child failure','INJECTED_CHILD_FAILURE','P0001'),('Injected late revoke','QUOTE_CUSTOMER_FORBIDDEN','42501')) x(title,expected,expected_code) loop
+   execute state_sql into before_state using ca; execute 'set local role authenticated'; problem:=null; code:=null;
+   begin perform public.convert_core_quote_to_job_atomic(ca,qf,gen_random_uuid(),input||jsonb_build_object('title',c.title)); exception when others then get stacked diagnostics problem=message_text,code=returned_sqlstate; end;
+   assert problem=c.expected and code=c.expected_code,'injected_failure_'||coalesce(problem,'NO_ERROR'); execute 'reset role';
    execute state_sql into after_state using ca; assert before_state=after_state,'parent_children_receipt_quote_all_rollback';
    assert exists(select 1 from public.company_members where company_id=ca and profile_id=pa and is_active),'late_revoke_rollback';
    passed:=passed||jsonb_build_array(c.expected||'_whole_transaction_rollback');
@@ -201,16 +228,36 @@ begin
   assert problem='CORE_QUOTE_RESULT_MISSING','deferred_guard_rejects_incomplete_tree'; execute 'reset role';
   execute state_sql into after_state using ca; assert before_state=after_state,'deferred_failure_whole_transaction_rollback';
   passed:=passed||jsonb_build_array('deferred_guard_rejects_incomplete_tree');
+  assert exists(select 1 from public.quotes where id=qf and status='draft' and customer_identity_state='draft'
+   and customer_snapshot is null and customer_snapshot_captured_at is null and customer_snapshot_captured_by is null),
+   'deferred_failure_also_rolls_back_captured_identity';
+  snapshot_passed:=snapshot_passed||jsonb_build_array('deferred_failure_also_rolls_back_captured_identity');
   insert into private.company_module_rollouts(company_id,product,livemode) values(ca,'diriqo_core',false);
   execute 'set local role authenticated'; problem:=null;
   begin perform public.convert_core_quote_to_job_atomic(ca,qf,gen_random_uuid(),plain); exception when others then get stacked diagnostics problem=message_text; end;
   assert problem='CORE_QUOTE_MODULE_REQUIRED','enforced_missing_core_denied'; execute 'reset role';
+  -- A job-only grant may pass the first conversion guard, but cannot publish
+  -- a draft offer. The later denial must roll back the already-created tree.
+  insert into private.company_test_module_grants(id,company_id,product,source_ref,reason,valid_from,valid_until,history_until,capabilities)
+   values(jobs_only_grant_id,ca,'diriqo_core',marker||'-jobs-only','Missing publication capability',now()-interval '1 hour',now()+interval '1 hour',now()+interval '1 hour',array['core.jobs.create']);
+  execute state_sql into before_state using ca; execute 'set local role authenticated'; problem:=null; code:=null;
+  begin perform public.convert_core_quote_to_job_atomic(ca,qf,gen_random_uuid(),plain);
+  exception when others then get stacked diagnostics problem=message_text,code=returned_sqlstate; end;
+  assert problem='QUOTE_CUSTOMER_MODULE_REQUIRED' and code='42501','jobs_only_grant_cannot_publish_draft';
+  execute 'reset role'; execute state_sql into after_state using ca;
+  assert before_state=after_state,'jobs_only_denial_rolls_back_tree_and_identity';
+  snapshot_passed:=snapshot_passed||jsonb_build_array('jobs_only_denial_rolls_back_tree_and_identity');
+  update private.company_test_module_grants set revoked_at=clock_timestamp(),revocation_reason='Isolated test complete' where id=jobs_only_grant_id;
   -- One statement timestamp keeps history_until exactly equal to valid_until.
   insert into private.company_test_module_grants(id,company_id,product,source_ref,reason,valid_from,valid_until,history_until,capabilities)
-   values(grant_id,ca,'diriqo_core',marker,'Rollback test',now()-interval '1 hour',now()+interval '1 hour',now()+interval '1 hour',array['core.jobs.create']);
+   values(grant_id,ca,'diriqo_core',marker,'Rollback test',now()-interval '1 hour',now()+interval '1 hour',now()+interval '1 hour',array['core.jobs.create','core.quotes.create']);
   execute 'set local role authenticated'; result:=public.convert_core_quote_to_job_atomic(ca,qf,gen_random_uuid(),plain); execute 'reset role';
   set constraints private.core_quote_conversion_complete immediate; set constraints private.core_quote_conversion_complete deferred;
   assert result->>'created'='true','core_only_grant_allows_conversion';
+  assert exists(select 1 from public.quotes where id=qf and status='accepted' and customer_identity_state='captured'
+   and customer_snapshot->>'name'='Original customer' and customer_snapshot_captured_by=pa
+   and customer_snapshot_captured_at is not null),'core_grant_conversion_captures_customer_identity';
+  snapshot_passed:=snapshot_passed||jsonb_build_array('core_grant_conversion_captures_customer_identity');
   update private.company_test_module_grants set revoked_at=clock_timestamp(),revocation_reason='Test revocation' where id=grant_id;
   execute 'set local role authenticated'; problem:=null;
   begin perform public.convert_core_quote_to_job_atomic(ca,qa,op,input); exception when others then get stacked diagnostics problem=message_text; end;
@@ -219,13 +266,17 @@ begin
   insert into public.quotes(id,company_id,customer_id,title,total_price,currency) values(qe,ca,customer_a,'Expiry target',1,'CZK');
   short_end:=clock_timestamp()+interval '200 milliseconds';
   insert into private.company_test_module_grants(company_id,product,source_ref,reason,valid_from,valid_until,history_until,capabilities)
-   values(ca,'diriqo_core',marker||'-short','Expiry during transaction',short_end-interval '1 hour',short_end,short_end,array['core.jobs.create']);
-  execute state_sql into before_state using ca; started:=clock_timestamp(); execute 'set local role authenticated'; problem:=null;
+   values(ca,'diriqo_core',marker||'-short','Expiry during transaction',short_end-interval '1 hour',short_end,short_end,array['core.jobs.create','core.quotes.create']);
+  execute state_sql into before_state using ca; started:=clock_timestamp(); execute 'set local role authenticated'; problem:=null; code:=null;
   begin perform public.convert_core_quote_to_job_atomic(ca,qe,gen_random_uuid(),plain||jsonb_build_object('title','Injected expiry'));
-  exception when others then get stacked diagnostics problem=message_text; end;
-  assert problem='CORE_QUOTE_MODULE_REQUIRED' and clock_timestamp()-started>=interval '250 milliseconds','expiry_after_parent_insert_denied'; execute 'reset role';
+  exception when others then get stacked diagnostics problem=message_text,code=returned_sqlstate; end;
+  assert problem='QUOTE_CUSTOMER_MODULE_REQUIRED' and code='42501' and clock_timestamp()-started>=interval '250 milliseconds','expiry_after_parent_insert_denied'; execute 'reset role';
   execute state_sql into after_state using ca; assert before_state=after_state,'expiry_rolls_back_parent_receipt_and_quote';
   passed:=passed||jsonb_build_array('expiry_after_parent_insert_whole_transaction_rollback');
+  assert exists(select 1 from public.quotes where id=qe and customer_identity_state='draft'
+   and customer_snapshot is null and customer_snapshot_captured_at is null and customer_snapshot_captured_by is null),
+   'expired_grant_cannot_leave_captured_identity';
+  snapshot_passed:=snapshot_passed||jsonb_build_array('expired_grant_cannot_leave_captured_identity');
   raise exception 'ROLLBACK_SYNTHETIC' using errcode='PT001';
  exception when sqlstate 'PT001' then null; end;
  assert not exists(select 1 from public.companies where id in(ca,cb)),'companies_removed';
@@ -233,7 +284,7 @@ begin
  assert not exists(select 1 from private.core_quote_conversions where company_id=ca),'receipts_removed';
  assert not exists(select 1 from private.core_quote_conversion_requests where company_id=ca),'requests_removed';
  assert not exists(select 1 from public.jobs where company_id=ca),'jobs_removed';
- perform set_config('diriqo.core_quote_test_result',jsonb_build_object('passed',passed,'count',jsonb_array_length(passed),'fixtures','rolled_back','cleanup_assertions',5)::text,true);
+ perform set_config('diriqo.core_quote_test_result',jsonb_build_object('passed',passed,'count',jsonb_array_length(passed),'snapshot_integration_passed',snapshot_passed,'snapshot_integration_count',jsonb_array_length(snapshot_passed),'fixtures','rolled_back','cleanup_assertions',5)::text,true);
 end;
 $test$;
 select current_setting('diriqo.core_quote_test_result')::jsonb as result;

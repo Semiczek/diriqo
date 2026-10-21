@@ -7,6 +7,7 @@ import QuoteConversionDialog from './QuoteConversionDialog'
 import {
   deleteQuoteAction,
   markQuoteSentAction,
+  publishQuoteAction,
   rejectQuoteAction,
   syncQuotePricingFromCalculationAction,
 } from '@/app/business-actions'
@@ -31,6 +32,7 @@ type QuoteActionsPanelProps = {
   quoteId: string
   companyId: string
   actorProfileId: string
+  isDraft?: boolean
   shareUrl?: string | null
   contactName?: string | null
   contactEmail?: string | null
@@ -53,7 +55,8 @@ export default function QuoteActionsPanel({
   quoteId,
   companyId,
   actorProfileId,
-  shareUrl,
+  isDraft = false,
+  shareUrl: initialShareUrl,
   contactName,
   contactEmail,
   quoteTitle,
@@ -62,6 +65,9 @@ export default function QuoteActionsPanel({
   proposedSolution,
 }: QuoteActionsPanelProps) {
   const router = useRouter()
+  const [publishedShareUrl, setPublishedShareUrl] = useState<string | null>(null)
+  const [publishing, setPublishing] = useState(false)
+  const shareUrl = initialShareUrl || publishedShareUrl
   const [deleting, setDeleting] = useState(false)
   const [copying, setCopying] = useState(false)
   const [syncingPricing, setSyncingPricing] = useState(false)
@@ -97,6 +103,25 @@ export default function QuoteActionsPanel({
     if (!shareUrl) return 'Pro odeslání nabídky chybí sdílený odkaz.'
     return undefined
   }, [shareUrl])
+
+  async function handlePublish() {
+    if (publishing) return
+    setPublishing(true)
+    try {
+      const result = await publishQuoteAction({ quoteId, companyId })
+      if (!result.ok) throw new Error(result.error)
+      setPublishedShareUrl(result.data.shareUrl)
+      setOfferMessage([
+        'Dobrý den,', '', 'zasíláme Vám cenovou nabídku.', '',
+        'Odkaz na nabídku:', result.data.shareUrl, '', 'S pozdravem', 'Diriqo',
+      ].join('\n'))
+      router.refresh()
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Nabídku se nepodařilo zpřístupnit.')
+    } finally {
+      setPublishing(false)
+    }
+  }
 
   async function handleCopyLink() {
     if (!shareUrl || copying) return
@@ -219,7 +244,7 @@ export default function QuoteActionsPanel({
       )
 
       setShowSendOfferModal(false)
-      alert('Aktualizovaná nabídka byla odeslaná z Hubu.')
+      alert('Aktualizovaná nabídka byla odeslaná.')
       router.refresh()
     } catch (error) {
       alert(error instanceof Error ? error.message : 'Nepodařilo se odeslat aktualizovanou nabídku.')
@@ -252,6 +277,12 @@ export default function QuoteActionsPanel({
   return (
     <>
       <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-start' }}>
+      {!shareUrl ? (
+        <button type="button" onClick={handlePublish} disabled={publishing}
+          style={buttonStyle('#eef2ff', '#4338ca', '1px solid #c7d2fe', publishing)}>
+          {publishing ? 'Připravuji odkaz…' : 'Zpřístupnit odkaz'}
+        </button>
+      ) : null}
       {customerId ? (
         <Link
           href={`/customers/${customerId}/quotes/${quoteId}/edit`}
@@ -316,7 +347,7 @@ export default function QuoteActionsPanel({
           whiteSpace: 'nowrap',
         }}
       >
-        Stáhnout PDF
+        {isDraft && !publishedShareUrl ? 'Náhled PDF' : 'Stáhnout PDF'}
       </a>
 
       <button
