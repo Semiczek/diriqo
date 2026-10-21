@@ -10,6 +10,7 @@ import {
   heroTitleStyle,
   pageShellStyle,
 } from '@/components/SaasPageLayout'
+import { getActiveCompanyContext } from '@/lib/active-company'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 
 type PageProps = {
@@ -32,19 +33,23 @@ type CalculationItemRow = {
 
 export default async function EditGlobalCalculationPage({ params }: PageProps) {
   const { calculationId } = await params
+  const activeCompany = await getActiveCompanyContext({ allowedRoles: ['company_admin', 'super_admin'] })
+  if (!activeCompany) return <DashboardShell activeItem="kalkulace"><main style={pageShellStyle}><p>Kalkulace nejsou pro aktuální firmu nebo roli dostupné.</p></main></DashboardShell>
   const supabase = await createSupabaseServerClient()
 
   const [{ data: calculation, error: calculationError }, { data: items, error: itemsError }] =
     await Promise.all([
       supabase
         .from('calculations')
-        .select('id, customer_id, title, description, status, calculation_date, internal_note, customers(id, name)')
+        .select('id, company_id, revision::text, currency, customer_id, title, description, status, calculation_date, internal_note, customers(id, name)')
         .eq('id', calculationId)
+        .eq('company_id', activeCompany.companyId)
         .maybeSingle(),
       supabase
         .from('calculation_items')
-        .select('item_type, name, description, quantity, unit, unit_cost, unit_price, vat_rate, note')
+        .select('item_type, name, description, quantity, unit, unit_cost, unit_price, vat_rate, note, calculations!inner(company_id)')
         .eq('calculation_id', calculationId)
+        .eq('calculations.company_id', activeCompany.companyId)
         .order('sort_order', { ascending: true })
         .order('created_at', { ascending: true }),
     ])
@@ -57,6 +62,10 @@ export default async function EditGlobalCalculationPage({ params }: PageProps) {
         </main>
       </DashboardShell>
     )
+  }
+
+  if ((calculation.status !== 'draft' && calculation.status !== 'ready') || !/^[1-9][0-9]*$/.test(calculation.revision)) {
+    return <DashboardShell activeItem="kalkulace"><main style={pageShellStyle}><p>Tuto historickou kalkulaci nelze bezpečně upravit: její stav nebo revize nejsou podporované.</p></main></DashboardShell>
   }
 
   const calculationItems = ((items ?? []) as CalculationItemRow[])
@@ -92,6 +101,10 @@ export default async function EditGlobalCalculationPage({ params }: PageProps) {
         </div>
 
         <CalculationEditForm
+          key={[activeCompany.companyId, activeCompany.profileId, calculation.id].join(':')}
+          companyId={activeCompany.companyId}
+          profileId={activeCompany.profileId}
+          expectedRevision={calculation.revision}
           calculationId={calculation.id}
           customerId={calculation.customer_id}
           cancelHref={`/kalkulace/${calculationId}`}
@@ -99,36 +112,16 @@ export default async function EditGlobalCalculationPage({ params }: PageProps) {
           initialValues={{
             title: calculation.title,
             description: calculation.description ?? '',
-            status: calculation.status === 'ready' ? 'ready' : 'draft',
+            status: calculation.status,
             calculationDate:
-              calculation.calculation_date ?? new Date().toISOString().slice(0, 10),
+              calculation.calculation_date ?? '',
             internalNote: calculation.internal_note ?? '',
-            customerItems: calculationItems
-              .filter((item) => item.item_type === 'customer')
-              .map((item) => ({
-                itemType: item.item_type,
-                name: item.name,
-                description: item.description,
-                quantity: item.quantity,
-                unit: item.unit,
-                unitCost: item.unit_cost,
-                unitPrice: item.unit_price,
-                vatRate: item.vat_rate,
-                note: item.note,
-              })),
-            costItems: calculationItems
-              .filter((item) => item.item_type !== 'customer')
-              .map((item) => ({
-                itemType: item.item_type,
-                name: item.name,
-                description: item.description,
-                quantity: item.quantity,
-                unit: item.unit,
-                unitCost: item.unit_cost,
-                unitPrice: item.unit_price,
-                vatRate: item.vat_rate,
-                note: item.note,
-              })),
+            currency: calculation.currency,
+            items: calculationItems.map((item) => ({
+              itemType: item.item_type, name: item.name, description: item.description,
+              quantity: item.quantity, unit: item.unit, unitCost: item.unit_cost,
+              unitPrice: item.unit_price, vatRate: item.vat_rate, note: item.note,
+            })),
           }}
         />
       </main>

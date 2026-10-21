@@ -11,6 +11,7 @@ import {
   pageShellStyle,
 } from '@/components/SaasPageLayout'
 import { getRequestDictionary } from '@/lib/i18n/server'
+import { getActiveCompanyContext } from '@/lib/active-company'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 
 type PageProps = {
@@ -22,12 +23,15 @@ type PageProps = {
 export default async function NewCustomerCalculationPage({ params }: PageProps) {
   const dictionary = await getRequestDictionary()
   const { customerId } = await params
+  const activeCompany = await getActiveCompanyContext({ allowedRoles: ['company_admin', 'super_admin'] })
+  if (!activeCompany) return <DashboardShell activeItem="kalkulace"><main style={pageShellStyle}><p>Kalkulace nejsou pro aktuální firmu nebo roli dostupné.</p></main></DashboardShell>
   const supabase = await createSupabaseServerClient()
 
   const { data: customer, error } = await supabase
     .from('customers')
     .select('id, name, company_id')
     .eq('id', customerId)
+    .eq('company_id', activeCompany.companyId)
     .maybeSingle()
 
   if (error || !customer?.company_id) {
@@ -56,6 +60,8 @@ export default async function NewCustomerCalculationPage({ params }: PageProps) 
         </section>
 
         <CalculationCreateForm
+          key={[activeCompany.companyId, activeCompany.profileId, customer.id].join(':')}
+          profileId={activeCompany.profileId}
           customerId={customer.id}
           companyId={customer.company_id}
           cancelHref={`/customers/${customerId}/calculations`}

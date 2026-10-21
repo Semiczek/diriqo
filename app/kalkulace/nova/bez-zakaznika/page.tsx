@@ -45,73 +45,14 @@ function formatLeadNote(lead: {
     .join('\n')
 }
 
-async function resolveProfileIdForUser(
-  authUserId: string,
-  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>
-) {
-  const profileByAuth = await supabase
-    .from('profiles')
-    .select('id')
-    .eq('auth_user_id', authUserId)
-    .maybeSingle()
-
-  if (profileByAuth.data?.id) {
-    return profileByAuth.data.id
-  }
-
-  const profileByUser = await supabase
-    .from('profiles')
-    .select('id')
-    .eq('user_id', authUserId)
-    .maybeSingle()
-
-  return profileByUser.data?.id ?? null
-}
-
 export default async function NewStandaloneCalculationPage({ searchParams }: NewStandaloneCalculationPageProps) {
   const supabase = await createSupabaseServerClient()
-  const activeCompany = await getActiveCompanyContext()
+  const activeCompany = await getActiveCompanyContext({ allowedRoles: ['company_admin', 'super_admin'] })
   const resolvedSearchParams = searchParams ? await searchParams : undefined
   const leadId = getSingleSearchParam(resolvedSearchParams?.leadId).trim()
 
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser()
-
-  if (userError || !user) {
-    return (
-      <DashboardShell activeItem="kalkulace">
-        <main style={pageShellStyle}>
-          <p>Nepodařilo se ověřit přihlášení.</p>
-        </main>
-      </DashboardShell>
-    )
-  }
-
-  const profileId = await resolveProfileIdForUser(user.id, supabase)
-
-  if (!profileId) {
-    return (
-      <DashboardShell activeItem="kalkulace">
-        <main style={pageShellStyle}>
-          <p>Nepodařilo se dohledat profil pro založení kalkulace.</p>
-        </main>
-      </DashboardShell>
-    )
-  }
-
-  const companyId = activeCompany?.companyId ?? null
-
-  if (!companyId) {
-    return (
-      <DashboardShell activeItem="kalkulace">
-        <main style={pageShellStyle}>
-          <p>Nepodařilo se dohledat aktivní firmu pro založení kalkulace.</p>
-        </main>
-      </DashboardShell>
-    )
-  }
+  if (!activeCompany) return <DashboardShell activeItem="kalkulace"><main style={pageShellStyle}><p>Kalkulace nejsou pro aktuální firmu nebo roli dostupné.</p></main></DashboardShell>
+  const { companyId, profileId } = activeCompany
 
   const leadResponse = leadId
     ? await supabase
@@ -143,6 +84,8 @@ export default async function NewStandaloneCalculationPage({ searchParams }: New
         </section>
 
         <CalculationCreateForm
+          key={[companyId, profileId, 'standalone'].join(':')}
+          profileId={profileId}
           companyId={companyId}
           customerName={leadName || 'Bez zákazníka'}
           cancelHref="/kalkulace"

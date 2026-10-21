@@ -16,6 +16,7 @@ import {
   resourceCardStyle,
   sectionCardStyle,
 } from '@/components/SaasPageLayout'
+import { getActiveCompanyContext } from '@/lib/active-company'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 
 type CustomerRow = {
@@ -24,11 +25,14 @@ type CustomerRow = {
 }
 
 export default async function NewCalculationStartPage() {
+  const activeCompany = await getActiveCompanyContext({ allowedRoles: ['company_admin', 'super_admin'] })
+  if (!activeCompany) return <DashboardShell activeItem="kalkulace"><main style={pageShellStyle}><p>Kalkulace nejsou pro aktuální firmu nebo roli dostupné.</p></main></DashboardShell>
   const supabase = await createSupabaseServerClient()
 
   const { data: customers, error } = await supabase
     .from('customers')
     .select('id, name')
+    .eq('company_id', activeCompany.companyId)
     .order('name', { ascending: true })
     .limit(100)
 
