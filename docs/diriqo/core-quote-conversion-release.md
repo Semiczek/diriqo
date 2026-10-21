@@ -1,4 +1,4 @@
-# Atomický převod běžné nabídky na zakázku — 19. 10. 2026
+# Atomický převod běžné nabídky na zakázku — akceptace 21. 10. 2026
 
 ## Oprava
 
@@ -30,15 +30,24 @@ Migrace: supabase/migrations/20261019081209_atomic_core_quote_conversion.sql.
 Lokální SHA-256: 547D43C36F7FCF18DD330A8730F4096E96DBBF66EED1F9FCE930A88CE585A1D3.
 SQL test SHA-256: 098B96648F8068C4FEC73F76FAEF3775F4CB536406C2FAE45CF23422140AB884.
 
-Migrace je aplikovaná v testovacím Diriqu. Skutečná hosted SQL sada se zapnutými asercemi prošla 61 scénáři a 5 kontrolami rollback úklidu. První volání konektoru vrátilo neplatný requestState; před opakováním bylo ověřeno, že žádná testovací relace neběží a obchodní otisky se nezměnily. Po úspěšném běhu zůstává 39 zakázek a 3 nabídky se stejnými otisky jako před migrací, 0 potvrzení konverze, 0 testovacích firem a 0 pomocných testovacích funkcí. Migrační historie byla po uložení původního záznamu sjednocená s CLI verzí 20261019081209; SQL tělo se neměnilo. Aplikační změna zatím není nasazená. Mezi kroky staré otevřené formuláře převodu bezpečně selžou. Neodstraňovat registry po vytvoření skutečných záznamů; opravy databáze řešit následnou migrací. Návrat aplikace na starý převod neobnovuje kompatibilitu s bezpečnostními guardy.
+Migrace je aplikovaná v testovacím Diriqu. Skutečná hosted SQL sada se zapnutými asercemi prošla 61 scénáři a 5 kontrolami rollback úklidu. První volání konektoru vrátilo neplatný requestState; před opakováním bylo ověřeno, že žádná testovací relace neběží a obchodní otisky se nezměnily. Po úspěšném běhu tehdy zůstalo 39 zakázek a 3 nabídky se stejnými otisky jako před migrací, 0 potvrzení konverze, 0 testovacích firem a 0 pomocných testovacích funkcí. Migrační historie byla po uložení původního záznamu sjednocená s CLI verzí 20261019081209; SQL tělo se neměnilo. V tomto migračním mezikroku aplikace ještě nebyla nasazená; guardy odmítají původní oddělené zápisy převodu. Následné nasazení PR #34 je doložené níže. Neodstraňovat registry po vytvoření skutečných záznamů; opravy databáze řešit následnou migrací. Návrat aplikace na starý převod neobnovuje kompatibilitu s bezpečnostními guardy.
 
-## Zbývající akceptace C01-02
+## Nasazení a uzavření původního C01-02
 
-Skutečný souběh je doložen níže. Ještě zbývá přihlášený průchod formulářem a opakování po ztracené odpovědi na přesné nasazené revizi. Samostatná hranice je potvrzení obsahu nabídky změněného v jiné kartě: tento kontrakt nepřidává očekávanou revizi nabídky.
+[PR #34](https://github.com/Semiczek/diriqo/pull/34) je sloučené jako **b0c37bbdffdf955ed3dcd7aeba4395373875875b**. Release owner dne 21. 10. znovu ověřil main [verify 39231775006](https://github.com/Semiczek/diriqo/actions/runs/39231775006) a [Office 39231775020](https://github.com/Semiczek/diriqo/actions/runs/39231775020): oba SUCCESS. Deployment **dpl_FuSHRb4rsq94qL8FenzzE7FW8FFC** je READY pro tento přesný SHA na app.diriqo.com. Dřívější kandidát 5c728ba4d564abf3aa311750357262f925709c05 měl také úspěšné PR verify a oba Office běhy.
 
-PR #34 obsahuje kandidáta 5c728ba4d564abf3aa311750357262f925709c05. Jeho GitHub CI verify a oba Office běhy prošly. Advisors po migraci přidaly pouze dvě očekávané informační položky RLS bez policies pro privátní registry s odebranými právy; jiné kategorie zůstaly stejné. To není celkový bezpečnostní audit produktu.
+Původní text C01-02 zůstává: „Opakovaný požadavek na převod stejné přijaté nabídky vrátí již vytvořenou zakázku, nevytvoří další.“ **HOTOVO pro tento invariant:** hosted SQL, dva skutečné souběhy níže a přihlášené UI opakování potvrzují stejný úplný strom bez druhé zakázky. Nejde o uzavření celého Core procesu ani komerční připravenosti. Žádný z ostatních 72 scénářů se tímto přehodnocením nemění; původních 73 ID a textů je zachováno.
 
-Původních 73 scénářů a jejich znění zůstává zachováno. C01-02 není bez úplného důkazu označen HOTOVO; tento balík neprokazuje celkovou komerční připravenost Diriqa.
+Přihlášené UI ověření proběhlo 19. 10. v Diriqo Demo s.r.o. na výše uvedeném nasazeném merge: nabídka **7b18b6bc-c8c6-442c-b560-d7f28af67e5c**, rodič **8d6054b3-be36-4024-aebd-28dac33fbe32**. Dvojklik vytvořil jednoho rodiče a dvě podzakázky. Po dokončené odpovědi, reloadu a novém potvrzení shodného obsahu UI zobrazilo „Zakázka již existuje. Další jsme nevytvořili.“ DB potvrdila root=1, children=2, dva aliasy operace a accepted nabídku. Cena byla 0, kontakt bez e-mailu a žádný e-mail se neodeslal. Demo nabídka a strom zůstávají jako testovací evidence.
+
+Doklad: persistent Codex Security artefakt artifacts/quota-pause-20261019.json pro tuto pracovní kopii; doplňkový screenshot C:/Users/semis/AppData/Local/Temp/diriqo-core-quote-paused-20261019.png. Checkpoint při pozastavení správně zaznamenává tehdy rozběhnuté main verify; stav SUCCESS byl doověřen až 21. 10. Toto dokumentační přehodnocení neopakuje aplikační, hosted ani UI testy. Lokální kontrola dokumentů 21. 10.: platformní kontrakty 18/18 PASS, git diff --check PASS; všech 73 unikátních ID a původní texty zachovány, ostatních 72 záznamů proti HEAD beze změny.
+
+## Hranice důkazů
+
+Reload následoval po úspěšně dokončené odpovědi. Skutečná ztráta odpovědi v prohlížeči nebyla vyvolaná; zůstává samostatnou širší UX kontrolou, nikoli dodatečnou branou původního C01-02. Kontrakt také nepřidává očekávanou revizi pro potvrzení nabídky, jejíž obsah mezitím změnila jiná karta. Historické neúplné převody se neopravují odhadem.
+
+Advisors po migraci přidaly pouze dvě očekávané informační položky RLS bez policies pro privátní registry s odebranými právy; jiné kategorie zůstaly stejné. To není celkový bezpečnostní audit produktu ani důkaz platebního původu licence.
+
 ## Skutečný souběh a uzavření přístupů, 19. 10.
 
 Dvě nezávislé Auth relace provedly dva ověřené souběhy v testovacím projektu. PostgreSQL pozoroval oba skutečné čekající backendy za zámkem stejné firmy; zámek ihned uvolnil rollback testovací podtransakce. Časové limity rolí se neměnily.
@@ -48,4 +57,4 @@ Dvě nezávislé Auth relace provedly dva ověřené souběhy v testovacím proj
 - První pokus o pozorování druhého kola nestihl bariéru. Neúspěch zůstává uložený. Pokračování použilo stejnou operaci nad již existující zakázkou, ověřilo otisk dokončeného prvního kola a přihlásilo dvě čerstvé relace. Nevytvářelo další nabídku ani zakázku.
 - Testovací firma 588f3293-610b-4cfe-996b-1e14a5231f9b zůstává s auditními důkazy; 0 aktivních členství, profil neaktivní, grant revokovaný, moduly vypnuté, účet zablokovaný, 0 Auth sessions. Soukromý rollout zůstává zachovaný, aby neobnovil legacy přístup. Původních 39 zakázek a 3 nabídky ostatních firem mají shodné otisky podle původního algoritmu.
 
-Řízené artefakty: artifacts/core-quote-concurrency-complete-20261019.json, SHA-256 5094b0ad90d2117bd61e3ba7d03f9346708e9c5e768fadf5f2b6a04428d9d453; samostatný preservation report zachycuje původní hashovací algoritmus. Přihlášený webový průchod po nasazení ještě čeká.
+Řízené artefakty: artifacts/core-quote-concurrency-complete-20261019.json, SHA-256 5094b0ad90d2117bd61e3ba7d03f9346708e9c5e768fadf5f2b6a04428d9d453; samostatný preservation report zachycuje původní hashovací algoritmus. Následný přihlášený webový průchod je doložen v akceptačním checkpointu výše; neobsahuje skutečně ztracenou UI odpověď.
