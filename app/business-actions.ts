@@ -2,12 +2,11 @@
 
 import { revalidatePath } from 'next/cache'
 
+import { createCalculation, updateCalculation } from '@/lib/dal/calculations'
 import {
-  createCalculation,
-  type CalculationItemInput,
-  type SaveCalculationInput,
-  updateCalculation,
-} from '@/lib/dal/calculations'
+  parseCoreCalculationCreate, parseCoreCalculationUpdate, coreCalculationSaveError,
+  type CoreCalculationSaveResult,
+} from '@/lib/core-calculation-save'
 import { DalAuthError, requireCompanyRoleDalContext, type DalContext } from '@/lib/dal/auth'
 import {
   createJobCostItem,
@@ -141,59 +140,6 @@ function moneyValue(value: unknown) {
 function optionalNonNegativeNumber(value: unknown, fieldName: string) {
   if (value === null || value === undefined || value === '') return null
   return nonNegativeNumber(value, fieldName)
-}
-
-function parseCalculationItems(value: unknown): CalculationItemInput[] {
-  if (!Array.isArray(value)) throw new Error('Položky kalkulace musí být seznam.')
-
-  const items = value.map((item) => {
-    if (!item || typeof item !== 'object') {
-      throw new Error('Položka kalkulace má neplatný formát.')
-    }
-
-    const row = item as Record<string, unknown>
-
-    return {
-    sortOrder: nonNegativeNumber(row.sortOrder, 'Pořadí položky'),
-      itemType: optionalString(row.itemType),
-    name: requiredString(row.name, 'Název položky'),
-      description: optionalString(row.description),
-    quantity: nonNegativeNumber(row.quantity, 'Množství'),
-      unit: optionalString(row.unit),
-    unitCost: nonNegativeNumber(row.unitCost, 'Nákladová cena'),
-    unitPrice: nonNegativeNumber(row.unitPrice, 'Jednotková cena'),
-      vatRate: nonNegativeNumber(row.vatRate, 'DPH'),
-    totalCost: nonNegativeNumber(row.totalCost, 'Celkové náklady'),
-    totalPrice: nonNegativeNumber(row.totalPrice, 'Celková cena'),
-      note: optionalString(row.note),
-    }
-  })
-
-  if (items.length === 0) {
-    throw new Error('Přidávejte alespoň jednu položku kalkulace.')
-  }
-
-  return items
-}
-
-function parseCalculationInput(input: unknown): SaveCalculationInput {
-  if (!input || typeof input !== 'object') throw new Error('Neplatná data kalkulace.')
-  const row = input as Record<string, unknown>
-
-  return {
-    customerId: optionalString(row.customerId),
-    title: requiredString(row.title, 'Název kalkulace'),
-    description: optionalString(row.description),
-    status: optionalString(row.status) ?? 'draft',
-    calculationDate: optionalString(row.calculationDate),
-    internalNote: optionalString(row.internalNote),
-    subtotalCost: nonNegativeNumber(row.subtotalCost, 'Náklady celkem'),
-    subtotalPrice: nonNegativeNumber(row.subtotalPrice, 'Cena celkem'),
-    marginAmount: numberValue(row.marginAmount, 'Marze'),
-    totalPrice: nonNegativeNumber(row.totalPrice, 'Cena celkem'),
-    currency: optionalString(row.currency) ?? 'CZK',
-    items: parseCalculationItems(row.items),
-  }
 }
 
 async function getScopedQuote(ctx: DalContext, quoteId: string, customerId?: string | null): Promise<QuoteScopeRow> {
@@ -480,22 +426,26 @@ export async function rejectQuoteAction(input: {
   }
 }
 
-export async function createCalculationAction(input: unknown): Promise<ActionResult<{ calculationId: string }>> {
-  try {
-    const parsed = parseCalculationInput(input)
-    const ctx = await requireCompanyRoleDalContext('company_admin', 'super_admin')
-    const calculationId = await createCalculation(ctx, parsed)
+function calculationActionError(error: unknown): CoreCalculationSaveResult {
+  const safe = coreCalculationSaveError(error instanceof DalAuthError || error instanceof TenantScopeError
+    ? { message: 'CALCULATION_FORBIDDEN' } : error)
+  return { ok: false, error: safe.message, code: safe.code, uncertain: safe.uncertain }
+}
 
+export async function createCalculationAction(input: unknown): Promise<CoreCalculationSaveResult> {
+  try {
+    const parsed = parseCoreCalculationCreate(input)
+    const ctx = await requireCompanyRoleDalContext('company_admin', 'super_admin')
+    const receipt = await createCalculation(ctx, parsed)
+    revalidatePath('/kalkulace')
     if (parsed.customerId) {
       revalidatePath(`/customers/${parsed.customerId}/calculations`)
       revalidatePath(`/customers/${parsed.customerId}`)
-    } else {
-      revalidatePath('/kalkulace')
     }
-
-    return { ok: true, data: { calculationId } }
+    return { ok: true, data: receipt }
   } catch (error) {
-    return actionError(error)
+    // A failed cache refresh can follow COMMIT: the same request must remain retryable.
+    return calculationActionError(error)
   }
 }
 
@@ -554,27 +504,26 @@ export async function markJobCompletedAction(input: {
 export async function updateCalculationAction(
   calculationId: string,
   input: unknown,
-): Promise<ActionResult<{ calculationId: string }>> {
+): Promise<CoreCalculationSaveResult> {
   try {
-    const parsed = parseCalculationInput(input)
-    const ctx = await requireCompanyRoleDalContext('company_admin', 'super_admin')
-    const savedCalculationId = await updateCalculation(
-      ctx,
-      requiredString(calculationId, 'Kalkulace'),
-      parsed,
-    )
-
-    if (parsed.customerId) {
-      revalidatePath(`/customers/${parsed.customerId}/calculations/${savedCalculationId}`)
-      revalidatePath(`/customers/${parsed.customerId}/calculations/${savedCalculationId}/edit`)
-    } else {
-      revalidatePath(`/kalkulace/${savedCalculationId}`)
-      revalidatePath(`/kalkulace/${savedCalculationId}/edit`)
+    const parsed = parseCoreCalculationUpdate(input)
+    if (typeof calculationId !== 'string' || calculationId.trim().toLowerCase() !== parsed.calculationId) {
+      throw coreCalculationSaveError({ message: 'CALCULATION_INVALID_INPUT' })
     }
-
-    return { ok: true, data: { calculationId: savedCalculationId } }
+    const ctx = await requireCompanyRoleDalContext('company_admin', 'super_admin')
+    const receipt = await updateCalculation(ctx, parsed)
+    revalidatePath('/kalkulace')
+    revalidatePath(`/kalkulace/${receipt.calculationId}`)
+    revalidatePath(`/kalkulace/${receipt.calculationId}/edit`)
+    if (parsed.customerId) {
+      revalidatePath(`/customers/${parsed.customerId}`)
+      revalidatePath(`/customers/${parsed.customerId}/calculations`)
+      revalidatePath(`/customers/${parsed.customerId}/calculations/${receipt.calculationId}`)
+      revalidatePath(`/customers/${parsed.customerId}/calculations/${receipt.calculationId}/edit`)
+    }
+    return { ok: true, data: receipt }
   } catch (error) {
-    return actionError(error)
+    return calculationActionError(error)
   }
 }
 

@@ -13,6 +13,7 @@ import {
   pageShellStyle,
 } from '@/components/SaasPageLayout'
 import { getRequestDictionary } from '@/lib/i18n/server'
+import { getActiveCompanyContext } from '@/lib/active-company'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 
 type PageProps = {
@@ -64,7 +65,8 @@ function formatCurrency(value: number | null | undefined) {
   return new Intl.NumberFormat('cs-CZ', {
     style: 'currency',
     currency: 'CZK',
-    maximumFractionDigits: 0,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   }).format(value)
 }
 
@@ -99,7 +101,7 @@ function getItemTypeLabel(itemType: string | null | undefined) {
   if (itemType === 'rental') return 'Pronájmy'
   if (itemType === 'transport') return 'Doprava'
   if (itemType === 'accommodation') return 'Ubytování'
-  return 'Ostatní'
+  return 'Neznámý původní typ'
 }
 
 const customerPanelStyle: React.CSSProperties = {
@@ -126,6 +128,8 @@ const summaryPanelStyle: React.CSSProperties = {
 export default async function CalculationDetailPage({ params }: PageProps) {
   const dictionary = await getRequestDictionary()
   const { customerId, calculationId } = await params
+  const activeCompany = await getActiveCompanyContext({ allowedRoles: ['company_admin', 'super_admin'] })
+  if (!activeCompany) return <DashboardShell activeItem="kalkulace"><main style={pageShellStyle}><p>Kalkulace nejsou pro aktuální firmu nebo roli dostupné.</p></main></DashboardShell>
   const supabase = await createSupabaseServerClient()
 
   const [{ data: calculation, error: calculationError }, { data: items, error: itemsError }] =
@@ -133,16 +137,18 @@ export default async function CalculationDetailPage({ params }: PageProps) {
       supabase
         .from('calculations')
         .select(
-          'id, company_id, customer_id, title, description, status, calculation_date, internal_note, subtotal_cost, subtotal_price, margin_amount, total_price, currency, customers(id, name)'
+          'id, company_id, revision::text, customer_id, title, description, status, calculation_date, internal_note, subtotal_cost, subtotal_price, margin_amount, total_price, currency, customers(id, name)'
         )
         .eq('id', calculationId)
+        .eq('company_id', activeCompany.companyId)
         .maybeSingle(),
       supabase
         .from('calculation_items')
         .select(
-          'id, sort_order, item_type, name, description, quantity, unit, unit_cost, unit_price, vat_rate, total_cost, total_price, note'
+          'id, sort_order, item_type, name, description, quantity, unit, unit_cost, unit_price, vat_rate, total_cost, total_price, note, calculations!inner(company_id)'
         )
         .eq('calculation_id', calculationId)
+        .eq('calculations.company_id', activeCompany.companyId)
         .order('sort_order', { ascending: true })
         .order('created_at', { ascending: true }),
     ])
@@ -168,6 +174,7 @@ export default async function CalculationDetailPage({ params }: PageProps) {
   const calculationItems = (items ?? []) as CalculationItemRow[]
   const customerItems = calculationItems.filter((item) => item.item_type === 'customer')
   const costItems = calculationItems.filter((item) => item.item_type !== 'customer')
+  const incompleteHistory = calculationItems.some(item => !['customer', 'labor', 'material', 'rental', 'transport', 'accommodation'].includes(item.item_type ?? '') || item.vat_rate == null)
   const totalPrice = Number(calculation.total_price ?? calculation.subtotal_price ?? 0)
   const totalCost = Number(calculation.subtotal_cost ?? 0)
   const profit = totalPrice - totalCost
@@ -220,7 +227,7 @@ export default async function CalculationDetailPage({ params }: PageProps) {
                 {dictionary.customers.calculationDetail.editCalculation}
               </Link>
 
-              <CreateQuoteFromCalculationButton
+              {!itemsError && !incompleteHistory ? <CreateQuoteFromCalculationButton
                 calculationId={calculation.id}
                 customerId={customerId}
                 companyId={calculation.company_id}
@@ -236,11 +243,11 @@ export default async function CalculationDetailPage({ params }: PageProps) {
                   quantity: Number(item.quantity ?? 0),
                   unit: item.unit,
                   unitPrice: Number(item.unit_price ?? 0),
-                  vatRate: Number(item.vat_rate ?? 0),
+                  vatRate: Number(item.vat_rate),
                   totalPrice: Number(item.total_price ?? 0),
                   note: item.note,
                 }))}
-              />
+              /> : <p role="note" style={{ color: '#92400e', margin: 0 }}>Před vytvořením nabídky načtěte všechny položky a doplňte chybějící původní typ nebo DPH v editaci.</p>}
             </div>
           </div>
 
@@ -382,10 +389,10 @@ export default async function CalculationDetailPage({ params }: PageProps) {
                         <div style={{ fontSize: '18px', fontWeight: 700 }}>{item.name}</div>
                         {item.description && <div style={{ color: '#4b5563' }}>{item.description}</div>}
                         <div style={{ display: 'grid', gap: '8px' }}>
-                          <div><strong>{dictionary.customers.calculationDetail.quantity}:</strong> {Number(item.quantity ?? 0)}</div>
+                          <div><strong>{dictionary.customers.calculationDetail.quantity}:</strong> {item.quantity == null ? 'Neznámé původní množství' : Number(item.quantity)}</div>
                           <div><strong>{dictionary.customers.calculationDetail.unit}:</strong> {item.unit || '-'}</div>
                           <div><strong>{dictionary.customers.calculationDetail.unitPrice}:</strong> {formatCurrency(item.unit_price)}</div>
-                          <div><strong>{dictionary.customers.calculationDetail.vatRate}:</strong> {item.vat_rate != null ? `${Number(item.vat_rate)} %` : '-'}</div>
+                          <div><strong>{dictionary.customers.calculationDetail.vatRate}:</strong> {item.vat_rate != null ? `${Number(item.vat_rate)} %` : 'Neznámá původní sazba'}</div>
                           <div><strong>{dictionary.customers.calculationDetail.totalPrice}:</strong> {formatCurrency(item.total_price)}</div>
                         </div>
                         <div><strong>{dictionary.customers.calculationDetail.note}:</strong> {item.note || '-'}</div>
@@ -421,6 +428,7 @@ export default async function CalculationDetailPage({ params }: PageProps) {
                         {item.description && <div style={{ color: '#4b5563' }}>{item.description}</div>}
                         <div style={{ display: 'grid', gap: '8px' }}>
                           <div><strong>{dictionary.customers.calculationDetail.costType}:</strong> {getItemTypeLabel(item.item_type)}</div>
+                          <div><strong>DPH:</strong> {item.vat_rate == null ? 'Neznámá původní sazba' : String(item.vat_rate) + ' %'}</div>
                           <div><strong>{dictionary.customers.calculationDetail.quantity}:</strong> {Number(item.quantity ?? 0)}</div>
                           <div><strong>{dictionary.customers.calculationDetail.unit}:</strong> {item.unit || '-'}</div>
                           <div><strong>{dictionary.customers.calculationDetail.unitCost}:</strong> {formatCurrency(item.unit_cost)}</div>

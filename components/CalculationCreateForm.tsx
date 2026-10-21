@@ -1,235 +1,257 @@
-﻿'use client'
+'use client'
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
-import { createCalculationAction } from '@/app/business-actions'
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type FormEvent } from 'react'
+import { createCalculationAction, updateCalculationAction } from '@/app/business-actions'
 import { useI18n } from '@/components/I18nProvider'
+import { parseCoreCalculationSave, previewCoreCalculationItems, type CoreCalculationSaveReceipt } from '@/lib/core-calculation-save'
+import {
+  CALCULATION_STORAGE_ERROR, calculationPayloadItems, calculationReceiptMatches, calculationSaveStorageKey,
+  emptyCalculationItem, formatCalculationMoney, readPendingCalculationSave,
+  type CalculationDraftItem, type CalculationSaveScope, type PendingCalculationSave,
+} from './calculation-save-state'
 
-type CalculationCreateFormProps = {
-  customerId?: string | null
-  companyId: string
-  customerName: string
-  cancelHref: string
-  detailHrefBase?: string
-  initialTitle?: string
-  initialDescription?: string
-  initialInternalNote?: string
+export type CalculationFormItemInput = {
+  itemType: string | null; name: string; description: string | null; quantity: number | string | null
+  unit: string | null; unitCost: number | string | null; unitPrice: number | string | null
+  vatRate: number | string | null; note: string | null
+}
+export type CalculationFormInitialValues = {
+  title: string; description: string; status: 'draft' | 'ready'; calculationDate: string
+  internalNote: string; currency: string | null; items: CalculationFormItemInput[]
+}
+type Props = {
+  customerId?: string | null; companyId: string; profileId: string; customerName: string; cancelHref: string
+  detailHrefBase?: string; initialTitle?: string; initialDescription?: string; initialInternalNote?: string
+  edit?: { calculationId: string; expectedRevision: string; detailHref: string; initialValues: CalculationFormInitialValues }
+}
+type FormValues = Omit<CalculationFormInitialValues, 'items'> & { items: CalculationDraftItem[] }
+const inputStyle: CSSProperties = { padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db', minWidth: 0, width: '100%', boxSizing: 'border-box' }
+const sectionStyle: CSSProperties = { border: '1px solid #e5e7eb', borderRadius: '16px', backgroundColor: '#ffffff', padding: '20px', display: 'grid', gap: '16px' }
+const gridStyle: CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px' }
+const buttonStyle: CSSProperties = { padding: '10px 14px', borderRadius: '12px', border: '1px solid #d1d5db', backgroundColor: '#ffffff', fontWeight: 700, cursor: 'pointer' }
+const warningStyle: CSSProperties = { padding: '14px 16px', borderRadius: '12px', border: '1px solid #fcd34d', backgroundColor: '#fffbeb', color: '#92400e' }
+const subscribeHydration = () => () => {}
+const clientSnapshot = () => true
+const serverSnapshot = () => false
+const itemTypes = ['customer', 'labor', 'material', 'rental', 'transport', 'accommodation'] as const
+const decimalText = (value: number | string | null) => value == null ? '' : String(value)
+function initialForm(props: Props): FormValues {
+  if (props.edit) return { ...props.edit.initialValues, items: props.edit.initialValues.items.map((item, index) => ({
+    id: 'existing-' + index, persisted: true, itemType: item.itemType ?? '', name: item.name,
+    description: item.description ?? '', quantity: decimalText(item.quantity), unit: item.unit ?? '',
+    unitCost: decimalText(item.unitCost), unitPrice: decimalText(item.unitPrice), vatRate: decimalText(item.vatRate), note: item.note ?? '',
+  })) }
+  return { title: props.initialTitle ?? '', description: props.initialDescription ?? '', status: 'draft',
+    calculationDate: new Date().toISOString().slice(0, 10), internalNote: props.initialInternalNote ?? '', currency: 'CZK',
+    items: [emptyCalculationItem('customer', 'new-customer'), emptyCalculationItem('material', 'new-cost')] }
+}
+function restoredForm(pending: PendingCalculationSave): FormValues {
+  return { ...pending.payload, description: pending.payload.description ?? '', internalNote: pending.payload.internalNote ?? '',
+    items: pending.payload.items.map((item, index) => ({ ...item, id: 'pending-' + index, persisted: true,
+      description: item.description ?? '', unit: item.unit ?? '', note: item.note ?? '' })) }
 }
 
-type CostItemType = 'labor' | 'material' | 'rental' | 'transport' | 'accommodation'
-
-type CustomerDraftItem = {
-  id: string
-  name: string
-  description: string
-  quantity: string
-  unit: string
-  unitPrice: string
-  vatRate: string
-  note: string
-}
-
-type CostDraftItem = {
-  id: string
-  itemType: CostItemType
-  name: string
-  description: string
-  quantity: string
-  unit: string
-  unitCost: string
-  vatRate: string
-  note: string
-}
-
-function createCustomerDraftItem(): CustomerDraftItem {
-  return {
-    id: crypto.randomUUID(),
-    name: '',
-    description: '',
-    quantity: '1',
-    unit: '',
-    unitPrice: '',
-    vatRate: '21',
-    note: '',
-  }
-}
-
-function createCostDraftItem(): CostDraftItem {
-  return {
-    id: crypto.randomUUID(),
-    itemType: 'material',
-    name: '',
-    description: '',
-    quantity: '1',
-    unit: '',
-    unitCost: '',
-    vatRate: '21',
-    note: '',
-  }
-}
-
-function parseNumber(value: string) {
-  const normalized = value.replace(',', '.').trim()
-  if (!normalized) return 0
-  const parsed = Number(normalized)
-  return Number.isFinite(parsed) ? parsed : 0
-}
-
-function isValidCostDraftItem(item: CostDraftItem) {
-  const quantity = parseNumber(item.quantity)
-  const unitCost = parseNumber(item.unitCost)
-  const hasDescriptor = Boolean(item.name.trim() || item.description.trim() || item.unit.trim())
-
-  return quantity > 0 && unitCost > 0 && hasDescriptor
-}
-
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat('cs-CZ', {
-    style: 'currency',
-    currency: 'CZK',
-    maximumFractionDigits: 0,
-  }).format(value)
-}
-
-export default function CalculationCreateForm({
-  customerId,
-  customerName,
-  cancelHref,
-  detailHrefBase,
-  initialTitle,
-  initialDescription,
-  initialInternalNote,
-}: CalculationCreateFormProps) {
+export default function CalculationCreateForm(props: Props) {
   const router = useRouter()
   const { dictionary } = useI18n()
-  const [title, setTitle] = useState(initialTitle || `Kalkulace - ${customerName}`)
-  const [description, setDescription] = useState(initialDescription || '')
-  const [status, setStatus] = useState<'draft' | 'ready'>('draft')
-  const [calculationDate, setCalculationDate] = useState(new Date().toISOString().slice(0, 10))
-  const [internalNote, setInternalNote] = useState(initialInternalNote || '')
-  const [customerItems, setCustomerItems] = useState<CustomerDraftItem[]>([createCustomerDraftItem()])
-  const [costItems, setCostItems] = useState<CostDraftItem[]>([createCostDraftItem()])
-  const [saving, setSaving] = useState(false)
+  const labels = dictionary.customers.calculationForm
+  const [scope] = useState<CalculationSaveScope>(() => ({ companyId: props.companyId, profileId: props.profileId,
+    customerId: props.customerId ?? null, ...(props.edit ? { calculationId: props.edit.calculationId } : {}) }))
+  const key = calculationSaveStorageKey(scope)
+  const currentKey = calculationSaveStorageKey({ companyId: props.companyId, profileId: props.profileId,
+    customerId: props.customerId ?? null, ...(props.edit ? { calculationId: props.edit.calculationId } : {}) })
+  const currentCustomer = props.customerId ?? null
+  const scopeIdentity = key + '|' + scope.customerId
+  const currentIdentity = currentKey + '|' + currentCustomer
+  const currentScope = useRef(currentIdentity)
+  useLayoutEffect(() => { currentScope.current = currentIdentity }, [currentIdentity])
+  const initialized = useSyncExternalStore(subscribeHydration, clientSnapshot, serverSnapshot)
+  const [restoration] = useState(() => {
+    if (typeof window === 'undefined') return { pending: null, error: null }
+    try { return { pending: readPendingCalculationSave(window.sessionStorage.getItem(key), scope), error: null } }
+    catch (reason) { return { pending: null, error: reason instanceof Error ? reason.message : CALCULATION_STORAGE_ERROR } }
+  })
+  const alive = useRef(false)
+  const inFlight = useRef(false)
+  const blocked = useRef(Boolean(restoration.error))
+  const confirmedRef = useRef<CoreCalculationSaveReceipt | null>(restoration.pending?.receipt ?? null)
+  const pendingRef = useRef<PendingCalculationSave | null>(restoration.pending)
+  const [values, setValues] = useState(() => restoration.pending ? restoredForm(restoration.pending) : initialForm(props))
+  // A refresh may replace props while retaining the user's unsaved values. Keep their original revision together.
+  const [initialRevision] = useState(() => props.edit?.expectedRevision)
+  const [pending, setPending] = useState<PendingCalculationSave | null>(restoration.pending)
+  const [storageError, setStorageError] = useState<string | null>(restoration.error)
   const [error, setError] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [confirmed, setConfirmed] = useState<CoreCalculationSaveReceipt | null>(restoration.pending?.receipt ?? null)
+  const [detailAvailable, setDetailAvailable] = useState(false)
+  useEffect(() => {
+    alive.current = true
+    return () => { alive.current = false }
+  }, [])
+  const scopeChanged = currentIdentity !== scopeIdentity
+  const locked = !initialized || saving || Boolean(pending) || Boolean(storageError) || Boolean(confirmed) || scopeChanged
+  const update = <K extends keyof FormValues>(field: K, value: FormValues[K]) => setValues(old => ({ ...old, [field]: value }))
+  const updateItem = (id: string, field: keyof CalculationDraftItem, value: string) => setValues(old => ({ ...old,
+    items: old.items.map(item => item.id === id ? { ...item, [field]: value } : item) }))
+  const typeLabels: Record<string, string> = { customer: labels.customerItem, labor: labels.typeLabor, material: labels.typeMaterial,
+    rental: labels.typeRental, transport: labels.typeTransport, accommodation: labels.typeAccommodation }
+  const typeLabel = (type: string) => typeLabels[type] ?? 'Neznámý původní typ — vyberte'
+  let preview: ReturnType<typeof previewCoreCalculationItems> | null = null
+  try { if (values.currency === 'CZK') preview = previewCoreCalculationItems(calculationPayloadItems(values.items)) } catch { /* Incomplete fields never display fabricated zero totals. */ }
+  const detailHref = (receipt: CoreCalculationSaveReceipt) => props.edit?.detailHref ?? (props.detailHrefBase
+    ? props.detailHrefBase + '/' + receipt.calculationId
+    : scope.customerId ? '/customers/' + scope.customerId + '/calculations/' + receipt.calculationId : '/kalkulace/' + receipt.calculationId)
+  const stillHere = () => alive.current && currentScope.current === scopeIdentity
 
-  const customerTotal = customerItems.reduce((sum, item) => sum + parseNumber(item.quantity) * parseNumber(item.unitPrice), 0)
-  const customerVatTotal = customerItems.reduce((sum, item) => sum + parseNumber(item.quantity) * parseNumber(item.unitPrice) * (parseNumber(item.vatRate) / 100), 0)
-  const totalCost = costItems.reduce((sum, item) => sum + parseNumber(item.quantity) * parseNumber(item.unitCost), 0)
-  const costVatTotal = costItems.reduce((sum, item) => sum + parseNumber(item.quantity) * parseNumber(item.unitCost) * (parseNumber(item.vatRate) / 100), 0)
-  const laborCost = costItems.reduce((sum, item) => item.itemType === 'labor' ? sum + parseNumber(item.quantity) * parseNumber(item.unitCost) : sum, 0)
-  const otherCost = totalCost - laborCost
-  const expectedProfit = customerTotal - totalCost
-
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    if (saving) return
-    setSaving(true)
-    setError(null)
-
+  async function openConfirmed(receipt: CoreCalculationSaveReceipt) {
     try {
-      const validCustomerItems = customerItems.filter((item) => item.name.trim())
-      const validCostItems = costItems.filter(isValidCostDraftItem)
-      if (!title.trim()) throw new Error(dictionary.customers.calculationForm.titleRequired)
-      if (validCustomerItems.length === 0) throw new Error(dictionary.customers.calculationForm.customerItemsRequired)
-      if (validCostItems.length === 0) throw new Error(dictionary.customers.calculationForm.costItemsRequired)
-
-      const subtotalCost = validCostItems.reduce((sum, item) => sum + parseNumber(item.quantity) * parseNumber(item.unitCost), 0)
-      const subtotalPrice = validCustomerItems.reduce((sum, item) => sum + parseNumber(item.quantity) * parseNumber(item.unitPrice), 0)
-      const marginAmount = subtotalPrice - subtotalCost
-
-      const customerPayload = validCustomerItems.map((item, index) => {
-        const quantity = parseNumber(item.quantity)
-        const unitPrice = parseNumber(item.unitPrice)
-        return {
-          sortOrder: index,
-          itemType: 'customer',
-          name: item.name.trim(),
-          description: item.description.trim() || null,
-          quantity,
-          unit: item.unit.trim() || null,
-          unitCost: 0,
-          unitPrice,
-          vatRate: parseNumber(item.vatRate),
-          totalCost: 0,
-          totalPrice: quantity * unitPrice,
-          note: item.note.trim() || null,
-        }
-      })
-
-      const costPayload = validCostItems.map((item, index) => {
-        const quantity = parseNumber(item.quantity)
-        const unitCost = parseNumber(item.unitCost)
-        return {
-          sortOrder: validCustomerItems.length + index,
-          itemType: item.itemType,
-          name: item.name.trim() || typeLabel(item.itemType),
-          description: item.description.trim() || null,
-          quantity,
-          unit: item.unit.trim() || null,
-          unitCost,
-          unitPrice: 0,
-          vatRate: parseNumber(item.vatRate),
-          totalCost: quantity * unitCost,
-          totalPrice: 0,
-          note: item.note.trim() || null,
-        }
-      })
-
-      const result = await createCalculationAction({
-        customerId: customerId ?? null,
-        title: title.trim(),
-        description: description.trim() || null,
-        status,
-        calculationDate,
-        internalNote: internalNote.trim() || null,
-        subtotalCost,
-        subtotalPrice,
-        marginAmount,
-        totalPrice: subtotalPrice,
-        currency: 'CZK',
-        items: [...customerPayload, ...costPayload],
-      })
-
-      if (!result.ok) throw new Error(result.error)
-
-      router.push(detailHrefBase ? `${detailHrefBase}/${result.data.calculationId}` : customerId ? `/customers/${customerId}/calculations/${result.data.calculationId}` : `/kalkulace/${result.data.calculationId}`)
-      router.refresh()
-    } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : dictionary.customers.calculationForm.saveFailed)
-    } finally {
-      setSaving(false)
+      const response = await fetch('/api/active-company', { cache: 'no-store', credentials: 'same-origin' })
+      const active: unknown = response.ok ? await response.json() : null
+      if (!stillHere()) return
+      if (!active || typeof active !== 'object' || !('companyId' in active) || !('profileId' in active)
+        || active.companyId !== scope.companyId || active.profileId !== scope.profileId) {
+        setError('Kalkulace je uložená v původní firmě. Pro otevření se vraťte do této firmy a ověřte přihlášení.'); return
+      }
+      setError(null); setDetailAvailable(true)
+      try { window.sessionStorage.removeItem(key) } catch { /* Persisted receipt is safe to restore. */ }
+      router.push(detailHref(receipt)); router.refresh()
+    } catch {
+      if (stillHere()) setError('Kalkulace je uložená. Aktivní firmu nyní nelze ověřit; po obnovení připojení ji můžete bezpečně otevřít.')
     }
   }
 
-  const typeLabel = (itemType: CostItemType) => {
-    if (itemType === 'labor') return dictionary.customers.calculationForm.typeLabor
-    if (itemType === 'material') return dictionary.customers.calculationForm.typeMaterial
-    if (itemType === 'rental') return dictionary.customers.calculationForm.typeRental
-    if (itemType === 'transport') return dictionary.customers.calculationForm.typeTransport
-    return dictionary.customers.calculationForm.typeAccommodation
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (inFlight.current || blocked.current || confirmedRef.current || !initialized || storageError || confirmed || scopeChanged || !stillHere()) return
+    inFlight.current = true
+    setSaving(true); setError(null)
+    const retry = Boolean(pendingRef.current)
+    try {
+      let request = pendingRef.current
+      if (!request) {
+        const payload = parseCoreCalculationSave({ ...values, ...scope, operationId: crypto.randomUUID(),
+          ...(props.edit ? { expectedRevision: initialRevision } : {}), items: calculationPayloadItems(values.items) }, props.edit ? 'update' : 'create')
+        request = { version: 1, scope, payload }
+        try { window.sessionStorage.setItem(key, JSON.stringify(request)) } catch {
+          blocked.current = true; setStorageError(CALCULATION_STORAGE_ERROR); return
+        }
+        pendingRef.current = request; setPending(request)
+      }
+      const result = scope.calculationId
+        ? await updateCalculationAction(scope.calculationId, request.payload)
+        : await createCalculationAction(request.payload)
+      if (!stillHere()) return
+      if (!result || typeof result !== 'object' || typeof result.ok !== 'boolean') throw new Error('Uložení se nepodařilo potvrdit. Ověřte stejný požadavek.')
+      if (!result.ok) {
+        if (!retry && result.uncertain === false && ['validation', 'forbidden', 'conflict', 'unavailable'].includes(result.code) && typeof result.error === 'string') {
+          try {
+            window.sessionStorage.removeItem(key)
+            pendingRef.current = null; setPending(null)
+          } catch { blocked.current = true; setStorageError(CALCULATION_STORAGE_ERROR) }
+        }
+        setError(typeof result.error === 'string' ? result.error : 'Výsledek uložení není potvrzený. Ověřte stejný požadavek.')
+        return
+      }
+      if (!calculationReceiptMatches(result.data, request.payload)) throw new Error('Odpověď nepotvrdila původní požadavek. Ověřte stejný požadavek.')
+      confirmedRef.current = result.data; setConfirmed(result.data)
+      // Keep a durable confirmed receipt until the current company/profile is verified and navigation can proceed.
+      try { window.sessionStorage.setItem(key, JSON.stringify({ ...request, receipt: result.data })) } catch { /* Original pending payload remains replayable. */ }
+      pendingRef.current = null; setPending(null)
+      await openConfirmed(result.data)
+    } catch (reason) {
+      if (stillHere()) setError(reason instanceof Error ? reason.message : labels.saveFailed)
+    } finally {
+      inFlight.current = false
+      if (stillHere()) setSaving(false)
+    }
   }
 
-  return (
-    <form onSubmit={handleSubmit} data-tour="calculation-create-form" style={{ display: 'grid', gap: '20px' }}>
-      {error ? <div style={{ padding: '14px 16px', borderRadius: '12px', border: '1px solid #fecaca', backgroundColor: '#fef2f2', color: '#b91c1c', fontWeight: 600 }}>{error}</div> : null}
-      <section data-tour="calculation-basic" style={{ border: '1px solid #e5e7eb', borderRadius: '16px', backgroundColor: '#ffffff', padding: '20px', display: 'grid', gap: '16px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '16px' }}>
-          <label style={{ display: 'grid', gap: '8px' }}><span style={{ fontWeight: 700 }}>{dictionary.customers.calculationForm.calculationTitle}</span><input data-tour="calculation-title" value={title} onChange={(event) => setTitle(event.target.value)} style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db' }} /></label>
-          <label style={{ display: 'grid', gap: '8px' }}><span style={{ fontWeight: 700 }}>{dictionary.customers.calculationForm.date}</span><input data-tour="calculation-date" type="date" value={calculationDate} onChange={(event) => setCalculationDate(event.target.value)} style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db' }} /></label>
-          <label style={{ display: 'grid', gap: '8px' }}><span style={{ fontWeight: 700 }}>{dictionary.customers.calculationForm.status}</span><select data-tour="calculation-status" value={status} onChange={(event) => setStatus(event.target.value as 'draft' | 'ready')} style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db' }}><option value="draft">{dictionary.customers.calculationForm.draft}</option><option value="ready">{dictionary.customers.calculationForm.ready}</option></select></label>
+  function renderItems(customerSection: boolean) {
+    const items = values.items.filter(item => (item.itemType === 'customer') === customerSection)
+    return <section data-tour={customerSection ? 'calculation-customer-items' : 'calculation-cost-items'} style={sectionStyle}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+        <h2 style={{ margin: 0, fontSize: '22px' }}>{customerSection ? labels.customerItems : labels.internalCostItems}</h2>
+        <button type="button" data-tour={customerSection ? 'calculation-add-customer-item' : 'calculation-add-cost-item'} style={buttonStyle}
+          onClick={() => update('items', [...values.items, emptyCalculationItem(customerSection ? 'customer' : 'material', crypto.randomUUID())])}>
+          {customerSection ? labels.addCustomerItem : labels.addCostItem}</button>
+      </div>
+      {items.map(item => {
+        const index = values.items.indexOf(item)
+        const unknown = !itemTypes.some(type => type === item.itemType)
+        const opposite = customerSection ? item.unitCost : item.unitPrice
+        const showBoth = unknown || !/^(?:0+(?:[.,]0{1,2})?)$/.test(opposite)
+        let line: ReturnType<typeof previewCoreCalculationItems>['items'][number] | undefined
+        try { if (values.currency === 'CZK') line = previewCoreCalculationItems(calculationPayloadItems([{ ...item, persisted: true }])).items[0] } catch { /* Missing historical data stays unknown. */ }
+        const field = (name: 'name' | 'description' | 'quantity' | 'unit' | 'unitCost' | 'unitPrice' | 'vatRate' | 'note', label: string) => <label style={{ display: 'grid', gap: '6px', minWidth: 0 }}>
+          <span style={{ fontSize: '13px', fontWeight: 700 }}>{label}</span>
+          <input id={'calculation-item-' + index + '-' + name} value={item[name]} aria-label={label}
+            inputMode={['quantity', 'unitCost', 'unitPrice', 'vatRate'].includes(name) ? 'decimal' : undefined}
+            placeholder={name === 'vatRate' && item.persisted && !item.vatRate ? 'Původní DPH není známá' : label}
+            onChange={event => updateItem(item.id, name, event.target.value)} style={inputStyle} />
+        </label>
+        return <div key={item.id} style={{ border: '1px solid #e5e7eb', borderRadius: '14px', padding: '16px', display: 'grid', gap: '14px', backgroundColor: '#f9fafb' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+            <strong>{customerSection ? labels.customerItem : labels.internalCost} · {typeLabel(item.itemType)}</strong>
+            <button type="button" style={{ ...buttonStyle, color: '#991b1b', borderColor: '#fecaca', backgroundColor: '#fef2f2' }}
+              onClick={() => update('items', values.items.filter(other => other.id !== item.id))}>{labels.remove}</button>
+          </div>
+          {(unknown || (item.persisted && !item.vatRate)) && <p role="note" style={{ ...warningStyle, margin: 0 }}>Původní typ nebo DPH této položky nejsou uložené. Před uložením je výslovně doplňte.</p>}
+          {showBoth && <p style={{ margin: 0, color: '#92400e' }}>Zkontrolujte původní cenu i náklad. Zákaznická položka má náklad 0, interní položka cenu 0; hodnoty neměníme automaticky.</p>}
+          <div style={gridStyle}>
+            {!customerSection && <label style={{ display: 'grid', gap: '6px' }}><span style={{ fontSize: '13px', fontWeight: 700 }}>{labels.costType}</span>
+              <select id={'calculation-item-' + index + '-itemType'} aria-label={labels.costType} value={item.itemType} onChange={event => updateItem(item.id, 'itemType', event.target.value)} style={inputStyle}>
+                {unknown && <option value={item.itemType}>Neznámý původní typ — vyberte</option>}
+                {itemTypes.map(type => <option key={type} value={type}>{typeLabel(type)}</option>)}
+              </select></label>}
+            {field('name', labels.itemName)}{field('description', labels.itemDescription)}
+          </div>
+          <div style={gridStyle}>
+            {field('quantity', labels.quantity)}{field('unit', labels.unit)}
+            {(customerSection || showBoth) && field('unitPrice', labels.unitPrice)}
+            {(!customerSection || showBoth) && field('unitCost', labels.unitCost)}
+            {field('vatRate', labels.vatRate)}
+            <label style={{ display: 'grid', gap: '6px' }}><span style={{ fontSize: '13px', fontWeight: 700 }}>{customerSection ? labels.totalPrice : labels.totalCost}</span>
+              <input readOnly aria-label={customerSection ? labels.totalPrice : labels.totalCost} value={formatCalculationMoney(customerSection ? line?.totalPrice : line?.totalCost)} style={{ ...inputStyle, backgroundColor: '#f3f4f6' }} /></label>
+          </div>
+          {field('note', labels.note)}
         </div>
-        <label style={{ display: 'grid', gap: '8px' }}><span style={{ fontWeight: 700 }}>{dictionary.customers.calculationForm.description}</span><textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={3} style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db', resize: 'vertical' }} /></label>
-        <label style={{ display: 'grid', gap: '8px' }}><span style={{ fontWeight: 700 }}>{dictionary.customers.calculationForm.internalNote}</span><textarea value={internalNote} onChange={(event) => setInternalNote(event.target.value)} rows={3} style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db', resize: 'vertical' }} /></label>
+      })}
+    </section>
+  }
+
+  if (!initialized) return <p role="status">Načítám bezpečné uložení kalkulace…</p>
+
+  return <form data-tour="calculation-create-form" onSubmit={handleSubmit} style={{ display: 'grid', gap: '20px' }}>
+    {(error || storageError || scopeChanged) && <div role="alert" style={{ ...warningStyle, borderColor: '#fecaca', color: '#b91c1c', backgroundColor: '#fef2f2' }}>{storageError || (scopeChanged ? 'Aktivní firma nebo přihlášení se změnily. Obnovte stránku; původní požadavek zůstává oddělený.' : error)}</div>}
+    {pending && !confirmed && <p role="status" style={warningStyle}>Výsledek předchozího uložení ještě není potvrzený. Ověření znovu odešle stejný obsah a nevytvoří druhou kalkulaci.</p>}
+    {confirmed && <p role="status" style={{ ...warningStyle, backgroundColor: '#f0fdf4', borderColor: '#bbf7d0', color: '#166534' }}>Kalkulace je uložená. {detailAvailable && <Link href={detailHref(confirmed)}>Otevřít kalkulaci</Link>}</p>}
+    <fieldset disabled={locked} style={{ border: 0, padding: 0, margin: 0, minWidth: 0, display: 'grid', gap: '20px' }}>
+      <section data-tour="calculation-basic" style={sectionStyle}>
+        <div style={gridStyle}>
+          <label style={{ display: 'grid', gap: '8px' }}><span style={{ fontWeight: 700 }}>{labels.calculationTitle}</span><input id="calculation-title" data-tour="calculation-title" value={values.title} onChange={event => update('title', event.target.value)} style={inputStyle} /></label>
+          <label style={{ display: 'grid', gap: '8px' }}><span style={{ fontWeight: 700 }}>{labels.date}</span><input id="calculation-date" data-tour="calculation-date" type="date" value={values.calculationDate} onChange={event => update('calculationDate', event.target.value)} style={inputStyle} /></label>
+          <label style={{ display: 'grid', gap: '8px' }}><span style={{ fontWeight: 700 }}>{labels.status}</span><select id="calculation-status" data-tour="calculation-status" value={values.status} onChange={event => update('status', event.target.value as 'draft' | 'ready')} style={inputStyle}><option value="draft">{labels.draft}</option><option value="ready">{labels.ready}</option></select></label>
+        </div>
+        <label style={{ display: 'grid', gap: '8px' }}><span style={{ fontWeight: 700 }}>{labels.description}</span><textarea id="calculation-description" value={values.description} onChange={event => update('description', event.target.value)} rows={3} style={inputStyle} /></label>
+        <label style={{ display: 'grid', gap: '8px' }}><span style={{ fontWeight: 700 }}>{labels.internalNote}</span><textarea id="calculation-internal-note" value={values.internalNote} onChange={event => update('internalNote', event.target.value)} rows={3} style={inputStyle} /></label>
+        {values.currency !== 'CZK' && <p role="alert" style={warningStyle}>Původní měna {values.currency || 'není známá'}. Tento formulář podporuje pouze CZK; měnu při ukládání nepřevádí.</p>}
       </section>
-      <section data-tour="calculation-customer-items" style={{ border: '1px solid #e5e7eb', borderRadius: '16px', backgroundColor: '#ffffff', padding: '20px', display: 'grid', gap: '16px' }}><div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}><h2 style={{ margin: 0, fontSize: '22px' }}>{dictionary.customers.calculationForm.customerItems}</h2><button type="button" data-tour="calculation-add-customer-item" onClick={() => setCustomerItems((current) => [...current, createCustomerDraftItem()])} style={{ padding: '10px 14px', borderRadius: '12px', border: '1px solid #d1d5db', backgroundColor: '#ffffff', fontWeight: 700, cursor: 'pointer' }}>{dictionary.customers.calculationForm.addCustomerItem}</button></div>
-      {customerItems.map((item, index) => <div key={item.id} style={{ border: '1px solid #e5e7eb', borderRadius: '14px', padding: '16px', display: 'grid', gap: '14px', backgroundColor: '#f9fafb' }}><div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}><strong>{dictionary.customers.calculationForm.customerItem} {index + 1}</strong>{customerItems.length > 1 && <button type="button" onClick={() => setCustomerItems((current) => current.filter((currentItem) => currentItem.id !== item.id))} style={{ padding: '8px 12px', borderRadius: '10px', border: '1px solid #fecaca', backgroundColor: '#fef2f2', color: '#991b1b', fontWeight: 700, cursor: 'pointer' }}>{dictionary.customers.calculationForm.remove}</button>}</div><div style={{ display: 'grid', gridTemplateColumns: '2fr 2fr', gap: '12px' }}><input placeholder={dictionary.customers.calculationForm.itemName} value={item.name} onChange={(event) => setCustomerItems((current) => current.map((currentItem) => currentItem.id === item.id ? { ...currentItem, name: event.target.value } : currentItem))} style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db' }} /><input placeholder={dictionary.customers.calculationForm.itemDescription} value={item.description} onChange={(event) => setCustomerItems((current) => current.map((currentItem) => currentItem.id === item.id ? { ...currentItem, description: event.target.value } : currentItem))} style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db' }} /></div><div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr', gap: '12px' }}><input placeholder={dictionary.customers.calculationForm.quantity} value={item.quantity} onChange={(event) => setCustomerItems((current) => current.map((currentItem) => currentItem.id === item.id ? { ...currentItem, quantity: event.target.value } : currentItem))} style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db' }} /><input placeholder={dictionary.customers.calculationForm.unit} value={item.unit} onChange={(event) => setCustomerItems((current) => current.map((currentItem) => currentItem.id === item.id ? { ...currentItem, unit: event.target.value } : currentItem))} style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db' }} /><input placeholder={dictionary.customers.calculationForm.unitPrice} value={item.unitPrice} onChange={(event) => setCustomerItems((current) => current.map((currentItem) => currentItem.id === item.id ? { ...currentItem, unitPrice: event.target.value } : currentItem))} style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db' }} /><input placeholder={dictionary.customers.calculationForm.vatRate} value={item.vatRate} onChange={(event) => setCustomerItems((current) => current.map((currentItem) => currentItem.id === item.id ? { ...currentItem, vatRate: event.target.value } : currentItem))} style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db' }} /><input placeholder={dictionary.customers.calculationForm.totalPrice} value={String(parseNumber(item.quantity) * parseNumber(item.unitPrice)).replace('.', ',')} readOnly style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db', backgroundColor: '#f3f4f6', color: '#111827' }} /></div><input placeholder={dictionary.customers.calculationForm.note} value={item.note} onChange={(event) => setCustomerItems((current) => current.map((currentItem) => currentItem.id === item.id ? { ...currentItem, note: event.target.value } : currentItem))} style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db' }} /></div>)}
-      </section>
-      <section data-tour="calculation-cost-items" style={{ border: '1px solid #e5e7eb', borderRadius: '16px', backgroundColor: '#ffffff', padding: '20px', display: 'grid', gap: '16px' }}><div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}><h2 style={{ margin: 0, fontSize: '22px' }}>{dictionary.customers.calculationForm.internalCostItems}</h2><button type="button" data-tour="calculation-add-cost-item" onClick={() => setCostItems((current) => [...current, createCostDraftItem()])} style={{ padding: '10px 14px', borderRadius: '12px', border: '1px solid #d1d5db', backgroundColor: '#ffffff', fontWeight: 700, cursor: 'pointer' }}>{dictionary.customers.calculationForm.addCostItem}</button></div>
-      {costItems.map((item, index) => <div key={item.id} style={{ border: '1px solid #e5e7eb', borderRadius: '14px', padding: '16px', display: 'grid', gap: '14px', backgroundColor: '#f9fafb' }}><div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}><strong>{dictionary.customers.calculationForm.internalCost} {index + 1} · {typeLabel(item.itemType)}</strong>{costItems.length > 1 && <button type="button" onClick={() => setCostItems((current) => current.filter((currentItem) => currentItem.id !== item.id))} style={{ padding: '8px 12px', borderRadius: '10px', border: '1px solid #fecaca', backgroundColor: '#fef2f2', color: '#991b1b', fontWeight: 700, cursor: 'pointer' }}>{dictionary.customers.calculationForm.remove}</button>}</div><div style={{ display: 'grid', gridTemplateColumns: '1.1fr 1.9fr 1.9fr', gap: '12px' }}><label style={{ display: 'grid', gap: '8px' }}><span style={{ fontSize: '13px', fontWeight: 700, color: '#4b5563' }}>{dictionary.customers.calculationForm.costType}</span><select value={item.itemType} onChange={(event) => setCostItems((current) => current.map((currentItem) => currentItem.id === item.id ? { ...currentItem, itemType: event.target.value as CostItemType } : currentItem))} style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db' }}><option value="labor">{dictionary.customers.calculationForm.typeLabor}</option><option value="material">{dictionary.customers.calculationForm.typeMaterial}</option><option value="rental">{dictionary.customers.calculationForm.typeRental}</option><option value="transport">{dictionary.customers.calculationForm.typeTransport}</option><option value="accommodation">{dictionary.customers.calculationForm.typeAccommodation}</option></select></label><input placeholder={dictionary.customers.calculationForm.itemName} value={item.name} onChange={(event) => setCostItems((current) => current.map((currentItem) => currentItem.id === item.id ? { ...currentItem, name: event.target.value } : currentItem))} style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db' }} /><input placeholder={dictionary.customers.calculationForm.itemDescription} value={item.description} onChange={(event) => setCostItems((current) => current.map((currentItem) => currentItem.id === item.id ? { ...currentItem, description: event.target.value } : currentItem))} style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db' }} /></div><div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr', gap: '12px' }}><input placeholder={dictionary.customers.calculationForm.quantity} value={item.quantity} onChange={(event) => setCostItems((current) => current.map((currentItem) => currentItem.id === item.id ? { ...currentItem, quantity: event.target.value } : currentItem))} style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db' }} /><input placeholder={dictionary.customers.calculationForm.unit} value={item.unit} onChange={(event) => setCostItems((current) => current.map((currentItem) => currentItem.id === item.id ? { ...currentItem, unit: event.target.value } : currentItem))} style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db' }} /><input placeholder={dictionary.customers.calculationForm.unitCost} value={item.unitCost} onChange={(event) => setCostItems((current) => current.map((currentItem) => currentItem.id === item.id ? { ...currentItem, unitCost: event.target.value } : currentItem))} style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db' }} /><input placeholder={dictionary.customers.calculationForm.vatRate} value={item.vatRate} onChange={(event) => setCostItems((current) => current.map((currentItem) => currentItem.id === item.id ? { ...currentItem, vatRate: event.target.value } : currentItem))} style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db' }} /><input placeholder={dictionary.customers.calculationForm.totalCost} value={String(parseNumber(item.quantity) * parseNumber(item.unitCost)).replace('.', ',')} readOnly style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db', backgroundColor: '#f3f4f6', color: '#111827' }} /></div><input placeholder={dictionary.customers.calculationForm.note} value={item.note} onChange={(event) => setCostItems((current) => current.map((currentItem) => currentItem.id === item.id ? { ...currentItem, note: event.target.value } : currentItem))} style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db' }} /></div>)}
-      <div data-tour="calculation-summary" style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: '12px' }}><div style={{ padding: '14px', borderRadius: '12px', backgroundColor: '#f9fafb' }}><div style={{ color: '#6b7280', marginBottom: '6px' }}>{dictionary.customers.calculationForm.customerTotal}</div><strong>{formatCurrency(customerTotal)}</strong></div><div style={{ padding: '14px', borderRadius: '12px', backgroundColor: '#f9fafb' }}><div style={{ color: '#6b7280', marginBottom: '6px' }}>{dictionary.customers.calculationForm.customerVat}</div><strong>{formatCurrency(customerVatTotal)}</strong></div><div style={{ padding: '14px', borderRadius: '12px', backgroundColor: '#f9fafb' }}><div style={{ color: '#6b7280', marginBottom: '6px' }}>{dictionary.customers.calculationForm.totalCosts}</div><strong>{formatCurrency(totalCost)}</strong></div><div style={{ padding: '14px', borderRadius: '12px', backgroundColor: '#f9fafb' }}><div style={{ color: '#6b7280', marginBottom: '6px' }}>{dictionary.customers.calculationForm.costVat}</div><strong>{formatCurrency(costVatTotal)}</strong></div><div style={{ padding: '14px', borderRadius: '12px', backgroundColor: '#f9fafb' }}><div style={{ color: '#6b7280', marginBottom: '6px' }}>{dictionary.customers.calculationForm.expectedProfit}</div><strong>{formatCurrency(expectedProfit)}</strong></div><div style={{ padding: '14px', borderRadius: '12px', backgroundColor: '#f9fafb' }}><div style={{ color: '#6b7280', marginBottom: '6px' }}>{dictionary.customers.calculationForm.laborCosts}</div><strong>{formatCurrency(laborCost)}</strong></div><div style={{ padding: '14px', borderRadius: '12px', backgroundColor: '#f9fafb' }}><div style={{ color: '#6b7280', marginBottom: '6px' }}>{dictionary.customers.calculationForm.otherCosts}</div><strong>{formatCurrency(otherCost)}</strong></div></div>
-      </section>
-      <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}><button type="submit" data-tour="calculation-save" disabled={saving} style={{ padding: '12px 16px', borderRadius: '12px', border: 'none', backgroundColor: '#000000', color: '#ffffff', fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>{saving ? dictionary.customers.calculationForm.savingNew : dictionary.customers.calculationForm.saveCalculation}</button><Link href={cancelHref} style={{ padding: '12px 16px', borderRadius: '12px', border: '1px solid #d1d5db', backgroundColor: '#ffffff', color: '#111827', fontWeight: 700, textDecoration: 'none' }}>{dictionary.customers.calculationForm.cancel}</Link></div>
-    </form>
-  )
+      {renderItems(true)}{renderItems(false)}
+    </fieldset>
+    <section data-tour="calculation-summary" style={{ ...sectionStyle, ...gridStyle }}>
+      {[[labels.customerTotal, preview?.subtotalPrice], [labels.customerVat, preview?.vatAmount], [labels.totalCosts, preview?.subtotalCost],
+        [labels.costVat, preview?.costVatAmount], [labels.expectedProfit, preview?.marginAmount], [labels.laborCosts, preview?.laborCost], [labels.otherCosts, preview?.otherCost]].map(([label, amount]) =>
+        <div key={label} style={{ padding: '14px', borderRadius: '12px', backgroundColor: '#f9fafb' }}><div style={{ color: '#6b7280', marginBottom: '6px' }}>{label}</div><strong>{formatCalculationMoney(amount)}</strong></div>)}
+      {!preview && <p style={{ gridColumn: '1 / -1', margin: 0, color: '#6b7280' }}>Součty se zobrazí po doplnění platných položek. Prázdné částky nejsou nula.</p>}
+    </section>
+    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+      {confirmed && !detailAvailable && <button type="button" onClick={() => void openConfirmed(confirmed)} disabled={scopeChanged} style={buttonStyle}>Ověřit firmu a otevřít uloženou kalkulaci</button>}
+      <button type="submit" data-tour="calculation-save" disabled={!initialized || saving || Boolean(storageError) || Boolean(confirmed) || scopeChanged} style={{ ...buttonStyle, backgroundColor: '#000000', color: '#ffffff', opacity: saving ? 0.7 : 1 }}>
+        {saving ? (props.edit ? labels.savingEdit : labels.savingNew) : pending ? 'Ověřit stejný požadavek' : props.edit ? labels.saveChanges : labels.saveCalculation}</button>
+      <Link href={props.cancelHref} style={{ ...buttonStyle, color: '#111827', textDecoration: 'none' }}>{labels.cancel}</Link>
+    </div>
+  </form>
 }
