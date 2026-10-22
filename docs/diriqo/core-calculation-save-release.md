@@ -1,6 +1,6 @@
 # Atomické ukládání kalkulace
 
-Datum: 21. 10. 2026. Stav: oprava CREATE + UPDATE má dokončené hosted SQL a skutečné Auth/HTTP souběhy. Databázová migrace je aplikovaná do testovacího projektu; odpovídající aplikace zatím není nasazená na app.diriqo.com. Zbývá CI po finální opravě exportéru a přihlášený UI průchod po vydání.
+Datum: 21. 10. 2026. Stav: oprava CREATE + UPDATE prošla hosted SQL, skutečnými Auth/HTTP souběhy, CI i přihlášeným UI průchodem. PR #39 je sloučený a aplikace nasazená na app.diriqo.com; databázová migrace je aplikovaná pouze do testovacího projektu Diriqa.
 
 ## Problém a výsledné chování
 
@@ -27,7 +27,7 @@ Původní obchodní fingerprinty a Auth předpoklady jsou v artifacts/calculatio
 
 ## Ověření a vydání
 
-Průběžný stav, před uzavřením PR aktualizovat podle skutečných výsledků:
+Doložený stav vydání PR #39:
 
 | Vrstva | Stav |
 |---|---|
@@ -38,10 +38,10 @@ Průběžný stav, před uzavřením PR aktualizovat podle skutečných výsledk
 | Typy, úplné testy, build | Finální Vitest 2106/2106 v 76 souborech PASS, včetně 47 regresí důkazu souběhu; celý ESLint 0 chyb / 3 původní navigation warnings; diff check PASS; Next build včetně TypeScript a 107/107 stránek PASS nad nezměněným aplikačním kódem |
 | Hosted migrace a SQL | Migrace aplikovaná, přesné tělo ověřené a verze historie sjednocená na 20261021075759. A/B i C1–C3 PASS; C dokončené přes skutečný SQL editor. C2/C3 navíc vykonaly interní kontrolu počtu scénářů a odstranění dočasných funkcí/triggerů po rollbacku. |
 | Skutečný souběh | 4/4 skutečné Auth/HTTP scénáře PASS: create retry, create conflict, update retry, update race. Doložené přesné pg_locks klíče a blokovací řetěz dvou aktivních RPC. U editace úplný preimage a právě jedna nová revize. |
-| CI a preview | Commit 2d818fd5cc30bcf99d5ce0b479caa6c4fd83cd1d: všechny CI úlohy PASS, run 39600576950; preview dpl_H51252X7dMxoXf2dxN5uGyrNmWFD READY nad přesně tímto SHA. Jde o stav před finální opravou exportéru; její CI je samostatná zbývající kontrola. |
-| Nasazení a přihlášené UI | Na app.diriqo.com dosud nenasazeno; přihlášený UI průchod této verze neproveden. Preview READY jej nenahrazuje. |
+| CI | Finální head f7254eb021ea9f44b4ca8b71379a369266779b2c: všechny úlohy PASS, run 39602483590. PR #39 sloučený jako 8877f8c11948ff588e52b124548c93d980b7cf3d. |
+| Nasazení a přihlášené UI | Produkční deployment dpl_2UAXHPpM5hZRbHG14T8HQ3VN9pm4 READY s přesným merge SHA a aliasem app.diriqo.com. Adam Admin / Diriqo Demo: vytvoření nulové zákaznické položky + interního materiálu za 1 Kč, reload, editace materiálu na 2 Kč, druhý reload. Databáze potvrzuje revizi 2 a úplný preimage. |
 
-CLI vytvořila migraci 20261021075759_atomic_core_calculation_save.sql (Git/LF SHA-256 d45a62d1cce5e15d2867482973815e3ac431f9ce3fb666670d7e7bd9ca22570f; původní lokální raw SHA-256 DEECDFD117CC27362AE762AB4F6EC09F212AFC7A78810951D89BD3196E013F89). Je aplikovaná pouze do určeného testovacího projektu. Provider původně zaznamenal verzi 20261021081812; po záloze záznamu a přesném porovnání SQL byla verze transakčně sjednocená se souborem, tělo migrace beze změny. Záloha historie: artifacts/calculations/applied-migration-history-before-alignment-20261021.json, SHA-256 6335de215598dee60f12dd334c3bcca38b8f1359025c9bc0c88e3dabfa91e915. Kontrola po migraci: artifacts/calculations/applied-migration-postcheck-20261021.json, SHA-256 c9856aa7ef17fb6cdb639e5729d19b90e34d87be27be3fbe86f9b199da292a4d. Po prvním kratším SQL pokusu jsou všechny původní obchodní fingerprinty beze změny, kalkulace a syntetické firmy mají 0 záznamů. Těchto počátečních 0 záznamů je stav před následujícími testy; konečný zachovaný syntetický rozsah je uveden níže. Zbývajících 19 hosted kontrol SQL i skutečný Auth/HTTP souběh byly následně dokončeny. Odpovídající aplikace musí následovat; staré formuláře nesmějí obejít RPC. Souběh používá dvě skutečné Auth relace, přesné operační zámky v pg_locks a pozorovaný řetěz čekajících backendů. Databázové pořadí se vyhodnocuje v serverových hodinách, HTTP překryv v místních monotónních hodinách; domény hodin se neporovnávají a mapování Auth session na PID se netvrdí. Všechny relace byly odhlášeny a syntetické přístupy deaktivovány.
+CLI vytvořila migraci 20261021075759_atomic_core_calculation_save.sql (Git/LF SHA-256 d45a62d1cce5e15d2867482973815e3ac431f9ce3fb666670d7e7bd9ca22570f; původní lokální raw SHA-256 DEECDFD117CC27362AE762AB4F6EC09F212AFC7A78810951D89BD3196E013F89). Je aplikovaná pouze do určeného testovacího projektu. Provider původně zaznamenal verzi 20261021081812; po záloze záznamu a přesném porovnání SQL byla verze transakčně sjednocená se souborem, tělo migrace beze změny. Záloha historie: artifacts/calculations/applied-migration-history-before-alignment-20261021.json, SHA-256 6335de215598dee60f12dd334c3bcca38b8f1359025c9bc0c88e3dabfa91e915. Kontrola po migraci: artifacts/calculations/applied-migration-postcheck-20261021.json, SHA-256 c9856aa7ef17fb6cdb639e5729d19b90e34d87be27be3fbe86f9b199da292a4d. Po prvním kratším SQL pokusu jsou všechny původní obchodní fingerprinty beze změny, kalkulace a syntetické firmy mají 0 záznamů. Těchto počátečních 0 záznamů je stav před následujícími testy; konečný zachovaný syntetický rozsah je uveden níže. Zbývajících 19 hosted kontrol SQL i skutečný Auth/HTTP souběh byly následně dokončeny. Odpovídající aplikace byla následně vydána v PR #39; přímé zápisy zůstávají uzavřené. Souběh používá dvě skutečné Auth relace, přesné operační zámky v pg_locks a pozorovaný řetěz čekajících backendů. Databázové pořadí se vyhodnocuje v serverových hodinách, HTTP překryv v místních monotónních hodinách; domény hodin se neporovnávají a mapování Auth session na PID se netvrdí. Všechny relace byly odhlášeny a syntetické přístupy deaktivovány.
 
 Při problému uchovat nové sloupce, historii i receipt a opravit kompatibilní cestu. Návrat k původnímu neatomickému klientu není obnovená funkčnost; nepovolovat kvůli němu přímé zápisy, nemažte dokumenty ani auditní historii.
 
@@ -59,10 +59,10 @@ Oprava exportéru vkládá interní kontrolu počtu a DDL cleanup před přesnou
 
 Závěrečná owner kontrola po C: 0 firem CoreCalculationTest, 0 dočasných fault funkcí, 0 fault triggerů a 0 aktivních testovacích dotazů. Všech šest původních obchodních fingerprintů se shoduje. Zůstává původních 5 auditních syntetických kalkulací, 2 verze a 5 receipts ze souběhu; počet relací je 0.
 
-Před sloučením a nasazením zbývá CI přesného finálního commitu po opravě exportéru. Dosavadní CI a READY preview výše prokazují svůj konkrétní commit. Následuje nasazení odpovídající aplikace a přihlášený UI průchod vytvořením, reloadem a editací kalkulace; tyto kroky zatím nejsou vykázané jako dokončené.
+Konečná evidence CI, merge, deploymentu a přihlášeného průchodu: artifacts/calculations/pr39-deployment-authenticated-ui-20261021.json, SHA-256 33c7098a267fc09ec003f29890b0111445204bdba78edbde58197920089bc774. UI vytvořilo označenou testovací kalkulaci a951ef22-00fe-4766-b55d-4aa67bffb1e4 v Diriqo Demo s.r.o.; kromě dřívějších pěti auditních kalkulací je tedy zachovaná ještě tato šestá kalkulace. Jde o konkrétní ověřený průchod, nikoli důkaz celého obchodního procesu.
 
 ## Otevřené hranice
 
 Tato oprava sama neuzavírá celý zákazník → kalkulace → nabídka → zakázka → faktura proces. Kalkulace → nabídka a synchronizace nabídky stále mají samostatné neatomické zapisovací cesty; jejich oprava a ochrana vydaného obsahu jsou další povinné kroky původního cíle. Současný převod filtruje nulové prodejní řádky, což není důkaz chyby atomického uložení ani dokončení bezplatné nabídky.
 
-Původní akceptační matice zůstává 5 HOTOVO / 49 ČÁSTEČNĚ / 3 CHYBA / 11 CHYBÍ / 5 NEOVĚŘENO. Žádný celý scénář se tímto rozpracovaným blokem nově neuzavírá.
+Původní akceptační matice zůstává 5 HOTOVO / 49 ČÁSTEČNĚ / 3 CHYBA / 11 CHYBÍ / 5 NEOVĚŘENO. Tento dílčí blok kalkulací sám žádný celý akceptační scénář nově neuzavírá.

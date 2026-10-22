@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react'
+import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import Image from 'next/image'
 import CtaButton from '@/components/public-offer/CtaButton'
 import OfferAccordion from '@/components/public-offer/OfferAccordion'
@@ -12,6 +12,8 @@ import type {
   CtaModalState,
   PublicOfferPageProps,
 } from '@/components/public-offer/types'
+import { offerResponseKey, restoreOfferResponse, saveOfferResponse, type PendingOfferResponse } from '@/components/public-offer/response-state'
+import { parsePublicOfferResponseContact, MAX_NOTE_LENGTH } from '@/lib/public-offer-security'
 import { getQuoteBenefits } from '@/lib/quote-benefits'
 import {
   formatCurrency,
@@ -19,7 +21,6 @@ import {
   getOrCreateVisitorId,
   hasText,
   postOfferEvent,
-  submitOfferResponse,
 } from '@/components/public-offer/utils'
 
 function normalizePublicLogoUrl(value: string | null | undefined) {
@@ -42,9 +43,15 @@ function normalizePublicLogoUrl(value: string | null | undefined) {
   return null
 }
 
-export default function PublicOfferPage({
+export default function PublicOfferPage(props: PublicOfferPageProps) {
+  return <PublicOfferContent key={`${props.context || 'public'}:${props.responseActorId || 'anonymous'}:${props.token}:${props.versionId || 'legacy'}`} {...props} />
+}
+
+function PublicOfferContent({
   token,
   context = 'public',
+  responseActorId = null, versionId = null, versionNumber = null, canRespond = false,
+  currency = null, pricingMode = null, subtotal = null, discount = null,
   title,
   customerName,
   defaultCustomerEmail,
@@ -65,6 +72,24 @@ export default function PublicOfferPage({
   sections,
   items,
 }: PublicOfferPageProps) {
+  const responseBusy = useRef(false)
+  const subscribe = useCallback((notify: () => void) => {
+    window.addEventListener('storage', notify)
+    window.addEventListener('diriqo-offer-response-change', notify)
+    return () => { window.removeEventListener('storage', notify); window.removeEventListener('diriqo-offer-response-change', notify) }
+  }, [])
+  const storedResponse = useSyncExternalStore(subscribe, useCallback(() => {
+    if (!versionId) return null
+    try { return sessionStorage.getItem(offerResponseKey(context, token, versionId, responseActorId)) }
+    catch { return 'storage-unavailable' }
+  }, [context, token, versionId, responseActorId]), () => null)
+  const restored = useMemo(() => {
+    if (!versionId) return { pending: null, error: null }
+    try { return { pending: restoreOfferResponse(storedResponse, context, token, versionId, responseActorId), error: null } }
+    catch (error) { return { pending: null, error: error instanceof Error ? error.message : 'Uložený požadavek nelze ověřit.' } }
+  }, [storedResponse, context, token, versionId, responseActorId])
+  const pendingResponse = restored.pending
+  const responseStorageError = restored.error
   const visitorIdRef = useRef<string>('')
   const openedAtRef = useRef<number>(0)
   const seenSectionsRef = useRef<Set<string>>(new Set())
@@ -102,6 +127,7 @@ export default function PublicOfferPage({
   const solutionSection = visibleSections.find((section) => section.key === 'our_solution')
   const timelineSection = visibleSections.find((section) => section.key === 'timeline')
   const infoSection = visibleSections.find((section) => section.key === 'work_description')
+  const customerNoteSection = visibleSections.find(section => section.key === 'customer_note')
   const paymentTermsSection = visibleSections.find((section) => section.key === 'payment_terms')
 
   const heroSummary =
@@ -226,6 +252,7 @@ export default function PublicOfferPage({
   }
 
   function openCtaModal(actionType: CtaActionType) {
+    if (!versionId || !canRespond || pendingResponse || responseStorageError || responseBusy.current) return
     if (actionType === 'interested') trackCta('cta_interested')
     if (actionType === 'revision_requested') trackCta('cta_revision')
     if (actionType === 'contact_requested') trackCta('cta_contact')
@@ -249,64 +276,54 @@ export default function PublicOfferPage({
     })
   }
 
-  async function handleCtaSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    if (!ctaModal) return
-
-    const form = event.currentTarget
-    const formData = new FormData(form)
-
+  async function sendResponse(payload: PendingOfferResponse) {
+    if (responseBusy.current || payload.token !== token || payload.versionId !== versionId || payload.context !== context || payload.actorId !== responseActorId) return
+    responseBusy.current = true
     setSubmitLoading(true)
     setSubmitError(null)
-
     try {
-      const payload = {
-        token,
-        actionType: ctaModal.actionType,
-        customerName: String(formData.get('customerName') ?? '').trim(),
-        customerEmail: String(formData.get('customerEmail') ?? '').trim(),
-        customerPhone: String(formData.get('customerPhone') ?? '').trim(),
-        note: String(formData.get('note') ?? '').trim(),
-        visitorId: visitorIdRef.current,
-        website: String(formData.get('website') ?? ''),
-        openedAt: modalOpenedAtRef.current || Date.now(),
+      const response = await fetch(payload.context === 'portal' ? '/api/portal/offers/respond' : '/api/offers/respond', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload.context === 'portal'
+          ? { actorId: payload.actorId, offerId: payload.token, versionId: payload.versionId, operationId: payload.operationId, actionType: payload.actionType, note: payload.note }
+          : payload),
+      })
+      const data = await response.json().catch(() => null)
+      if (!response.ok || !data?.ok || data.versionId !== payload.versionId || data.operationId !== payload.operationId) {
+        throw new Error(data?.error || 'Výsledek reakce se nepodařilo potvrdit. Opakujte uložený požadavek.')
       }
+      sessionStorage.removeItem(offerResponseKey(payload.context, payload.token, payload.versionId, payload.actorId))
+      window.dispatchEvent(new Event('diriqo-offer-response-change'))
+      setSuccessMessage(payload.actionType === 'interested' ? 'Děkujeme, evidujeme váš zájem. Ozveme se vám co nejdříve.'
+        : payload.actionType === 'revision_requested' ? 'Děkujeme, evidujeme váš požadavek na úpravu této verze nabídky.'
+        : payload.actionType === 'not_interested' ? 'Děkujeme za zprávu. Evidujeme, že o tuto nabídku nyní nemáte zájem.'
+        : 'Děkujeme, zprávu jsme přijali a ozveme se vám.')
+    } catch (error) { setSubmitError(error instanceof Error ? error.message : 'Výsledek reakce není potvrzený.') }
+    finally { responseBusy.current = false; setSubmitLoading(false) }
+  }
 
-      if (isPortal) {
-        const response = await fetch('/api/portal/offers/respond', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            offerId: token,
-            actionType: payload.actionType,
-            note: payload.note,
-          }),
-        })
-        const data = (await response.json().catch(() => null)) as { ok?: boolean; error?: string } | null
-        if (!response.ok || !data?.ok) {
-          throw new Error(data?.error || 'Reakci se nepodařilo uložit.')
-        }
-      } else {
-        await submitOfferResponse(payload)
-      }
-
-      if (ctaModal.actionType === 'interested') {
-        setSuccessMessage('Děkujeme, evidujeme váš zájem. Ozveme se vám co nejdříve.')
-      } else if (ctaModal.actionType === 'revision_requested') {
-        setSuccessMessage('Děkujeme, evidujeme váš požadavek na úpravu nabídky.')
-      } else if (ctaModal.actionType === 'not_interested') {
-        setSuccessMessage('Děkujeme za zprávu. Evidujeme, že o nabídku nyní nemáte zájem.')
-      } else {
-        setSuccessMessage('Děkujeme, zprávu jsme přijali a ozveme se vám.')
-      }
-
-      setCtaModal(null)
-      form.reset()
-    } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : 'Reakci se nepodařilo uložit.')
-    } finally {
-      setSubmitLoading(false)
+  async function handleCtaSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if ((isPortal && !responseActorId) || !ctaModal || !versionId || pendingResponse || responseBusy.current || responseStorageError) return
+    const formData = new FormData(event.currentTarget)
+    const payload: PendingOfferResponse = {
+      token, context, actorId: responseActorId, versionId, operationId: crypto.randomUUID(), actionType: ctaModal.actionType,
+      customerName: String(formData.get('customerName') ?? '').trim(),
+      customerEmail: String(formData.get('customerEmail') ?? '').trim(),
+      customerPhone: String(formData.get('customerPhone') ?? '').trim(),
+      note: String(formData.get('note') ?? '').trim(), visitorId: visitorIdRef.current,
+      website: String(formData.get('website') ?? ''), openedAt: modalOpenedAtRef.current || Date.now(),
     }
+    try {
+      if (isPortal) {
+        if (payload.note.length > MAX_NOTE_LENGTH) throw new Error('Poznámka může mít nejvýše 2 000 znaků.')
+      } else Object.assign(payload, parsePublicOfferResponseContact(payload))
+    } catch (error) { setSubmitError(error instanceof Error ? error.message : 'Zkontrolujte údaje.'); return }
+    try { saveOfferResponse(sessionStorage, payload) }
+    catch { setSubmitError('Požadavek nelze bezpečně uložit. Povolte úložiště tohoto panelu a zkuste to znovu.'); return }
+    window.dispatchEvent(new Event('diriqo-offer-response-change'))
+    setCtaModal(null)
+    await sendResponse(payload)
   }
 
   return (
@@ -615,7 +632,7 @@ export default function PublicOfferPage({
               >
                 <div>
                   <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '13px', marginBottom: '6px' }}>Cena celkem</div>
-                  <div style={{ fontSize: 'clamp(34px, 5vw, 52px)', fontWeight: 900 }}>{formatCurrency(priceTotal)}</div>
+                  <div style={{ fontSize: 'clamp(34px, 5vw, 52px)', fontWeight: 900 }}>{formatCurrency(priceTotal, currency)}</div>
                 </div>
 
                 {timelineSection?.content ? (
@@ -689,6 +706,7 @@ export default function PublicOfferPage({
           <OfferPricingSection
             pricingTitle={pricingTitle}
             priceTotal={priceTotal}
+            currency={currency} pricingMode={pricingMode} subtotal={subtotal} discount={discount}
             pricingText={pricingText}
             items={items}
             isOpen={openSections.pricing ?? false}
@@ -708,12 +726,22 @@ export default function PublicOfferPage({
           />
         ) : null}
 
-        <OfferNextStepsSection
+        {customerNoteSection ? <OfferAccordion title={customerNoteSection.title} sectionKey={customerNoteSection.key}
+          content={customerNoteSection.content!} isOpen={openSections[customerNoteSection.key] ?? false}
+          onToggle={toggleSection} registerSectionRef={registerSectionRef} /> : null}
+        <p style={{ color: '#475569' }}>{versionNumber ? `Vydaná verze ${versionNumber}` : 'Starší nabídka - původní verze není doložena'} · {pricingMode === 'net' ? 'Ceny bez DPH' : 'Cenový režim není doložen'} · Měna: {currency || 'nedoložena'}</p>
+        {responseStorageError ? <p role="alert">{responseStorageError}</p> : null}
+        {pendingResponse ? <section style={{ background: '#f5f3ff', padding: 20, borderRadius: 12 }} aria-live="polite">
+          <p>Uložená reakce čeká na potvrzení. Opakování použije stejný požadavek.</p>
+          {submitError ? <p role="alert">{submitError}</p> : null}
+          <button disabled={submitLoading} onClick={() => void sendResponse(pendingResponse)}>{submitLoading ? 'Ověřuji…' : 'Ověřit uloženou reakci'}</button>
+        </section> : null}
+        {canRespond && versionId && !pendingResponse && !responseStorageError ? <OfferNextStepsSection
           onInterested={() => openCtaModal('interested')}
           onRevision={() => openCtaModal('revision_requested')}
           onContact={() => openCtaModal('contact_requested')}
           onNotInterested={() => openCtaModal('not_interested')}
-        />
+        /> : <p role="status">Reakce k této verzi už nejsou dostupné. V případě dotazu kontaktujte dodavatele.</p>}
 
         {(preparedByLabel || formattedPreparedAt || formattedUpdatedAt) ? (
           <section

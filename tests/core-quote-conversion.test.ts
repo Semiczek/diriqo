@@ -9,21 +9,22 @@ vi.mock('next/cache', () => ({ revalidatePath: mocks.revalidate }))
 vi.mock('@/lib/dal/auth', () => ({
   requireCompanyRoleDalContext: mocks.guard, requireHubDalContext: mocks.guard, DalAuthError: mocks.DalAuthError,
 }))
-import { createJobFromQuoteAction, deleteQuoteAction } from '../app/business-actions'
+import { createJobFromQuoteAction } from '../app/business-actions'
 const companyId = 'a1111111-1111-4111-8111-111111111111'
 const otherCompany = 'a2222222-2222-4222-8222-222222222222'
 const quoteId = 'b1111111-1111-4111-8111-111111111111'
 const operationId = 'c1111111-1111-4111-8111-111111111111'
 const jobId = 'd1111111-1111-4111-8111-111111111111'
+const versionId = 'e1111111-1111-4111-8111-111111111111'
 const input: CoreQuoteConversionInput = {
-  companyId, quoteId, operationId, title: 'Úklid', description: 'Rozpis', address: 'Test',
+  companyId, quoteId, operationId, versionId, title: 'Úklid', description: 'Rozpis', address: 'Test',
   startAt: '2026-10-19T08:00:00.000Z', endAt: '2026-10-21T16:00:00.000Z',
   splitDays: [
     { label: 'Pondělí', startAt: '2026-10-19T08:00:00.000Z', endAt: '2026-10-19T16:00:00.000Z' },
     { label: 'Středa', startAt: '2026-10-21T08:00:00.000Z', endAt: '2026-10-21T16:00:00.000Z' },
   ],
 }
-const successful = () => ({ companyId, quoteId, jobId, created: true })
+const successful = () => ({ companyId, quoteId, versionId, jobId, created: true })
 beforeEach(() => {
   vi.resetAllMocks()
   mocks.guard.mockResolvedValue({ companyId, profileId: 'verified-profile', role: 'company_admin',
@@ -39,7 +40,7 @@ describe('core quote conversion action', () => {
     expect(mocks.guard).toHaveBeenCalledExactlyOnceWith('company_admin', 'super_admin')
     expect(mocks.auth).toHaveBeenCalledTimes(1)
     expect(mocks.rpc).toHaveBeenCalledExactlyOnceWith('convert_core_quote_to_job_atomic', {
-      p_company_id: companyId, p_quote_id: quoteId, p_operation_id: operationId,
+      p_company_id: companyId, p_quote_id: quoteId, p_version_id: versionId, p_operation_id: operationId,
       p_input: { title: input.title, description: input.description, address: input.address, start_at: input.startAt,
         end_at: input.endAt, split_days: input.splitDays.map(d => ({ label: d.label, start_at: d.startAt, end_at: d.endAt })) },
     })
@@ -79,6 +80,7 @@ describe('core quote conversion action', () => {
     ['QUOTE_CUSTOMER_SCOPE_INVALID', 'forbidden'], ['QUOTE_CUSTOMER_SNAPSHOT_IMMUTABLE', 'conflict'],
     ['CORE_QUOTE_FORBIDDEN', 'forbidden'], ['CORE_QUOTE_MODULE_REQUIRED', 'forbidden'],
     ['CORE_QUOTE_SCOPE_INVALID', 'forbidden'], ['CORE_QUOTE_NOT_FOUND', 'forbidden'],
+    ['CORE_QUOTE_VERSION_REQUIRED', 'conflict'], ['CORE_QUOTE_VERSION_CONFLICT', 'conflict'], ['CORE_QUOTE_ACCEPTANCE_REQUIRED', 'conflict'],
     ['CORE_QUOTE_INPUT_INVALID', 'validation'], ['CORE_QUOTE_STATUS_INVALID', 'conflict'],
     ['CORE_QUOTE_REQUEST_CONFLICT', 'conflict'], ['CORE_QUOTE_ALREADY_CONVERTED', 'conflict'],
     ['CORE_QUOTE_LEGACY_CONVERSION', 'unavailable'], ['CORE_QUOTE_RESULT_MISSING', 'unavailable'],
@@ -115,7 +117,7 @@ describe('core quote conversion action', () => {
 
 describe('core quote conversion input boundaries', () => {
   it.each([
-    { operationId: undefined }, { companyId: 'invalid' }, { quoteId: 'invalid' },
+    { versionId: null }, { versionId: 'invalid' }, { operationId: undefined }, { companyId: 'invalid' }, { quoteId: 'invalid' },
     { title: '' }, { title: 'x'.repeat(301) }, { description: 'x'.repeat(10_001) }, { address: 'x'.repeat(2001) },
     { startAt: '2026-10-19T08:00' }, { startAt: '2026-02-30T08:00:00Z' }, { endAt: input.startAt },
     { splitDays: null }, { splitDays: Array.from({ length: 367 }, () => input.splitDays[0]) },
@@ -139,18 +141,32 @@ describe('core quote conversion input boundaries', () => {
 })
 
 
-describe('quote deletion keeps the database cascade atomic', () => {
-  it.each([null, { message: 'Injected quote deletion failure' }])('never deletes items separately when quote deletion returns %j', async deletionError => {
-    const quote = { id: quoteId, customer_id: null }
-    const read = { select: vi.fn(), eq: vi.fn(), is: vi.fn(), maybeSingle: vi.fn().mockResolvedValue({ data: quote, error: null }) }
-    read.select.mockReturnValue(read); read.eq.mockReturnValue(read); read.is.mockReturnValue(read)
-    const write = { delete: vi.fn(), eq: vi.fn(), select: vi.fn().mockResolvedValue({ data: deletionError ? null : [{ id: quoteId }], error: deletionError }) }
-    write.delete.mockReturnValue(write); write.eq.mockReturnValue(write)
-    mocks.from.mockImplementationOnce(() => read).mockImplementationOnce(() => write)
-    expect(await deleteQuoteAction({ quoteId })).toMatchObject({ ok: !deletionError })
-    expect(mocks.from.mock.calls).toEqual([['quotes'], ['quotes']])
-    expect(write.delete).toHaveBeenCalledTimes(1)
-    expect(write.eq.mock.calls).toEqual([['id', quoteId], ['company_id', companyId]])
-    if (deletionError) expect(mocks.revalidate).not.toHaveBeenCalled()
+describe('historical pending conversion compatibility', () => {
+  it('replays the unchanged historical operation without attaching a current version', async () => {
+    const historical = { ...input }; delete historical.versionId
+    mocks.rpc.mockResolvedValue({ data: { companyId, quoteId, jobId, created: false }, error: null })
+    expect(await createJobFromQuoteAction(historical)).toEqual({ ok: true, data: { jobId, created: false } })
+    expect(mocks.rpc.mock.calls[0][1]).not.toHaveProperty('p_version_id')
+    expect(mocks.rpc.mock.calls[0][1].p_operation_id).toBe(operationId)
+    expect(historical).not.toHaveProperty('versionId')
+    expect(mocks.from).not.toHaveBeenCalled()
+  })
+  it('never accepts a new unversioned conversion as a valid historical replay', async () => {
+    const historical = { ...input }; delete historical.versionId
+    expect(await createJobFromQuoteAction(historical)).toMatchObject({ ok: false, code: 'unknown', uncertain: true })
+    mocks.rpc.mockResolvedValue({ data: null, error: { message: 'CORE_QUOTE_VERSION_REQUIRED' } })
+    expect(await createJobFromQuoteAction(historical)).toMatchObject({ ok: false, code: 'conflict', uncertain: false })
+    expect(mocks.from).not.toHaveBeenCalled()
+  })
+  it('rejects a receipt for another accepted version after the RPC without discarding the request', async () => {
+    mocks.rpc.mockResolvedValue({ data: { ...successful(), versionId: quoteId }, error: null })
+    expect(await createJobFromQuoteAction(input)).toMatchObject({ ok: false, code: 'unknown', uncertain: true })
+    expect(mocks.rpc.mock.calls[0][1].p_version_id).toBe(versionId)
+  })
+  it('rejects explicitly invalid version identity instead of treating it as a historical request', async () => {
+    for (const versionId of [null, '', 'bad', undefined]) {
+      expect(await createJobFromQuoteAction({ ...input, versionId } as unknown as CoreQuoteConversionInput)).toMatchObject({ ok: false, code: 'validation' })
+    }
+    expect(mocks.rpc).not.toHaveBeenCalled()
   })
 })

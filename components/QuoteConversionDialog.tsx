@@ -8,7 +8,7 @@ import { conversionDates, conversionStorageKey, conversionWorkDays, localDateTim
 import styles from './QuoteConversionDialog.module.css'
 
 type Props = {
-  companyId: string; actorProfileId: string; quoteId: string; customerId: string | null
+  companyId: string; actorProfileId: string; quoteId: string; customerId: string | null; versionId?: string
   quoteTitle?: string | null; description?: string | null; contactName?: string | null
   contactEmail?: string | null; shareUrl?: string | null; onClose: () => void
 }
@@ -57,12 +57,13 @@ export default function QuoteConversionDialog(props: Props) {
     let operation = pending
     if (!operation) {
       try {
+        if (!scope.versionId) throw new Error('Vyberte vydanou přijatou verzi nabídky. Bez ní novou zakázku nevytvoříme.')
         const { start, end } = conversionDates(startText, endText)
         const selected = days.filter(day => !omittedDays.includes(day.dateKey))
         if (effectiveSplit && !selected.length) throw new Error('Vyberte alespoň jeden den realizace.')
         if (sendConfirmation && !scope.contactEmail?.trim()) throw new Error('Chybí kontaktní e-mail. Vypněte odeslání nebo doplňte kontakt v nabídce.')
         operation = { version: 1, actorProfileId: scope.actorProfileId, sendConfirmation, payload: parseCoreQuoteConversion({
-          companyId: scope.companyId, quoteId: scope.quoteId, operationId: crypto.randomUUID(),
+          companyId: scope.companyId, quoteId: scope.quoteId, versionId: scope.versionId, operationId: crypto.randomUUID(),
           title: scope.quoteTitle?.trim() || 'Zakázka z cenové nabídky', description: description.trim() || null, address: address.trim() || null,
           startAt: start.toISOString(), endAt: end.toISOString(),
           splitDays: effectiveSplit ? selected.map(day => ({ label: day.label, startAt: day.startAt.toISOString(), endAt: day.endAt.toISOString() })) : [],

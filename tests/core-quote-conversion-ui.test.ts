@@ -23,7 +23,7 @@ vi.mock('@/app/business-actions', () => ({ createJobFromQuoteAction: mocks.actio
 import QuoteConversionDialog from '../components/QuoteConversionDialog'
 const companyId = '11111111-1111-4111-8111-111111111111', actorProfileId = '22222222-2222-4222-8222-222222222222'
 const quoteId = '33333333-3333-4333-8333-333333333333', jobId = '44444444-4444-4444-8444-444444444444'
-const props = { companyId, actorProfileId, quoteId, customerId: null, quoteTitle: 'Synthetic offer', contactEmail: 'test@example.invalid', onClose: mocks.close }
+const props = { versionId: '55555555-5555-4555-8555-555555555555', companyId, actorProfileId, quoteId, customerId: null, quoteTitle: 'Synthetic offer', contactEmail: 'test@example.invalid', onClose: mocks.close }
 const key = conversionStorageKey(companyId, actorProfileId, quoteId)
 let store: Map<string, string>
 function elements(value: unknown): Array<{ type: unknown; props: Record<string, unknown> }> {
@@ -222,5 +222,27 @@ describe('bounded local conversion dates', () => {
   it('cannot restore a payload under another identity scope', () => {
     expect(() => readPendingConversion('{}', props)).toThrow()
     expect(conversionStorageKey(companyId, actorProfileId, quoteId)).not.toBe(conversionStorageKey(companyId, 'other-actor', quoteId))
+  })
+})
+
+describe('version binding in conversion UI', () => {
+  it('will not submit a fresh conversion without an explicitly selected version', async () => {
+    await submit(render({ versionId: undefined }))
+    expect(mocks.action).not.toHaveBeenCalled()
+    expect(store.size).toBe(0)
+  })
+  it('retries a historical unversioned pending request unchanged even when a newer version is selected', async () => {
+    mocks.action.mockRejectedValueOnce(new Error('lost historical response'))
+    await submit(render())
+    const saved = JSON.parse(store.get(key)!)
+    delete saved.payload.versionId
+    store.set(key, JSON.stringify(saved))
+    hooks.reset(); mocks.action.mockClear()
+    mocks.action.mockResolvedValueOnce({ ok: true, data: { jobId, created: false } })
+    await submit(render({ versionId: '66666666-6666-4666-8666-666666666666' }))
+    expect(mocks.action).toHaveBeenCalledExactlyOnceWith(saved.payload)
+    expect(mocks.action.mock.calls[0][0]).not.toHaveProperty('versionId')
+    expect(mocks.fetch).not.toHaveBeenCalled()
+    expect(store.has(key)).toBe(false)
   })
 })

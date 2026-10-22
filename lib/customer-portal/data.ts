@@ -2,7 +2,8 @@ import 'server-only'
 
 import { buildQrPaymentPayload, formatInvoiceStatus } from '@/lib/invoices'
 import { createSupabaseAdminClient } from '@/lib/supabase-admin'
-import { resolveQuoteCustomerIdentity, type QuoteCustomerIdentitySource } from '@/lib/quote-customer-identity'
+import { getPortalCoreQuote, listPortalCoreQuotes } from '@/lib/dal/core-quote-customer-read'
+import { coreQuotePresentation } from '@/lib/core-quote-presentation'
 
 const JOB_PHOTO_BUCKET = 'job-photos'
 
@@ -34,49 +35,6 @@ type JobPhotoRow = {
   taken_at: string | null
   storage_path: string | null
   thumb_storage_path: string | null
-}
-
-type QuoteRow = QuoteCustomerIdentitySource & {
-  id: string
-  quote_number: string
-  title: string
-  status: string | null
-  quote_date: string | null
-  valid_until: string | null
-  contact_name: string | null
-  contact_email: string | null
-  customer_request_title: string | null
-  customer_request: string | null
-  our_solution_title: string | null
-  timeline_title: string | null
-  pricing_title: string | null
-  payment_terms_title: string | null
-  benefits_text: string | null
-  total_price: number | null
-  intro_text: string | null
-  proposed_solution: string | null
-  pricing_text: string | null
-  work_description: string | null
-  work_schedule: string | null
-  payment_terms: string | null
-  customer_summary: string | null
-  created_at: string | null
-  updated_at: string | null
-  profiles?: { full_name: string | null }[] | { full_name: string | null } | null
-  accepted_at: string | null
-  customer_portal_approved_by: string | null
-  customer_portal_approved_note: string | null
-}
-
-type QuoteItemRow = {
-  id: string
-  name: string
-  description: string | null
-  quantity: number | null
-  unit: string | null
-  unit_price: number | null
-  total_price: number | null
-  note: string | null
 }
 
 type LeadRow = {
@@ -149,6 +107,8 @@ export type PortalPhotoItem = {
 export type PortalOfferListItem = {
   id: string
   quoteNumber: string
+  versionId: string | null
+  versionNumber: number | null
   title: string
   statusLabel: string
   summary: string | null
@@ -379,7 +339,12 @@ export function mapPortalOfferStatus(value: string | null | undefined, validUnti
     normalized !== 'accepted' &&
     normalized !== 'rejected'
 
+  if (normalized === 'revoked') return 'Odkaz zneplatněn'
+  if (normalized === 'archived') return 'Archivovaná'
+  if (normalized === 'legacy') return 'Dochovaná historie'
   if (isExpired || normalized === 'expired') return 'Expirovaná'
+  if (normalized === 'published') return 'Publikovaná'
+  if (normalized === 'superseded') return 'Nahrazená'
   if (normalized === 'accepted') return 'Schválená'
   if (normalized === 'rejected') return 'Zamítnutá'
   if (normalized === 'waiting_followup') return 'Potvrzení přijato'
@@ -390,19 +355,6 @@ export function mapPortalOfferStatus(value: string | null | undefined, validUnti
   return 'Rozpracovaná'
 }
 
-export function canPortalApproveOffer(quote: Pick<QuoteRow, 'status' | 'valid_until' | 'accepted_at'>) {
-  const normalized = (quote.status ?? '').trim().toLowerCase()
-  const isExpired =
-    quote.valid_until != null &&
-    new Date(`${quote.valid_until}T23:59:59`).getTime() < Date.now() &&
-    normalized !== 'accepted'
-
-  if (quote.accepted_at) return false
-  if (isExpired) return false
-  if (normalized === 'accepted' || normalized === 'rejected' || normalized === 'expired') return false
-
-  return ['ready', 'sent', 'viewed', 'waiting_followup'].includes(normalized)
-}
 
 function formatJobDateLabel(job: Pick<JobRow, 'start_at' | 'end_at' | 'created_at'>) {
   if (job.start_at && job.end_at) {
@@ -414,11 +366,6 @@ function formatJobDateLabel(job: Pick<JobRow, 'start_at' | 'end_at' | 'created_a
   return formatDate(job.created_at)
 }
 
-function asSingleRelation<T>(value: T[] | T | null | undefined): T | null {
-  if (!value) return null
-  if (Array.isArray(value)) return value[0] ?? null
-  return value
-}
 
 export async function getPortalJobs(customerId: string, companyId: string) {
   const admin = createSupabaseAdminClient()
@@ -711,169 +658,29 @@ export async function getPortalInvoiceDetail(customerId: string, companyId: stri
 }
 
 export async function getPortalOffers(customerId: string, companyId: string) {
-  const admin = createSupabaseAdminClient()
-  const { data, error } = await admin
-    .from('quotes')
-    .select(
-      'id, quote_number, title, status, quote_date, valid_until, total_price, accepted_at'
-    )
-    .eq('customer_id', customerId)
-    .eq('company_id', companyId)
-    .neq('status', 'draft')
-    .order('quote_date', { ascending: false, nullsFirst: false })
-    .order('created_at', { ascending: false })
-
-  if (error) {
-    throw new Error(`Nepodařilo se načíst nabídky: ${error.message}`)
-  }
-
-  return ((data ?? []) as QuoteRow[]).map((quote) => ({
-    id: quote.id,
-    quoteNumber: quote.quote_number,
-    title: quote.title,
-    statusLabel: mapPortalOfferStatus(quote.status, quote.valid_until),
-    summary:
-      quote.customer_summary?.trim() ||
-      quote.intro_text?.trim() ||
-      quote.proposed_solution?.trim() ||
-      null,
-    totalPriceLabel: formatCurrency(quote.total_price),
-    validUntilLabel: formatDate(quote.valid_until),
-    canApprove: canPortalApproveOffer(quote),
-  }) satisfies PortalOfferListItem)
+  const reads = await listPortalCoreQuotes(companyId, customerId)
+  return reads.map(read => {
+    const d = read.document
+    const props = coreQuotePresentation(read, d.quote_id, 'portal', null)
+    return {
+      id: d.quote_id, quoteNumber: d.quote_number || 'Nabídka', versionId: d.version_id, versionNumber: d.version_number,
+      title: d.title || 'Cenová nabídka', statusLabel: mapPortalOfferStatus(read.status, d.valid_until),
+      summary: d.content.intro_text || d.content.proposed_solution,
+      totalPriceLabel: d.total_price == null ? 'Částka nedoložena' : d.currency ? new Intl.NumberFormat('cs-CZ', { style: 'currency', currency: d.currency }).format(Number(d.total_price)) : d.total_price + ' (měna nedoložena)',
+      validUntilLabel: formatDate(d.valid_until), canApprove: Boolean(props.canRespond),
+    } satisfies PortalOfferListItem
+  })
 }
 
-export async function getPortalOfferDetail(customerId: string, companyId: string, offerId: string) {
-  const admin = createSupabaseAdminClient()
-  const quoteResult = await admin
-    .from('quotes')
-    .select(
-      'id, company_id, customer_id, customer_identity_state, customer_snapshot, customer_snapshot_captured_at, quote_number, title, status, quote_date, valid_until, total_price, created_at, updated_at, accepted_at, profiles!quotes_created_by_fkey(full_name)'
-    )
-    .eq('customer_id', customerId)
-    .eq('company_id', companyId)
-    .neq('status', 'draft')
-    .eq('id', offerId)
-    .maybeSingle()
-
-  if (quoteResult.error) {
-    throw new Error(`Nepodařilo se načíst detail nabídky: ${quoteResult.error.message}`)
-  }
-
-  if (!quoteResult.data) {
-    return null
-  }
-
-  const itemsResult = await admin
-    .from('quote_items')
-    .select('id, name, description, quantity, unit, unit_price, total_price, note')
-    .eq('quote_id', offerId)
-    .eq('company_id', companyId)
-    .order('sort_order', { ascending: true })
-    .order('created_at', { ascending: true })
-
-  if (itemsResult.error) {
-    throw new Error(`Nepodařilo se načíst položky nabídky: ${itemsResult.error.message}`)
-  }
-
-  const quote = {
-    contact_name: null,
-    contact_email: null,
-    customer_request_title: null,
-    customer_request: null,
-    our_solution_title: null,
-    timeline_title: null,
-    pricing_title: null,
-    payment_terms_title: null,
-    benefits_text: null,
-    intro_text: null,
-    proposed_solution: null,
-    pricing_text: null,
-    work_description: null,
-    work_schedule: null,
-    payment_terms: null,
-    customer_summary: null,
-    customer_portal_approved_by: null,
-    customer_portal_approved_note: null,
-    ...(quoteResult.data as Omit<
-      QuoteRow,
-      | 'contact_name'
-      | 'contact_email'
-      | 'customer_request_title'
-      | 'customer_request'
-      | 'our_solution_title'
-      | 'timeline_title'
-      | 'pricing_title'
-      | 'payment_terms_title'
-      | 'benefits_text'
-      | 'intro_text'
-      | 'proposed_solution'
-      | 'pricing_text'
-      | 'work_description'
-      | 'work_schedule'
-      | 'payment_terms'
-      | 'customer_summary'
-      | 'customer_portal_approved_by'
-      | 'customer_portal_approved_note'
-    >),
-  } as QuoteRow
-  const profile = asSingleRelation(quote.profiles)
-  const identity = resolveQuoteCustomerIdentity(quote)
-  const customer = identity.customer
-
+export async function getPortalOfferDetail(customerId: string, companyId: string, offerId: string, versionId: string | null = null) {
+  const read = await getPortalCoreQuote(companyId, customerId, offerId, versionId)
+  if (!read) return null
+  const d = read.document
   return {
-    id: quote.id,
-    customerIdentityState: identity.state,
-    customerName: customer?.billingName || customer?.name || null,
-    customerAddressLabel: customer ? [customer.billingStreet,
-      [customer.billingPostalCode, customer.billingCity].filter(Boolean).join(' '), customer.billingCountry]
-      .filter(Boolean).join(', ') || null : null,
-    customerEmail: customer?.email ?? null,
-    customerPhone: customer?.phone ?? null,
-    quoteNumber: quote.quote_number,
-    title: quote.title,
-    statusLabel: mapPortalOfferStatus(quote.status, quote.valid_until),
-    quoteDateLabel: formatDate(quote.quote_date),
-    validUntil: quote.valid_until,
-    validUntilLabel: formatDate(quote.valid_until),
-    totalPriceLabel: formatCurrency(quote.total_price),
-    contactName: quote.contact_name?.trim() || null,
-    contactEmail: quote.contact_email?.trim() || null,
-    customerRequestTitle: quote.customer_request_title?.trim() || null,
-    customerRequest: quote.customer_request?.trim() || null,
-    solutionTitle: quote.our_solution_title?.trim() || null,
-    timelineTitle: quote.timeline_title?.trim() || null,
-    pricingTitle: quote.pricing_title?.trim() || null,
-    paymentTermsTitle: quote.payment_terms_title?.trim() || null,
-    benefitsText: quote.benefits_text?.trim() || null,
-    preparedByName: profile?.full_name?.trim() || null,
-    preparedAt: quote.created_at,
-    updatedAt: quote.updated_at,
-    priceTotal: quote.total_price,
-    summary:
-      quote.customer_summary?.trim() ||
-      quote.intro_text?.trim() ||
-      quote.proposed_solution?.trim() ||
-      null,
-    solution: quote.proposed_solution?.trim() || null,
-    workDescription: quote.work_description?.trim() || null,
-    schedule: quote.work_schedule?.trim() || null,
-    paymentTerms: quote.payment_terms?.trim() || null,
-    pricingText: quote.pricing_text?.trim() || null,
-    canApprove: canPortalApproveOffer(quote),
-    approvedAtLabel: quote.accepted_at ? formatDateTime(quote.accepted_at) : null,
-    approvalNote: quote.customer_portal_approved_note?.trim() || null,
-    items: ((itemsResult.data ?? []) as QuoteItemRow[]).map((item) => ({
-      id: item.id,
-      name: item.name,
-      description: item.description,
-      quantity: item.quantity,
-      unit: item.unit,
-      unitPrice: item.unit_price,
-      totalPrice: item.total_price,
-      totalPriceLabel: formatCurrency(item.total_price),
-      note: item.note,
-    })),
+    read, id: d.quote_id, customerIdentityState: d.customer_identity_state,
+    customerName: d.customer.billing_name || d.customer.name,
+    customerAddressLabel: [d.customer.billing_street, [d.customer.billing_postal_code, d.customer.billing_city].filter(Boolean).join(' '), d.customer.billing_country].filter(Boolean).join(', ') || null,
+    customerEmail: d.customer.email || null, customerPhone: d.customer.phone || null,
   }
 }
 export async function getPortalInquiries(customerId: string, companyId: string) {

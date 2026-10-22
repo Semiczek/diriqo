@@ -4,8 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
 import { requirePortalUserContext } from '@/lib/customer-portal/auth'
-import { canPortalApproveOffer } from '@/lib/customer-portal/data'
-import { acceptPublicOffer } from '@/lib/dal/flow'
+import { respondToPortalQuote } from '@/lib/dal/core-quote-portal-response'
 import { createSupabaseAdminClient } from '@/lib/supabase-admin'
 
 function normalizeText(value: FormDataEntryValue | null, maxLength: number) {
@@ -84,149 +83,28 @@ export async function createPortalInquiryAction(formData: FormData) {
 }
 
 export async function approvePortalOfferAction(formData: FormData) {
-  const portalUser = await requirePortalUserContext()
-  const admin = createSupabaseAdminClient()
-
-  const offerId = normalizeText(formData.get('offerId'), 64)
-
-  if (!offerId) {
-    redirect('/portal/offers?error=missing-offer')
-  }
-
-  const { data: quote, error: quoteError } = await admin
-    .from('quotes')
-    .select('id, company_id, customer_id, status, valid_until, accepted_at')
-    .eq('id', offerId)
-    .eq('customer_id', portalUser.customerId)
-    .eq('company_id', portalUser.companyId)
-    .maybeSingle()
-
-  if (quoteError || !quote) {
-    redirect('/portal/offers?error=not-found')
-  }
-
-  if (!quote.company_id) {
-    redirect(`/portal/offers/${offerId}?error=save-failed`)
-  }
-
-  if (!canPortalApproveOffer(quote)) {
-    redirect(`/portal/offers/${offerId}?error=already-closed`)
-  }
-
-  try {
-    await acceptPublicOffer(
-      {
-        supabase: admin,
-        companyId: quote.company_id,
-        visitorId: portalUser.portalUserId,
-      },
-      offerId,
-    )
-  } catch {
-    redirect(`/portal/offers/${offerId}?error=save-failed`)
-  }
-
-  revalidatePath('/portal')
+  const user = await requirePortalUserContext()
+  const quoteId = normalizeText(formData.get('offerId'), 64)
+  const versionId = normalizeText(formData.get('versionId'), 64)
+  const operationId = normalizeText(formData.get('operationId'), 64)
+  const expectedPortalUserId = normalizeText(formData.get('actorId'), 64)
+  const evidence = normalizeText(formData.get('evidence'), 4000)
+  try { await respondToPortalQuote(user, { expectedPortalUserId, quoteId, versionId, operationId, decision: 'accepted', evidence }) }
+  catch { redirect('/portal/offers?error=confirmation-unavailable') }
   revalidatePath('/portal/offers')
-  revalidatePath(`/portal/offers/${offerId}`)
-  redirect(`/portal/offers/${offerId}?approved=1`)
+  redirect('/portal/offers/' + quoteId + '?versionId=' + versionId + '&approved=1')
 }
 
 export async function submitPortalOfferResponseAction(formData: FormData) {
-  const portalUser = await requirePortalUserContext()
-  const admin = createSupabaseAdminClient()
-
-  const offerId = normalizeText(formData.get('offerId'), 64)
+  const user = await requirePortalUserContext()
+  const quoteId = normalizeText(formData.get('offerId'), 64)
+  const versionId = normalizeText(formData.get('versionId'), 64)
+  const operationId = normalizeText(formData.get('operationId'), 64)
+  const expectedPortalUserId = normalizeText(formData.get('actorId'), 64)
   const actionType = normalizeOfferResponseAction(normalizeText(formData.get('actionType'), 40))
-  const note = normalizeText(formData.get('responseNote'), 2000)
-
-  if (!offerId || !actionType) {
-    redirect('/portal/offers?error=missing-offer')
-  }
-
-  const { data: quote, error: quoteError } = await admin
-    .from('quotes')
-    .select('id, title, company_id, customer_id, status, valid_until, accepted_at')
-    .eq('id', offerId)
-    .eq('customer_id', portalUser.customerId)
-    .eq('company_id', portalUser.companyId)
-    .maybeSingle()
-
-  if (quoteError || !quote) {
-    redirect('/portal/offers?error=not-found')
-  }
-
-  const normalizedStatus = String(quote.status ?? '').trim().toLowerCase()
-  const isExpired =
-    quote.valid_until != null &&
-    new Date(`${quote.valid_until}T23:59:59`).getTime() < Date.now() &&
-    normalizedStatus !== 'accepted'
-
-  if (
-    quote.accepted_at ||
-    isExpired ||
-    normalizedStatus === 'accepted' ||
-    normalizedStatus === 'rejected' ||
-    normalizedStatus === 'expired'
-  ) {
-    redirect(`/portal/offers/${offerId}?error=already-closed`)
-  }
-
-  const nextStatus =
-    actionType === 'revision_requested'
-      ? 'revision_requested'
-      : actionType === 'not_interested'
-      ? 'rejected'
-      : actionType === 'interested' || actionType === 'contact_requested'
-      ? 'waiting_followup'
-      : normalizedStatus || null
-
-  const eventType =
-    actionType === 'interested'
-      ? 'portal_offer_interested'
-      : actionType === 'contact_requested'
-      ? 'portal_offer_contact_requested'
-      : actionType === 'revision_requested'
-      ? 'portal_offer_revision_requested'
-      : 'portal_offer_not_interested'
-
-  const insertResponse = await admin.from('offer_responses').insert({
-    company_id: quote.company_id,
-    quote_id: offerId,
-    action_type: actionType,
-    customer_name: portalUser.fullName?.trim() || portalUser.customerName?.trim() || portalUser.email,
-    customer_email: portalUser.email,
-    customer_phone: '-',
-    note: note || null,
-    visitor_id: portalUser.portalUserId,
-  })
-
-  if (insertResponse.error) {
-    redirect(`/portal/offers/${offerId}?error=save-failed`)
-  }
-
-  if (nextStatus) {
-    const updateResponse = await admin
-      .from('quotes')
-      .update({ status: nextStatus })
-      .eq('id', offerId)
-      .eq('customer_id', portalUser.customerId)
-      .eq('company_id', quote.company_id)
-
-    if (updateResponse.error) {
-      redirect(`/portal/offers/${offerId}?error=save-failed`)
-    }
-  }
-
-  await admin.from('offer_events').insert({
-    company_id: quote.company_id,
-    quote_id: offerId,
-    event_type: eventType,
-    visitor_id: portalUser.portalUserId,
-  })
-
-  revalidatePath('/portal')
+  if (!actionType) redirect('/portal/offers?error=invalid-response')
+  try { await respondToPortalQuote(user, { expectedPortalUserId, quoteId, versionId, operationId, actionType, note: normalizeText(formData.get('responseNote'), 2000) }) }
+  catch { redirect('/portal/offers?error=confirmation-unavailable') }
   revalidatePath('/portal/offers')
-  revalidatePath(`/portal/offers/${offerId}`)
-  redirect(`/portal/offers/${offerId}?response=1`)
+  redirect('/portal/offers/' + quoteId + '?versionId=' + versionId + '&response=1')
 }

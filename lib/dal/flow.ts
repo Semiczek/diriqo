@@ -1,25 +1,11 @@
 import 'server-only'
 
-import { randomBytes } from 'crypto'
-
 import type { DalContext, SupabaseServerClient } from '@/lib/dal/auth'
-import { TenantScopeError } from '@/lib/dal/companies'
-import { canAcceptQuote } from '@/lib/flow-status'
 import { issueInvoiceAtomic, type InvoiceIssueContext } from '@/lib/dal/invoices'
 import { convertCoreQuoteToJobAtomic } from '@/lib/dal/core-quote-conversion'
+import { createCoreQuoteFromCalculation } from '@/lib/dal/quotes'
 import type { CoreQuoteConversionInput } from '@/lib/core-quote-conversion'
-
-type CalculationItemRow = {
-  sort_order: number | null
-  name: string | null
-  description: string | null
-  quantity: number | string | null
-  unit: string | null
-  unit_price: number | string | null
-  vat_rate: number | string | null
-  total_price: number | string | null
-  note: string | null
-}
+import type { CoreQuoteCreateInput } from '@/lib/core-quote-lifecycle'
 
 type FlowContext = {
   supabase: Pick<SupabaseServerClient, 'from'>
@@ -27,156 +13,8 @@ type FlowContext = {
   profileId?: string | null
 }
 
-function nowIso() {
-  return new Date().toISOString()
-}
-
-function buildQuoteNumber() {
-  const now = new Date()
-  const pad = (value: number) => String(value).padStart(2, '0')
-  const suffix = randomBytes(2).toString('hex').toUpperCase()
-  return `CN-${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(
-    now.getMinutes(),
-  )}-${suffix}`
-}
-
-function toMoney(value: unknown) {
-  const numberValue = Number(value ?? 0)
-  if (!Number.isFinite(numberValue)) return 0
-  return Math.round(numberValue * 100) / 100
-}
-
-export async function createQuoteFromCalculation(ctx: DalContext, calculationId: string) {
-  const existingQuote = await ctx.supabase
-    .from('quotes')
-    .select('id')
-    .eq('company_id', ctx.companyId)
-    .eq('source_calculation_id', calculationId)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-
-  if (existingQuote.error) throw existingQuote.error
-  if (existingQuote.data?.id) return { quoteId: existingQuote.data.id, created: false }
-
-  const { data: calculation, error: calculationError } = await ctx.supabase
-    .from('calculations')
-    .select('id, customer_id, title, subtotal_price, total_price, currency')
-    .eq('id', calculationId)
-    .eq('company_id', ctx.companyId)
-    .maybeSingle()
-
-  if (calculationError || !calculation?.id) {
-    throw new TenantScopeError('Kalkulace nepatri do aktivni firmy.')
-  }
-
-  const { data: items, error: itemsError } = await ctx.supabase
-    .from('calculation_items')
-    .select('sort_order, name, description, quantity, unit, unit_price, vat_rate, total_price, note')
-    .eq('calculation_id', calculationId)
-    .eq('item_type', 'customer')
-    .order('sort_order', { ascending: true })
-    .order('created_at', { ascending: true })
-
-  if (itemsError) throw itemsError
-
-  const customerItems = ((items ?? []) as CalculationItemRow[]).filter(
-    (item) => item.name?.trim() && toMoney(item.total_price) > 0,
-  )
-
-  if (customerItems.length === 0) {
-    throw new Error('Kalkulace nemá žádné zákaznické položky pro vytvoření nabídky.')
-  }
-
-  const { data: quote, error: quoteError } = await ctx.supabase
-    .from('quotes')
-      .insert({
-        company_id: ctx.companyId,
-      customer_id: calculation.customer_id ?? null,
-      source_calculation_id: calculationId,
-      quote_number: buildQuoteNumber(),
-      share_token: null,
-      share_enabled: false,
-      title: calculation.title,
-      status: 'draft',
-      quote_date: new Date().toISOString().slice(0, 10),
-      subtotal_price: toMoney(calculation.subtotal_price ?? calculation.total_price),
-      total_price: toMoney(calculation.total_price ?? calculation.subtotal_price),
-      currency: calculation.currency ?? 'CZK',
-      created_by: ctx.profileId,
-    })
-    .select('id')
-    .single()
-
-  if (quoteError || !quote?.id) throw quoteError ?? new Error('Nabídku se nepodařilo vytvořit.')
-
-  const quoteItems = customerItems.map((item) => ({
-    company_id: ctx.companyId,
-    quote_id: quote.id,
-    sort_order: item.sort_order ?? 0,
-      name: item.name?.trim() || 'Položka',
-    description: item.description ?? null,
-    quantity: Number(item.quantity ?? 0),
-    unit: item.unit ?? null,
-    unit_price: toMoney(item.unit_price),
-    vat_rate: Number(item.vat_rate ?? 0),
-    total_price: toMoney(item.total_price),
-    note: item.note ?? null,
-  }))
-
-  const { error: quoteItemsError } = await ctx.supabase.from('quote_items').insert(quoteItems)
-  if (quoteItemsError) throw quoteItemsError
-
-  return { quoteId: quote.id, created: true }
-}
-
-export async function approveQuote(ctx: FlowContext, quoteId: string) {
-  const { data: quote, error: quoteError } = await ctx.supabase
-    .from('quotes')
-    .select('id, status, accepted_at')
-    .eq('id', quoteId)
-    .eq('company_id', ctx.companyId)
-    .maybeSingle()
-
-  if (quoteError || !quote?.id) throw new TenantScopeError('Nabídka nepatří do aktivní firmy.')
-
-  if (quote.accepted_at || quote.status === 'accepted') {
-    return { accepted: false, alreadyAccepted: true }
-  }
-
-  if (!canAcceptQuote(quote.status, quote.accepted_at)) {
-    throw new Error('Tuto nabídku už není možné schválit.')
-  }
-
-  const { data: updated, error: updateError } = await ctx.supabase
-    .from('quotes')
-    .update({
-      status: 'accepted',
-      accepted_at: nowIso(),
-    })
-    .eq('id', quoteId)
-    .eq('company_id', ctx.companyId)
-    .is('accepted_at', null)
-    .select('id')
-
-  if (updateError) throw updateError
-
-  return { accepted: Boolean(updated?.length), alreadyAccepted: false }
-}
-
-export async function acceptPublicOffer(ctx: FlowContext & { visitorId?: string | null }, quoteId: string) {
-  const result = await approveQuote(ctx, quoteId)
-
-  if (result.accepted) {
-    await ctx.supabase.from('offer_events').insert({
-      company_id: ctx.companyId,
-      quote_id: quoteId,
-      event_type: 'portal_offer_approved',
-      visitor_id: ctx.visitorId ?? null,
-    })
-  }
-
-  return result
+export async function createQuoteFromCalculation(ctx: DalContext, input: CoreQuoteCreateInput) {
+  return createCoreQuoteFromCalculation(ctx, input)
 }
 
 export async function createJobFromQuote(ctx: DalContext, input: CoreQuoteConversionInput) {
@@ -184,28 +22,12 @@ export async function createJobFromQuote(ctx: DalContext, input: CoreQuoteConver
 }
 
 export async function markJobCompleted(ctx: FlowContext, jobId: string) {
-  const { error } = await ctx.supabase
-    .from('jobs')
-    .update({
-      status: 'done',
-      work_state: 'done',
-    })
-    .eq('id', jobId)
-    .eq('company_id', ctx.companyId)
-
+  const { error } = await ctx.supabase.from('jobs').update({ status: 'done', work_state: 'done' }).eq('id', jobId).eq('company_id', ctx.companyId)
   if (error) throw error
 }
 
 export async function markReadyForInvoice(ctx: FlowContext, jobId: string) {
-  const { error } = await ctx.supabase
-    .from('jobs')
-    .update({
-      billing_status: 'waiting_for_invoice',
-      billing_state: 'waiting_for_invoice',
-    })
-    .eq('id', jobId)
-    .eq('company_id', ctx.companyId)
-
+  const { error } = await ctx.supabase.from('jobs').update({ billing_status: 'waiting_for_invoice', billing_state: 'waiting_for_invoice' }).eq('id', jobId).eq('company_id', ctx.companyId)
   if (error) throw error
 }
 

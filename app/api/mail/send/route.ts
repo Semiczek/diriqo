@@ -11,11 +11,15 @@ import { sendMailgunMessage } from '@/lib/mail/mailgun'
 import { requireAuthenticatedUser, requireCompanyRole } from '@/lib/server-guards'
 import { createSupabaseAdminClient } from '@/lib/supabase-admin'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
-import { publishCoreQuoteCustomerIdentity } from '@/lib/dal/quote-publication'
+import { beginQuoteDelivery, finishQuoteDelivery, quoteDeliveryResponse, type QuoteDelivery } from '@/lib/dal/core-quote-delivery'
 
 export const runtime = 'nodejs'
 
 type SendMailPayload = {
+  companyId?: unknown
+  profileId?: unknown
+  versionId?: unknown
+  operationId?: unknown
   customer_id?: unknown
   customerId?: unknown
   job_id?: unknown
@@ -93,6 +97,10 @@ function normalizePayload(body: SendMailPayload) {
   const legacyEntityId = getString(body.relatedEntityId)
 
   return {
+    companyId: getOptionalString(body.companyId),
+    profileId: getOptionalString(body.profileId),
+    versionId: getOptionalString(body.versionId),
+    operationId: getOptionalString(body.operationId),
     customerId:
       getOptionalString(body.customer_id) ??
       getOptionalString(body.customerId) ??
@@ -273,6 +281,7 @@ async function getLatestMessageReference(admin: SupabaseClient, threadId: string
 }
 
 export async function POST(request: NextRequest) {
+  let quoteDelivery: QuoteDelivery | null = null
   try {
     const authResult = await requireAuthenticatedUser()
     if (!authResult.ok) {
@@ -317,11 +326,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: false, error: 'Target entity was not found.' }, { status: 404 })
     }
 
-    // Freeze the quote identity before any mail thread, message or provider send.
-    // Existing threads resolve their offer from the verified database row above.
+    // Reserve once before any provider effect. A retry only reconciles the same version and payload.
     if (entityContext.offerId) {
+      if (!input.versionId || !input.operationId || input.companyId !== activeCompany.companyId || input.profileId !== activeCompany.profileId) {
+        return NextResponse.json({ ok: false, error: 'Otevřete vydanou verzi nabídky v aktivní firmě a odešlete ji z jejího detailu.' }, { status: 409 })
+      }
       const supabase = await createSupabaseServerClient()
-      await publishCoreQuoteCustomerIdentity({ supabase, companyId: activeCompany.companyId }, entityContext.offerId)
+      quoteDelivery = await beginQuoteDelivery(supabase, {
+        companyId: activeCompany.companyId, quoteId: entityContext.offerId, versionId: input.versionId, operationId: input.operationId,
+      }, { to_email: input.toEmail, to_name: input.toName, subject: input.subject,
+        body_text: input.bodyText, body_html: input.bodyHtml, thread_id: thread?.id || null })
+      if (!quoteDelivery.canSend) return NextResponse.json(quoteDeliveryResponse(quoteDelivery), { status: quoteDelivery.state === 'sent' ? 200 : 202 })
+      const link = 'https://app.diriqo.com/offer/' + quoteDelivery.shareToken
+      input.bodyText += '\n\nVydaná verze nabídky: ' + link
+      if (input.bodyHtml) input.bodyHtml += '<p>Vydaná verze nabídky: <a href="' + link + '">Zobrazit nabídku</a></p>'
     }
 
     const mailThread = thread ?? await createThread(admin, {
@@ -385,7 +403,12 @@ export async function POST(request: NextRequest) {
         references,
       })
 
+      if (quoteDelivery && !mailgunResult.id) throw new Error('Poskytovatel nepotvrdil identifikátor odeslané zprávy.')
       const providerMessageId = mailgunResult.id ?? messageId
+      if (quoteDelivery) {
+        await finishQuoteDelivery(admin, quoteDelivery, 'sent', providerMessageId)
+        quoteDelivery.state = 'sent'
+      }
       const sentAt = new Date().toISOString()
 
       const { error: updateMessageError } = await admin
@@ -418,11 +441,17 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         ok: true,
+        ...(quoteDelivery ? quoteDeliveryResponse(quoteDelivery, 'sent') : {}),
         threadId: mailThread.id,
         messageId: message.id,
         mailgunMessageId: providerMessageId,
       })
     } catch (error) {
+      if (quoteDelivery) {
+        if (quoteDelivery.state === 'sent') return NextResponse.json(quoteDeliveryResponse(quoteDelivery))
+        await finishQuoteDelivery(admin, quoteDelivery, 'uncertain').catch(() => {})
+        return NextResponse.json(quoteDeliveryResponse(quoteDelivery, 'uncertain'), { status: 202 })
+      }
       await logMailEvent(admin, {
         companyId: activeCompany.companyId,
         messageId: message.id,
@@ -434,6 +463,7 @@ export async function POST(request: NextRequest) {
       throw error
     }
   } catch (error) {
+    if (quoteDelivery) return NextResponse.json(quoteDeliveryResponse(quoteDelivery), { status: quoteDelivery.state === 'sent' ? 200 : 202 })
     const message = error instanceof Error ? error.message : 'Unexpected error'
     console.error('[MAILGUN] Send route failed', { error: message })
     return NextResponse.json({ ok: false, error: message }, { status: 500 })

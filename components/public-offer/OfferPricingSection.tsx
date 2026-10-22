@@ -8,6 +8,7 @@ export default function OfferPricingSection({
   pricingText,
   items,
   priceTotal,
+  currency = 'CZK', pricingMode, subtotal, discount,
   isOpen,
   onToggle,
   registerSectionRef,
@@ -16,6 +17,10 @@ export default function OfferPricingSection({
   pricingText: string | null
   items: OfferItem[]
   priceTotal: number | null
+  currency?: string | null
+  pricingMode?: 'net' | null
+  subtotal?: number | null
+  discount?: number | null
   isOpen: boolean
   onToggle: (sectionKey: string) => void
   registerSectionRef: (sectionKey: string, element: HTMLElement | null) => void
@@ -73,14 +78,15 @@ export default function OfferPricingSection({
             }}
           >
             <div>
-              <div style={{ color: 'rgba(255,255,255,0.72)', fontSize: '13px', marginBottom: '6px' }}>Finální cena nabídky</div>
-              <div style={{ fontSize: 'clamp(32px, 4vw, 46px)', fontWeight: 900 }}>{formatCurrency(priceTotal)}</div>
+              <div style={{ color: 'rgba(255,255,255,0.72)', fontSize: '13px', marginBottom: '6px' }}>{pricingMode === 'net' ? 'Celkem bez DPH' : 'Celkem (historický cenový režim nedoložen)'}</div>
+              <div style={{ fontSize: 'clamp(32px, 4vw, 46px)', fontWeight: 900 }}>{formatCurrency(priceTotal, currency)}</div>
             </div>
             <div style={{ color: 'rgba(255,255,255,0.8)', lineHeight: 1.6, maxWidth: '420px' }}>
               {hasText(pricingText) ? pricingText : 'Cena vychází z rozsahu prací uvedeného v této nabídce.'}
             </div>
           </div>
 
+          <p style={{ margin: 0, color: '#475569' }}>Měna: {currency || 'nedoložena'} · Mezisoučet: {formatCurrency(subtotal, currency)} · Sleva: {formatCurrency(discount, currency)}</p>
           <div style={{ display: 'grid', gap: '12px' }}>
             {items.map((item) => (
               <div
@@ -104,12 +110,13 @@ export default function OfferPricingSection({
                     <strong>Jednotka:</strong> {item.unit || '—'}
                   </div>
                   <div>
-                    <strong>Cena/j.:</strong> {formatCurrency(item.unitPrice)}
+                    <strong>Cena/j.:</strong> {formatCurrency(item.unitPrice, currency)}
                   </div>
                   <div>
-                    <strong>Cena celkem:</strong> {formatCurrency(item.totalPrice)}
+                    <strong>Cena celkem:</strong> {formatCurrency(item.totalPrice, currency)}
                   </div>
                 </div>
+                <div>DPH: {item.vatRate == null ? 'Sazba není doložena' : `${item.vatRate} %`}</div>
                 {item.note ? (
                   <div>
                     <strong>Poznámka:</strong> {item.note}

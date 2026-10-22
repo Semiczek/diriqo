@@ -1,6 +1,8 @@
 export type CoreQuoteConversionCode = 'validation' | 'forbidden' | 'conflict' | 'unavailable' | 'unknown'
 export type CoreQuoteConversionInput = {
   companyId: string; quoteId: string; operationId: string
+  /** Missing only when replaying a request saved before versioned quotes. */
+  versionId?: string
   title: string; description: string | null; address: string | null
   startAt: string; endAt: string
   splitDays: Array<{ label: string; startAt: string; endAt: string }>
@@ -60,8 +62,8 @@ export function parseCoreQuoteConversion(value: unknown): CoreQuoteConversionInp
   }
   return {
     companyId: coreQuoteId(input.companyId), quoteId: coreQuoteId(input.quoteId), operationId: coreQuoteId(input.operationId),
+    ...(Object.prototype.hasOwnProperty.call(input, 'versionId') ? { versionId: coreQuoteId(input.versionId) } : {}),
     title: text(input.title, 300, true)!, description: text(input.description, 10_000), address: text(input.address, 2_000),
     startAt, endAt, splitDays,
   }
 }
-
