@@ -26,7 +26,7 @@ export default async function PortalOffersPage() {
         ) : (
           offers.map((offer) => (
             <article
-              key={offer.id}
+              key={offer.versionId || offer.id}
               style={{
                 borderRadius: '18px',
                 border: '1px solid #e5e7eb',
@@ -36,7 +36,7 @@ export default async function PortalOffersPage() {
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
                 <div style={{ display: 'grid', gap: '8px' }}>
-                  <div style={{ color: '#6b7280', fontSize: '14px' }}>{offer.quoteNumber}</div>
+                  <div style={{ color: '#6b7280', fontSize: '14px' }}>{offer.quoteNumber} · {offer.versionNumber ? `Verze ${offer.versionNumber}` : 'Starší nabídka'}</div>
                   <div style={{ fontSize: '24px', fontWeight: 800 }}>{offer.title}</div>
                   {offer.summary ? <div style={{ color: '#374151', lineHeight: 1.6 }}>{offer.summary}</div> : null}
                   <div style={{ color: '#6b7280' }}>Cena: {offer.totalPriceLabel}</div>
@@ -54,15 +54,15 @@ export default async function PortalOffersPage() {
                       fontWeight: 700,
                     }}
                   >
-                    {offer.statusLabel}
+                    {offer.versionId ? offer.statusLabel : 'Dochovaná historie'}
                   </div>
 
                   {offer.canApprove ? (
-                    <div style={{ color: '#166534', fontWeight: 700 }}>Lze potvrdit v portálu</div>
+                    <div style={{ color: '#166534', fontWeight: 700 }}>Lze reagovat v portálu</div>
                   ) : null}
 
                   <Link
-                    href={`/portal/offers/${offer.id}`}
+                    href={`/portal/offers/${offer.id}${offer.versionId ? `?versionId=${offer.versionId}` : '?legacy=1'}`}
                     style={{
                       textDecoration: 'none',
                       borderRadius: '12px',

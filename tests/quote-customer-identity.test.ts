@@ -9,7 +9,7 @@ vi.mock('@/lib/server-guards', () => ({ requireHubAccess: mocks.guard }))
 vi.mock('@/lib/supabase-server', () => ({ createSupabaseServerClient: mocks.server }))
 vi.mock('@/lib/supabase-admin', () => ({ createSupabaseAdminClient: mocks.admin }))
 import { GET } from '../app/api/quotes/[quoteId]/pdf/route'
-import { getPortalOfferDetail } from '../lib/customer-portal/data'
+import { getPortalOfferDetail, mapPortalOfferStatus } from '../lib/customer-portal/data'
 vi.mock('@/lib/customer-portal/auth', () => ({ requirePortalUserContext: async () => ({
   customerId: '22222222-2222-4222-8222-222222222222', companyId: '11111111-1111-4111-8111-111111111111',
   customerName: 'Current B', email: 'current-b@example.invalid',
@@ -20,7 +20,9 @@ vi.mock('@/components/PublicOfferPage', () => ({ default: () => null }))
 vi.mock('@/components/portal/PortalShell', () => ({ default: () => null }))
 import PublicOfferPage from '@/components/PublicOfferPage'
 import PortalOfferDetailPage from '../app/portal/offers/[offerId]/page'
+import PortalOffersPage from '../app/portal/offers/page'
 import PublicOfferDetailPage from '../app/offer/[token]/page'
+function visibleText(value: unknown): string { if (typeof value === 'string' || typeof value === 'number') return String(value); if (Array.isArray(value)) return value.map(visibleText).join(' '); return React.isValidElement<{children?: unknown}>(value) ? visibleText(value.props.children) : '' }
 function elementList(value: unknown): React.ReactElement<Record<string, unknown>>[] {
   if (Array.isArray(value)) return value.flatMap(elementList)
   if (!React.isValidElement<Record<string, unknown>>(value)) return []
@@ -91,150 +93,144 @@ describe('quote customer identity contract', () => {
   })
 })
 
-type Row = Record<string, unknown>
-let quote: Row
-let quoteError: { message: string } | null
-let queries: Array<{ table: string; select?: string; filters: Array<[string, unknown]> }>
-const from = vi.fn((table: string) => {
-  const log = { table, filters: [] as Array<[string, unknown]>, select: undefined as string | undefined }
-  queries.push(log)
-  const result = () => ({
-    data: table === 'quotes' ? quote : table === 'quote_items' ? [] : { id: companyId, name: 'Supplier' },
-    error: table === 'quotes' ? quoteError : null,
-  })
-  const chain = {
-    select(value: string) { log.select = value; return chain },
-    eq(key: string, value: unknown) { log.filters.push([key, value]); return chain },
-    neq(key: string, value: unknown) { log.filters.push(['not:' + key, value]); return chain },
-    order() { return chain },
-    maybeSingle: async () => result(),
-    then(resolve: (value: ReturnType<typeof result>) => unknown) { return Promise.resolve(result()).then(resolve) },
-  }
-  return chain
-})
+import { quoteDocumentFixture, VERSION_FIXTURE_ID } from './fixtures/core-quote-document'
+import type { CoreQuoteDocumentRead } from '../lib/core-quote-lifecycle'
+let read: CoreQuoteDocumentRead
+const rpc = vi.fn()
+const forbiddenFrom = vi.fn(() => { throw new Error('No current-row fallback permitted') })
 const pdfHex = (text: string) => Array.from(text).map(char => char.charCodeAt(0).toString(16).padStart(4, '0')).join('')
-const requestPdf = () => GET(new NextRequest('https://example.invalid/api/quotes/' + quoteId + '/pdf'), { params: Promise.resolve({ quoteId }) })
+const requestPdf = (query = '?versionId=' + VERSION_FIXTURE_ID) => GET(new NextRequest('https://example.invalid/api/quotes/' + quoteId + '/pdf' + query), { params: Promise.resolve({ quoteId }) })
+function legacy() {
+  read.kind = 'legacy'; read.publishedAt = null; read.legacyCapturedAt = capturedAt
+  Object.assign(read.document, { version_id: null, version_number: null, customer_identity_state: 'legacy_unknown', customer: { name: null }, pricing_mode: null })
+}
 beforeEach(() => {
-  vi.clearAllMocks(); vi.stubGlobal('React', React); queries = []; quoteError = null
-  quote = { ...source, id: quoteId, quote_number: 'TEST-1', title: 'Offer', status: 'sent', customers: current,
-    quote_date: '2026-10-21', valid_until: null, subtotal_price: 100, total_price: 100, accepted_at: null,
-    created_at: capturedAt, updated_at: capturedAt, contact_name: 'Contact now', contact_email: 'contact-now@example.invalid' }
+  vi.resetAllMocks(); vi.stubGlobal('React', React)
+  read = quoteDocumentFixture()
+  Object.assign(read.document, { id: quoteId, quote_id: quoteId, customer: {
+    name: original.name, billing_name: original.billingName, company_number: original.companyNumber,
+    vat_number: original.vatNumber, billing_street: original.billingStreet, billing_city: original.billingCity,
+    billing_postal_code: original.billingPostalCode, billing_country: original.billingCountry, email: original.email, phone: original.phone,
+  } })
+  rpc.mockImplementation(async () => ({ data: read, error: null }))
   mocks.guard.mockResolvedValue({ ok: true, value: { companyId } })
-  mocks.server.mockResolvedValue({ from }); mocks.admin.mockReturnValue({ from })
+  mocks.server.mockResolvedValue({ rpc, from: forbiddenFrom }); mocks.admin.mockReturnValue({ from: forbiddenFrom })
+  mocks.public.mockReturnValue({ rpc })
 })
-
 afterEach(() => vi.unstubAllGlobals())
 
-describe('internal quote PDF identity integration', () => {
-  it('renders historical name/address/email in the actual generated PDF, even when current data changed', async () => {
+describe('version-bound customer identity in PDF and portal', () => {
+  it('renders frozen A name/address/email with no current B row query', async () => {
     const response = await requestPdf()
     expect(response.status).toBe(200)
-    expect(response.headers.get('content-type')).toBe('application/pdf')
     const pdf = Buffer.from(await response.arrayBuffer()).toString('latin1')
     for (const value of [original.billingName!, original.billingStreet!, original.email!, original.companyNumber!]) expect(pdf).toContain(pdfHex(value))
-    for (const value of [current.name, current.billing_name, current.billing_street, current.email, 'contact-now@example.invalid']) expect(pdf).not.toContain(pdfHex(value))
-    const query = queries.find(query => query.table === 'quotes')!
-    for (const field of ['customer_identity_state', 'customer_snapshot', 'customer_snapshot_captured_at']) expect(query.select).toContain(field)
-    expect(query.filters).toContainEqual(['company_id', companyId])
-    expect(response.headers.get('cache-control')).toBe('no-store')
+    for (const value of [current.name, current.billing_name, current.billing_street, current.email]) expect(pdf).not.toContain(pdfHex(value))
+    expect(rpc).toHaveBeenCalledExactlyOnceWith('get_core_quote_version', { p_company_id: companyId, p_quote_id: quoteId, p_version_id: VERSION_FIXTURE_ID })
+    expect(forbiddenFrom).not.toHaveBeenCalled()
+    expect(response.headers.get('cache-control')).toBe('private, no-store')
   })
-  it('labels both pages of a live-customer draft as a concept, including its footer', async () => {
-    Object.assign(quote, draft, { status: 'draft' })
+  it('labels the exact draft preview without creating a publication', async () => {
+    read.kind = 'draft'; read.publishedAt = null
+    Object.assign(read.document, { version_id: null, version_number: null, customer_identity_state: 'draft' })
+    const response = await requestPdf('?draftRevision=3')
+    expect(response.status).toBe(200)
+    const pdf = Buffer.from(await response.arrayBuffer()).toString('latin1')
+    expect(pdf).toContain(pdfHex('KONCEPT - dosud nevydáno'))
+    expect(pdf).toContain(pdfHex('Koncept - není vydanou nabídkou'))
+    expect(rpc).toHaveBeenCalledWith('get_core_quote_draft_document', { p_company_id: companyId, p_quote_id: quoteId, p_expected_revision: '3' })
+  })
+  it('does not relabel an issued version after root status changes', async () => {
+    read.status = 'draft'
     const response = await requestPdf()
     expect(response.status).toBe(200)
     const pdf = Buffer.from(await response.arrayBuffer()).toString('latin1')
-    expect(pdf.split(pdfHex('Koncept nabídky')).length - 1).toBe(4)
-    expect(pdf).toContain(pdfHex(current.billing_name))
-    expect(pdf).not.toContain(pdfHex('Cenová nabídka byla vystavena elektronicky v Diriqo.'))
+    expect(pdf).not.toContain(pdfHex('KONCEPT - dosud nevydáno'))
+    expect(pdf).toContain(pdfHex('Verze 1'))
   })
-  it.each(['captured', 'legacy_unknown'])('does not label published %s identity as draft after a status rollback', async state => {
-    Object.assign(quote, { customer_identity_state: state, status: 'draft' })
-    const response = await requestPdf()
+  it('renders legacy uncertainty without current customer or invented version', async () => {
+    legacy()
+    const response = await requestPdf('?legacy=1')
     expect(response.status).toBe(200)
     const pdf = Buffer.from(await response.arrayBuffer()).toString('latin1')
-    expect(pdf).not.toContain(pdfHex('Koncept nabídky'))
+    expect(pdf).toContain(pdfHex('Identita zákazníka v původní nabídce není doložena.'))
     expect(pdf).not.toContain(pdfHex(current.billing_name))
-    expect(pdf).toContain(pdfHex('Cenová nabídka'))
+    expect(pdf).not.toContain(pdfHex('Verze 1'))
   })
-  it('renders the legacy marker and no current identity for old or malformed quotes', async () => {
-    quote.customer_snapshot = { version: 99, name: 'Invalid historical identity' }
-    const response = await requestPdf()
-    expect(response.status).toBe(200)
-    const pdf = Buffer.from(await response.arrayBuffer()).toString('latin1')
-    expect(pdf).toContain(pdfHex('Původní údaje zákazníka nejsou'))
-    expect(pdf).not.toContain(pdfHex(current.billing_name))
-    expect(pdf).not.toContain(pdfHex(current.billing_street))
-    expect(pdf).not.toContain(pdfHex('Invalid historical identity'))
+  it.each(['missing-selector', 'two-selectors', 'foreign-version', 'failed-read', 'malformed-document'] as const)('fails closed for %s without fallback', async mode => {
+    let selector = '?versionId=' + VERSION_FIXTURE_ID
+    if (mode === 'missing-selector') selector = ''
+    if (mode === 'two-selectors') selector += '&draftRevision=2'
+    if (mode === 'foreign-version') read.document.version_id = companyId
+    if (mode === 'failed-read') rpc.mockResolvedValue({ data: null, error: { message: 'Denied' } })
+    if (mode === 'malformed-document') Object.assign(read.document, { customer_identity_state: 'invalid' })
+    expect((await requestPdf(selector)).status).toBeGreaterThanOrEqual(400)
+    expect(forbiddenFrom).not.toHaveBeenCalled()
   })
-  it('does not retry a failed protected-field query using a legacy current-customer fallback', async () => {
-    quoteError = { message: 'column customer_identity_state unavailable' }
-    expect((await requestPdf()).status).toBe(400)
-    expect(queries.filter(query => query.table === 'quotes')).toHaveLength(1)
-  })
-  it('handles a failed guard union before loading any business data', async () => {
+  it('rejects the guard before any data access', async () => {
     mocks.guard.mockResolvedValue({ ok: false, status: 403, error: 'Active company denied' })
-    const response = await requestPdf()
-    expect(response.status).toBe(403)
-    expect(await response.json()).toEqual({ error: 'Active company denied' })
+    expect((await requestPdf()).status).toBe(403)
     expect(mocks.server).not.toHaveBeenCalled()
-    expect(from).not.toHaveBeenCalled()
+    expect(rpc).not.toHaveBeenCalled()
   })
-})
-
-describe('customer portal offer identity integration', () => {
-  it('returns historical customer A and address without fetching the current customer B', async () => {
-    const offer = await getPortalOfferDetail(customerId, companyId, quoteId)
+  it('portal uses authenticated version RPC and never a service-role current-customer lookup', async () => {
+    const offer = await getPortalOfferDetail(customerId, companyId, quoteId, VERSION_FIXTURE_ID)
     expect(offer?.customerName).toBe(original.billingName)
     expect(offer?.customerAddressLabel).toBe('Original street A, 12345 Original city A, CZ')
     expect(offer?.customerEmail).toBe(original.email)
     expect(offer?.customerPhone).toBe(original.phone)
-    expect(queries.map(query => query.table)).toEqual(['quotes', 'quote_items'])
-    expect(queries[0].filters).toContainEqual(['customer_id', customerId])
-    expect(queries[0].filters).toContainEqual(['company_id', companyId])
-    for (const field of ['customer_identity_state', 'customer_snapshot', 'customer_snapshot_captured_at']) expect(queries[0].select).toContain(field)
+    expect(rpc).toHaveBeenCalledExactlyOnceWith('get_portal_core_quote_version', { p_company_id: companyId, p_customer_id: customerId, p_quote_id: quoteId, p_version_id: VERSION_FIXTURE_ID })
+    expect(mocks.admin).not.toHaveBeenCalled()
+    expect(forbiddenFrom).not.toHaveBeenCalled()
   })
-  it('returns the explicit unavailable marker for legacy with no address, email or phone', async () => {
-    quote.customer_identity_state = 'legacy_unknown'
+  it('portal legacy read keeps missing identity missing', async () => {
+    legacy()
     const offer = await getPortalOfferDetail(customerId, companyId, quoteId)
-    expect(offer?.customerIdentityState).toBe('legacy_unknown')
-    expect(offer?.customerName).toBeNull()
-    expect(offer?.customerAddressLabel).toBeNull()
-    expect(offer?.customerEmail).toBeNull()
-    expect(offer?.customerPhone).toBeNull()
+    expect(offer).toMatchObject({ customerIdentityState: 'legacy_unknown', customerName: null, customerAddressLabel: null, customerEmail: null, customerPhone: null })
   })
-})
-
-
-describe('offer pages do not prefill a warning or current account identity as historical customer data', () => {
-  it('renders historical A in the portal document while replying from the current login email', async () => {
-    const tree = await PortalOfferDetailPage({ params: Promise.resolve({ offerId: quoteId }) })
+  it('portal renders historical A while the response email belongs to the current login', async () => {
+    const tree = await PortalOfferDetailPage({ params: Promise.resolve({ offerId: quoteId }), searchParams: Promise.resolve({ versionId: VERSION_FIXTURE_ID }) })
     const document = elementList(tree).find(node => node.type === PublicOfferPage)!
     expect(document.props.customerName).toBe(original.billingName)
     expect(document.props.defaultCustomerEmail).toBe(current.email)
-    expect(document.props.defaultCustomerPhone).toBeNull()
-    expect(elementList(tree).find(node => node.type === 'p' &&
-      node.props.children === 'Original street A, 12345 Original city A, CZ')).toBeDefined()
+    expect(document.props.versionId).toBe(VERSION_FIXTURE_ID)
+    expect(document.props.pdfHref).toContain(VERSION_FIXTURE_ID)
   })
-  it('renders a separate portal legacy notice and keeps the current login email for a new reply', async () => {
-    quote.customer_identity_state = 'legacy_unknown'
-    const tree = await PortalOfferDetailPage({ params: Promise.resolve({ offerId: quoteId }) })
-    const nodes = elementList(tree), document = nodes.find(node => node.type === PublicOfferPage)!
-    expect(nodes.find(node => node.props.role === 'status')?.props.children).toBe(QUOTE_CUSTOMER_IDENTITY_UNAVAILABLE_LABEL)
-    expect(document.props.customerName).toBeNull()
-    expect(document.props.defaultCustomerEmail).toBe(current.email)
-    expect(document.props.defaultCustomerPhone).toBeNull()
+  it('portal legacy page labels the historical capture and links its exact legacy PDF',async()=>{
+    legacy();const tree=await PortalOfferDetailPage({params:Promise.resolve({offerId:quoteId}),searchParams:Promise.resolve({legacy:'1'})});
+    const shown=elementList(tree).find(node=>node.type===PublicOfferPage)!;
+    expect(shown.props).toMatchObject({versionId:null,preparedAt:null,canRespond:false,pdfHref:'/api/portal/offers/'+quoteId+'/pdf?legacy=1'});
+    expect(visibleText(tree)).toContain('Starší nabídka');expect(visibleText(tree)).toContain('Dochovaný stav zachycen');expect(visibleText(tree)).toContain('nedokládá původní datum vydání');
+    expect(rpc).toHaveBeenCalledExactlyOnceWith('get_portal_core_quote_version',{p_company_id:companyId,p_customer_id:customerId,p_quote_id:quoteId,p_version_id:null});
   })
-  it('renders public NULL as a separate notice, without adding identity fields to public RPCs', async () => {
-    const rpc = vi.fn((name: string) => name === 'get_public_offer_by_token'
-      ? { maybeSingle: async () => ({ data: { ...quote, customer_name: null }, error: null }) }
-      : Promise.resolve({ data: [], error: null }))
-    mocks.public.mockReturnValue({ rpc })
-    const tree = await PublicOfferDetailPage({ params: Promise.resolve({ token: 'synthetic-token' }) })
+  it.each([{}, {legacy:'0'}, {versionId:VERSION_FIXTURE_ID,legacy:'1'}, {versionId:[VERSION_FIXTURE_ID,VERSION_FIXTURE_ID]}, {legacy:['1','1']}])('portal page rejects ambiguous or missing selection before reading records: %j',async query=>{
+    await expect(PortalOfferDetailPage({params:Promise.resolve({offerId:quoteId}),searchParams:Promise.resolve(query)})).rejects.toThrow();expect(rpc).not.toHaveBeenCalled();expect(forbiddenFrom).not.toHaveBeenCalled();
+  })
+  it('portal list links legacy explicitly and preserves the separate modern version link',async()=>{
+    const issued=structuredClone(read);legacy();rpc.mockResolvedValue({data:[issued,read],error:null});
+    const tree=await PortalOffersPage(),hrefs=elementList(tree).map(node=>node.props.href).filter(Boolean);
+    expect(hrefs).toContain('/portal/offers/'+quoteId+'?versionId='+VERSION_FIXTURE_ID);expect(hrefs).toContain('/portal/offers/'+quoteId+'?legacy=1');
+    expect(visibleText(tree)).toContain('Starší nabídka');expect(visibleText(tree)).toContain('Dochovaná historie');
+  })
+  it('public legacy document has a separate notice, no current customer default and one version read', async () => {
+    legacy()
+    const token = 'a'.repeat(64)
+    const tree = await PublicOfferDetailPage({ params: Promise.resolve({ token }) })
     const nodes = elementList(tree), document = nodes.find(node => node.type === PublicOfferPage)!
     expect(nodes.find(node => node.props.role === 'status')?.props.children).toBe(QUOTE_CUSTOMER_IDENTITY_UNAVAILABLE_LABEL)
     expect(document.props.customerName).toBeNull()
     expect(document.props.defaultCustomerEmail).toBeUndefined()
-    expect(document.props.defaultCustomerPhone).toBeUndefined()
-    expect(rpc.mock.calls.map(call => call[0])).toEqual(['get_public_offer_by_token', 'get_public_offer_items_by_token'])
+    expect(document.props.canRespond).toBe(false)
+    expect(rpc).toHaveBeenCalledExactlyOnceWith('get_public_core_quote_version', { input_token: token })
+  })
+})
+
+
+describe('portal lifecycle status labels', () => {
+  it.each([['published','Publikovaná'],['revoked','Odkaz zneplatněn'],['archived','Archivovaná'],['superseded','Nahrazená'],['legacy','Dochovaná historie']])('does not present %s as a draft', (status,label) => {
+    expect(mapPortalOfferStatus(status)).toBe(label)
+  })
+  it.each([['revoked','Odkaz zneplatněn'],['archived','Archivovaná'],['accepted','Schválená'],['rejected','Zamítnutá']])('retains %s instead of replacing its meaning with expiry', (status,label) => {
+    expect(mapPortalOfferStatus(status,'2000-01-01')).toBe(label)
   })
 })

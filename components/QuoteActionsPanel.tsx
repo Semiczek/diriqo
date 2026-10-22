@@ -2,558 +2,131 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { FormEvent, useMemo, useState } from 'react'
+import { useState } from 'react'
+import { archiveQuoteAction, deleteQuoteAction, openQuoteRevisionAction, publishQuoteAction,
+  recordQuoteDecisionAction, revokeQuotePublicationAction, syncQuotePricingFromCalculationAction } from '@/app/business-actions'
+import { parseCoreQuoteArchive, parseCoreQuoteDecision, parseCoreQuoteDelete, parseCoreQuoteOpenRevision,
+  parseCoreQuotePublish, parseCoreQuoteReceipt, parseCoreQuoteSync, parseCoreQuoteRevoke,
+  type CoreQuoteCommandInput, type CoreQuoteCommandKind, type CoreQuoteWorkspace } from '@/lib/core-quote-lifecycle'
 import QuoteConversionDialog from './QuoteConversionDialog'
-import {
-  deleteQuoteAction,
-  markQuoteSentAction,
-  publishQuoteAction,
-  rejectQuoteAction,
-  syncQuotePricingFromCalculationAction,
-} from '@/app/business-actions'
+import QuoteSendForm from './QuoteSendForm'
+import { useQuoteOperation } from './useQuoteOperation'
+import { quoteDetailHref } from './quote-lifecycle-state'
+import { localDateTime } from './quote-conversion-state'
+import styles from './QuoteLifecycle.module.css'
 
-function buttonStyle(backgroundColor: string, color: string, border: string, disabled: boolean) {
-  return {
-    border,
-    backgroundColor,
-    color,
-    borderRadius: '10px',
-    padding: '8px 10px',
-    fontSize: '13px',
-    fontWeight: 750,
-    cursor: disabled ? 'not-allowed' : 'pointer',
-    opacity: disabled ? 0.6 : 1,
-    whiteSpace: 'nowrap' as const,
+type Command = { kind: Exclude<CoreQuoteCommandKind, 'create' | 'update'>; input: CoreQuoteCommandInput }
+function parseCommand(raw: unknown): Command {
+  if (!raw || typeof raw !== 'object' || !('kind' in raw) || !('input' in raw)) throw new Error('Neplatná operace nabídky.')
+  switch (raw.kind) {
+    case 'sync': return { kind: raw.kind, input: parseCoreQuoteSync(raw.input) }
+    case 'openRevision': return { kind: raw.kind, input: parseCoreQuoteOpenRevision(raw.input) }
+    case 'publish': return { kind: raw.kind, input: parseCoreQuotePublish(raw.input) }
+    case 'decision': return { kind: raw.kind, input: parseCoreQuoteDecision(raw.input) }
+    case 'revoke': return { kind: raw.kind, input: parseCoreQuoteRevoke(raw.input) }
+    case 'archive': return { kind: raw.kind, input: parseCoreQuoteArchive(raw.input) }
+    case 'delete': return { kind: raw.kind, input: parseCoreQuoteDelete(raw.input) }
+    default: throw new Error('Neplatná operace nabídky.')
   }
 }
-
-type QuoteActionsPanelProps = {
-  customerId: string | null
-  quoteId: string
-  companyId: string
-  actorProfileId: string
-  isDraft?: boolean
-  shareUrl?: string | null
-  contactName?: string | null
-  contactEmail?: string | null
-  quoteTitle?: string | null
-  sourceCalculationId?: string | null
-  workDescription?: string | null
-  proposedSolution?: string | null
+async function execute(command: Command) {
+  switch (command.kind) {
+    case 'sync': return syncQuotePricingFromCalculationAction(command.input)
+    case 'openRevision': return openQuoteRevisionAction(command.input)
+    case 'publish': return publishQuoteAction(command.input)
+    case 'decision': return recordQuoteDecisionAction(command.input)
+    case 'revoke': return revokeQuotePublicationAction(command.input)
+    case 'archive': return archiveQuoteAction(command.input)
+    case 'delete': return deleteQuoteAction(command.input)
+  }
 }
-
-function escapeHtml(value: string) {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/\n/g, '<br />')
+export type QuoteActionsPanelProps = {
+  workspace: CoreQuoteWorkspace; actorProfileId: string; selectedVersionId: string | null; selectedKind: 'draft' | 'issued' | 'legacy'
+  quoteTitle: string; contactName?: string | null; contactEmail?: string | null; description?: string | null
 }
-
-export default function QuoteActionsPanel({
-  customerId,
-  quoteId,
-  companyId,
-  actorProfileId,
-  isDraft = false,
-  shareUrl: initialShareUrl,
-  contactName,
-  contactEmail,
-  quoteTitle,
-  sourceCalculationId,
-  workDescription,
-  proposedSolution,
-}: QuoteActionsPanelProps) {
+export default function QuoteActionsPanel(props: QuoteActionsPanelProps) {
   const router = useRouter()
-  const [publishedShareUrl, setPublishedShareUrl] = useState<string | null>(null)
-  const [publishing, setPublishing] = useState(false)
-  const shareUrl = initialShareUrl || publishedShareUrl
-  const [deleting, setDeleting] = useState(false)
-  const [copying, setCopying] = useState(false)
-  const [syncingPricing, setSyncingPricing] = useState(false)
-  const [sendingUpdate, setSendingUpdate] = useState(false)
-  const [rejecting, setRejecting] = useState(false)
-  const [showCreateJobModal, setShowCreateJobModal] = useState(false)
-  const [showSendOfferModal, setShowSendOfferModal] = useState(false)
-  const [offerRecipientEmail, setOfferRecipientEmail] = useState(contactEmail?.trim() || '')
-  const [offerRecipientName, setOfferRecipientName] = useState(contactName?.trim() || '')
-  const [offerSubject, setOfferSubject] = useState(
-    `Aktualizovaná cenová nabídka: ${quoteTitle?.trim() || 'Diriqo'}`,
-  )
-  const [offerMessage, setOfferMessage] = useState(() =>
-    [
-      `Dobrý den${contactName?.trim() ? ` ${contactName.trim()}` : ''},`,
-      '',
-      'zasíláme Vám aktualizovanou verzi cenové nabídky.',
-      '',
-      shareUrl ? `Odkaz na nabídku:\n${shareUrl}` : 'Odkaz na nabídku teď není dostupný.',
-      '',
-      'Pokud budete chtít cokoli upravit, dejte nám prosím vědět.',
-      '',
-      'S pozdravem',
-      'Diriqo',
-    ].join('\n'),
-  )
-  const createJobDisabledReason = useMemo(() => {
-    if (!companyId) return 'Nabídka nemá dostupné company_id.'
-    return undefined
-  }, [companyId])
-
-  const sendOfferDisabledReason = useMemo(() => {
-    if (!shareUrl) return 'Pro odeslání nabídky chybí sdílený odkaz.'
-    return undefined
-  }, [shareUrl])
-
-  async function handlePublish() {
-    if (publishing) return
-    setPublishing(true)
-    try {
-      const result = await publishQuoteAction({ quoteId, companyId })
-      if (!result.ok) throw new Error(result.error)
-      setPublishedShareUrl(result.data.shareUrl)
-      setOfferMessage([
-        'Dobrý den,', '', 'zasíláme Vám cenovou nabídku.', '',
-        'Odkaz na nabídku:', result.data.shareUrl, '', 'S pozdravem', 'Diriqo',
-      ].join('\n'))
-      router.refresh()
-    } catch (error) {
-      alert(error instanceof Error ? error.message : 'Nabídku se nepodařilo zpřístupnit.')
-    } finally {
-      setPublishing(false)
-    }
+  const [scope] = useState(props.workspace)
+  const [evidence, setEvidence] = useState('')
+  const [decidedAt, setDecidedAt] = useState(() => localDateTime(new Date()))
+  const [decision, setDecision] = useState<'accepted' | 'rejected'>('accepted')
+  const [showDecision, setShowDecision] = useState(false)
+  const [showConversion, setShowConversion] = useState(false)
+  const [showSend, setShowSend] = useState(false)
+  const [message, setMessage] = useState('')
+  const version = props.workspace.versions.find(version => version.versionId === props.selectedVersionId)
+  const shareUrl = version?.shareToken ? '/offer/' + encodeURIComponent(version.shareToken) : null
+  const baseHref = quoteDetailHref(scope.quoteId, scope.customerId)
+  const isDraft = props.selectedKind === 'draft' && props.workspace.draftOpen
+  const isLegacyBaseline = props.selectedKind === 'legacy' && Boolean(props.workspace.legacy) && props.workspace.versions.length === 0 && props.workspace.currentVersionId === null
+  const operation = useQuoteOperation({
+    scope: { companyId: props.workspace.companyId, profileId: props.actorProfileId, entityId: props.workspace.quoteId, slot: 'actions' },
+    parseCommand: raw => {
+      const command = parseCommand(raw)
+      if (command.input.companyId !== scope.companyId || command.input.profileId !== props.actorProfileId || !('quoteId' in command.input) || command.input.quoteId !== scope.quoteId) throw new Error('Požadavek patří k jiné nabídce nebo firmě.')
+      return command
+    },
+    parseReceipt: (raw, command) => parseCoreQuoteReceipt(raw, command.input, command.kind), execute,
+    onSuccess: (receipt, command) => {
+      const href = command.kind === 'delete' ? (scope.customerId ? `/customers/${scope.customerId}/quotes` : '/cenove-nabidky') :
+        command.kind === 'openRevision' ? baseHref + '/edit' : command.kind === 'revoke' && 'versionId' in command.input && command.input.versionId === null ? baseHref + '?version=legacy' : quoteDetailHref(receipt.quoteId, scope.customerId, receipt.versionId ?? props.selectedVersionId)
+      router.push(href); router.refresh()
+    },
+  })
+  function run(kind: Command['kind'], extra: Record<string, unknown> = {}) {
+    setMessage('')
+    const revision = kind === 'decision' ? {} : { expectedRevision: scope.revision }
+    return operation.run({ kind, input: { companyId: scope.companyId, profileId: props.actorProfileId,
+      quoteId: scope.quoteId, operationId: crypto.randomUUID(), ...revision, ...extra } })
   }
-
-  async function handleCopyLink() {
-    if (!shareUrl || copying) return
-
-    try {
-      setCopying(true)
-      await navigator.clipboard.writeText(shareUrl)
-      alert('Odkaz na online nabídku je zkopírovaný.')
-    } catch {
-      alert('Nepodařilo se zkopírovat odkaz. Zkuste ho prosím zkopírovat ručně.')
-    } finally {
-      setCopying(false)
-    }
+  async function copy() {
+    if (!shareUrl) return
+    try { await navigator.clipboard.writeText(new URL(shareUrl, window.location.origin).href); setMessage('Odkaz na vybranou verzi je zkopírovaný.') }
+    catch { setMessage('Odkaz můžete zkopírovat po otevření vybrané online verze.') }
   }
-
-  async function handleDelete() {
-    if (deleting) return
-
-    const confirmed = window.confirm('Opravdu chcete smazat tuto cenovou nabídku?')
-    if (!confirmed) return
-
-    setDeleting(true)
-
-    try {
-      const result = await deleteQuoteAction({ quoteId, customerId })
-      if (!result.ok) throw new Error(result.error)
-
-      router.replace(customerId ? `/customers/${customerId}/quotes` : '/cenove-nabidky')
-      router.refresh()
-      window.location.assign(customerId ? `/customers/${customerId}/quotes` : '/cenove-nabidky')
-    } catch (error) {
-      alert(error instanceof Error ? error.message : 'Nepodařilo se smazat cenovou nabídku.')
-      setDeleting(false)
-    }
-  }
-
-  async function handleSyncPricing() {
-    if (!sourceCalculationId || syncingPricing) return
-
-    setSyncingPricing(true)
-
-    try {
-      const result = await syncQuotePricingFromCalculationAction({
-        quoteId,
-        customerId,
-        sourceCalculationId,
-      })
-
-      if (!result.ok) throw new Error(result.error)
-
-      alert('Cenova kalkulace v nabidce byla aktualizovana podle posledni verze kalkulace.')
-      router.refresh()
-    } catch (error) {
-      alert(error instanceof Error ? error.message : 'Nepodařilo se aktualizovat cenovou kalkulaci.')
-    } finally {
-      setSyncingPricing(false)
-    }
-  }
-
-  async function handleSendUpdatedOffer(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    if (sendingUpdate) return
-
-    if (!shareUrl) {
-      alert('Pro odeslání nabídky chybí sdílený odkaz.')
-      return
-    }
-
-    const trimmedEmail = offerRecipientEmail.trim().toLowerCase()
-    const trimmedSubject = offerSubject.trim()
-    const trimmedMessage = offerMessage.trim()
-
-    if (!trimmedEmail || !trimmedSubject || !trimmedMessage) {
-      alert('Vyplňte prosím e-mail příjemce, předmět i zprávu.')
-      return
-    }
-
-    setSendingUpdate(true)
-
-    try {
-      const response = await fetch('/api/mail/send', {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-        },
-        body: JSON.stringify({
-          relatedEntityType: 'offer',
-          relatedEntityId: quoteId,
-          customerId: customerId ?? null,
-          messageType: 'quote_update',
-          toEmail: trimmedEmail,
-          toName: offerRecipientName.trim() || null,
-          subject: trimmedSubject,
-          text: trimmedMessage,
-          html: `<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.6;white-space:pre-wrap;">${escapeHtml(
-            trimmedMessage,
-          )}</div>`,
-        }),
-      })
-
-      const payload = (await response.json().catch(() => null)) as { error?: string } | null
-
-      if (!response.ok) {
-        throw new Error(payload?.error ?? 'Nepodařilo se odeslat aktualizovanou nabídku.')
-      }
-
-      const updateResult = await markQuoteSentAction({ quoteId, customerId })
-      if (!updateResult.ok) throw new Error(updateResult.error)
-
-      window.dispatchEvent(
-        new CustomEvent('diriqo:email-feed-refresh', {
-          detail: {
-            entityType: 'offer',
-            entityId: quoteId,
-            subject: trimmedSubject,
-            email: trimmedEmail,
-            preview: trimmedMessage,
-          },
-        }),
-      )
-
-      setShowSendOfferModal(false)
-      alert('Aktualizovaná nabídka byla odeslaná.')
-      router.refresh()
-    } catch (error) {
-      alert(error instanceof Error ? error.message : 'Nepodařilo se odeslat aktualizovanou nabídku.')
-    } finally {
-      setSendingUpdate(false)
-    }
-  }
-
-  async function handleRejectQuote() {
-    if (rejecting) return
-
-    const confirmed = window.confirm('Opravdu chcete tuto cenovou nabídku označit jako "Nemá zájem"?')
-    if (!confirmed) return
-
-    setRejecting(true)
-
-    try {
-      const result = await rejectQuoteAction({ quoteId, customerId })
-      if (!result.ok) throw new Error(result.error)
-
-      alert('Nabídka byla označená jako "Nemá zájem".')
-      router.refresh()
-    } catch (error) {
-      alert(error instanceof Error ? error.message : 'Nepodařilo se změnit stav nabídky.')
-    } finally {
-      setRejecting(false)
-    }
-  }
-
-  return (
-    <>
-      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-start' }}>
-      {!shareUrl ? (
-        <button type="button" onClick={handlePublish} disabled={publishing}
-          style={buttonStyle('#eef2ff', '#4338ca', '1px solid #c7d2fe', publishing)}>
-          {publishing ? 'Připravuji odkaz…' : 'Zpřístupnit odkaz'}
-        </button>
-      ) : null}
-      {customerId ? (
-        <Link
-          href={`/customers/${customerId}/quotes/${quoteId}/edit`}
-          style={{
-            display: 'inline-block',
-            backgroundColor: '#000000',
-            color: '#ffffff',
-            textDecoration: 'none',
-            fontWeight: '700',
-            fontSize: '13px',
-            padding: '8px 10px',
-            borderRadius: '10px',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          Upravit nabídku
-        </Link>
-      ) : null}
-
-      {shareUrl ? (
-        <a
-          href={shareUrl}
-          target="_blank"
-          rel="noreferrer"
-          style={{
-            display: 'inline-block',
-            backgroundColor: '#eff6ff',
-            color: '#1d4ed8',
-            textDecoration: 'none',
-            fontWeight: '700',
-            fontSize: '13px',
-            padding: '8px 10px',
-            borderRadius: '10px',
-            border: '1px solid #bfdbfe',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          Otevřít online nabídku
-        </a>
-      ) : null}
-
-      {shareUrl ? (
-        <button type="button" onClick={handleCopyLink} disabled={copying} style={buttonStyle('#ffffff', '#111827', '1px solid #d1d5db', copying)}>
-          {copying ? 'Kopíruji...' : 'Kopírovat odkaz'}
-        </button>
-      ) : null}
-
-      <a
-        href={`/api/quotes/${quoteId}/pdf`}
-        target="_blank"
-        rel="noreferrer"
-        style={{
-          display: 'inline-block',
-          backgroundColor: '#ffffff',
-          color: '#111827',
-          textDecoration: 'none',
-          fontWeight: '700',
-          fontSize: '13px',
-          padding: '8px 10px',
-          borderRadius: '10px',
-          border: '1px solid #d1d5db',
-          whiteSpace: 'nowrap',
-        }}
-      >
-        {isDraft && !publishedShareUrl ? 'Náhled PDF' : 'Stáhnout PDF'}
-      </a>
-
-      <button
-        type="button"
-        onClick={handleSyncPricing}
-        disabled={!sourceCalculationId || syncingPricing}
-        title={
-          sourceCalculationId
-            ? undefined
-            : 'Tato nabídka nemá navázanou zdrojovou kalkulaci.'
-        }
-        style={buttonStyle('#eff6ff', '#1d4ed8', '1px solid #bfdbfe', !sourceCalculationId || syncingPricing)}
-      >
-        {syncingPricing ? 'Aktualizuji kalkulaci...' : 'Aktualizovat cenovou kalkulaci'}
-      </button>
-
-      <button
-        type="button"
-        onClick={() => setShowCreateJobModal(true)}
-        disabled={Boolean(createJobDisabledReason)}
-        title={createJobDisabledReason}
-        style={buttonStyle('#eef2ff', '#4338ca', '1px solid #c7d2fe', Boolean(createJobDisabledReason))}
-      >
-        Vytvořit zakázku z nabídky
-      </button>
-
-      <button
-        type="button"
-        onClick={() => setShowSendOfferModal(true)}
-        disabled={Boolean(sendOfferDisabledReason) || sendingUpdate}
-        title={
-          sendOfferDisabledReason
-            ? sendOfferDisabledReason
-            : undefined
-        }
-        style={buttonStyle('#ecfdf5', '#166534', '1px solid #bbf7d0', Boolean(sendOfferDisabledReason) || sendingUpdate)}
-      >
-        {sendingUpdate ? 'Odesílám...' : 'Odeslat aktualizovanou nabídku'}
-      </button>
-
-      <button
-        type="button"
-        onClick={handleRejectQuote}
-        disabled={rejecting}
-        style={buttonStyle('#fef2f2', '#991b1b', '1px solid #fecaca', rejecting)}
-      >
-        {rejecting ? 'Ukládám...' : 'Nemá zájem'}
-      </button>
-
-      <button
-        type="button"
-        onClick={handleDelete}
-        disabled={deleting}
-        style={buttonStyle('#fef2f2', '#991b1b', '1px solid #fecaca', deleting)}
-      >
-        {deleting ? 'Mažu...' : 'Smazat nabídku'}
-      </button>
-      </div>
-
-      {showSendOfferModal ? (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(15, 23, 42, 0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '20px',
-            zIndex: 1000,
-          }}
-        >
-          <form
-            onSubmit={handleSendUpdatedOffer}
-            style={{
-              width: '100%',
-              maxWidth: '720px',
-              borderRadius: '18px',
-              backgroundColor: '#ffffff',
-              padding: '24px',
-              boxShadow: '0 24px 64px rgba(15, 23, 42, 0.18)',
-              display: 'grid',
-              gap: '14px',
-            }}
-          >
-            <div>
-              <h3 style={{ margin: '0 0 8px 0', fontSize: '24px' }}>Odeslat aktualizovanou nabídku</h3>
-              <p style={{ margin: 0, color: '#475569', lineHeight: 1.6 }}>
-                Email se odešle serverově z Hubu a odpověď se pak bude párovat přímo k této nabídce.
-              </p>
-            </div>
-
-            <div
-              style={{
-                display: 'grid',
-                gap: '12px',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-              }}
-            >
-              <label style={{ display: 'grid', gap: '6px' }}>
-                <span style={{ fontWeight: 600 }}>E-mail příjemce</span>
-                <input
-                  type="email"
-                  value={offerRecipientEmail}
-                  onChange={(event) => setOfferRecipientEmail(event.target.value)}
-                  placeholder="zakaznik@firma.cz"
-                  required
-                  style={{
-                    border: '1px solid #d1d5db',
-                    borderRadius: '12px',
-                    padding: '12px 14px',
-                    fontSize: '14px',
-                  }}
-                />
-              </label>
-
-              <label style={{ display: 'grid', gap: '6px' }}>
-                <span style={{ fontWeight: 600 }}>Jméno příjemce</span>
-                <input
-                  type="text"
-                  value={offerRecipientName}
-                  onChange={(event) => setOfferRecipientName(event.target.value)}
-                  placeholder="Jméno kontaktu"
-                  style={{
-                    border: '1px solid #d1d5db',
-                    borderRadius: '12px',
-                    padding: '12px 14px',
-                    fontSize: '14px',
-                  }}
-                />
-              </label>
-            </div>
-
-            <label style={{ display: 'grid', gap: '6px' }}>
-              <span style={{ fontWeight: 600 }}>Předmět</span>
-              <input
-                type="text"
-                value={offerSubject}
-                onChange={(event) => setOfferSubject(event.target.value)}
-                required
-                style={{
-                  border: '1px solid #d1d5db',
-                  borderRadius: '12px',
-                  padding: '12px 14px',
-                  fontSize: '14px',
-                }}
-              />
-            </label>
-
-            <label style={{ display: 'grid', gap: '6px' }}>
-              <span style={{ fontWeight: 600 }}>Zpráva</span>
-              <textarea
-                value={offerMessage}
-                onChange={(event) => setOfferMessage(event.target.value)}
-                rows={9}
-                required
-                style={{
-                  border: '1px solid #d1d5db',
-                  borderRadius: '12px',
-                  padding: '12px 14px',
-                  fontSize: '14px',
-                  resize: 'vertical',
-                }}
-              />
-            </label>
-
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                gap: '12px',
-                flexWrap: 'wrap',
-              }}
-            >
-              <div style={{ color: '#64748b', fontSize: '14px' }}>
-                Odkaz na nabídku: {shareUrl ? shareUrl : 'není dostupný'}
-              </div>
-
-              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                <button
-                  type="button"
-                  onClick={() => setShowSendOfferModal(false)}
-                  disabled={sendingUpdate}
-                  style={buttonStyle('#ffffff', '#111827', '1px solid #d1d5db', sendingUpdate)}
-                >
-                  Zavřít
-                </button>
-                <button
-                  type="submit"
-                  disabled={sendingUpdate}
-                  style={buttonStyle('#111827', '#ffffff', '1px solid #111827', sendingUpdate)}
-                >
-                  {sendingUpdate ? 'Odesílám...' : 'Odeslat nabídku'}
-                </button>
-              </div>
-            </div>
-          </form>
-        </div>
-      ) : null}
-
-      {showCreateJobModal ? <QuoteConversionDialog
-        companyId={companyId} actorProfileId={actorProfileId} quoteId={quoteId} customerId={customerId}
-        quoteTitle={quoteTitle} description={workDescription?.trim() || proposedSolution?.trim() || ''}
-        contactName={contactName} contactEmail={contactEmail} shareUrl={shareUrl}
-        onClose={() => setShowCreateJobModal(false)} /> : null}
-    </>
-  )
+  return <div className={styles.stack}>
+    {operation.error ? <p role="alert" className={styles.error}>{operation.error}</p> : null}
+    {message ? <p role="status" className={styles.notice}>{message}</p> : null}
+    {operation.pending ? <p role="status" className={styles.notice}>{operation.pending.receipt ? 'Operace je potvrzená; otevřete výsledek v původní firmě.' : 'Čekáme na potvrzení uloženého požadavku. Jeho opakování nevytvoří další verzi.'}</p> : null}
+    {operation.retryAvailable ? <button type="button" className={styles.primary} onClick={() => operation.run()}>{operation.pending?.receipt ? 'Otevřít potvrzený výsledek' : 'Ověřit stejný požadavek'}</button> : null}
+    <div className={styles.actions}>
+      {isDraft && !props.workspace.archivedAt ? <>
+        <Link className={styles.primary} href={baseHref + '/edit'}>Upravit koncept</Link>
+        <button type="button" className={styles.button} disabled={operation.locked} onClick={() => run('publish')}>Vydat a zpřístupnit verzi</button>
+        {scope.sourceCalculationId && scope.currentCalculationRevision ? <button type="button" className={styles.button} disabled={operation.locked}
+          onClick={() => run('sync', { calculationId: scope.sourceCalculationId, expectedCalculationRevision: scope.currentCalculationRevision })}>Převzít položky z kalkulace</button> : null}
+      </> : null}
+      {!props.workspace.draftOpen && (version || isLegacyBaseline) && !props.workspace.archivedAt ? <button type="button" className={styles.primary} disabled={operation.locked} onClick={() => run('openRevision', { versionId: version?.versionId ?? null })}>Připravit novou verzi</button> : null}
+      {props.workspace.draftOpen && !isDraft ? <Link className={styles.button} href={baseHref + '?version=draft'}>Otevřít rozpracovaný koncept</Link> : null}
+      <a className={styles.button} href={`/api/quotes/${scope.quoteId}/pdf${version ? '?versionId=' + encodeURIComponent(version.versionId) : isDraft ? '?draftRevision=' + encodeURIComponent(scope.revision) : '?legacy=1'}`} target="_blank" rel="noreferrer">{isDraft ? 'Náhled PDF' : 'Stáhnout PDF této verze'}</a>
+      {shareUrl ? <><a className={styles.button} href={shareUrl} target="_blank" rel="noreferrer">Otevřít online verzi</a><button type="button" className={styles.button} onClick={copy}>Kopírovat odkaz</button></> : null}
+      {version && !props.workspace.archivedAt ? <>
+        <button type="button" className={styles.button} disabled={operation.locked} onClick={() => setShowSend(value => !value)}>Odeslat tuto verzi</button>
+        {version.status === 'published' ? <button type="button" className={styles.button} disabled={operation.locked} onClick={() => setShowDecision(value => !value)}>Zaznamenat rozhodnutí</button> : null}
+        <button type="button" className={styles.button} disabled={operation.locked || version.status !== 'accepted'} title={version.status !== 'accepted' ? 'Nejdříve zaznamenejte přijetí této konkrétní verze.' : undefined} onClick={() => setShowConversion(true)}>Vytvořit zakázku z této verze</button>
+      </> : null}
+      {((version && version.shareToken !== null) || (props.selectedKind === 'legacy' && props.workspace.legacy && props.workspace.legacy.revokedAt === null)) ? <button type="button" className={styles.danger} disabled={operation.locked} onClick={async () => {
+        if (window.confirm('Zneplatnit veřejný odkaz této verze? Její obsah zůstane v historii a odkazy ostatních verzí zůstanou beze změny.')) await run('revoke', { versionId: version?.versionId ?? null })
+      }}>Zneplatnit odkaz této verze</button> : null}
+      {!props.workspace.archivedAt ? <button type="button" className={styles.button} disabled={operation.locked} onClick={() => { if (window.confirm('Archivovat nabídku? Historie a vydané verze zůstanou uložené.')) void run('archive') }}>Archivovat nabídku</button> : null}
+    </div>
+    {showDecision && version ? <form className={styles.card} onSubmit={async event => {
+      event.preventDefault()
+      const date = new Date(decidedAt)
+      if (!Number.isFinite(date.getTime())) { setMessage('Vyplňte platný čas rozhodnutí.'); return }
+      await run('decision', { versionId: version.versionId, decision, evidence, decidedAt: date.toISOString() })
+    }}>
+      <h2>Ruční záznam rozhodnutí · verze {version.versionNumber}</h2>
+      <p className={styles.muted}>Uložíme autora, čas a doložení. Tento záznam není elektronický podpis zákazníka.</p>
+      <fieldset disabled={operation.locked} style={{ border: 0, padding: 0, margin: '16px 0' }} className={styles.stack}>
+        <div className={styles.grid}><label className={styles.field}>Rozhodnutí<select id="quote-decision" value={decision} onChange={e => setDecision(e.target.value as 'accepted' | 'rejected')}><option value="accepted">Přijato</option><option value="rejected">Odmítnuto</option></select></label>
+          <label className={styles.field}>Kdy zákazník rozhodl<input id="quote-decided-at" type="datetime-local" required value={decidedAt} onChange={e => setDecidedAt(e.target.value)} /></label></div>
+        <label className={styles.field}>Doložení rozhodnutí<textarea id="quote-decision-evidence" required maxLength={10000} value={evidence} onChange={e => setEvidence(e.target.value)} placeholder="Např. e-mail zákazníka ze dne… nebo zápis z telefonátu…" /></label>
+        <button className={styles.primary} type="submit">Uložit rozhodnutí této verze</button>
+      </fieldset>
+    </form> : null}
+    {showSend && version ? <QuoteSendForm companyId={scope.companyId} profileId={props.actorProfileId} quoteId={scope.quoteId} versionId={version.versionId} versionNumber={version.versionNumber} title={props.quoteTitle} contactEmail={props.contactEmail} shareUrl={shareUrl} /> : null}
+    {showConversion && version ? <QuoteConversionDialog companyId={scope.companyId} actorProfileId={props.actorProfileId} quoteId={scope.quoteId} customerId={scope.customerId}
+      versionId={version.versionId} quoteTitle={props.quoteTitle} description={props.description} contactName={props.contactName} contactEmail={props.contactEmail} shareUrl={shareUrl} onClose={() => setShowConversion(false)} /> : null}
+  </div>
 }

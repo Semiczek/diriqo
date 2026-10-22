@@ -6,6 +6,7 @@ export type OfferItem = {
   unit: string | null
   unitPrice: number | null
   totalPrice: number | null
+  vatRate?: number | null
   note: string | null
 }
 
@@ -18,6 +19,14 @@ export type OfferSection = {
 export type PublicOfferPageProps = {
   token: string
   context?: 'public' | 'portal'
+  responseActorId?: string | null
+  versionId?: string | null
+  versionNumber?: number | null
+  canRespond?: boolean
+  currency?: string | null
+  pricingMode?: 'net' | null
+  subtotal?: number | null
+  discount?: number | null
   title: string
   customerName: string | null
   defaultCustomerEmail?: string | null

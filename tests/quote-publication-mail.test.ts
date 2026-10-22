@@ -29,13 +29,19 @@ let trace: string[]
 let writes: Write[]
 let existingThread: Row | null
 let quote: Row | null
-const publication = () => ({ quoteId: QUOTE, shareToken: 'a'.repeat(48), state: 'captured', capturedAt: '2026-10-21T08:00:00.000Z' })
+const VERSION = '99999999-9999-4999-8999-999999999999'
+const OPERATION = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+const DELIVERY = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
+let deliveryState: 'reserved' | 'sent' | 'uncertain' | null
+let metadataFailure = false
+const reservation = (canSend: boolean) => ({ companyId: COMPANY, quoteId: QUOTE, versionId: VERSION, operationId: OPERATION,
+  deliveryId: DELIVERY, canSend, state: deliveryState || 'reserved', attemptToken: canSend ? 's'.repeat(64) : null, shareToken: 'a'.repeat(64) })
 
 function request(overrides: Row = {}) {
   return new NextRequest('https://example.invalid/api/mail/send', {
     method: 'POST', headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ toEmail: 'synthetic@example.invalid', subject: 'Synthetic offer', text: 'Synthetic message',
-      relatedEntityType: 'offer', relatedEntityId: QUOTE, customerId: CUSTOMER, ...overrides }),
+      relatedEntityType: 'offer', relatedEntityId: QUOTE, customerId: CUSTOMER, companyId: COMPANY, profileId: PROFILE, versionId: VERSION, operationId: OPERATION, ...overrides }),
   })
 }
 
@@ -60,157 +66,110 @@ function databaseQuery(table: string) {
     },
     single: async () => ({ data: table === 'mail_threads'
       ? { ...row, id: THREAD, thread_key: 't_synthetic123' } : { id: MESSAGE }, error: null }),
-    then: (resolve: (value: { data: Row[]; error: null }) => unknown) =>
-      Promise.resolve({ data: operation === 'select' ? [] : [row], error: null }).then(resolve),
+    then: (resolve: (value: { data: Row[]; error: { message: string } | null }) => unknown) =>
+      Promise.resolve({ data: operation === 'select' ? [] : [row], error: metadataFailure && operation === 'update' ? { message: 'Metadata failure' } : null }).then(resolve),
   }
   return query
 }
 
 beforeEach(() => {
   vi.resetAllMocks()
-  trace = []; writes = []; existingThread = null
+  trace = []; writes = []; existingThread = null; deliveryState = null; metadataFailure = false
   quote = { id: QUOTE, company_id: COMPANY, customer_id: CUSTOMER }
   vi.spyOn(console, 'error').mockImplementation(() => {})
   mocks.authGuard.mockResolvedValue({ ok: true, value: { id: 'synthetic-user' } })
   mocks.roleGuard.mockResolvedValue({ ok: true, value: { companyId: COMPANY, profileId: PROFILE, companyName: 'Synthetic company', role: 'company_admin' } })
   mocks.getUser.mockResolvedValue({ data: { user: { id: 'synthetic-user' } }, error: null })
-  mocks.rpc.mockImplementation(async () => { trace.push('publish'); return { data: publication(), error: null } })
+  mocks.rpc.mockImplementation(async () => { trace.push('reserve'); const canSend = deliveryState === null; if (canSend) deliveryState = 'reserved'; return { data: reservation(canSend), error: null } })
   mocks.userClient.mockResolvedValue({ rpc: mocks.rpc, auth: { getUser: mocks.getUser } })
-  mocks.admin.mockReturnValue({ from: databaseQuery })
+  mocks.admin.mockReturnValue({ from: databaseQuery, rpc: async (_name: string, args: Row) => { trace.push('complete:' + args.p_state); deliveryState = args.p_state as typeof deliveryState; return { data: { state: deliveryState }, error: null } } })
   mocks.provider.mockImplementation(async () => { trace.push('provider'); return { id: 'synthetic-provider-id' } })
 })
 afterEach(() => vi.restoreAllMocks())
 
-function expectPublication() {
-  expect(mocks.rpc).toHaveBeenCalledExactlyOnceWith('publish_core_quote_customer_identity', {
-    p_company_id: COMPANY, p_quote_id: QUOTE,
-  })
-  expect(mocks.userClient).toHaveBeenCalledOnce()
-}
-function expectNoOutboundSideEffects() {
-  expect(mocks.provider).not.toHaveBeenCalled()
-  expect(writes).toEqual([])
-}
-
-describe('quote publication before outbound mail', () => {
-  it('publishes the resolved offer through the user client before creating a thread, message or provider request', async () => {
+function expectNoOutboundSideEffects() { expect(mocks.provider).not.toHaveBeenCalled(); expect(writes).toEqual([]) }
+describe('version-bound, once-claimed offer delivery', () => {
+  it('reserves explicit version before writes and commits provider confirmation before metadata', async () => {
     const response = await POST(request())
     expect(response.status).toBe(200)
-    expectPublication()
-    expect(trace.indexOf('read:quotes')).toBeLessThan(trace.indexOf('publish'))
-    expect(trace.indexOf('publish')).toBeLessThan(trace.indexOf('insert:mail_threads'))
-    expect(trace.indexOf('insert:mail_threads')).toBeLessThan(trace.indexOf('insert:mail_messages'))
+    expect(await response.json()).toMatchObject({ ok: true, deliveryState: 'sent', quoteId: QUOTE, versionId: VERSION, operationId: OPERATION })
+    expect(mocks.rpc).toHaveBeenCalledWith('begin_core_quote_delivery_atomic', expect.objectContaining({ p_company_id: COMPANY, p_quote_id: QUOTE, p_version_id: VERSION, p_operation_id: OPERATION }))
+    expect(trace.indexOf('reserve')).toBeLessThan(trace.indexOf('insert:mail_threads'))
     expect(trace.indexOf('insert:mail_messages')).toBeLessThan(trace.indexOf('provider'))
-    expect(mocks.provider).toHaveBeenCalledOnce()
-    expect(writes.find(write => write.table === 'mail_threads')?.row).toMatchObject({ company_id: COMPANY, offer_id: QUOTE })
+    expect(trace.indexOf('complete:sent')).toBeLessThan(trace.indexOf('update:mail_messages'))
+    expect(mocks.provider).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ text: expect.stringContaining('https://app.diriqo.com/offer/' + 'a'.repeat(64)) }))
   })
-
-  it('awaits committed publication before starting any outbound side effect', async () => {
-    let finish!: (value: unknown) => void
-    let entered!: () => void
-    const publicationStarted = new Promise<void>(resolve => { entered = resolve })
-    mocks.rpc.mockImplementation(() => {
-      entered()
-      return new Promise(resolve => { finish = resolve })
-    })
-    const pendingResponse = POST(request())
-    await publicationStarted
-    expectNoOutboundSideEffects()
-    finish({ data: publication(), error: null })
-    expect((await pendingResponse).status).toBe(200)
-    expect(mocks.provider).toHaveBeenCalledOnce()
+  it.each(['versionId','operationId','companyId','profileId'] as const)('does not publish implicitly when %s is absent', async field => {
+    expect((await POST(request({ [field]: undefined }))).status).toBe(409)
+    expect(mocks.rpc).not.toHaveBeenCalled(); expectNoOutboundSideEffects()
   })
-
-  it('preserves a legacy unknown identity without pretending to recapture it', async () => {
-    mocks.rpc.mockResolvedValue({ data: { ...publication(), state: 'legacy_unknown', capturedAt: null }, error: null })
+  it('rejects a stale active-company scope before claiming or sending', async () => {
+    expect((await POST(request({ companyId: OTHER_COMPANY }))).status).toBe(409)
+    expect(mocks.rpc).not.toHaveBeenCalled(); expectNoOutboundSideEffects()
+  })
+  it('replays a confirmed receipt without a second thread, message or provider request', async () => {
     expect((await POST(request())).status).toBe(200)
-    expectPublication()
-    expect(writes.some(write => write.table === 'quotes' || write.table === 'customers')).toBe(false)
+    const count = writes.length
+    const again = await POST(request())
+    expect(again.status).toBe(200); expect(await again.json()).toMatchObject({ ok: true, deliveryState: 'sent' })
+    expect(writes).toHaveLength(count); expect(mocks.provider).toHaveBeenCalledOnce()
+  })
+  it('rejects an old tab after login as another profile in the same company', async () => {
+    mocks.roleGuard.mockResolvedValue({ ok: true, value: { companyId: COMPANY, profileId: OTHER_COMPANY, companyName: 'Synthetic company', role: 'company_admin' } })
+    expect((await POST(request())).status).toBe(409)
+    expect(mocks.rpc).not.toHaveBeenCalled(); expectNoOutboundSideEffects()
+  })
+  it('a second concurrent request sees the reservation and never sends again', async () => {
+    let finish!: (value: { id: string }) => void
+    let entered!: () => void
+    const started = new Promise<void>(resolve => { entered = resolve })
+    mocks.provider.mockImplementation(() => { entered(); return new Promise(resolve => { finish = resolve }) })
+    const first = POST(request()); await started
+    const second = await POST(request())
+    expect(second.status).toBe(202); expect(await second.json()).toMatchObject({ ok: false, deliveryState: 'reserved', retryable: false })
+    finish({ id: 'provider-accepted' }); expect((await first).status).toBe(200)
     expect(mocks.provider).toHaveBeenCalledOnce()
   })
-
-  it('does not undo or repeat publication when the provider rejects the send', async () => {
-    mocks.provider.mockRejectedValue(new Error('Synthetic provider failure'))
-    expect((await POST(request())).status).toBeGreaterThanOrEqual(400)
-    expectPublication()
-    expect(writes.some(write => write.table === 'quotes' || write.table === 'customers')).toBe(false)
-    expect(writes.some(write => write.table === 'mail_events' && write.row.event_type === 'send_failed')).toBe(true)
+  it('an uncertain provider result is retained, and retry never invokes provider again', async () => {
+    mocks.provider.mockRejectedValue(new Error('Connection lost after dispatch'))
+    const first = await POST(request())
+    expect(first.status).toBe(202); expect(await first.json()).toMatchObject({ ok: false, deliveryState: 'uncertain', retryable: false })
+    expect((await POST(request())).status).toBe(202)
     expect(mocks.provider).toHaveBeenCalledOnce()
   })
-  it('publishes an existing offer thread even when the payload contains no offer ID', async () => {
-    existingThread = { id: THREAD, company_id: COMPANY, customer_id: CUSTOMER, job_id: null, offer_id: QUOTE,
-      subject: 'Existing offer', thread_key: 't_synthetic123' }
-    const response = await POST(request({ relatedEntityType: undefined, relatedEntityId: undefined, customerId: undefined, threadId: THREAD }))
-    expect(response.status).toBe(200)
-    expectPublication()
-    expect(trace.indexOf('read:mail_threads')).toBeLessThan(trace.indexOf('publish'))
-    expect(trace.indexOf('publish')).toBeLessThan(trace.indexOf('insert:mail_messages'))
+  it('metadata failure after confirmed delivery does not claim that sending failed', async () => {
+    metadataFailure = true
+    const response = await POST(request())
+    expect(response.status).toBe(200); expect(await response.json()).toMatchObject({ ok: true, deliveryState: 'sent' })
+    expect((await POST(request())).status).toBe(200); expect(mocks.provider).toHaveBeenCalledOnce()
+  })
+  it('existing quote threads still require and reserve their own version', async () => {
+    existingThread = { id: THREAD, company_id: COMPANY, customer_id: CUSTOMER, job_id: null, offer_id: QUOTE, subject: 'Existing', thread_key: 't_synthetic123' }
+    expect((await POST(request({ threadId: THREAD, relatedEntityId: undefined, relatedEntityType: undefined }))).status).toBe(200)
+    expect(mocks.rpc).toHaveBeenCalledWith('begin_core_quote_delivery_atomic', expect.objectContaining({ p_quote_id: QUOTE, p_input: expect.objectContaining({ thread_id: THREAD }) }))
     expect(writes.filter(write => write.table === 'mail_threads' && write.operation === 'insert')).toEqual([])
   })
-
-  it('uses the existing thread offer instead of a conflicting caller-supplied offer ID', async () => {
-    existingThread = { id: THREAD, company_id: COMPANY, customer_id: CUSTOMER, job_id: null, offer_id: QUOTE,
-      subject: 'Existing offer', thread_key: 't_synthetic123' }
-    const response = await POST(request({ threadId: THREAD, relatedEntityId: JOB }))
-    // A stricter caller-conflict rejection is also safe, but it must have no outbound effects.
-    if (response.status >= 400) { expectNoOutboundSideEffects(); return }
-    expect(response.status).toBe(200)
-    expectPublication()
-  })
-
-  it.each(['database-error', 'network-error', 'missing-result'] as const)('stops before any mail write or send on publication %s', async failure => {
-    if (failure === 'database-error') mocks.rpc.mockResolvedValue({ data: null, error: { code: '42501', message: 'QUOTE_PUBLICATION_FORBIDDEN' } })
-    if (failure === 'network-error') mocks.rpc.mockRejectedValue(new Error('Synthetic publication transport failure'))
+  it.each(['database-error','network-error','missing-result','wrong-version'] as const)('stops before any send for reservation %s', async failure => {
+    if (failure === 'database-error') mocks.rpc.mockResolvedValue({ data: null, error: { code: '42501', message: 'Denied' } })
+    if (failure === 'network-error') mocks.rpc.mockRejectedValue(new Error('Transport lost'))
     if (failure === 'missing-result') mocks.rpc.mockResolvedValue({ data: null, error: null })
-    const response = await POST(request())
-    expect(response.status).toBeGreaterThanOrEqual(400)
-    expectPublication()
-    expectNoOutboundSideEffects()
+    if (failure === 'wrong-version') mocks.rpc.mockResolvedValue({ data: { ...reservation(true), versionId: QUOTE }, error: null })
+    expect((await POST(request())).status).toBeGreaterThanOrEqual(400); expectNoOutboundSideEffects()
   })
-
-  it('also stops an existing thread reply when publication cannot be prepared', async () => {
-    existingThread = { id: THREAD, company_id: COMPANY, customer_id: CUSTOMER, job_id: null, offer_id: QUOTE,
-      subject: 'Existing offer', thread_key: 't_synthetic123' }
-    mocks.rpc.mockResolvedValue({ data: null, error: { code: '42501', message: 'QUOTE_PUBLICATION_FORBIDDEN' } })
-    const response = await POST(request({ threadId: THREAD, relatedEntityType: undefined, relatedEntityId: undefined }))
-    expect(response.status).toBeGreaterThanOrEqual(400)
-    expectPublication()
-    expectNoOutboundSideEffects()
+  it.each(['job','customer'] as const)('leaves ordinary %s mail independent of quote publication', async type => {
+    expect((await POST(request({ relatedEntityType: type, relatedEntityId: type === 'job' ? JOB : CUSTOMER }))).status).toBe(200)
+    expect(mocks.rpc).not.toHaveBeenCalled(); expect(mocks.provider).toHaveBeenCalledOnce()
   })
-
-  it.each(['job', 'customer'] as const)('does not publish an offer for ordinary %s mail', async type => {
-    const response = await POST(request({ relatedEntityType: type, relatedEntityId: type === 'job' ? JOB : CUSTOMER }))
-    expect(response.status).toBe(200)
-    expect(mocks.rpc).not.toHaveBeenCalled()
-    expect(mocks.userClient).not.toHaveBeenCalled()
-    expect(mocks.provider).toHaveBeenCalledOnce()
-  })
-
-  it('does not let a supplied offer ID turn a customer-only thread into quote publication', async () => {
-    existingThread = { id: THREAD, company_id: COMPANY, customer_id: CUSTOMER, job_id: null, offer_id: null,
-      subject: 'Customer thread', thread_key: 't_synthetic123' }
-    const response = await POST(request({ threadId: THREAD }))
-    expect(mocks.rpc).not.toHaveBeenCalled()
-    if (response.status >= 400) expectNoOutboundSideEffects()
-    else expect(mocks.provider).toHaveBeenCalledOnce()
-  })
-
-  it.each(['quote', 'thread'] as const)('rejects a foreign-company %s before publication or mail writes', async source => {
+  it.each(['quote','thread'] as const)('rejects a foreign-company %s before any send', async source => {
     if (source === 'quote') quote = { id: QUOTE, company_id: OTHER_COMPANY, customer_id: CUSTOMER }
     else existingThread = { id: THREAD, company_id: OTHER_COMPANY, offer_id: QUOTE }
-    const response = await POST(request(source === 'thread' ? { threadId: THREAD } : {}))
-    expect(response.status).toBe(404)
-    expect(mocks.rpc).not.toHaveBeenCalled()
-    expectNoOutboundSideEffects()
+    expect((await POST(request(source === 'thread' ? { threadId: THREAD } : {}))).status).toBe(404)
+    expect(mocks.rpc).not.toHaveBeenCalled(); expectNoOutboundSideEffects()
   })
-
-  it.each(['auth', 'role'] as const)('rejects missing %s authority before privileged DB or provider access', async guard => {
-    const denied = { ok: false, error: 'Synthetic access denied', status: guard === 'auth' ? 401 : 403 }
-    if (guard === 'auth') mocks.authGuard.mockResolvedValue(denied)
-    else mocks.roleGuard.mockResolvedValue(denied)
+  it.each(['auth','role'] as const)('rejects missing %s before privileged access', async guard => {
+    const denied = { ok: false, error: 'Denied', status: guard === 'auth' ? 401 : 403 }
+    if (guard === 'auth') mocks.authGuard.mockResolvedValue(denied); else mocks.roleGuard.mockResolvedValue(denied)
     expect((await POST(request())).status).toBe(denied.status)
-    expect(mocks.admin).not.toHaveBeenCalled()
-    expect(mocks.rpc).not.toHaveBeenCalled()
-    expectNoOutboundSideEffects()
+    expect(mocks.admin).not.toHaveBeenCalled(); expect(mocks.rpc).not.toHaveBeenCalled(); expectNoOutboundSideEffects()
   })
 })

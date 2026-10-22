@@ -1,357 +1,99 @@
-﻿'use client'
+'use client'
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useState, type FormEvent } from 'react'
 import { updateQuoteAction } from '@/app/business-actions'
-import { useI18n } from '@/components/I18nProvider'
-import { DEFAULT_QUOTE_BENEFITS_TEXT } from '@/lib/quote-benefits'
-import { QuoteStatus } from '@/lib/quote-status'
+import { parseCoreQuoteDraft, parseCoreQuoteReceipt, previewCoreQuoteItems, type CoreQuoteDraftFormValues } from '@/lib/core-quote-lifecycle'
+import { useQuoteOperation } from './useQuoteOperation'
+import { quoteDetailHref } from './quote-lifecycle-state'
+import styles from './QuoteLifecycle.module.css'
 
-type QuoteEditFormProps = {
-  customerId: string
-  quoteId: string
-  initialValues: {
-    title: string
-    status: QuoteStatus
-    quoteDate: string
-    validUntil: string
-    discountAmount: string
-    shareToken: string
-    contactName: string
-    contactEmail: string
-    introText: string
-    customerRequestTitle: string
-    customerNote: string
-    internalNote: string
-    customerRequest: string
-    ourSolutionTitle: string
-    proposedSolution: string
-    benefitsText: string
-    timelineTitle: string
-    workDescription: string
-    workSchedule: string
-    pricingTitle: string
-    pricingText: string
-    paymentTermsTitle: string
-    paymentTerms: string
-    sentAt: string
-    acceptedAt: string
-    rejectedAt: string
-  }
-}
+type Props = { customerId: string | null; initialValues: CoreQuoteDraftFormValues }
+const contentFields = [
+  ['contactName', 'Kontaktní osoba'], ['contactEmail', 'Kontaktní e-mail'], ['introText', 'Úvod'],
+  ['customerRequestTitle', 'Nadpis zadání'], ['customerRequest', 'Zadání zákazníka'],
+  ['ourSolutionTitle', 'Nadpis řešení'], ['proposedSolution', 'Navržené řešení'], ['benefitsText', 'Přínosy'],
+  ['timelineTitle', 'Nadpis harmonogramu'], ['workDescription', 'Popis práce'], ['workSchedule', 'Harmonogram'],
+  ['pricingTitle', 'Nadpis ceny'], ['pricingText', 'Vysvětlení ceny'], ['paymentTermsTitle', 'Nadpis podmínek'], ['paymentTerms', 'Platební podmínky'],
+] as const
 
-export default function QuoteEditForm({ customerId, quoteId, initialValues }: QuoteEditFormProps) {
+export default function QuoteEditForm({ customerId, initialValues }: Props) {
   const router = useRouter()
-  const { dictionary } = useI18n()
-  const [title, setTitle] = useState(initialValues.title)
-  const [status, setStatus] = useState<QuoteStatus>(initialValues.status)
-  const [quoteDate, setQuoteDate] = useState(initialValues.quoteDate)
-  const [validUntil, setValidUntil] = useState(initialValues.validUntil)
-  const [discountAmount, setDiscountAmount] = useState(initialValues.discountAmount)
-  const [shareToken] = useState(initialValues.shareToken)
-  const [contactName, setContactName] = useState(initialValues.contactName)
-  const [contactEmail, setContactEmail] = useState(initialValues.contactEmail)
-  const [introText, setIntroText] = useState(initialValues.introText)
-  const [customerRequestTitle, setCustomerRequestTitle] = useState(initialValues.customerRequestTitle)
-  const [customerNote, setCustomerNote] = useState(initialValues.customerNote)
-  const [internalNote, setInternalNote] = useState(initialValues.internalNote)
-  const [customerRequest, setCustomerRequest] = useState(initialValues.customerRequest)
-  const [ourSolutionTitle, setOurSolutionTitle] = useState(initialValues.ourSolutionTitle)
-  const [proposedSolution, setProposedSolution] = useState(initialValues.proposedSolution)
-  const [benefitsText, setBenefitsText] = useState(initialValues.benefitsText || DEFAULT_QUOTE_BENEFITS_TEXT)
-  const [timelineTitle, setTimelineTitle] = useState(initialValues.timelineTitle)
-  const [workDescription, setWorkDescription] = useState(initialValues.workDescription)
-  const [workSchedule, setWorkSchedule] = useState(initialValues.workSchedule)
-  const [pricingTitle, setPricingTitle] = useState(initialValues.pricingTitle)
-  const [pricingText, setPricingText] = useState(initialValues.pricingText)
-  const [paymentTermsTitle, setPaymentTermsTitle] = useState(initialValues.paymentTermsTitle)
-  const [paymentTerms, setPaymentTerms] = useState(initialValues.paymentTerms)
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    if (saving) return
-
-    setSaving(true)
-    setError(null)
-
-    try {
-      if (!title.trim()) {
-        throw new Error(dictionary.customers.quoteForm.titleRequired)
-      }
-
-      const payload = {
-        title: title.trim(),
-        share_token: shareToken,
-        status,
-        quote_date: quoteDate || null,
-        valid_until: validUntil || null,
-        sent_at: status === 'sent' ? initialValues.sentAt || new Date().toISOString() : null,
-        accepted_at: status === 'accepted' ? initialValues.acceptedAt || new Date().toISOString() : null,
-        rejected_at: status === 'rejected' ? initialValues.rejectedAt || new Date().toISOString() : null,
-      }
-
-      const result = await updateQuoteAction({
-        quoteId,
-        customerId,
-        title: payload.title,
-        shareToken: payload.share_token,
-        status: payload.status,
-        quoteDate: payload.quote_date,
-        validUntil: payload.valid_until,
-        sentAt: payload.sent_at,
-        acceptedAt: payload.accepted_at,
-        rejectedAt: payload.rejected_at,
-      })
-
-      if (!result.ok) {
-        throw new Error(result.error)
-      }
-
-      router.push(`/customers/${customerId}/quotes/${quoteId}`)
-      router.refresh()
-    } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : dictionary.customers.quoteForm.saveFailed)
-      setSaving(false)
-    }
+  const [values, setValues] = useState(() => initialValues)
+  const [localError, setLocalError] = useState('')
+  const operation = useQuoteOperation({
+    scope: { companyId: initialValues.companyId, profileId: initialValues.profileId, entityId: initialValues.quoteId, slot: 'edit' },
+    parseCommand: raw => {
+      const parsed = parseCoreQuoteDraft(raw)
+      if (parsed.companyId !== values.companyId || parsed.profileId !== values.profileId || parsed.quoteId !== values.quoteId) throw new Error('Požadavek patří k jiné nabídce nebo firmě.')
+      return parsed
+    },
+    parseReceipt: (raw, command) => parseCoreQuoteReceipt(raw, command, 'update'),
+    execute: updateQuoteAction,
+    onSuccess: receipt => { router.push(quoteDetailHref(receipt.quoteId, customerId)); router.refresh() },
+  })
+  const shown = operation.pending?.command ?? values
+  let preview: ReturnType<typeof previewCoreQuoteItems> | null = null
+  try { preview = previewCoreQuoteItems(shown.items, shown.discountAmount) } catch { /* Incomplete input stays editable. */ }
+  function setField<K extends keyof CoreQuoteDraftFormValues>(key: K, value: CoreQuoteDraftFormValues[K]) { setValues(current => ({ ...current, [key]: value })) }
+  function setItem(index: number, key: keyof CoreQuoteDraftFormValues['items'][number], value: string) {
+    setValues(current => ({ ...current, items: current.items.map((item, i) => i === index ? { ...item, [key]: value } : item) }))
   }
-
-  return (
-    <>
-    <form className="quote-edit-form" onSubmit={handleSubmit} style={{ display: 'grid', gap: '12px' }}>
-      {error ? (
-        <div style={{ padding: '14px 16px', borderRadius: '12px', border: '1px solid #fecaca', backgroundColor: '#fef2f2', color: '#b91c1c', fontWeight: 600 }}>
-          {error}
-        </div>
-      ) : null}
-
-      <section style={{ border: '1px solid #e5e7eb', borderRadius: '16px', backgroundColor: '#ffffff', padding: '20px', display: 'grid', gap: '16px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '16px' }}>
-          <label style={{ display: 'grid', gap: '8px' }}>
-            <span style={{ fontWeight: 700 }}>{dictionary.customers.quoteForm.quoteTitle}</span>
-            <input value={title} onChange={(event) => setTitle(event.target.value)} style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db' }} />
-          </label>
-          <label style={{ display: 'grid', gap: '8px' }}>
-            <span style={{ fontWeight: 700 }}>{dictionary.customers.quoteForm.date}</span>
-            <input type="date" value={quoteDate} onChange={(event) => setQuoteDate(event.target.value)} style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db' }} />
-          </label>
-          <label style={{ display: 'grid', gap: '8px' }}>
-            <span style={{ fontWeight: 700 }}>{dictionary.customers.quoteForm.validUntil}</span>
-            <input type="date" value={validUntil} onChange={(event) => setValidUntil(event.target.value)} style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db' }} />
-          </label>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
-          <label style={{ display: 'grid', gap: '8px' }}>
-            <span style={{ fontWeight: 700 }}>{dictionary.customers.quoteForm.status}</span>
-            <select value={status} onChange={(event) => setStatus(event.target.value as QuoteStatus)} style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db' }}>
-              <option value="draft">{dictionary.customers.quotesList.draft}</option>
-              <option value="ready">{dictionary.customers.quotesList.ready}</option>
-              <option value="sent">{dictionary.customers.quotesList.sent}</option>
-              <option value="viewed">{dictionary.customers.quotesList.viewed}</option>
-              <option value="waiting_followup">{dictionary.customers.quotesList.interested}</option>
-              <option value="revision_requested">{dictionary.customers.quotesList.revisionRequested}</option>
-              <option value="accepted">{dictionary.customers.quotesList.accepted}</option>
-              <option value="rejected">{dictionary.customers.quotesList.rejected}</option>
-              <option value="expired">{dictionary.customers.quotesList.expired}</option>
-            </select>
-          </label>
-
-          <label style={{ display: 'grid', gap: '8px' }}>
-            <span style={{ fontWeight: 700 }}>{dictionary.customers.quoteForm.discount}</span>
-            <input value={discountAmount} onChange={(event) => setDiscountAmount(event.target.value)} style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db' }} />
-          </label>
-
-          <label style={{ display: 'grid', gap: '8px' }}>
-            <span style={{ fontWeight: 700 }}>{dictionary.customers.quoteForm.shareToken}</span>
-            <input value={shareToken} readOnly style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db', backgroundColor: '#f8fafc' }} />
-          </label>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-          <label style={{ display: 'grid', gap: '8px' }}>
-            <span style={{ fontWeight: 700 }}>{dictionary.customers.quoteForm.contactPerson}</span>
-            <input value={contactName} onChange={(event) => setContactName(event.target.value)} style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db' }} />
-          </label>
-
-          <label style={{ display: 'grid', gap: '8px' }}>
-            <span style={{ fontWeight: 700 }}>{dictionary.customers.quoteForm.contactEmail}</span>
-            <input type="email" value={contactEmail} onChange={(event) => setContactEmail(event.target.value)} style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db' }} />
-          </label>
-        </div>
-
-        <label style={{ display: 'grid', gap: '8px' }}>
-          <span style={{ fontWeight: 700 }}>{dictionary.customers.quoteForm.intro}</span>
-          <textarea value={introText} onChange={(event) => setIntroText(event.target.value)} rows={4} style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db', resize: 'vertical' }} />
-        </label>
-
-        <label style={{ display: 'grid', gap: '8px' }}>
-          <span style={{ fontWeight: 700 }}>{dictionary.customers.quoteForm.customerNote}</span>
-          <textarea value={customerNote} onChange={(event) => setCustomerNote(event.target.value)} rows={3} style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db', resize: 'vertical' }} />
-        </label>
-
-        <label style={{ display: 'grid', gap: '8px' }}>
-          <span style={{ fontWeight: 700 }}>{dictionary.customers.quoteForm.internalNote}</span>
-          <textarea value={internalNote} onChange={(event) => setInternalNote(event.target.value)} rows={3} style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db', resize: 'vertical' }} />
-        </label>
-      </section>
-
-      <section style={{ border: '1px solid #e5e7eb', borderRadius: '16px', backgroundColor: '#ffffff', padding: '20px', display: 'grid', gap: '16px' }}>
-        <h2 style={{ margin: 0, fontSize: '22px' }}>{dictionary.customers.quoteForm.structure}</h2>
-
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '16px' }}>
-          <label style={{ display: 'grid', gap: '8px' }}>
-            <span style={{ fontWeight: 700 }}>{dictionary.customers.quoteForm.customerRequestHeading}</span>
-            <input value={customerRequestTitle} onChange={(event) => setCustomerRequestTitle(event.target.value)} style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db' }} />
-          </label>
-          <label style={{ display: 'grid', gap: '8px' }}>
-            <span style={{ fontWeight: 700 }}>{dictionary.customers.quoteForm.customerRequest}</span>
-            <textarea value={customerRequest} onChange={(event) => setCustomerRequest(event.target.value)} rows={4} style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db', resize: 'vertical' }} />
-          </label>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '16px' }}>
-          <label style={{ display: 'grid', gap: '8px' }}>
-            <span style={{ fontWeight: 700 }}>{dictionary.customers.quoteForm.solutionHeading}</span>
-            <input value={ourSolutionTitle} onChange={(event) => setOurSolutionTitle(event.target.value)} style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db' }} />
-          </label>
-          <label style={{ display: 'grid', gap: '8px' }}>
-            <span style={{ fontWeight: 700 }}>{dictionary.customers.quoteForm.ourSolution}</span>
-            <textarea value={proposedSolution} onChange={(event) => setProposedSolution(event.target.value)} rows={4} style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db', resize: 'vertical' }} />
-          </label>
-        </div>
-
-        <label style={{ display: 'grid', gap: '8px' }}>
-          <span style={{ fontWeight: 700 }}>{dictionary.customers.quoteForm.benefitsText}</span>
-          <textarea value={benefitsText} onChange={(event) => setBenefitsText(event.target.value)} rows={5} style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db', resize: 'vertical' }} />
-          <span style={{ color: '#64748b', fontSize: '13px' }}>{dictionary.customers.quoteForm.benefitsHelp}</span>
-        </label>
-
-        <label style={{ display: 'grid', gap: '8px' }}>
-          <span style={{ fontWeight: 700 }}>{dictionary.customers.quoteForm.importantInfo}</span>
-          <textarea value={workDescription} onChange={(event) => setWorkDescription(event.target.value)} rows={4} style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db', resize: 'vertical' }} />
-        </label>
-
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '16px' }}>
-          <label style={{ display: 'grid', gap: '8px' }}>
-            <span style={{ fontWeight: 700 }}>{dictionary.customers.quoteForm.timelineHeading}</span>
-            <input value={timelineTitle} onChange={(event) => setTimelineTitle(event.target.value)} style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db' }} />
-          </label>
-          <label style={{ display: 'grid', gap: '8px' }}>
-            <span style={{ fontWeight: 700 }}>{dictionary.customers.quoteForm.timeline}</span>
-            <textarea value={workSchedule} onChange={(event) => setWorkSchedule(event.target.value)} rows={4} style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db', resize: 'vertical' }} />
-          </label>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '16px' }}>
-          <label style={{ display: 'grid', gap: '8px' }}>
-            <span style={{ fontWeight: 700 }}>{dictionary.customers.quoteForm.pricingHeading}</span>
-            <input value={pricingTitle} onChange={(event) => setPricingTitle(event.target.value)} style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db' }} />
-          </label>
-          <label style={{ display: 'grid', gap: '8px' }}>
-            <span style={{ fontWeight: 700 }}>{dictionary.customers.quoteForm.pricingText}</span>
-            <textarea value={pricingText} onChange={(event) => setPricingText(event.target.value)} rows={4} style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db', resize: 'vertical' }} />
-          </label>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '16px' }}>
-          <label style={{ display: 'grid', gap: '8px' }}>
-            <span style={{ fontWeight: 700 }}>{dictionary.customers.quoteForm.paymentTermsHeading}</span>
-            <input value={paymentTermsTitle} onChange={(event) => setPaymentTermsTitle(event.target.value)} style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db' }} />
-          </label>
-          <label style={{ display: 'grid', gap: '8px' }}>
-            <span style={{ fontWeight: 700 }}>{dictionary.customers.quoteForm.paymentTerms}</span>
-            <textarea value={paymentTerms} onChange={(event) => setPaymentTerms(event.target.value)} rows={3} style={{ padding: '12px 14px', borderRadius: '12px', border: '1px solid #d1d5db', resize: 'vertical' }} />
-          </label>
+  async function submit(event: FormEvent) {
+    event.preventDefault(); setLocalError('')
+    try { await operation.run({ ...values, operationId: crypto.randomUUID() }) }
+    catch (error) { setLocalError(error instanceof Error ? error.message : 'Nabídku nelze uložit.') }
+  }
+  return <form onSubmit={submit} className={styles.form}>
+    {operation.error || localError ? <div role="alert" className={styles.error}>{operation.error || localError}</div> : null}
+    {operation.pending ? <div role="status" className={styles.notice}>
+      {operation.pending.receipt ? 'Uložení je potvrzené. Ověřte aktivní firmu a otevřete výsledek.' : 'Uložený požadavek čeká na potvrzení. Zachováme stejné údaje a číslo operace.'}
+    </div> : null}
+    <fieldset disabled={operation.locked}>
+      <section className={styles.card}>
+        <h2>Základ nabídky</h2>
+        <div className={styles.grid}>
+          <label className={styles.field}>Název nabídky<input id="quote-title" value={shown.title} onChange={e => setField('title', e.target.value)} required maxLength={300} /></label>
+          <label className={styles.field}>Datum<input id="quote-date" type="date" value={shown.quoteDate ?? ''} onChange={e => setField('quoteDate', e.target.value)} required /></label>
+          <label className={styles.field}>Platí do<input id="quote-valid-until" type="date" value={shown.validUntil ?? ''} onChange={e => setField('validUntil', e.target.value || null)} /></label>
+          <label className={styles.field}>Měna<input value={shown.currency} readOnly /></label>
+          <label className={styles.field}>Cenový režim<select id="quote-pricing-mode" value={shown.pricingMode} onChange={e => setField('pricingMode', e.target.value)} required><option value="">Zvolte cenový režim</option><option value="net">Ceny bez DPH</option></select></label>
+          <label className={styles.field}>Sleva bez DPH ({shown.currency || 'měna nedoložena'})<input id="quote-discount" inputMode="decimal" value={shown.discountAmount} onChange={e => setField('discountAmount', e.target.value)} /></label>
         </div>
       </section>
-
-      <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-        <button type="submit" disabled={saving} style={{ padding: '12px 16px', borderRadius: '12px', border: 'none', backgroundColor: '#000000', color: '#ffffff', fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>
-          {saving ? dictionary.customers.quoteForm.saving : dictionary.customers.quoteForm.saveChanges}
-        </button>
-
-        <Link href={`/customers/${customerId}/quotes/${quoteId}`} style={{ padding: '12px 16px', borderRadius: '12px', border: '1px solid #d1d5db', backgroundColor: '#ffffff', color: '#111827', fontWeight: 700, textDecoration: 'none' }}>
-          {dictionary.customers.quoteForm.cancel}
-        </Link>
-      </div>
-    </form>
-
-    <style jsx global>{`
-      .quote-edit-form {
-        color: #0f172a;
-      }
-
-      .quote-edit-form section {
-        padding: 16px !important;
-        border-radius: 16px !important;
-        gap: 12px !important;
-        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
-      }
-
-      .quote-edit-form section > div {
-        gap: 12px !important;
-      }
-
-      .quote-edit-form label {
-        gap: 5px !important;
-        color: #334155;
-        font-size: 13px;
-      }
-
-      .quote-edit-form label > span:first-child {
-        font-size: 13px;
-        font-weight: 800 !important;
-      }
-
-      .quote-edit-form input,
-      .quote-edit-form select,
-      .quote-edit-form textarea {
-        min-height: 42px;
-        padding: 10px 12px !important;
-        border-radius: 10px !important;
-        border-color: rgba(148, 163, 184, 0.45) !important;
-        color: #0f172a;
-        font-size: 14px;
-        outline: none;
-      }
-
-      .quote-edit-form textarea {
-        min-height: 92px;
-        line-height: 1.45;
-      }
-
-      .quote-edit-form input:focus,
-      .quote-edit-form select:focus,
-      .quote-edit-form textarea:focus {
-        border-color: rgba(37, 99, 235, 0.58) !important;
-        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
-      }
-
-      .quote-edit-form h2 {
-        font-size: 18px !important;
-        line-height: 1.2;
-      }
-
-      .quote-edit-form > div:last-child {
-        gap: 8px !important;
-      }
-
-      .quote-edit-form > div:last-child button,
-      .quote-edit-form > div:last-child a {
-        padding: 9px 12px !important;
-        border-radius: 10px !important;
-        font-size: 14px;
-      }
-
-      @media (max-width: 900px) {
-        .quote-edit-form section > div {
-          grid-template-columns: 1fr !important;
-        }
-      }
-    `}</style>
-    </>
-  )
+      <section className={styles.card}>
+        <h2>Položky pro zákazníka</h2>
+        <div className={styles.stack}>{shown.items.map((item, index) => <div key={index} className={styles.item}>
+          <div className={styles.grid}>
+            <label className={styles.field}>Položka<input id={`quote-item-${index}-name`} value={item.name} onChange={e => setItem(index, 'name', e.target.value)} required /></label>
+            <label className={styles.field}>Množství<input id={`quote-item-${index}-quantity`} inputMode="decimal" value={item.quantity} onChange={e => setItem(index, 'quantity', e.target.value)} /></label>
+            <label className={styles.field}>Jednotka<input id={`quote-item-${index}-unit`} value={item.unit ?? ''} onChange={e => setItem(index, 'unit', e.target.value)} /></label>
+            <label className={styles.field}>Cena za jednotku bez DPH<input id={`quote-item-${index}-unitPrice`} inputMode="decimal" value={item.unitPrice} onChange={e => setItem(index, 'unitPrice', e.target.value)} /></label>
+            <label className={styles.field}>DPH (%)<input id={`quote-item-${index}-vatRate`} inputMode="decimal" value={item.vatRate ?? ''} placeholder="Doplňte sazbu" onChange={e => setItem(index, 'vatRate', e.target.value)} /></label>
+          </div>
+          <label className={styles.field}>Popis<input id={`quote-item-${index}-description`} value={item.description ?? ''} onChange={e => setItem(index, 'description', e.target.value)} /></label>
+          <label className={styles.field}>Poznámka pro zákazníka<input id={`quote-item-${index}-note`} value={item.note ?? ''} onChange={e => setItem(index, 'note', e.target.value)} /></label>
+          <div><button type="button" className={styles.button} onClick={() => setField('items', values.items.filter((_, i) => i !== index))}>Odebrat položku {index + 1}</button></div>
+        </div>)}</div>
+        <div style={{ marginTop: 16 }}><button type="button" className={styles.button} onClick={() => setField('items', [...values.items, { name: '', description: null, quantity: '1', unit: null, unitPrice: '', vatRate: '', note: null }])}>Přidat položku</button></div>
+      </section>
+      <section className={styles.card}>
+        <h2>Texty a podmínky</h2>
+        <div className={styles.grid}>{contentFields.map(([key, label]) => <label key={key} className={styles.field}>{label}
+          {key.endsWith('Title') || key.startsWith('contact') ? <input id={'quote-' + key} value={shown.content[key] ?? ''} onChange={e => setField('content', { ...values.content, [key]: e.target.value })} /> :
+            <textarea id={'quote-' + key} value={shown.content[key] ?? ''} onChange={e => setField('content', { ...values.content, [key]: e.target.value })} />}
+        </label>)}</div>
+      </section>
+      <section className={styles.card}>
+        <div className={styles.grid}>
+          <label className={styles.field}>Poznámka pro zákazníka<textarea id="quote-customer-note" value={shown.customerNote ?? ''} onChange={e => setField('customerNote', e.target.value)} /></label>
+          <label className={styles.field}>Interní poznámka<textarea id="quote-internal-note" value={shown.internalNote ?? ''} onChange={e => setField('internalNote', e.target.value)} /><span className={styles.muted}>Zůstane pouze uvnitř firmy.</span></label>
+        </div>
+      </section>
+<div className={styles.card}><span className={styles.muted}>Celkem po slevě, bez DPH</span><div className={styles.total}>{preview ? preview.totalPrice.replace('.', ',') + ' ' + shown.currency : 'Doplňte platné položky a slevu'}</div></div>
+      <div className={styles.actions}><button className={styles.primary} type="submit">{operation.busy ? 'Ukládám…' : 'Uložit koncept'}</button><Link className={styles.button} href={quoteDetailHref(values.quoteId, customerId)}>Zpět na nabídku</Link></div>
+    </fieldset>
+    {operation.retryAvailable ? <button type="button" className={styles.primary} onClick={() => operation.run()}>{operation.pending?.receipt ? 'Otevřít uloženou nabídku' : 'Ověřit stejný požadavek'}</button> : null}
+  </form>
 }

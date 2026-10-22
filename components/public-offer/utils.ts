@@ -2,13 +2,14 @@
 
 export const VISITOR_ID_STORAGE_KEY = 'diriqo-offer-visitor-id'
 
-export function formatCurrency(value: number | null | undefined) {
+export function formatCurrency(value: number | null | undefined, currency: string | null = 'CZK') {
   if (value == null) return '—'
 
+  if (!currency || !/^[A-Z]{3}$/.test(currency)) return `${value} (měna nedoložena)`
   return new Intl.NumberFormat('cs-CZ', {
     style: 'currency',
-    currency: 'CZK',
-    maximumFractionDigits: 0,
+    currency,
+    minimumFractionDigits: 2, maximumFractionDigits: 2,
   }).format(value)
 }
 
@@ -53,32 +54,6 @@ export async function postOfferEvent(payload: {
   } catch {
     // Tracking nesmí rozbít veřejnou nabídku.
   }
-}
-
-export async function submitOfferResponse(payload: {
-  token: string
-  actionType: CtaActionType
-  customerName: string
-  customerEmail: string
-  customerPhone: string
-  note?: string
-  visitorId?: string
-  website?: string
-  openedAt?: number
-}) {
-  const response = await fetch('/api/offers/respond', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  })
-
-  const data = (await response.json().catch(() => null)) as { ok?: boolean; error?: string } | null
-
-  if (!response.ok || !data?.ok) {
-    throw new Error(data?.error || 'Reakci se nepodařilo uložit.')
-  }
-
-  return data
 }
 
 export function getCtaModalState(actionType: CtaActionType): CtaModalState {

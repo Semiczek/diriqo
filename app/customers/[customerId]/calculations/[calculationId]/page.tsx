@@ -229,24 +229,10 @@ export default async function CalculationDetailPage({ params }: PageProps) {
 
               {!itemsError && !incompleteHistory ? <CreateQuoteFromCalculationButton
                 calculationId={calculation.id}
-                customerId={customerId}
-                companyId={calculation.company_id}
-                title={calculation.title}
-                internalNote={calculation.internal_note}
-                subtotalPrice={Number(calculation.subtotal_price ?? 0)}
-                totalPrice={Number(calculation.total_price ?? calculation.subtotal_price ?? 0)}
-                currency={calculation.currency ?? 'CZK'}
-                items={calculationItems.map((item) => ({
-                  sortOrder: item.sort_order ?? 0,
-                  name: item.name,
-                  description: item.description,
-                  quantity: Number(item.quantity ?? 0),
-                  unit: item.unit,
-                  unitPrice: Number(item.unit_price ?? 0),
-                  vatRate: Number(item.vat_rate),
-                  totalPrice: Number(item.total_price ?? 0),
-                  note: item.note,
-                }))}
+                customerId={calculation.customer_id}
+                companyId={activeCompany.companyId}
+                profileId={activeCompany.profileId}
+                expectedCalculationRevision={String(calculation.revision)}
               /> : <p role="note" style={{ color: '#92400e', margin: 0 }}>Před vytvořením nabídky načtěte všechny položky a doplňte chybějící původní typ nebo DPH v editaci.</p>}
             </div>
           </div>

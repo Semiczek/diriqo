@@ -100,3 +100,24 @@ export function normalizeReferrer(value: string | null | undefined) {
   }
   return null
 }
+
+/** The browser validates before persisting an operation; the API uses the same rules. */
+export function parsePublicOfferResponseContact(value: {
+  customerName?: unknown; customerEmail?: unknown; customerPhone?: unknown; note?: unknown
+}) {
+  const fields = [
+    [value.customerName, MAX_NAME_LENGTH], [value.customerEmail, MAX_EMAIL_LENGTH],
+    [value.customerPhone, MAX_PHONE_LENGTH], [value.note ?? '', MAX_NOTE_LENGTH],
+  ] as const
+  if (fields.some(([text, limit]) => typeof text !== 'string' || text.trim().length > limit)) {
+    throw new Error('Zkontrolujte délku a obsah vyplněných údajů.')
+  }
+  const customerName = (value.customerName as string).trim()
+  const customerEmail = (value.customerEmail as string).trim().toLowerCase()
+  const customerPhone = (value.customerPhone as string).trim()
+  const note = ((value.note ?? '') as string).trim()
+  if (!customerName || !customerEmail || !customerPhone) throw new Error('Vyplňte jméno, e-mail a telefon.')
+  if (!isValidCustomerEmail(customerEmail)) throw new Error('Vyplňte platný e-mail.')
+  if (!isValidCustomerPhone(customerPhone)) throw new Error('Vyplňte platné telefonní číslo.')
+  return { customerName, customerEmail, customerPhone, note }
+}
