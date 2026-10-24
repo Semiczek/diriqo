@@ -19,3 +19,24 @@ describe('Labor server page role and query boundary',()=>{
  it('does not query or render data for invalid query identifiers',async()=>{const html=renderToStaticMarkup(await LaborPage({searchParams:Promise.resolve({job:['invalid']})}));expect(mocks.list).not.toHaveBeenCalled();expect(mocks.client).not.toHaveBeenCalled();expect(html).toContain('Timesheets unavailable')})
  it('does not render partially loaded data if source authorization fails',async()=>{mocks.sources.mockRejectedValue(Error('denied'));renderToStaticMarkup(await LaborPage({searchParams:Promise.resolve({})}));expect(mocks.client).not.toHaveBeenCalled()})
 })
+
+
+describe('Source correction deep links',()=>{
+ const sid='55555555-5555-4555-8555-555555555555',sourceId='44444444-4444-4444-8444-444444444444'
+ const query={company:companyId,actor:profileId,job:jobId,worker:profileId,sourceKind:'shift',source:sourceId}
+ it('selects only the submission returned by the authorized source picker, including a log alias',async()=>{
+  mocks.sources.mockResolvedValue({companyId,companyName:'Firm',items:[{kind:'shift',id:sourceId,profileId,jobId,submissionId:sid}]})
+  mocks.list.mockResolvedValue({companyId,items:[{id:sid,sources:[{kind:'log',id:jobId}]}]})
+  renderToStaticMarkup(await LaborPage({searchParams:Promise.resolve(query)}))
+  expect(mocks.client.mock.calls[0][0].workspace.initialSubmissionId).toBe(sid)
+ })
+ it.each([{company:jobId},{actor:jobId},{sourceKind:'invalid'},{source:['wrong']},{company:undefined}])('rejects changed scope or malformed target %j',async override=>{
+  renderToStaticMarkup(await LaborPage({searchParams:Promise.resolve({...query,...override})}))
+  expect(mocks.client).not.toHaveBeenCalled();expect(mocks.list).not.toHaveBeenCalled()
+ })
+ it('does not select an inaccessible source or unrelated submission',async()=>{
+  mocks.list.mockResolvedValue({companyId,items:[{id:sid}]})
+  renderToStaticMarkup(await LaborPage({searchParams:Promise.resolve(query)}))
+  expect(mocks.client).not.toHaveBeenCalled()
+ })
+})

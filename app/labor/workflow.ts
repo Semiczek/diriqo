@@ -8,7 +8,7 @@ export type LaborCommand = { kind: 'draft'; input: LaborDraftInput } | { kind: '
 export type LaborWorkspace = {
   companyId: string; companyName: string | null; actorProfileId: string
   role: 'worker' | 'manager' | 'company_admin' | 'super_admin'
-  items: LaborSubmissionDto[]; sources: LaborSourceOption[]
+  items: LaborSubmissionDto[]; sources: LaborSourceOption[]; initialSubmissionId?: string
 }
 export type DraftFields = { sources: string[]; lines: LaborTimeLine[]; reason: string }
 export function sourceKey(source: { kind: string; id: string }) { return `${source.kind}:${source.id}` }

@@ -1,6 +1,84 @@
 # Labor history and job economics — release evidence
 
-Status: **NOT DONE / TEST DATABASE APPLIED / DRAFT PR PREPARATION / APPLICATION NOT DEPLOYED**. This report covers the additive database foundation and the draft application integration; the remaining legacy readers and release gates are explicit below. It does not close C03-03, C04-03, C10-02 or P17, nor certify commercial readiness. Prepared 2026-10-24 against branch codex/diriqo-labor-history, baseline 0a987c75f8272c33d24bfbd7748b2f8d78806682. The root operator applied the reviewed additive migration to the authorized test project wfcpfraxiuhuglnuaxqj. The application changes are still uncommitted and undeployed. No application deployment or real-user workflow acceptance is asserted here.
+Status: **NOT DONE / TEST DATABASE APPLIED / DRAFT PR #44 / APPLICATION NOT DEPLOYED**. This report covers the additive database foundation and draft application integration on codex/diriqo-labor-history, based on 0a987c75f8272c33d24bfbd7748b2f8d78806682. PR #44 is open and draft: https://github.com/Semiczek/diriqo/pull/44. The foundation is committed as 9e969e8; the separate test-runtime audit is committed as 6cf8baa. Both reviewed migrations are applied only to authorized Diriqo test project wfcpfraxiuhuglnuaxqj. The application is not deployed. Legacy remuneration readers, further concurrency gates and authenticated user acceptance remain open. No original acceptance scenario is closed by this draft.
+
+## Legacy editor and source-row checkpoint (2026-10-24)
+
+The legacy shift editor now pins the authenticated administrator and active
+company at render and action time. An approved source is protected and offers
+an authorized link to its current submission, including the shift/log alias.
+The labor workspace validates all link scope and opens the matching review;
+a correction still requires an explicit user action and approval.
+
+Both single and actual batch assignment routes map the database's immutable
+approved-source error to HTTP 409 with a scoped review link. The client retains
+its draft and refuses foreign or malformed destinations. A propagated batch
+conflict opens the worker's submissions instead of guessing the affected child.
+RLS-filtered zero-row mutations in the single route/editor are not successes.
+An explicit reset writes zero compatible with the live NOT NULL constraint;
+archiving preserves recorded hours, interval, rate and cost.
+
+The actual worker-detail editor now handles all three entry points: Save,
+reset and archive. The page supplies company/actor/worker identity; Save and
+PATCH reauthorize and reject a changed company/account before writing. Save
+filters the exact assignment, company, job and worker, and a zero-row update
+is not success. Protected responses show only an exact validated local review
+link. Foreign/malformed links are rejected, failed requests retain the draft,
+and a response from an old account cannot update a remounted editor. Text is
+localized in Czech, English and German. The final worker-flow slice passed
+70 targeted tests and an independent static review; those tests are included
+in the combined count below. No authenticated browser acceptance is claimed.
+
+Job-detail rows no longer claim a stored legacy rate is an approved cost.
+Recorded source hours distinguish missing evidence from explicit zero, and
+row cost is shown as unverified with a review link. Canonical job totals are
+unchanged. Blank UI input is not silently converted to zero. The batch API
+also validates all POST/PUT numeric fields before writes: hourly work requires
+hours/rate, fixed or invoice billing requires an external amount, explicit zero
+is valid, and absent optional hourly values are omitted to preserve existing
+values and respect the live NOT NULL DEFAULT 0 columns. Direct numeric overflow,
+sub-cent inputs, invalid billing types and a malformed later PUT row are rejected.
+The shift editor also rejects negative/nonfinite hours and reversed intervals.
+
+Combined local application regression: **3,003/3,003 tests in 109 files PASS**,
+zero skipped. The tests include actual React interaction/server action/API
+handlers with mocked authorization/data boundaries and the mandatory real local
+SQL regression. TypeScript passed. Full lint has zero errors and the same three
+pre-existing navigation warnings. Required Office contracts: **62 passed,
+0 failed, 1 explicitly skipped** (its older optional PGlite 0.5.8 runtime test
+was not enabled); this is not a new complete Office database acceptance claim.
+The production build also passed: Next 16.4.2 compilation 9.2 seconds, build
+TypeScript 48 seconds and 108/108 generated pages, using deliberately
+nonfunctional Supabase build configuration. This is compile/SSR evidence, not
+an authenticated UI or hosted API test.
+
+Remote CI after the audit fix passed at commit 6cf8baa9ac6e4ac45f84d72615213da5f7e75f8c:
+[CI run 40084031775](https://github.com/Semiczek/diriqo/actions/runs/40084031775)
+and [Office run 40084031807](https://github.com/Semiczek/diriqo/actions/runs/40084031807).
+That commit precedes the UI slice described here. Read the checks on the final
+UI commit in PR #44; these earlier run IDs are not proof for later UI changes.
+
+The original GitHub run 40082418393 failed before dependency installation because
+the new test runtime had no separate host dependency audit. The reviewed audit
+and 23 retained component-notice entries are now in
+`docs/diriqo/labor-test-runtime-dependencies.md` and linked vendor evidence.
+The unchanged Office/package gate passes. The prior failed run remains evidence
+of its own version, not a passing result.
+
+**Still open:** the existing root/child assignment batch uses multiple database
+statements. Input preflight prevents malformed later inputs from creating an
+earlier write, but a later database/auth failure can still leave a partial batch.
+This requires an atomic database operation and real rollback/concurrency tests
+before release. The next operation must preserve archive/reset metadata, validate
+the complete input, lock workers in stable order before source rows, recheck
+authorization and hierarchy after waits, and keep a scoped receipt so retrying
+a lost response cannot repeat the effect. Inspect the existing mobile/direct
+DML paths separately: source-row-first locking can conflict with review's
+worker-first order. A new batch RPC alone does not close that system-wide gate. The four remuneration readers/exports, actual source-write vs
+approval, blocked revocation, rate-first ordering and authenticated UI remain
+open. No data or schema mutation was performed for this UI checkpoint;
+read-only test-schema queries confirmed numeric(12,2), nullability, defaults
+and the existing approved-assignment protection trigger.
 
 ## Final application draft verification (2026-10-24)
 
@@ -120,7 +198,7 @@ These five successful RPC scenarios close their specific overlap/outcome checks.
 
 1. **Reconcile the four remuneration readers with approved time and an independently evidenced remuneration basis.** app/workers/page.tsx:567, app/workers/[workerId]/page.tsx:609, app/api/workers/export/route.ts:364 and app/api/workers/[workerId]/shifts/export/route.ts:194 still derive financial values from legacy shift/assignment hours and present-day profile rates. lib/dal/payroll-readers.ts:56 still reads worker_job_assignment_summary. A ledger correction leaves the original source immutable by design, so these readers otherwise disagree with the canonical job economics. Use one scoped read model for the current approved version, filter individual work_date rows into the calendar work month, preserve actual/pay/billed hours separately, and expose missing historical evidence explicitly. Do not replace cost_amount with netPayout.
 2. **Preserve the distinction between employer cost and worker remuneration.** The original input “Diriqo zadání pro Codex”, 10 October 2026, §5 introductory rules (line 300), §5.3 (lines 346–348) and §5.4 (lines 360–366) distinguishes actual/remuneration/billed hours, defines a historical cost rate, and explicitly excludes a legislative payroll calculation from Core. It does not establish cost rate = remuneration rate, gross wage or net wage. Existing profile “default hourly rate” and calculateWorkerPayroll provide no historical proof of that equality. Define a separate company-scoped, effective, explicitly evidenced remuneration basis and immutable calculation/version links; missing basis stays unknown. Preserve the actual paid amount/date and represent a later approved correction as an explicit difference to settle. Current payroll_payments upsert and a paid_at badge do not by themselves reconcile changed approved time. Payday stays a plan for month M+1, not the work-period selector or proof of payment; see docs/worker-advances-c08-implementation-20261018.md. Validate all four readers/exports against the same approved-time cases, distinct cost/remuneration rates, 31 October/1 November split, 8 actual/7.5 remuneration/6 billed hours, explicit zero versus unknown, revisions after payment, worker payday overrides, currencies, and company/role boundaries. Financial readers remain administrator-only; manager/worker time DTOs must not gain cost fields.
-3. **Connect legacy editors and row displays to the review lifecycle.** app/work-shifts/[shiftId]/edit/page.tsx:359–363 still turns an approved-source denial into a generic update failure; app/api/job-assignments/[assignmentId]/route.ts:113–119 returns a generic 500. Show the protected approved state and route correction through a linked review revision. JobDetailPageClient.tsx:691–692,1063–1070,2568 still treats a legacy default hourly_rate=0 as a numeric row cost while the canonical total correctly says incomplete. Show undocumented legacy cost as unknown and keep row-level and aggregate financial claims consistent. Verify that a pending correction keeps the previous approved amount, and only its approval switches the current pointer once.
+3. **Verify the repaired legacy editors and row displays in the real user flow.** The checkpoint above implements protected-source review links, scoped editor actions, truthful unknown row costs and strict numeric input. Confirm administrator/manager/worker visibility, actual protected-source responses and draft preservation after reload in the deployed application. Replace the existing multi-statement assignment batch with a transaction so a later database or authorization failure cannot leave partial updates. An approved correction must keep the previous amount until approval and then switch the current pointer once.
 4. **Complete source-write and authorization concurrency gates.** Collect actual source PATCH/approval lock evidence, including a shift referenced through a log. Direct DML takes a source-row lock before the worker lock; approval takes the worker lock before a source-row lock. A real 40P01/deadlock remains possible and is not repaired by changing deterministic domain conflicts to PT409. Reconcile survivor/victim state, audit, receipts and any retry before accepting the flow. Test role/membership/module revocation during a wait and the rate-first stale-preview outcome with separately identified evidence. Do not reuse consumed fixtures or interpret sequential operations as overlap.
 5. **Finish application release proof after those integrations.** Keep the current draft review separate from approval to merge/deploy. Run the updated application checks and authenticated administrator/manager/worker flow, including reload, correction, company switch, unknown rates and licence loss. Preserve the migration bodies, both historical and fresh artifacts, and the original 73-scenario scope. This worklist does not introduce a restricted rollout as a substitute for completing that scope.
 

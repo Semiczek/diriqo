@@ -44,10 +44,12 @@ export default function WorkerAssignmentsSection({
   workPeriodLabel,
   jobAssignments,
   defaultRate,
+  reviewScope,
 }: {
   workPeriodLabel: string
   jobAssignments: JobAssignmentRow[]
   defaultRate: number
+  reviewScope: { companyId: string; actorProfileId: string; workerProfileId: string }
 }) {
   const { dictionary } = useI18n()
   const t = dictionary.workers.detail
@@ -117,9 +119,10 @@ export default function WorkerAssignmentsSection({
             <tbody>
               {sortedAssignments.map((item, index) => (
                 <JobAssignmentRowEditor
-                  key={`${item.job_id ?? 'job'}-${index}`}
+                  key={`${reviewScope.companyId}:${reviewScope.actorProfileId}:${reviewScope.workerProfileId}:${item.id ?? item.job_id ?? index}`}
                   item={item}
                   defaultRate={defaultRate}
+                  reviewScope={reviewScope}
                 />
               ))}
             </tbody>

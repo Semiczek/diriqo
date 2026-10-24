@@ -173,6 +173,7 @@ export async function deleteJobCostItem(ctx: DalContext, id: string) {
 export async function updateJobAssignmentEconomics(
   ctx: DalContext,
   input: {
+    assignmentId: string
     jobId: string
     profileId: string
     laborHours: number
@@ -182,16 +183,21 @@ export async function updateJobAssignmentEconomics(
   await assertJobInCompany(ctx, input.jobId)
   await assertProfileInCompany(ctx, input.profileId)
 
-  const { error } = await ctx.supabase
+  const { data, error } = await ctx.supabase
     .from('job_assignments')
     .update({
       labor_hours: input.laborHours,
       hourly_rate: input.hourlyRate,
     })
+    .eq('id', input.assignmentId)
+    .eq('company_id', ctx.companyId)
     .eq('job_id', input.jobId)
     .eq('profile_id', input.profileId)
+    .select('id')
+    .maybeSingle()
 
   if (error) throw error
+  if (!data) throw new TenantScopeError('Přiřazení není v aktivní firmě dostupné.')
 }
 
 export async function updateWorkShift(

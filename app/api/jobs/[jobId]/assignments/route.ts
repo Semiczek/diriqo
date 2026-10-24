@@ -2,32 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 
 import { requireCompanyRole } from '@/lib/server-guards'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
+import { approvedLaborSourceCode, isApprovedLaborSourceError, laborSourceReviewHref } from '@/lib/labor-source-navigation'
 
 type RouteContext = {
   params: Promise<{
     jobId: string
   }>
-}
-
-type AssignmentInput = {
-  id?: string
-  profile_id?: string
-  labor_hours?: number | string | null
-  hourly_rate?: number | string | null
-  worker_type_snapshot?: string | null
-  assignment_billing_type?: string | null
-  external_amount?: number | string | null
-  note?: string | null
-}
-
-type AddAssignmentPayload = {
-  profile_id?: string
-  labor_hours?: number | string | null
-  hourly_rate?: number | string | null
-  worker_type_snapshot?: string | null
-  assignment_billing_type?: string | null
-  external_amount?: number | string | null
-  note?: string | null
 }
 
 type DeleteAssignmentPayload = {
@@ -53,25 +33,71 @@ type AssignmentRow = {
   note: string | null
 }
 
-function toNumber(value: unknown) {
-  const numberValue = Number(value ?? 0)
-  return Number.isFinite(numberValue) ? numberValue : 0
+function protectedAssignmentResponse(
+  company: { companyId: string; profileId: string },
+  workerId: string,
+  affected: Array<{ id: string; job_id: string }>,
+) {
+  // A propagated statement can fail on any child. Never claim the root is the
+  // protected source when Postgres only identifies the domain error.
+  const reviewHref = affected.length === 1
+    ? laborSourceReviewHref({ companyId: company.companyId, actorProfileId: company.profileId,
+      jobId: affected[0].job_id, profileId: workerId, source: { kind: 'assignment', id: affected[0].id } })
+    : `/labor?${new URLSearchParams({ company: company.companyId, actor: company.profileId, worker: workerId })}`
+  return NextResponse.json({
+    error: 'Schválenou práci nelze přepsat ani odstranit. Otevřete výkaz a vytvořte opravu ke schválení.',
+    code: approvedLaborSourceCode, reviewHref,
+  }, { status: 409 })
 }
 
-function normalizeText(value: unknown) {
-  if (typeof value !== 'string') return null
-  const normalized = value.trim()
-  return normalized ? normalized : null
+class AssignmentValidationError extends Error {}
+
+function optionalNonNegativeNumber(value: unknown, field: string, required: boolean): number | null {
+  if (value === null || value === undefined) {
+    if (required) throw new AssignmentValidationError(`Missing ${field}.`)
+    return null
+  }
+  if ((typeof value !== 'number' && typeof value !== 'string')
+    || !/^\d+(?:\.\d{1,2})?$/.test(String(value).trim())) {
+    throw new AssignmentValidationError(`Invalid ${field}.`)
+  }
+  const parsed = Number(value)
+  // The three fields are numeric(12,2); reject rounding to zero or overflow.
+  if (!Number.isFinite(parsed) || parsed < 0 || parsed > 9999999999.99) throw new AssignmentValidationError(`Invalid ${field}.`)
+  return parsed
 }
 
-function normalizeWorkerType(value: unknown) {
-  return value === 'contractor' ? 'contractor' : 'employee'
+function normalizeAssignmentInput(value: unknown) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new AssignmentValidationError('Invalid assignment.')
+  const row = value as Record<string, unknown>
+  const profileId = typeof row.profile_id === 'string' ? row.profile_id.trim() : ''
+  if (!profileId) throw new AssignmentValidationError('Missing profile id.')
+  const workerType = row.worker_type_snapshot ?? 'employee'
+  if (workerType !== 'employee' && workerType !== 'contractor') throw new AssignmentValidationError('Invalid worker type.')
+  const billingType = workerType === 'contractor' ? row.assignment_billing_type : null
+  if (workerType === 'contractor' && billingType !== 'hourly' && billingType !== 'fixed' && billingType !== 'invoice') {
+    throw new AssignmentValidationError('Invalid contractor billing type.')
+  }
+  const hourly = workerType === 'employee' || billingType === 'hourly'
+  const laborHours = optionalNonNegativeNumber(row.labor_hours, 'labor_hours', hourly)
+  const hourlyRate = optionalNonNegativeNumber(row.hourly_rate, 'hourly_rate', hourly)
+  const amount = optionalNonNegativeNumber(row.external_amount, 'external_amount', !hourly)
+  // Legacy hours/rate columns are NOT NULL DEFAULT 0. For fixed/invoice
+  // work, omit absent optional values rather than resetting an existing row.
+  const hoursAndRate: { labor_hours?: number; hourly_rate?: number } = {
+    ...(laborHours === null ? {} : { labor_hours: laborHours }),
+    ...(hourlyRate === null ? {} : { hourly_rate: hourlyRate }),
+  }
+  return {
+    profileId, hoursAndRate, workerType,
+    billingType: billingType as 'hourly' | 'fixed' | 'invoice' | null,
+    externalAmount: hourly ? null : amount,
+    note: typeof row.note === 'string' ? row.note.trim() || null : null,
+  }
 }
 
-function normalizeBillingType(value: unknown) {
-  if (value === 'fixed' || value === 'invoice') return value
-  if (value === 'hourly') return 'hourly'
-  return null
+function invalidAssignmentResponse(error: unknown) {
+  return NextResponse.json({ error: error instanceof AssignmentValidationError ? error.message : 'Invalid assignment payload.' }, { status: 400 })
 }
 
 function buildAssignmentKey(jobId: string, profileId: string) {
@@ -159,12 +185,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: 'Missing job id.' }, { status: 400 })
   }
 
-  const payload = (await request.json().catch(() => ({}))) as AddAssignmentPayload
-  const profileId = typeof payload.profile_id === 'string' ? payload.profile_id.trim() : ''
-
-  if (!profileId) {
-    return NextResponse.json({ error: 'Missing profile id.' }, { status: 400 })
+  let assignment: ReturnType<typeof normalizeAssignmentInput>
+  try {
+    assignment = normalizeAssignmentInput(await request.json())
+  } catch (error) {
+    return invalidAssignmentResponse(error)
   }
+  const { profileId, hoursAndRate, workerType, billingType, externalAmount, note } = assignment
 
   try {
     const supabase = await createSupabaseServerClient()
@@ -174,16 +201,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
     if (!workerBelongsToCompany) {
       return NextResponse.json({ error: 'Worker is not a member of this company.' }, { status: 403 })
     }
-
-    const laborHours = toNumber(payload.labor_hours)
-    const hourlyRate = toNumber(payload.hourly_rate)
-    const workerType = normalizeWorkerType(payload.worker_type_snapshot)
-    const billingType = workerType === 'contractor' ? normalizeBillingType(payload.assignment_billing_type) : null
-    const externalAmount =
-      workerType === 'contractor' && billingType !== 'hourly'
-        ? toNumber(payload.external_amount)
-        : null
-    const note = normalizeText(payload.note)
 
     const existingResponse = await supabase
       .from('job_assignments')
@@ -202,8 +219,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       const updateResponse = await supabase
         .from('job_assignments')
         .update({
-          labor_hours: laborHours,
-          hourly_rate: hourlyRate,
+          ...hoursAndRate,
           worker_type_snapshot: workerType,
           assignment_billing_type: billingType,
           external_amount: externalAmount,
@@ -211,6 +227,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
         })
         .in('id', existingRows.map((item) => item.id))
 
+      if (isApprovedLaborSourceError(updateResponse.error)) {
+        return protectedAssignmentResponse(activeCompany, profileId, existingRows)
+      }
       if (updateResponse.error) {
         throw new Error(`Failed to update assignments: ${updateResponse.error.message}`)
       }
@@ -222,8 +241,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         company_id: activeCompany.companyId,
         job_id: targetJobId,
         profile_id: profileId,
-        labor_hours: laborHours,
-        hourly_rate: hourlyRate,
+        ...hoursAndRate,
         worker_type_snapshot: workerType,
         assignment_billing_type: billingType,
         external_amount: externalAmount,
@@ -273,19 +291,23 @@ export async function PUT(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: 'Missing job id.' }, { status: 400 })
   }
 
-  const payload = (await request.json().catch(() => ({}))) as { assignments?: AssignmentInput[] }
-  const inputAssignments = Array.isArray(payload.assignments) ? payload.assignments : []
+  let inputAssignments: Array<ReturnType<typeof normalizeAssignmentInput>>
+  try {
+    const payload: unknown = await request.json()
+    if (!payload || typeof payload !== 'object' || !('assignments' in payload)
+      || !Array.isArray(payload.assignments) || payload.assignments.length === 0) {
+      throw new AssignmentValidationError('Missing assignments.')
+    }
+    // Validate every row before performing any writes in this legacy batch.
+    inputAssignments = payload.assignments.map(normalizeAssignmentInput)
+  } catch (error) {
+    return invalidAssignmentResponse(error)
+  }
 
   try {
     const supabase = await createSupabaseServerClient()
     const scope = await loadJobScope(supabase, activeCompany.companyId, cleanJobId)
-    const profileIds = Array.from(
-      new Set(
-        inputAssignments
-          .map((assignment) => (typeof assignment.profile_id === 'string' ? assignment.profile_id.trim() : ''))
-          .filter(Boolean)
-      )
-    )
+    const profileIds = Array.from(new Set(inputAssignments.map(assignment => assignment.profileId)))
 
     for (const profileId of profileIds) {
       const workerBelongsToCompany = await isProfileInCompany(supabase, activeCompany.companyId, profileId)
@@ -311,26 +333,15 @@ export async function PUT(request: NextRequest, context: RouteContext) {
     )
 
     for (const assignment of inputAssignments) {
-      const profileId = typeof assignment.profile_id === 'string' ? assignment.profile_id.trim() : ''
-      if (!profileId) continue
-
-      const laborHours = toNumber(assignment.labor_hours)
-      const hourlyRate = toNumber(assignment.hourly_rate)
-      const workerType = normalizeWorkerType(assignment.worker_type_snapshot)
-      const billingType = workerType === 'contractor' ? normalizeBillingType(assignment.assignment_billing_type) : null
-      const externalAmount =
-        workerType === 'contractor' && billingType !== 'hourly'
-          ? toNumber(assignment.external_amount)
-          : null
-      const note = normalizeText(assignment.note)
+      const { profileId, hoursAndRate, workerType, billingType, externalAmount, note } = assignment
 
       const updateIds: string[] = []
       const inserts: Array<{
         company_id: string
         job_id: string
         profile_id: string
-        labor_hours: number
-        hourly_rate: number
+        labor_hours?: number
+        hourly_rate?: number
         worker_type_snapshot: string
         assignment_billing_type: string | null
         external_amount: number | null
@@ -347,8 +358,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
             company_id: activeCompany.companyId,
             job_id: targetJobId,
             profile_id: profileId,
-            labor_hours: laborHours,
-            hourly_rate: hourlyRate,
+            ...hoursAndRate,
             worker_type_snapshot: workerType,
             assignment_billing_type: billingType,
             external_amount: externalAmount,
@@ -361,8 +371,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
         const updateResponse = await supabase
           .from('job_assignments')
           .update({
-            labor_hours: laborHours,
-            hourly_rate: hourlyRate,
+            ...hoursAndRate,
             worker_type_snapshot: workerType,
             assignment_billing_type: billingType,
             external_amount: externalAmount,
@@ -370,6 +379,9 @@ export async function PUT(request: NextRequest, context: RouteContext) {
           })
           .in('id', updateIds)
 
+        if (isApprovedLaborSourceError(updateResponse.error)) {
+          return protectedAssignmentResponse(activeCompany, profileId, currentAssignments.filter(item => updateIds.includes(item.id)))
+        }
         if (updateResponse.error) {
           throw new Error(`Failed to update assignments: ${updateResponse.error.message}`)
         }
@@ -441,6 +453,9 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
       .in('job_id', scope.targetJobIds)
       .eq('profile_id', assignment.profile_id)
 
+    if (isApprovedLaborSourceError(deleteResponse.error)) {
+      return protectedAssignmentResponse(activeCompany, assignment.profile_id, scope.propagateToChildren ? [] : [assignment])
+    }
     if (deleteResponse.error) {
       throw new Error(`Failed to delete assignments: ${deleteResponse.error.message}`)
     }

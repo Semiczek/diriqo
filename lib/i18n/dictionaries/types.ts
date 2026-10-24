@@ -781,6 +781,8 @@ export type JobsMessages = {
     edit: string
     unpaid: string
     saveFailed: string
+    approvedAssignmentSource: string
+    openAssignmentReview: string
     missingAssignmentIds: string
     hoursValidation: string
     rateValidation: string
@@ -1442,6 +1444,13 @@ export type WorkersNewPageMessages = {
 }
 
 export type WorkShiftEditMessages = {
+  invalidHours: string
+  invalidTimeOrder: string
+  approvedSource: string
+  openReview: string
+  reviewUnavailable: string
+  scopeChanged: string
+
   missingId: string
   updateFailed: string
   invalidDate: string

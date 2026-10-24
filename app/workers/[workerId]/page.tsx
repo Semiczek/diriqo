@@ -1236,6 +1236,7 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
 
         <div data-tour="worker-detail-assignments">
         <WorkerAssignmentsSection
+          reviewScope={{ companyId: pageAccess.value.companyId, actorProfileId: pageAccess.value.profileId, workerProfileId: workerId }}
           workPeriodLabel={workPeriodLabel}
           jobAssignments={jobAssignments}
           defaultRate={defaultHourlyRate}

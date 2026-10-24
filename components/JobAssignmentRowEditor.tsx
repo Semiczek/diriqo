@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { updateJobAssignmentEconomicsAction } from '@/app/business-actions'
 import { useI18n } from '@/components/I18nProvider'
 import { getIntlLocale } from '@/lib/i18n/config'
+import { approvedLaborSourceCode, safeLaborSourceReviewHref } from '@/lib/labor-source-navigation'
 import {
   getEffectiveJobWorkState,
   isMultiDayJobRange,
@@ -39,6 +40,7 @@ type Props = {
     } | null
   }
   defaultRate: number
+  reviewScope: { companyId: string; actorProfileId: string; workerProfileId: string }
 }
 
 function formatHours(value: number, locale: string) {
@@ -148,7 +150,7 @@ function getEffectiveRate(item: Props['item'], defaultRate: number) {
   return Number(defaultRate ?? 0)
 }
 
-export default function JobAssignmentRowEditor({ item, defaultRate }: Props) {
+export default function JobAssignmentRowEditor({ item, defaultRate, reviewScope }: Props) {
   const { dictionary, locale } = useI18n()
   const dateLocale = getIntlLocale(locale)
   const t = dictionary.jobs.detail
@@ -163,6 +165,7 @@ export default function JobAssignmentRowEditor({ item, defaultRate }: Props) {
   const [removing, setRemoving] = useState(false)
   const [removed, setRemoved] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [reviewHref, setReviewHref] = useState<string | null>(null)
 
   const getPaymentLabel = (isPaid: boolean | null) => (isPaid === true ? dictionary.jobs.paid : t.unpaid)
 
@@ -228,12 +231,14 @@ export default function JobAssignmentRowEditor({ item, defaultRate }: Props) {
     setLaborHoursInput(item.labor_hours != null ? String(item.labor_hours) : '')
     setHourlyRateInput(item.hourly_rate != null ? String(item.hourly_rate) : String(defaultRate || ''))
     setError(null)
+    setReviewHref(null)
   }
 
   async function handleSave() {
     setError(null)
+    setReviewHref(null)
 
-    if (!item.job_id || !item.profile_id) {
+    if (!item.id || !item.job_id || item.profile_id !== reviewScope.workerProfileId) {
       setError(t.missingAssignmentIds)
       return
     }
@@ -252,99 +257,67 @@ export default function JobAssignmentRowEditor({ item, defaultRate }: Props) {
 
     setSaving(true)
 
-    const result = await updateJobAssignmentEconomicsAction({
-      jobId: item.job_id,
-      profileId: item.profile_id,
-      laborHours: Math.round(parsedHours * 100) / 100,
-      hourlyRate: Math.round(parsedRate * 100) / 100,
-    })
-
-    setSaving(false)
-
-    if (!result.ok) {
-      setError(result.error || t.saveFailed)
-      return
-    }
+    try {
+      const result = await updateJobAssignmentEconomicsAction({
+        companyId: reviewScope.companyId, actorProfileId: reviewScope.actorProfileId, assignmentId: item.id,
+        jobId: item.job_id, profileId: item.profile_id,
+        laborHours: Math.round(parsedHours * 100) / 100,
+        hourlyRate: Math.round(parsedRate * 100) / 100,
+      })
+      if (!result.ok) {
+        if (!reportProtectedReview(result)) setError(result.error || t.saveFailed)
+        return
+      }
+    } catch { setError(t.saveFailed); return }
+    finally { setSaving(false) }
 
     setCurrentLaborHours(Math.round(parsedHours * 100) / 100)
     setCurrentHourlyRate(Math.round(parsedRate * 100) / 100)
     setEditing(false)
   }
 
-  async function handleResetHours() {
-    const confirmed = window.confirm(
-      t.resetAssignmentHoursConfirm
-    )
-
-    if (!confirmed) return
-
-    if (!item.id && (!item.job_id || !item.profile_id)) {
-      setError(t.missingAssignmentIds)
-      return
-    }
-
-    setResetting(true)
-    setError(null)
-
-    const resetResponse = item.id
-      ? await fetch(`/api/job-assignments/${item.id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'reset_hours',
-            reason: 'Admin reset from worker detail',
-          }),
-        })
-      : null
-
-    setResetting(false)
-
-    if (!resetResponse?.ok) {
-      const body = (await resetResponse?.json().catch(() => null)) as { error?: string } | null
-      setError(body?.error || t.saveFailed)
-      return
-    }
-
-    setLaborHoursInput('')
-    setCurrentLaborHours(0)
-    setEditing(false)
+  function reportProtectedReview(body: unknown) {
+    if (!body || typeof body !== 'object' || !('code' in body) || body.code !== approvedLaborSourceCode) return false
+    setError(t.approvedAssignmentSource)
+    const href = 'reviewHref' in body && item.id && item.job_id && item.profile_id === reviewScope.workerProfileId
+      ? safeLaborSourceReviewHref(body.reviewHref, { companyId: reviewScope.companyId, actorProfileId: reviewScope.actorProfileId,
+        jobId: item.job_id, profileId: reviewScope.workerProfileId, source: { kind: 'assignment', id: item.id } }) : null
+    setReviewHref(href)
+    return true
   }
 
-  async function handleRemoveAssignment() {
-    const confirmed = window.confirm(
-      t.removeWorkerConfirm
-    )
+  async function reportAssignmentError(response: Response | null) {
+    const body: unknown = await response?.json().catch(() => null)
+    if (response?.status === 409 && reportProtectedReview(body)) return
+    setReviewHref(null)
+    setError(body && typeof body === 'object' && 'error' in body && typeof body.error === 'string' && body.error.trim()
+      ? body.error : t.saveFailed)
+  }
 
-    if (!confirmed) return
-
-    if (!item.id && (!item.job_id || !item.profile_id)) {
+  async function handleAssignmentCommand(action: 'reset_hours' | 'archive') {
+    if (resetting || removing || saving) return
+    if (!window.confirm(action === 'reset_hours' ? t.resetAssignmentHoursConfirm : t.removeWorkerConfirm)) return
+    if (!item.id || !item.job_id || item.profile_id !== reviewScope.workerProfileId) {
       setError(t.missingAssignmentIds)
       return
     }
-
-    setRemoving(true)
+    if (action === 'reset_hours') setResetting(true)
+    else setRemoving(true)
     setError(null)
-
-    const removeResponse = item.id
-      ? await fetch(`/api/job-assignments/${item.id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'archive',
-            reason: 'Admin removed assignment from worker detail',
-          }),
-        })
-      : null
-
-    setRemoving(false)
-
-    if (!removeResponse?.ok) {
-      const body = (await removeResponse?.json().catch(() => null)) as { error?: string } | null
-      setError(body?.error || t.saveFailed)
-      return
-    }
-
-    setRemoved(true)
+    setReviewHref(null)
+    try {
+      const response = await fetch(`/api/job-assignments/${item.id}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, companyId: reviewScope.companyId, actorProfileId: reviewScope.actorProfileId, reason: action === 'reset_hours' ? 'Admin reset from worker detail' : 'Admin removed assignment from worker detail' }),
+      })
+      if (!response.ok) { await reportAssignmentError(response); return }
+      if (action === 'reset_hours') {
+        setLaborHoursInput('0')
+        setCurrentLaborHours(0)
+        setEditing(false)
+      } else setRemoved(true)
+    } catch { setError(t.saveFailed) }
+    finally { setResetting(false); setRemoving(false) }
   }
 
   const tdStyle: React.CSSProperties = {
@@ -470,7 +443,7 @@ export default function JobAssignmentRowEditor({ item, defaultRate }: Props) {
             </button>
             <button
               type="button"
-              onClick={handleResetHours}
+              onClick={() => void handleAssignmentCommand('reset_hours')}
               disabled={resetting || removing}
               style={{ ...secondaryButtonStyle, opacity: resetting || removing ? 0.7 : 1 }}
             >
@@ -478,7 +451,7 @@ export default function JobAssignmentRowEditor({ item, defaultRate }: Props) {
             </button>
             <button
               type="button"
-              onClick={handleRemoveAssignment}
+              onClick={() => void handleAssignmentCommand('archive')}
               disabled={resetting || removing}
               style={{ ...dangerButtonStyle, opacity: resetting || removing ? 0.7 : 1 }}
             >
@@ -486,7 +459,10 @@ export default function JobAssignmentRowEditor({ item, defaultRate }: Props) {
             </button>
           </div>
           {error ? (
-            <div style={{ marginTop: '8px', color: '#b91c1c', fontSize: '13px' }}>{error}</div>
+            <div role="alert" style={{ marginTop: '8px', color: '#b91c1c', fontSize: '13px' }}>
+              {error}
+              {reviewHref && <p><Link href={reviewHref} style={{ color: '#6d28d9', fontWeight: 700 }}>{t.openAssignmentReview}</Link></p>}
+            </div>
           ) : null}
         </td>
       </tr>
@@ -533,8 +509,9 @@ export default function JobAssignmentRowEditor({ item, defaultRate }: Props) {
       </tr>
       {error ? (
         <tr>
-          <td colSpan={8} style={{ padding: '10px 16px', borderBottom: '1px solid #e5e7eb', background: '#fef2f2', color: '#b91c1c', fontSize: '13px' }}>
+          <td role="alert" colSpan={8} style={{ padding: '10px 16px', borderBottom: '1px solid #e5e7eb', background: '#fef2f2', color: '#b91c1c', fontSize: '13px' }}>
             {error}
+            {reviewHref && <p><Link href={reviewHref} style={{ color: '#6d28d9', fontWeight: 700 }}>{t.openAssignmentReview}</Link></p>}
           </td>
         </tr>
       ) : null}

@@ -107,6 +107,7 @@ describe('payroll current-company boundary for a shared worker and admin of A+B'
     const detail = await WorkerDetailPage({ params: Promise.resolve({ workerId: worker }), searchParams: Promise.resolve({ month: '2026-10' }) })
     const nodes = elements(detail)
     expect(nodes.find(node => node.type === 'WorkerSummaryStats')?.props).toMatchObject({ totalShiftHours: 2, payrollBonusTotal: 50, totalRewardAfterAdvance: 250 })
+    expect(nodes.find(node => node.type === 'WorkerAssignmentsSection')?.props.reviewScope).toEqual({companyId:A,actorProfileId:'admin-both-companies',workerProfileId:worker})
     expect(JSON.stringify(detail)).not.toContain('B secret')
     expect(JSON.stringify(detail)).toContain('A absence')
   })

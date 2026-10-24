@@ -203,4 +203,77 @@ describe('job detail financial snapshot', () => {
     expect(laborGroup?.lastElementChild?.textContent).toBe('—')
     expect(container.textContent).toContain('Náklady práce nejsou úplné')
   })
+  function assignment(overrides: Record<string, unknown> = {}) {
+    return { id: '66666666-1111-4111-8111-111111111111', job_id: jobA, profile_id: actor,
+      labor_hours: null, hourly_rate: null, work_started_at: null, work_completed_at: null,
+      worker_type_snapshot: 'employee', profiles: { full_name: 'Worker Row', default_hourly_rate: 900 }, ...overrides }
+  }
+  async function openWorkerRows() {
+    const toggle = [...container.querySelectorAll('button')].find(button => button.textContent === csDictionary.jobs.detail.manageWorkers)!
+    await act(async () => toggle.click())
+    const name = [...container.querySelectorAll('div')].filter(node => node.textContent === 'Worker Row').at(-1)!
+    return name.parentElement!.parentElement!.parentElement!
+  }
+  it('does not present an undocumented legacy row as a priced cost or missing hours as zero', async () => {
+    await mount(createElement(JobDetailPageClient, { ...props(), initialAssignments: [assignment()] })); await flush()
+    const card = await openWorkerRows()
+    expect(card.textContent).toContain('Hodiny v původním záznamu: —')
+    expect(card.textContent).toContain('Náklad tohoto záznamu zde není ověřený.')
+    expect(card.textContent).not.toContain('×')
+    expect(card.textContent).not.toContain('0,00')
+    expect(card.textContent).not.toContain('900')
+    expect(card.querySelector('a')?.getAttribute('href')).toContain(`/labor?job=${jobA}`)
+  })
+  it('preserves explicit zero source hours instead of replacing them with elapsed hours or pay time', async () => {
+    await mount(createElement(JobDetailPageClient, { ...props(), initialAssignments: [assignment({ labor_hours: 0, hourly_rate: 0,
+      work_started_at: '2026-10-24T08:00:00Z', work_completed_at: '2026-10-24T16:00:00Z' })] })); await flush()
+    const card = await openWorkerRows()
+    expect(card.textContent).toContain('Hodiny v původním záznamu: 0 h')
+    expect(card.textContent).not.toContain('8 h')
+    expect(card.textContent).not.toContain('×')
+    expect(card.querySelector<HTMLInputElement>(`input[placeholder="${csDictionary.jobs.detail.hourlyRatePlaceholder}"]`)?.value).toBe('0')
+  })
+  it('refuses to persist missing hours as an explicit zero when saving a legacy row', async () => {
+    await mount(createElement(JobDetailPageClient, { ...props(), initialAssignments: [assignment({ hourly_rate: 200 })] })); await flush()
+    const card = await openWorkerRows()
+    const save = [...card.querySelectorAll('button')].find(button => button.textContent === csDictionary.common.save)!
+    vi.mocked(fetch).mockClear()
+    await act(async () => save.click())
+    expect(fetch).not.toHaveBeenCalled()
+    expect(container.textContent).toContain(csDictionary.jobs.detail.validHoursRequired)
+  })
+  it('allows an explicitly entered zero without treating it as a missing value', async () => {
+    await mount(createElement(JobDetailPageClient, { ...props(), initialAssignments: [assignment({ labor_hours: 0, hourly_rate: 0 })] })); await flush()
+    const card = await openWorkerRows()
+    vi.mocked(fetch).mockResolvedValue({ ok: true, status: 200, json: async () => ({ ok: true }) } as Response)
+    await act(async () => [...card.querySelectorAll('button')].find(button => button.textContent === csDictionary.common.save)!.click())
+    const options = vi.mocked(fetch).mock.calls.at(-1)?.[1]
+    expect(JSON.parse(String(options?.body)).assignments[0]).toMatchObject({ labor_hours: 0, hourly_rate: 0 })
+    expect(mocks.router.refresh).toHaveBeenCalledOnce()
+  })
+  it.each(['save', 'delete'] as const)('preserves a protected assignment on %s and links to its pinned work submission', async action => {
+    await mount(createElement(JobDetailPageClient, { ...props(), initialAssignments: [assignment({ labor_hours: 8, hourly_rate: 200 })] })); await flush()
+    const card = await openWorkerRows()
+    const reviewHref = `/labor?company=${companyA}&actor=${actor}&worker=${actor}&job=${jobA}&sourceKind=assignment&source=66666666-1111-4111-8111-111111111111`
+    vi.mocked(fetch).mockResolvedValue({ ok: false, status: 409, json: async () => ({ code: 'LABOR_APPROVED_SOURCE_IMMUTABLE', error: 'raw db token', reviewHref }) } as Response)
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const button = [...card.querySelectorAll('button')].find(node => node.textContent === (action === 'save' ? csDictionary.common.save : csDictionary.jobs.detail.removeWorker))!
+    await act(async () => button.click())
+    expect(fetch).toHaveBeenLastCalledWith(`/api/jobs/${jobA}/assignments`, expect.objectContaining({ method: action === 'save' ? 'PUT' : 'DELETE' }))
+    expect(container.textContent).toContain('Schválenou práci nelze přepsat ani odstranit.')
+    expect(container.textContent).not.toContain('raw db token')
+    expect(container.textContent).toContain('Worker Row')
+    expect([...container.querySelectorAll('a')].some(link => link.getAttribute('href') === reviewHref)).toBe(true)
+    expect(card.querySelector<HTMLInputElement>(`input[placeholder="${csDictionary.jobs.detail.hours}"]`)?.value).toBe('8')
+    expect(mocks.router.refresh).not.toHaveBeenCalled()
+  })
+  it('does not follow a protected response to another site or company', async () => {
+    await mount(createElement(JobDetailPageClient, { ...props(), initialAssignments: [assignment({ labor_hours: 8, hourly_rate: 200 })] })); await flush()
+    const card = await openWorkerRows()
+    vi.mocked(fetch).mockResolvedValue({ ok: false, status: 409, json: async () => ({ code: 'LABOR_APPROVED_SOURCE_IMMUTABLE', reviewHref: `https://evil.test/labor?company=${companyB}` }) } as Response)
+    await act(async () => [...card.querySelectorAll('button')].find(button => button.textContent === csDictionary.common.save)!.click())
+    expect(container.innerHTML).not.toContain('evil.test')
+    expect([...container.querySelectorAll('a')].some(link => link.getAttribute('href') === `/labor?company=${companyA}&actor=${actor}&worker=${actor}`)).toBe(true)
+  })
+
 })

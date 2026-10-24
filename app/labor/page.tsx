@@ -14,12 +14,22 @@ export default async function LaborPage({ searchParams }: { searchParams: Promis
     const jobId = query.job === undefined ? undefined : laborHistoryId(query.job)
     const profileId = query.worker === undefined ? undefined : laborHistoryId(query.worker)
     const ctx = await requireCompanyRoleDalContext('worker', 'manager', 'company_admin', 'super_admin')
+    const targeted = query.source !== undefined || query.sourceKind !== undefined
+    if ((query.company !== undefined && laborHistoryId(query.company) !== ctx.companyId)
+      || (query.actor !== undefined && laborHistoryId(query.actor) !== ctx.profileId)) throw new Error('Scope changed')
+    const sourceId = targeted ? laborHistoryId(query.source) : null
+    if (targeted && (!query.company || !query.actor || !jobId || !profileId
+      || !['shift', 'log', 'assignment'].includes(query.sourceKind as string))) throw new Error('Invalid source link')
     const [submissions, sources] = await Promise.all([listLaborSubmissions(ctx, { ...(jobId ? {jobId} : {}), ...(profileId ? {profileId} : {}) }), listLaborSourceOptions(ctx, profileId ? {profileId} : {})])
-    data = { companyId: ctx.companyId, actorProfileId: ctx.profileId, companyName: sources.companyName,
+    const selectedSource = sourceId ? sources.items.find(source => source.id === sourceId && source.kind === query.sourceKind
+      && source.profileId === profileId && source.jobId === jobId) : null
+    const selected = selectedSource?.submissionId ? submissions.items.find(item => item.id === selectedSource.submissionId) : null
+    if (targeted && !selected) throw new Error('Source review unavailable')
+    data = { ...(selected ? { initialSubmissionId: selected.id } : {}), companyId: ctx.companyId, actorProfileId: ctx.profileId, companyName: sources.companyName,
       role: ctx.role as LaborWorkspace['role'], items: submissions.items, sources: jobId ? sources.items.filter(source => source.jobId === jobId) : sources.items }
   } catch { /* Never render stale tenant data after authentication or metadata failure. */ }
   if (!data) return <main style={{ padding: 32 }}><h1>Výkazy nejsou dostupné / Timesheets unavailable / Arbeitsnachweise nicht verfügbar</h1><Link href="/mobile/my">Zpět / Back / Zurück</Link></main>
-  const workspace = <LaborWorkspaceClient key={`${data.companyId}:${data.actorProfileId}:${data.role}`} workspace={data} />
+  const workspace = <LaborWorkspaceClient key={`${data.companyId}:${data.actorProfileId}:${data.role}:${data.initialSubmissionId ?? ""}`} workspace={data} />
   if (data.role === 'worker' || data.role === 'manager') return <><nav style={{ display: 'flex', justifyContent: 'space-between', padding: '16px 24px', background: 'white' }}><Link href={data.role === 'manager' ? '/mobile/manager' : '/mobile/my'}>← {data.role === 'manager' ? 'Manager Diriqo' : 'My Diriqo'}</Link><LanguageSwitcher /></nav>{workspace}</>
   return <DashboardShell activeItem="labor">{workspace}</DashboardShell>
 }

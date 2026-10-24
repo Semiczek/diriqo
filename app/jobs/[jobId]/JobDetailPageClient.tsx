@@ -40,10 +40,8 @@ import type {
 } from '@/lib/job-status'
 import { getShiftDateKey } from '@/lib/job-shift-activity'
 import type { MessageFeedItem } from '@/lib/email/types'
-import {
-  getAssignmentFallbackLaborCalculation,
-  type LaborCalculationSource,
-} from '@/lib/labor-calculation'
+import { getRecordedAssignmentHours } from '@/lib/assignment-source-hours'
+import { approvedLaborSourceCode } from '@/lib/labor-source-navigation'
 import {
   getContractorBillingType,
   getWorkerType,
@@ -266,11 +264,7 @@ type NormalizedAssignment = {
   assignment_billing_type: string | null
   external_amount: number | null
   note: string | null
-  computed_labor_hours: number
-  computed_hourly_rate: number | null
-  computed_labor_cost: number | null
-  computed_internal_labor_cost: number | null
-  computed_external_labor_cost: number | null
+  computed_labor_hours: number | null
   work_started_at: string | null
   work_completed_at: string | null
   profiles: {
@@ -688,24 +682,6 @@ function getAssignmentWorkStateStyles(
   }
 }
 
-function getEffectiveHourlyRate(assignment: AssignmentRow) {
-  return assignment.hourly_rate == null ? null : toNumber(assignment.hourly_rate)
-}
-
-function getEffectiveHours(assignment: AssignmentRow) {
-  return getAssignmentFallbackLaborCalculation(
-    assignment,
-    0
-  ).hours
-}
-
-function getEffectiveHoursSource(assignment: AssignmentRow): LaborCalculationSource {
-  return getAssignmentFallbackLaborCalculation(
-    assignment,
-    0
-  ).source
-}
-
 function normalizeAssignmentRows(
   data: unknown[],
   profilesById = new Map<string, NonNullable<AssignmentRow['profiles']>>()
@@ -817,6 +793,11 @@ function JobDetailContent({
   const { dictionary, locale } = useI18n()
   const dateLocale = getIntlLocale(locale)
   const detailMessages = dictionary.jobs.detail
+  const assignmentMessages = {
+    cs: { recordedHours: 'Hodiny v původním záznamu', reviewCost: 'Náklad tohoto záznamu zde není ověřený.', openReview: 'Otevřít výkaz', protected: 'Schválenou práci nelze přepsat ani odstranit. Ve výkazu vytvořte opravu ke schválení.' },
+    en: { recordedHours: 'Hours in the source record', reviewCost: 'This record’s cost has not been verified here.', openReview: 'Open submission', protected: 'Approved work cannot be overwritten or deleted. Create a correction in the submission for approval.' },
+    de: { recordedHours: 'Stunden im ursprünglichen Eintrag', reviewCost: 'Die Kosten dieses Eintrags sind hier nicht geprüft.', openReview: 'Arbeitsnachweis öffnen', protected: 'Freigegebene Arbeit kann nicht überschrieben oder gelöscht werden. Erstellen Sie im Nachweis eine Korrektur zur Freigabe.' },
+  }[locale]
   const formatCurrency = (value: number | null | undefined) => formatCurrencyForLocale(value, dateLocale, initialJobEconomicsSummary?.currency ?? initialJob?.currency)
   const formatDateTime = (value: string | null) => formatDateTimeForLocale(value, dateLocale)
   const formatDate = (value: string | null) => formatDateForLocale(value, dateLocale)
@@ -909,6 +890,7 @@ function JobDetailContent({
   const [workerOptions, setWorkerOptions] = useState<WorkerOption[]>([])
   const [loadingWorkerOptions, setLoadingWorkerOptions] = useState(false)
   const [workerMessage, setWorkerMessage] = useState<string | null>(null)
+  const [workerReviewHref, setWorkerReviewHref] = useState<string | null>(null)
   const [workersExpanded, setWorkersExpanded] = useState(false)
   const [costItemsExpanded, setCostItemsExpanded] = useState(false)
   const [addingWorker, setAddingWorker] = useState(false)
@@ -1060,15 +1042,7 @@ function JobDetailContent({
         worker_type: assignment.worker_type_snapshot ?? assignment.profiles?.worker_type,
       })
       const billingType = assignment.assignment_billing_type ?? assignment.profiles?.contractor_billing_type ?? null
-      const computedLaborHours = getEffectiveHours(assignment)
-      const computedHourlyRate = getEffectiveHourlyRate(assignment)
-      const hourlyCost = computedHourlyRate === null ? null : roundHours(computedLaborHours * computedHourlyRate)
-      const computedExternalLaborCost = workerType === 'contractor'
-        ? assignment.external_amount != null ? toNumber(assignment.external_amount) : billingType === 'hourly' ? hourlyCost : null
-        : 0
-      const computedInternalLaborCost = workerType === 'employee' ? hourlyCost : 0
-      const computedLaborCost = computedInternalLaborCost === null || computedExternalLaborCost === null ? null
-        : computedInternalLaborCost + computedExternalLaborCost
+      const computedLaborHours = getRecordedAssignmentHours(assignment)
 
       return {
         id: assignment.id,
@@ -1081,10 +1055,6 @@ function JobDetailContent({
         external_amount: assignment.external_amount ?? null,
         note: assignment.note ?? null,
         computed_labor_hours: computedLaborHours,
-        computed_hourly_rate: computedHourlyRate,
-        computed_labor_cost: computedLaborCost,
-        computed_internal_labor_cost: computedInternalLaborCost,
-        computed_external_labor_cost: computedExternalLaborCost,
         work_started_at: assignment.work_started_at,
         work_completed_at: assignment.work_completed_at,
         profiles: assignment.profiles
@@ -1264,8 +1234,9 @@ function JobDetailContent({
   }, [costItems])
 
   const assignmentTotalHours = useMemo(() => {
+    if (normalizedAssignments.some(assignment => assignment.computed_labor_hours === null)) return null
     return roundHours(
-      normalizedAssignments.reduce((sum, assignment) => sum + assignment.computed_labor_hours, 0)
+      normalizedAssignments.reduce((sum, assignment) => sum + (assignment.computed_labor_hours ?? 0), 0)
     )
   }, [normalizedAssignments])
 
@@ -1339,7 +1310,7 @@ function JobDetailContent({
 
   function parseMoneyInput(value: string) {
     const normalized = value.replace(',', '.').trim()
-    if (!normalized) return 0
+    if (!normalized) return Number.NaN
     const parsed = Number(normalized)
     return Number.isFinite(parsed) ? parsed : Number.NaN
   }
@@ -1381,6 +1352,39 @@ function JobDetailContent({
     )
   }
 
+  function showProtectedAssignment(response: Response, body: unknown, profileId: string) {
+    if (response.status !== 409 || !body || typeof body !== 'object'
+      || !('code' in body) || body.code !== approvedLaborSourceCode) return false
+    const companyId = job?.company_id
+    const actorProfileId = initialActorProfileId
+    if (!companyId || !actorProfileId) {
+      setWorkerReviewHref(null)
+      setWorkerMessage(assignmentMessages.protected)
+      return true
+    }
+    // Build the minimum safe fallback from this page's server-authorized scope.
+    const fallback = `/labor?${new URLSearchParams({ company: companyId, actor: actorProfileId, worker: profileId })}`
+    let href = fallback
+    if ('reviewHref' in body && typeof body.reviewHref === 'string') {
+      try {
+        const url = new URL(body.reviewHref, 'https://diriqo.invalid')
+        const entries = [...url.searchParams]
+        if (url.origin === 'https://diriqo.invalid' && url.pathname === '/labor' && !url.hash
+          && new Set(entries.map(([key]) => key)).size === entries.length
+          && entries.every(([key]) => ['company', 'actor', 'worker', 'job', 'sourceKind', 'source'].includes(key))
+          && url.searchParams.get('company') === job?.company_id
+          && url.searchParams.get('actor') === initialActorProfileId
+          && url.searchParams.get('worker') === profileId
+          && (!url.searchParams.has('job') || url.searchParams.get('job') === job?.id)) {
+          href = `${url.pathname}${url.search}`
+        }
+      } catch { /* A malformed target must not replace the safe scoped fallback. */ }
+    }
+    setWorkerReviewHref(href)
+    setWorkerMessage(assignmentMessages.protected)
+    return true
+  }
+
   async function addJobAssignment() {
     if (!job?.id) return
 
@@ -1404,7 +1408,7 @@ function JobDetailContent({
         ? getContractorBillingType(selectedWorkerOption?.contractor_billing_type)
         : null
 
-    if (workerType === 'employee' && (!Number.isFinite(laborHours) || laborHours < 0)) {
+    if ((workerType === 'employee' || billingType === 'hourly') && (!Number.isFinite(laborHours) || laborHours < 0)) {
       setWorkerMessage(detailMessages.validHoursRequired)
       return
     }
@@ -1426,6 +1430,7 @@ function JobDetailContent({
       return
     }
 
+    setWorkerReviewHref(null)
     setAddingWorker(true)
     setWorkerMessage(detailMessages.addingWorker)
 
@@ -1449,6 +1454,7 @@ function JobDetailContent({
 
       if (!response.ok) {
         const body = (await response.json().catch(() => null)) as { error?: string } | null
+        if (showProtectedAssignment(response, body, profileId)) return
         throw new Error(body?.error || detailMessages.addWorkerFailed)
       }
 
@@ -1533,7 +1539,7 @@ function JobDetailContent({
       ? getContractorBillingType(assignment.assignment_billing_type)
       : null
 
-    if (assignment.worker_type === 'employee' && (!Number.isFinite(laborHours) || laborHours < 0)) {
+    if ((assignment.worker_type === 'employee' || billingType === 'hourly') && (!Number.isFinite(laborHours) || laborHours < 0)) {
       setWorkerMessage(detailMessages.validHoursRequired)
       return
     }
@@ -1555,6 +1561,7 @@ function JobDetailContent({
       return
     }
 
+    setWorkerReviewHref(null)
     setSavingAssignmentId(assignment.id)
     setWorkerMessage(detailMessages.savingWorker)
 
@@ -1583,6 +1590,7 @@ function JobDetailContent({
 
       if (!response.ok) {
         const body = (await response.json().catch(() => null)) as { error?: string } | null
+        if (showProtectedAssignment(response, body, assignment.profile_id)) return
         throw new Error(body?.error || detailMessages.saveWorkerFailed)
       }
 
@@ -1619,6 +1627,7 @@ function JobDetailContent({
     const confirmed = window.confirm(detailMessages.removeWorkerConfirm)
     if (!confirmed) return
 
+    setWorkerReviewHref(null)
     setRemovingAssignmentId(assignment.id)
     setWorkerMessage(detailMessages.removingWorker)
 
@@ -1631,6 +1640,7 @@ function JobDetailContent({
 
       if (!response.ok) {
         const body = (await response.json().catch(() => null)) as { error?: string } | null
+        if (showProtectedAssignment(response, body, assignment.profile_id)) return
         throw new Error(body?.error || detailMessages.removeWorkerFailed)
       }
 
@@ -2342,6 +2352,7 @@ function JobDetailContent({
             }}
           >
             {workerMessage}
+            {workerReviewHref ? <>{' '}<Link href={workerReviewHref}>{assignmentMessages.openReview}</Link></> : null}
           </div>
         ) : null}
 
@@ -2494,10 +2505,8 @@ function JobDetailContent({
             fontWeight: 700,
           }}
         >
-          {formatTemplate(detailMessages.assignmentSummary, {
-            hours: formatHours(assignmentTotalHours),
-            cost: formatCurrency(assignmentLaborCost),
-          })}
+          {assignmentMessages.recordedHours}: {assignmentTotalHours === null ? '—' : `${formatHours(assignmentTotalHours)} h`}
+          {' · '}{detailMessages.internalLabor}: {formatCurrency(assignmentLaborCost)}
         </div>
 
         {detailsLoading ? (
@@ -2524,20 +2533,9 @@ function JobDetailContent({
                 external_amount: assignment.external_amount != null ? String(assignment.external_amount) : '',
                 note: assignment.note ?? '',
               }
-              const previewHours = parseMoneyInput(draft.labor_hours)
-              const previewRate = parseMoneyInput(draft.hourly_rate)
-              const previewExternal = parseMoneyInput(draft.external_amount)
               const billingType = assignment.worker_type === 'contractor'
                 ? getContractorBillingType(assignment.assignment_billing_type)
                 : null
-              const previewCost =
-                assignment.worker_type === 'contractor' && billingType !== 'hourly'
-                  ? Number.isFinite(previewExternal)
-                    ? previewExternal
-                    : assignment.computed_external_labor_cost
-                : Number.isFinite(previewHours) && Number.isFinite(previewRate)
-                  ? previewHours * previewRate
-                  : assignment.computed_labor_cost
 
               return (
               <div
@@ -2564,8 +2562,9 @@ function JobDetailContent({
                     </div>
                     <div style={{ color: '#6b7280', fontSize: '14px' }}>
                       {assignment.worker_type === 'contractor'
-                        ? `${detailMessages.contractorWorker} · ${getContractorBillingTypeLabel(assignment.assignment_billing_type)} · ${formatCurrency(assignment.computed_external_labor_cost)}`
-                        : `${formatHours(assignment.computed_labor_hours)} h × ${formatCurrency(assignment.computed_hourly_rate)} = ${formatCurrency(assignment.computed_internal_labor_cost)}`}
+                        ? `${detailMessages.contractorWorker} · ${getContractorBillingTypeLabel(assignment.assignment_billing_type)} · `
+                        : ''}
+                      {assignmentMessages.recordedHours}: {assignment.computed_labor_hours === null ? '—' : `${formatHours(assignment.computed_labor_hours)} h`}
                     </div>
                   </div>
 
@@ -2641,8 +2640,9 @@ function JobDetailContent({
                   </button>
                 </div>
 
-                <div style={{ marginTop: '10px', color: '#374151', fontSize: '14px', fontWeight: 700 }}>
-                  {formatTemplate(detailMessages.costAfterEdit, { cost: formatCurrency(previewCost) })}
+                <div style={{ marginTop: '10px', color: '#6b7280', fontSize: '14px' }}>
+                  {assignmentMessages.reviewCost}{' '}
+                  <Link href={`/labor?job=${encodeURIComponent(job.id)}&worker=${encodeURIComponent(assignment.profile_id)}`}>{assignmentMessages.openReview}</Link>
                 </div>
               </div>
             )})}

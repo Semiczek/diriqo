@@ -31,9 +31,9 @@ export default function LaborWorkspaceClient({ workspace }: { workspace: LaborWo
   const { locale } = useI18n(); const text = laborMessages[locale]; const router = useRouter()
   const finance = workspace.role === 'company_admin' || workspace.role === 'super_admin'
   const reviewer = workspace.role !== 'worker'
-  const [selection, setSelection] = useState<string | null | 'new'>(null)
+  const [selection, setSelection] = useState<string | null | 'new'>(() => workspace.items.some(item => item.id === workspace.initialSubmissionId) ? workspace.initialSubmissionId! : null)
   const [editorState, setEditorState] = useState<{ key:string; dirty:boolean } | null>(null)
-  const [filter, setFilter] = useState<'own' | 'queue' | 'all'>(reviewer ? 'queue' : 'own')
+  const [filter, setFilter] = useState<'own' | 'queue' | 'all'>(reviewer ? workspace.initialSubmissionId ? 'all' : 'queue' : 'own')
   const [receipts, setReceipts] = useState<Record<string, LaborSubmissionDto>>({})
   const [pending, setPending] = useState<LaborCommand | null>(null)
   const [ready, setReady] = useState(false); const [busy, setBusy] = useState(false); const [blocked, setBlocked] = useState(false)

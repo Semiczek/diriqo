@@ -113,3 +113,16 @@ describe('Labor workflow with real React and browser storage',()=>{
  it('blocks approval when a documented rate is missing',async()=>{await mount({...workspace,role:'manager',items:[item('submitted')]});await act(async()=>{[...container.querySelectorAll('aside li button')][0].dispatchEvent(new MouseEvent('click',{bubbles:true}))});mocks.preview.mockResolvedValueOnce({ok:true,data:{companyId,submissionId:sid,versionId:vid,previewHash:'b'.repeat(64),completeness:'incomplete',reasons:['missing_rate']}});await click('Ověřit před schválením');expect(button('Schválit výkaz').disabled).toBe(true);expect(container.textContent).toContain('Chybí doložená sazba.');await click('Schválit výkaz');expect(mocks.run).not.toHaveBeenCalled()})
  it('requires an explicit comparison when a stored draft belongs to an older revision',async()=>{sessionStorage.setItem(`diriqo:labor-draft:v1:${companyId}:${actorProfileId}:${sid}`,JSON.stringify({revision:'0',fields:{sources:[`shift:${sourceId}`],reason:'',lines:[{...line,payHours:'5'}]}}));await mount({...workspace,items:[item()]});await act(async()=>{[...container.querySelectorAll('aside li button')][0].dispatchEvent(new MouseEvent('click',{bubbles:true}))});expect(container.textContent).toContain('Rozepsaný návrh pochází ze starší verze');expect(button('Uložit koncept').disabled).toBe(true);expect((container.querySelector('[name="payHours-0"]') as HTMLInputElement).value).toBe('5');expect(button('Odeslat ke schválení').disabled).toBe(true)})
 })
+
+
+describe('Approved source correction entry',()=>{
+ it('opens the approved record directly without automatically saving a revision',async()=>{
+  await mount({...workspace,role:'manager',items:[item('approved')],initialSubmissionId:sid})
+  expect(container.querySelector('aside li button')?.getAttribute('aria-pressed')).toBe('true')
+  expect(button('Vytvořit opravu')).toBeDefined()
+  expect(mocks.run).not.toHaveBeenCalled()
+  await click('Vytvořit opravu')
+  expect(container.querySelector('[name="payHours-0"]')).not.toBeNull()
+  expect(mocks.run).not.toHaveBeenCalled()
+ })
+})

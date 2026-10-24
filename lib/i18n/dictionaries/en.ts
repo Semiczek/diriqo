@@ -782,6 +782,8 @@ export const enDictionary: TranslationDictionary = {
       edit: 'Edit',
       unpaid: 'Unpaid',
       saveFailed: 'Saving failed.',
+      approvedAssignmentSource: 'Approved work cannot be overwritten or removed. Create a timesheet correction and submit it for approval.',
+      openAssignmentReview: 'Open timesheet and prepare a correction',
       missingAssignmentIds: 'Missing job_id or profile_id.',
       hoursValidation: 'Hours must be a valid number 0 or higher.',
       rateValidation: 'Rate must be a valid number 0 or higher.',
@@ -1440,6 +1442,14 @@ export const enDictionary: TranslationDictionary = {
     cancel: 'Cancel',
   },
   workShiftEdit: {
+    invalidHours: 'The manual hours override must be a valid number of 0 or more.',
+    invalidTimeOrder: 'The shift end must not be before its start.',
+
+    approvedSource: 'This shift belongs to an approved timesheet. The original record is preserved; change the hours by creating a timesheet correction and submitting it for approval.',
+    openReview: 'Open timesheet and prepare a correction',
+    reviewUnavailable: 'The approval status could not be verified. Reload the page before editing this shift.',
+    scopeChanged: 'The company or signed-in account changed. Reopen the shift in the correct company.',
+
     missingId: 'Shift ID is missing.',
     updateFailed: 'Saving changes failed.',
     invalidDate: 'Date or time has an invalid format.',
