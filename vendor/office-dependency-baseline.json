@@ -1,7 +1,7 @@
 {
-  "scope": "Host dependencies reviewed for the Next.js security update on 2026-10-18; separate from the unchanged Office-only license audit.",
-  "reviewFile": "vendor/host-dependency-review-20261018.json",
-  "reviewSha256": "f1b4e374029b683ac6c1929ba10f6fbd52adcbce25fcb6640a9bb75bf2ef18d6",
-  "declarationHash": "af047c5599eaaf82904c1d9a2d458c9ff3d7fd8a58a4876e6a190c04de9e2b01",
-  "lockPackagesHash": "71f1ce4b875451791a32e4d33818fb38172ce78f661c82595204164b73f5c50b"
+  "scope": "Host development dependencies reviewed for jsdom 27.4.0 React lifecycle tests on 2026-10-24; separate from the unchanged Office-only license audit.",
+  "reviewFile": "vendor/host-dependency-review-20261024.json",
+  "reviewSha256": "82a917be25bf4f0eb0e40e9ba77a2a9d68e38fa78fc7ffc9df98cf010bfd1263",
+  "declarationHash": "3783499bdec5d5e0206f70d1b60740851dceaf2eb2bf5d4fd70a9a7213f400ce",
+  "lockPackagesHash": "160a33e3cf1d5550218f4c3eb2b73aad7c8b99ccc3740ccbc596f5117e2e5a37"
 }

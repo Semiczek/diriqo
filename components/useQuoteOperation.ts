@@ -11,8 +11,11 @@ export function useQuoteOperation<T, R>(options: {
   parseReceipt: (raw: unknown, command: T) => R
   execute: (command: T) => Promise<Result<R>>
   onSuccess: (receipt: R, command: T) => void
+  // Only a view initialized from server data can resume without a navigation/remount.
+  confirmedView?: { revision: string; receiptRevision: (receipt: R) => string }
 }) {
   const [scope] = useState(options.scope)
+  const [initialViewRevision] = useState(options.confirmedView?.revision)
   const [ready, setReady] = useState(false)
   const [pending, setPending] = useState<PendingQuoteOperation<T, R> | null>(null)
   const [busy, setBusy] = useState(false)
@@ -23,7 +26,11 @@ export function useQuoteOperation<T, R>(options: {
   const blockedRef = useRef(false)
   const alive = useRef(false)
   const currentScope = useRef(quoteOperationKey(options.scope))
-  useLayoutEffect(() => { currentScope.current = quoteOperationKey(options.scope) }, [options.scope])
+  const currentViewRevision = useRef(options.confirmedView?.revision)
+  useLayoutEffect(() => {
+    currentScope.current = quoteOperationKey(options.scope)
+    currentViewRevision.current = options.confirmedView?.revision
+  }, [options.scope, options.confirmedView?.revision])
   const key = quoteOperationKey(scope)
   const changedScope = quoteOperationKey(options.scope) !== key
   useEffect(() => {
@@ -49,8 +56,17 @@ export function useQuoteOperation<T, R>(options: {
     if (!alive.current || currentScope.current !== key) return
     try { window.sessionStorage.removeItem(key) }
     catch { blockedRef.current = true; setStorageBlocked(true); throw new Error(QUOTE_STORAGE_ERROR) }
-    // Keep the confirmed result locked until navigation/remount. No second operation on a stale form.
     options.onSuccess(operation.receipt, operation.command)
+    // refresh() preserves client state, including a receipt restored by a new panel.
+    // Resume only a view initialized at this receipt's revision or a later one. A
+    // rerender of an old form must never pair its old input with refreshed props.
+    const receiptRevision = options.confirmedView?.receiptRevision(operation.receipt)
+    if (initialViewRevision !== undefined && currentViewRevision.current === initialViewRevision &&
+      receiptRevision !== undefined && /^[1-9][0-9]*$/.test(initialViewRevision) &&
+      /^[1-9][0-9]*$/.test(receiptRevision) && BigInt(initialViewRevision) >= BigInt(receiptRevision)) {
+      pendingRef.current = null
+      setPending(null)
+    }
   }
   async function run(raw?: unknown) {
     if (!ready || changedScope || currentScope.current !== key || inFlight.current || blockedRef.current || storageBlocked) return

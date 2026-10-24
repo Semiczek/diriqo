@@ -1,0 +1,1007 @@
+{
+  "schemaVersion": 1,
+  "reviewDate": "2026-10-24",
+  "baseRevision": "9752b372622feb3b6356acb11f0dbbd066f85442",
+  "baseLockSha256": "0c015601ff1b2596f9a54e7b81464467059f39566670ee06fcc55f8614c9b2b4",
+  "lockSha256": "43a6adc143a338cfd6101826eaf50bcf9aa558a02b13fc2a9cc56b303f4021ed",
+  "packages": [
+    {
+      "location": "node_modules/@acemir/cssom",
+      "name": "@acemir/cssom",
+      "oldVersion": null,
+      "version": "0.9.32",
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/@acemir/cssom/-/cssom-0.9.32.tgz",
+      "integrity": "sha512-OijrAUu7rrJhSIoHNg6LMPS5e344nwUHA+1EFYYjrh64D+GmytUsfBQjci45TjT+rd5Spsp8B5xsZDT+TgyXXQ==",
+      "dev": true,
+      "archiveSha256": "7639b7490aa6c33495243abb564f6537eae6ed72ce11cc2dd32ee51b356ddc2e",
+      "packageDeclaredLicense": "MIT",
+      "engines": {},
+      "files": [
+        {
+          "path": "package/LICENSE.txt",
+          "sha256": "e539937c489c4928ad7461669ec017f4d916fb3565fc26f5b8a0ce816d2ed23c",
+          "bytes": 1054
+        }
+      ],
+      "evidence": "Registry archive identity, SRI and complete shipped notice files reviewed"
+    },
+    {
+      "location": "node_modules/@asamuzakjp/css-color",
+      "name": "@asamuzakjp/css-color",
+      "oldVersion": null,
+      "version": "4.1.2",
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/@asamuzakjp/css-color/-/css-color-4.1.2.tgz",
+      "integrity": "sha512-NfBUvBaYgKIuq6E/RBLY1m0IohzNHAYyaJGuTK79Z23uNwmz2jl1mPsC5ZxCCxylinKhT1Amn5oNTlx1wN8cQg==",
+      "dev": true,
+      "archiveSha256": "b723c09deccbd82063a15987113bbe2d1259cb07abc73ac4868731fe098822d8",
+      "packageDeclaredLicense": "MIT",
+      "engines": {},
+      "files": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "bd4539377980dd797fc6a51d90e664e52b2b2625b2158f01d4c68b5fe107eacb",
+          "bytes": 1093
+        }
+      ],
+      "evidence": "Registry archive identity, SRI and complete shipped notice files reviewed"
+    },
+    {
+      "location": "node_modules/@asamuzakjp/css-color/node_modules/lru-cache",
+      "name": "lru-cache",
+      "oldVersion": null,
+      "version": "11.5.3",
+      "declaredLicense": "BlueOak-1.0.0",
+      "resolved": "https://registry.npmjs.org/lru-cache/-/lru-cache-11.5.3.tgz",
+      "integrity": "sha512-U4N8FgzmWxc8k1VH8Kr6lQg18U7Fjvby6wXHVRX/ZZ7IwWbRMgrRbP0Wrb5q5NVinryp4SQampHKdvtecItxUg==",
+      "dev": true,
+      "archiveSha256": "d18739bbd7d0091d30d2cca58e120c8b70ac09a5a21aa4b2b3e9afb2dc4084d8",
+      "packageDeclaredLicense": "BlueOak-1.0.0",
+      "engines": {
+        "node": "20 || >=22"
+      },
+      "files": [
+        {
+          "path": "package/LICENSE.md",
+          "sha256": "8a1af140fdfbf5afd3df27f7e662f989c5b963a300020dfafce42033cae9e004",
+          "bytes": 1552
+        }
+      ],
+      "evidence": "Registry archive identity, SRI and complete shipped notice files reviewed"
+    },
+    {
+      "location": "node_modules/@asamuzakjp/dom-selector",
+      "name": "@asamuzakjp/dom-selector",
+      "oldVersion": null,
+      "version": "6.8.1",
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/@asamuzakjp/dom-selector/-/dom-selector-6.8.1.tgz",
+      "integrity": "sha512-MvRz1nCqW0fsy8Qz4dnLIvhOlMzqDVBabZx6lH+YywFDdjXhMY37SmpV1XFX3JzG5GWHn63j6HX6QPr3lZXHvQ==",
+      "dev": true,
+      "archiveSha256": "b67786d93e1fe0aee16fb68063b7db863f77a34794fcf87fa9b28d88681ee803",
+      "packageDeclaredLicense": "MIT",
+      "engines": {},
+      "files": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "7cdf9db3b91cc77b9ec947ad0c7126140f00e34528b67c3a58e9fc1a98055e14",
+          "bytes": 1093
+        }
+      ],
+      "evidence": "Registry archive identity, SRI and complete shipped notice files reviewed"
+    },
+    {
+      "location": "node_modules/@asamuzakjp/dom-selector/node_modules/lru-cache",
+      "name": "lru-cache",
+      "oldVersion": null,
+      "version": "11.5.3",
+      "declaredLicense": "BlueOak-1.0.0",
+      "resolved": "https://registry.npmjs.org/lru-cache/-/lru-cache-11.5.3.tgz",
+      "integrity": "sha512-U4N8FgzmWxc8k1VH8Kr6lQg18U7Fjvby6wXHVRX/ZZ7IwWbRMgrRbP0Wrb5q5NVinryp4SQampHKdvtecItxUg==",
+      "dev": true,
+      "archiveSha256": "d18739bbd7d0091d30d2cca58e120c8b70ac09a5a21aa4b2b3e9afb2dc4084d8",
+      "packageDeclaredLicense": "BlueOak-1.0.0",
+      "engines": {
+        "node": "20 || >=22"
+      },
+      "files": [
+        {
+          "path": "package/LICENSE.md",
+          "sha256": "8a1af140fdfbf5afd3df27f7e662f989c5b963a300020dfafce42033cae9e004",
+          "bytes": 1552
+        }
+      ],
+      "evidence": "Registry archive identity, SRI and complete shipped notice files reviewed"
+    },
+    {
+      "location": "node_modules/@asamuzakjp/nwsapi",
+      "name": "@asamuzakjp/nwsapi",
+      "oldVersion": null,
+      "version": "2.3.9",
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/@asamuzakjp/nwsapi/-/nwsapi-2.3.9.tgz",
+      "integrity": "sha512-n8GuYSrI9bF7FFZ/SjhwevlHc8xaVlb/7HmHelnc/PZXBD2ZR49NnN9sMMuDdEGPeeRQ5d0hqlSlEpgCX3Wl0Q==",
+      "dev": true,
+      "archiveSha256": "11f4e345294f955374e7fdda68d378267166098e793cc05cce96b4a62e433d4a",
+      "packageDeclaredLicense": "MIT",
+      "engines": {},
+      "files": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "9b0ffd74f2cde7528141cc314ece705490d11054805da4a01ee6149498951b8f",
+          "bytes": 1084
+        }
+      ],
+      "evidence": "Registry archive identity, SRI and complete shipped notice files reviewed"
+    },
+    {
+      "location": "node_modules/@csstools/color-helpers",
+      "name": "@csstools/color-helpers",
+      "oldVersion": null,
+      "version": "6.1.2",
+      "declaredLicense": "MIT-0",
+      "resolved": "https://registry.npmjs.org/@csstools/color-helpers/-/color-helpers-6.1.2.tgz",
+      "integrity": "sha512-grhRy3OKmniaAEKXMjua5z/EODX0MSqBGjunw8+j/3HQjOnahs2AGhvEOIYVUWcU6ScApbhLhVrQTX8XqrMrow==",
+      "dev": true,
+      "archiveSha256": "23fbce9d140e7611c37d3e92e862d2ed871731aa56ceba37c9e008588d5bf7b2",
+      "packageDeclaredLicense": "MIT-0",
+      "engines": {
+        "node": ">=20.19.0"
+      },
+      "files": [
+        {
+          "path": "package/LICENSE.md",
+          "sha256": "947e32047a166cd05f04e45938d172b412c07cbee0b9735afd14bae30e02c2f6",
+          "bytes": 930
+        }
+      ],
+      "supplementalLicenses": [
+        "W3C-20150513"
+      ],
+      "evidence": "Registry archive identity, SRI and complete shipped notice files reviewed"
+    },
+    {
+      "location": "node_modules/@csstools/css-calc",
+      "name": "@csstools/css-calc",
+      "oldVersion": null,
+      "version": "3.4.3",
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/@csstools/css-calc/-/css-calc-3.4.3.tgz",
+      "integrity": "sha512-iex20d8CHVkyvg6B7UKV7uHnI2Bqo9g+EFfT9E0y+GvTvhZ/DwONJ+9aKb1dlqm0ZiGsL5RXjp0fCoJYnkeDjA==",
+      "dev": true,
+      "archiveSha256": "6de4a93bc8b000a510d4dc77acb85953dbf50a21fc46f5ab68e09a5d2206805f",
+      "packageDeclaredLicense": "MIT",
+      "engines": {
+        "node": ">=20.19.0"
+      },
+      "files": [
+        {
+          "path": "package/LICENSE.md",
+          "sha256": "d00d032f517721b45c56c70c46bf904ebb71ad313df4d4db7722266b38069665",
+          "bytes": 1111
+        }
+      ],
+      "evidence": "Registry archive identity, SRI and complete shipped notice files reviewed"
+    },
+    {
+      "location": "node_modules/@csstools/css-color-parser",
+      "name": "@csstools/css-color-parser",
+      "oldVersion": null,
+      "version": "4.2.6",
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/@csstools/css-color-parser/-/css-color-parser-4.2.6.tgz",
+      "integrity": "sha512-iiPQ3iRWwnJkeEn6RIu6SJPr7hYrLz6XZ9s/QZl+2/LI5KQVjpl2fdmDSZKuD4xP6GMmMPgHFFXg6k1Wkz0Trg==",
+      "dev": true,
+      "archiveSha256": "12f8b0b236e74b80cde06752bf4bbcdd2249794726a90634493e1de3ee4bfda6",
+      "packageDeclaredLicense": "MIT",
+      "engines": {
+        "node": ">=20.19.0"
+      },
+      "files": [
+        {
+          "path": "package/LICENSE.md",
+          "sha256": "d00d032f517721b45c56c70c46bf904ebb71ad313df4d4db7722266b38069665",
+          "bytes": 1111
+        }
+      ],
+      "evidence": "Registry archive identity, SRI and complete shipped notice files reviewed"
+    },
+    {
+      "location": "node_modules/@csstools/css-parser-algorithms",
+      "name": "@csstools/css-parser-algorithms",
+      "oldVersion": null,
+      "version": "4.0.2",
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/@csstools/css-parser-algorithms/-/css-parser-algorithms-4.0.2.tgz",
+      "integrity": "sha512-40cSKyMvK+tq4qz6Awrlye2WGuOKt3FwPgtGg6KTfbHOWNw+Rk1rzbAtZnZ6IBhsY491HLRnDXwoyBAijmmILA==",
+      "dev": true,
+      "archiveSha256": "18f8eaea8d271e281bdd93a3a0b3b1a313879f37147ae3170da3b5ef12a85eb6",
+      "packageDeclaredLicense": "MIT",
+      "engines": {
+        "node": ">=20.19.0"
+      },
+      "files": [
+        {
+          "path": "package/LICENSE.md",
+          "sha256": "d00d032f517721b45c56c70c46bf904ebb71ad313df4d4db7722266b38069665",
+          "bytes": 1111
+        }
+      ],
+      "evidence": "Registry archive identity, SRI and complete shipped notice files reviewed"
+    },
+    {
+      "location": "node_modules/@csstools/css-syntax-patches-for-csstree",
+      "name": "@csstools/css-syntax-patches-for-csstree",
+      "oldVersion": null,
+      "version": "1.1.15",
+      "declaredLicense": "MIT-0",
+      "resolved": "https://registry.npmjs.org/@csstools/css-syntax-patches-for-csstree/-/css-syntax-patches-for-csstree-1.1.15.tgz",
+      "integrity": "sha512-J0u7HkVl2nzSlhsiTOp4AmwcUQ3D+mGEEKfBy/7To5/y7F2OHwyLrXfrhR0SMgr4p5Lo+eaMVSeai24zUcBIxA==",
+      "dev": true,
+      "archiveSha256": "47ec40a8a7bf32a5d22eb64477d2204c6e782b9ee5d4cfcfbc0c66c49036d07b",
+      "packageDeclaredLicense": "MIT-0",
+      "engines": {},
+      "files": [
+        {
+          "path": "package/LICENSE.md",
+          "sha256": "947e32047a166cd05f04e45938d172b412c07cbee0b9735afd14bae30e02c2f6",
+          "bytes": 930
+        }
+      ],
+      "evidence": "Registry archive identity, SRI and complete shipped notice files reviewed"
+    },
+    {
+      "location": "node_modules/@csstools/css-tokenizer",
+      "name": "@csstools/css-tokenizer",
+      "oldVersion": null,
+      "version": "4.0.2",
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/@csstools/css-tokenizer/-/css-tokenizer-4.0.2.tgz",
+      "integrity": "sha512-OoKoR0f76dCY666JlcbhmVTs2drYj1GUXZTYTcbUgJjh9Nv41aFfZ21bPQTERm5+L5cBDo466NltB2lplS5GBw==",
+      "dev": true,
+      "archiveSha256": "1af7c4bfb45888f31f014c606b858a75ca8f3b98c61859e27ca26d94dfc6a36f",
+      "packageDeclaredLicense": "MIT",
+      "engines": {
+        "node": ">=20.19.0"
+      },
+      "files": [
+        {
+          "path": "package/LICENSE.md",
+          "sha256": "d00d032f517721b45c56c70c46bf904ebb71ad313df4d4db7722266b38069665",
+          "bytes": 1111
+        }
+      ],
+      "evidence": "Registry archive identity, SRI and complete shipped notice files reviewed"
+    },
+    {
+      "location": "node_modules/@exodus/bytes",
+      "name": "@exodus/bytes",
+      "oldVersion": null,
+      "version": "1.16.0",
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/@exodus/bytes/-/bytes-1.16.0.tgz",
+      "integrity": "sha512-IcpW84uEn3N7ETtNZMlxKhfl6Pec8rUNGOTBtWbK1FKhJxIFAptZyVrvVRVBimAJxJCgc3PxepxkdWWG4DVzfA==",
+      "dev": true,
+      "archiveSha256": "bc5282c79f68d01e1516385aee4ffbe6ba955f023e685f3cf2fd3ffcb00c8841",
+      "packageDeclaredLicense": "MIT",
+      "engines": {
+        "node": "^20.19.0 || ^22.12.0 || >=24.0.0"
+      },
+      "files": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "dbffd380d59504ba19fcf87ff5a1a33c37edf66d5b09966b0ad5368ab87bc2af",
+          "bytes": 1077
+        }
+      ],
+      "evidence": "Registry archive identity, SRI and complete shipped notice files reviewed"
+    },
+    {
+      "location": "node_modules/agent-base",
+      "name": "agent-base",
+      "oldVersion": null,
+      "version": "7.1.4",
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/agent-base/-/agent-base-7.1.4.tgz",
+      "integrity": "sha512-MnA+YT8fwfJPgBx3m60MNqakm30XOkyIoH1y6huTQvC0PwZG7ki8NacLBcrPbNoo8vEZy7Jpuk7+jMO+CUovTQ==",
+      "dev": true,
+      "archiveSha256": "7dd4a61668a9a4e8d4e903f1a254f94d53dafd3f316f2b9b597c5ad8c79cb57e",
+      "packageDeclaredLicense": "MIT",
+      "engines": {
+        "node": ">= 14"
+      },
+      "files": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "8d8c55319c7729d57be811c747452636688d54f19701ee0752b6b15ad3771d9a",
+          "bytes": 1101
+        }
+      ],
+      "evidence": "Registry archive identity, SRI and complete shipped notice files reviewed"
+    },
+    {
+      "location": "node_modules/bidi-js",
+      "name": "bidi-js",
+      "oldVersion": null,
+      "version": "1.1.0",
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/bidi-js/-/bidi-js-1.1.0.tgz",
+      "integrity": "sha512-fX1Onk0tdVPC7obPWB5EbJ1z7NVhLq4m2xZLq2YXBkxzMXIGRpNMU88n0EPgWseKl12J7zXs7qrDxPK4sRs2fg==",
+      "dev": true,
+      "archiveSha256": "8a89fce4e2b00c5141929ecde8336e955901e8fa2c7f01c6b5c9732639dd4175",
+      "packageDeclaredLicense": "MIT",
+      "engines": {},
+      "files": [
+        {
+          "path": "package/LICENSE.txt",
+          "sha256": "49d4d143fed599deb502a0fe6e02f49832f87e9a3a4cd0502e469596d50faa6d",
+          "bytes": 1071
+        }
+      ],
+      "evidence": "Registry archive identity, SRI and complete shipped notice files reviewed"
+    },
+    {
+      "location": "node_modules/css-tree",
+      "name": "css-tree",
+      "oldVersion": null,
+      "version": "3.2.1",
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/css-tree/-/css-tree-3.2.1.tgz",
+      "integrity": "sha512-X7sjQzceUhu1u7Y/ylrRZFU2FS6LRiFVp6rKLPg23y3x3c3DOKAwuXGDp+PAGjh6CSnCjYeAul8pcT8bAl+lSA==",
+      "dev": true,
+      "archiveSha256": "4c06bfe733d006103a4c070dcf8e0a3b2eb6b6a83e20e21c32d2d3b9c3ffae0a",
+      "packageDeclaredLicense": "MIT",
+      "engines": {
+        "node": "^10 || ^12.20.0 || ^14.13.0 || >=15.0.0"
+      },
+      "files": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "719a251ceca49c057ea90a1152af6546b767ec88e6d573bb6324454267b32c22",
+          "bytes": 1065
+        }
+      ],
+      "evidence": "Registry archive identity, SRI and complete shipped notice files reviewed"
+    },
+    {
+      "location": "node_modules/cssstyle",
+      "name": "cssstyle",
+      "oldVersion": null,
+      "version": "5.3.7",
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/cssstyle/-/cssstyle-5.3.7.tgz",
+      "integrity": "sha512-7D2EPVltRrsTkhpQmksIu+LxeWAIEk6wRDMJ1qljlv+CKHJM+cJLlfhWIzNA44eAsHXSNe3+vO6DW1yCYx8SuQ==",
+      "dev": true,
+      "archiveSha256": "2f8c94b3da0fbc0f56eaa00c1ae51c12ae2acba0a400fffdcbc858d91226fe84",
+      "packageDeclaredLicense": "MIT",
+      "engines": {
+        "node": ">=20"
+      },
+      "files": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "768faff9f6908c78d848b18770b2a93e3361d6e2ee35edf45c6a5ddf1f7cb185",
+          "bytes": 1050
+        }
+      ],
+      "evidence": "Registry archive identity, SRI and complete shipped notice files reviewed"
+    },
+    {
+      "location": "node_modules/cssstyle/node_modules/lru-cache",
+      "name": "lru-cache",
+      "oldVersion": null,
+      "version": "11.5.3",
+      "declaredLicense": "BlueOak-1.0.0",
+      "resolved": "https://registry.npmjs.org/lru-cache/-/lru-cache-11.5.3.tgz",
+      "integrity": "sha512-U4N8FgzmWxc8k1VH8Kr6lQg18U7Fjvby6wXHVRX/ZZ7IwWbRMgrRbP0Wrb5q5NVinryp4SQampHKdvtecItxUg==",
+      "dev": true,
+      "archiveSha256": "d18739bbd7d0091d30d2cca58e120c8b70ac09a5a21aa4b2b3e9afb2dc4084d8",
+      "packageDeclaredLicense": "BlueOak-1.0.0",
+      "engines": {
+        "node": "20 || >=22"
+      },
+      "files": [
+        {
+          "path": "package/LICENSE.md",
+          "sha256": "8a1af140fdfbf5afd3df27f7e662f989c5b963a300020dfafce42033cae9e004",
+          "bytes": 1552
+        }
+      ],
+      "evidence": "Registry archive identity, SRI and complete shipped notice files reviewed"
+    },
+    {
+      "location": "node_modules/data-urls",
+      "name": "data-urls",
+      "oldVersion": null,
+      "version": "6.0.1",
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/data-urls/-/data-urls-6.0.1.tgz",
+      "integrity": "sha512-euIQENZg6x8mj3fO6o9+fOW8MimUI4PpD/fZBhJfeioZVy9TUpM4UY7KjQNVZFlqwJ0UdzRDzkycB997HEq1BQ==",
+      "dev": true,
+      "archiveSha256": "5ce24f7b5c6d35b80f00c4371a8989ef08d0e6321e57a1ef8426be3ea68cd5e9",
+      "packageDeclaredLicense": "MIT",
+      "engines": {
+        "node": ">=20"
+      },
+      "files": [
+        {
+          "path": "package/LICENSE.txt",
+          "sha256": "528eec83cb836a0adda9f8fc3d6a2a70a710d6cc0be9a155f92212c8df28acfa",
+          "bytes": 1069
+        }
+      ],
+      "evidence": "Registry archive identity, SRI and complete shipped notice files reviewed"
+    },
+    {
+      "location": "node_modules/data-urls/node_modules/whatwg-mimetype",
+      "name": "whatwg-mimetype",
+      "oldVersion": null,
+      "version": "5.0.0",
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/whatwg-mimetype/-/whatwg-mimetype-5.0.0.tgz",
+      "integrity": "sha512-sXcNcHOC51uPGF0P/D4NVtrkjSU2fNsm9iog4ZvZJsL3rjoDAzXZhkm2MWt1y+PUdggKAYVoMAIYcs78wJ51Cw==",
+      "dev": true,
+      "archiveSha256": "381cefd6ed7b22bff38372719eb71c037b7554ad798ab71b8fd605763c37aed8",
+      "packageDeclaredLicense": "MIT",
+      "engines": {
+        "node": ">=20"
+      },
+      "files": [
+        {
+          "path": "package/LICENSE.txt",
+          "sha256": "528eec83cb836a0adda9f8fc3d6a2a70a710d6cc0be9a155f92212c8df28acfa",
+          "bytes": 1069
+        }
+      ],
+      "evidence": "Registry archive identity, SRI and complete shipped notice files reviewed"
+    },
+    {
+      "location": "node_modules/decimal.js",
+      "name": "decimal.js",
+      "oldVersion": null,
+      "version": "10.6.0",
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/decimal.js/-/decimal.js-10.6.0.tgz",
+      "integrity": "sha512-YpgQiITW3JXGntzdUmyUR1V812Hn8T1YVXhCu+wO3OpS4eU9l4YdD3qjyiKdV6mvV29zapkMeD390UVEf2lkUg==",
+      "dev": true,
+      "archiveSha256": "433210122e8149972f64054c54b0ce0872e5f15a3c5835aab57ff1a8e6d071b1",
+      "packageDeclaredLicense": "MIT",
+      "engines": {},
+      "files": [
+        {
+          "path": "package/LICENCE.md",
+          "sha256": "3108b546bcff5d346923a82f48b2d252ca722f9088076db6d145f6b67757ad6c",
+          "bytes": 1104
+        }
+      ],
+      "evidence": "Registry archive identity, SRI and complete shipped notice files reviewed"
+    },
+    {
+      "location": "node_modules/entities",
+      "name": "entities",
+      "oldVersion": null,
+      "version": "8.1.0",
+      "declaredLicense": "BSD-2-Clause",
+      "resolved": "https://registry.npmjs.org/entities/-/entities-8.1.0.tgz",
+      "integrity": "sha512-kxL7msIffSuh9aaFAMD7rxAIuTRMAHMeBtgHW2yUdWw732ZNh4MehkF2gdjvtdmikkaIP9bFDDJOPlsvm7avrA==",
+      "dev": true,
+      "archiveSha256": "e9a27d66db0d0a6f2d76454219d94f5729ae2a29f08ab06c92e5f6eaa37cbe68",
+      "packageDeclaredLicense": "BSD-2-Clause",
+      "engines": {
+        "node": ">=20.19.0"
+      },
+      "files": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "cb992345949ccd6e8394b2cd6c465f7b897c864f845937dbf64e8997f389e164",
+          "bytes": 1260
+        }
+      ],
+      "evidence": "Registry archive identity, SRI and complete shipped notice files reviewed"
+    },
+    {
+      "location": "node_modules/html-encoding-sniffer",
+      "name": "html-encoding-sniffer",
+      "oldVersion": null,
+      "version": "6.0.0",
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/html-encoding-sniffer/-/html-encoding-sniffer-6.0.0.tgz",
+      "integrity": "sha512-CV9TW3Y3f8/wT0BRFc1/KAVQ3TUHiXmaAb6VW9vtiMFf7SLoMd1PdAc4W3KFOFETBJUb90KatHqlsZMWV+R9Gg==",
+      "dev": true,
+      "archiveSha256": "a7a05bef1ca0004694cee31438c8b16431896add18e3da805031a12268cb072a",
+      "packageDeclaredLicense": "MIT",
+      "engines": {
+        "node": "^20.19.0 || ^22.12.0 || >=24.0.0"
+      },
+      "files": [
+        {
+          "path": "package/LICENSE.txt",
+          "sha256": "528eec83cb836a0adda9f8fc3d6a2a70a710d6cc0be9a155f92212c8df28acfa",
+          "bytes": 1069
+        }
+      ],
+      "evidence": "Registry archive identity, SRI and complete shipped notice files reviewed"
+    },
+    {
+      "location": "node_modules/http-proxy-agent",
+      "name": "http-proxy-agent",
+      "oldVersion": null,
+      "version": "7.0.2",
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/http-proxy-agent/-/http-proxy-agent-7.0.2.tgz",
+      "integrity": "sha512-T1gkAiYYDWYx3V5Bmyu7HcfcvL7mUrTWiM6yOfa3PIphViJ/gFPbvidQ+veqSOHci/PxBcDabeUNCzpOODJZig==",
+      "dev": true,
+      "archiveSha256": "785f73faa92bfba8d61da20bf59325ab2b3dca1bbc0bbac523406f404d8a6f02",
+      "packageDeclaredLicense": "MIT",
+      "engines": {
+        "node": ">= 14"
+      },
+      "files": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "71368fd0f5b4129191e9afcd1e1ef2dc89a9090d3e4d80bbab92dafd032b3bef",
+          "bytes": 1102
+        }
+      ],
+      "evidence": "Registry archive identity, SRI and complete shipped notice files reviewed"
+    },
+    {
+      "location": "node_modules/https-proxy-agent",
+      "name": "https-proxy-agent",
+      "oldVersion": null,
+      "version": "7.0.6",
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/https-proxy-agent/-/https-proxy-agent-7.0.6.tgz",
+      "integrity": "sha512-vK9P5/iUfdl95AI+JVyUuIcVtd4ofvtrOr3HNtM2yxC9bnMbEdp3x01OhQNnjb8IJYi38VlTE3mBXwcfvywuSw==",
+      "dev": true,
+      "archiveSha256": "960f89e8e5240882f64249d04a538421dd39d62ffacc138544647cc3251bc0e0",
+      "packageDeclaredLicense": "MIT",
+      "engines": {
+        "node": ">= 14"
+      },
+      "files": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "8d8c55319c7729d57be811c747452636688d54f19701ee0752b6b15ad3771d9a",
+          "bytes": 1101
+        }
+      ],
+      "evidence": "Registry archive identity, SRI and complete shipped notice files reviewed"
+    },
+    {
+      "location": "node_modules/is-potential-custom-element-name",
+      "name": "is-potential-custom-element-name",
+      "oldVersion": null,
+      "version": "1.0.1",
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/is-potential-custom-element-name/-/is-potential-custom-element-name-1.0.1.tgz",
+      "integrity": "sha512-bCYeRA2rVibKZd+s2625gGnGF/t7DSqDs4dP7CrLA1m7jKWz6pps0LpYLJN8Q64HtmPKJ1hrN3nzPNKFEKOUiQ==",
+      "dev": true,
+      "archiveSha256": "b6e425bb136422af133754814046a640c1573349755c63130c424abcee398621",
+      "packageDeclaredLicense": "MIT",
+      "engines": {},
+      "files": [
+        {
+          "path": "package/LICENSE-MIT.txt",
+          "sha256": "483acb265f182907d1caf6cff9c16c96f31325ed23792832cc5d8b12d5f88c8a",
+          "bytes": 1077
+        }
+      ],
+      "evidence": "Registry archive identity, SRI and complete shipped notice files reviewed"
+    },
+    {
+      "location": "node_modules/jsdom",
+      "name": "jsdom",
+      "oldVersion": null,
+      "version": "27.4.0",
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/jsdom/-/jsdom-27.4.0.tgz",
+      "integrity": "sha512-mjzqwWRD9Y1J1KUi7W97Gja1bwOOM5Ug0EZ6UDK3xS7j7mndrkwozHtSblfomlzyB4NepioNt+B2sOSzczVgtQ==",
+      "dev": true,
+      "archiveSha256": "040fb54291c0e73c0e251f1a197861265ad2fd41d18e8c4949bea930dd54c378",
+      "packageDeclaredLicense": "MIT",
+      "engines": {
+        "node": "^20.19.0 || ^22.12.0 || >=24.0.0"
+      },
+      "files": [
+        {
+          "path": "package/LICENSE.txt",
+          "sha256": "242d37e7cab25cbafc36cc973ee88f9345fddf066afe4f72b7ac3d9ad4e24cce",
+          "bytes": 1056
+        }
+      ],
+      "evidence": "Registry archive identity, SRI and complete shipped notice files reviewed"
+    },
+    {
+      "location": "node_modules/jsdom/node_modules/saxes",
+      "name": "saxes",
+      "oldVersion": null,
+      "version": "6.0.0",
+      "declaredLicense": "ISC",
+      "resolved": "https://registry.npmjs.org/saxes/-/saxes-6.0.0.tgz",
+      "integrity": "sha512-xAg7SOnEhrm5zI3puOOKyy1OMcMlIJZYNJY7xLBwSze0UjhPLnWfj2GF2EpT0jmzaJKIWKHLsaSSajf35bcYnA==",
+      "dev": true,
+      "archiveSha256": "1cdf52fbbe1ccbd175c365d2b8e63f46e590e74aff23fa6a44a6ec51522e96db",
+      "packageDeclaredLicense": "ISC",
+      "engines": {
+        "node": ">=v12.22.7"
+      },
+      "files": [
+        {
+          "path": "upstream/LICENSE",
+          "url": "https://raw.githubusercontent.com/lddubeau/saxes/211fa0ebec9b628affc09219199639887174bfc3/LICENSE",
+          "sha256": "0fac2374380621b22e6b50451057721a9c52935b02d16d106a9f04897f061d0e",
+          "bytes": 3011
+        }
+      ],
+      "evidence": "Registry archive identity/SRI verified; published archive omits LICENSE, so the full notice was retrieved from registry gitHead 211fa0ebec9b628affc09219199639887174bfc3.",
+      "historicalNoticesPreserved": [
+        "MIT notice marked no longer used by upstream, retained with the complete ISC notice"
+      ]
+    },
+    {
+      "location": "node_modules/mdn-data",
+      "name": "mdn-data",
+      "oldVersion": null,
+      "version": "2.27.1",
+      "declaredLicense": "CC0-1.0",
+      "resolved": "https://registry.npmjs.org/mdn-data/-/mdn-data-2.27.1.tgz",
+      "integrity": "sha512-9Yubnt3e8A0OKwxYSXyhLymGW4sCufcLG6VdiDdUGVkPhpqLxlvP5vl1983gQjJl3tqbrM731mjaZaP68AgosQ==",
+      "dev": true,
+      "archiveSha256": "63985bd4ce64e9a0142d70465c3a7f54c488f3ef6da3f9512d54a728cde46870",
+      "packageDeclaredLicense": "CC0-1.0",
+      "engines": {},
+      "files": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "36ffd9dc085d529a7e60e1276d73ae5a030b020313e6c5408593a6ae2af39673",
+          "bytes": 6555
+        }
+      ],
+      "evidence": "Registry archive identity, SRI and complete shipped notice files reviewed"
+    },
+    {
+      "location": "node_modules/parse5",
+      "name": "parse5",
+      "oldVersion": null,
+      "version": "8.0.1",
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/parse5/-/parse5-8.0.1.tgz",
+      "integrity": "sha512-z1e/HMG90obSGeidlli3hj7cbocou0/wa5HacvI3ASx34PecNjNQeaHNo5WIZpWofN9kgkqV1q5YvXe3F0FoPw==",
+      "dev": true,
+      "archiveSha256": "d94ec8606e3cef24b8ec001ac121df5d7938f015be69615da27b53a082f86832",
+      "packageDeclaredLicense": "MIT",
+      "engines": {},
+      "files": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "8c535800331e1e4439835555b3f9edc7fe9dee2fab0d8bbbd5a982e8b8343d4d",
+          "bytes": 1109
+        }
+      ],
+      "evidence": "Registry archive identity, SRI and complete shipped notice files reviewed"
+    },
+    {
+      "location": "node_modules/require-from-string",
+      "name": "require-from-string",
+      "oldVersion": null,
+      "version": "2.0.2",
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/require-from-string/-/require-from-string-2.0.2.tgz",
+      "integrity": "sha512-Xf0nWe6RseziFMu+Ap9biiUbmplq6S9/p+7w7YXP/JBHhrUDDUhwa+vANyubuqfZWTveU//DYVGsDG7RKL/vEw==",
+      "dev": true,
+      "archiveSha256": "cb694a4965908f7775a0c757f00cf4e624d193cd71d77988fbcca0f597b88d82",
+      "packageDeclaredLicense": "MIT",
+      "engines": {
+        "node": ">=0.10.0"
+      },
+      "files": [
+        {
+          "path": "package/license",
+          "sha256": "6ee0feb1f6ef996ff5a68600f8cf98909cf412d39ef3cdceaefd87d636fa1b7f",
+          "bytes": 1128
+        }
+      ],
+      "evidence": "Registry archive identity, SRI and complete shipped notice files reviewed"
+    },
+    {
+      "location": "node_modules/symbol-tree",
+      "name": "symbol-tree",
+      "oldVersion": null,
+      "version": "3.2.4",
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/symbol-tree/-/symbol-tree-3.2.4.tgz",
+      "integrity": "sha512-9QNk5KwDF+Bvz+PyObkmSYjI5ksVUYtjW7AU22r2NKcfLJcXp96hkDWU3+XndOsUb+AQ9QhfzfCT2O+CNWT5Tw==",
+      "dev": true,
+      "archiveSha256": "8a69700a00d00bdbbadf116f94398cc37f38ecdda559dc6220e17eb977b94abc",
+      "packageDeclaredLicense": "MIT",
+      "engines": {},
+      "files": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "9ea1eccdabe469767a9edb9249a840b2461cf91b2434bf8a3e2fc1f414311cb1",
+          "bytes": 1084
+        }
+      ],
+      "evidence": "Registry archive identity, SRI and complete shipped notice files reviewed"
+    },
+    {
+      "location": "node_modules/tldts",
+      "name": "tldts",
+      "oldVersion": null,
+      "version": "7.4.19",
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/tldts/-/tldts-7.4.19.tgz",
+      "integrity": "sha512-48dH6aSpQnpbzDUc4vIQZ1VjB8tkK+e8c1yx05/SZK+rkssgjEOlxDd/yU8/a4vGYQ9vRgJr9dwMq9TJ0b3X2Q==",
+      "dev": true,
+      "archiveSha256": "3638be310796dc356da96affa5370e6ca9b4dcd2e4bbd3548b1cd3d6e3150297",
+      "packageDeclaredLicense": "MIT",
+      "engines": {},
+      "files": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "c64182d48160db948b6aa97a984f1a32974ce4d2053900361264cd33853796cb",
+          "bytes": 1078
+        }
+      ],
+      "upstreamDataNotice": {
+        "license": "MPL-2.0",
+        "scope": "Public Suffix List data used to generate the tldts suffix trie, separate from MIT library code",
+        "repositoryCommit": "4ecabd1690a72c8e30dbaeb24502f7355908830b",
+        "publicsuffixSubmodule": "52b71b3c4576ff77450cc7ebcfc7f34a916af3f9",
+        "sourceUrl": "https://raw.githubusercontent.com/publicsuffix/list/52b71b3c4576ff77450cc7ebcfc7f34a916af3f9/public_suffix_list.dat",
+        "sourceSha256": "3d92f70d719426d7e82dc4aee181058d0ad570d2559f0ea3ece8e731a25e5f33",
+        "containsGeneratedSuffixTrie": true
+      },
+      "evidence": "Registry archive identity, SRI and complete shipped notice files reviewed"
+    },
+    {
+      "location": "node_modules/tldts-core",
+      "name": "tldts-core",
+      "oldVersion": null,
+      "version": "7.4.19",
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/tldts-core/-/tldts-core-7.4.19.tgz",
+      "integrity": "sha512-goNXV6Ho9TIOfpJZanTd6CKG5DyYgYAL+k+22T0SLh8l6+KHIfBUPFuePuSZv05UttIaaLmI9tb7TmGIdK5AkQ==",
+      "dev": true,
+      "archiveSha256": "2c57bb28c1265583727ab2fd798d9beead38257001831a976df7f0bc26744e91",
+      "packageDeclaredLicense": "MIT",
+      "engines": {},
+      "files": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "c64182d48160db948b6aa97a984f1a32974ce4d2053900361264cd33853796cb",
+          "bytes": 1078
+        }
+      ],
+      "upstreamDataNotice": {
+        "license": "MPL-2.0",
+        "scope": "Repository-level publicsuffix provenance; this core parser package does not contain the generated suffix trie. The new sibling tldts package contains that trie.",
+        "repositoryCommit": "4ecabd1690a72c8e30dbaeb24502f7355908830b",
+        "publicsuffixSubmodule": "52b71b3c4576ff77450cc7ebcfc7f34a916af3f9",
+        "sourceUrl": "https://raw.githubusercontent.com/publicsuffix/list/52b71b3c4576ff77450cc7ebcfc7f34a916af3f9/public_suffix_list.dat",
+        "sourceSha256": "3d92f70d719426d7e82dc4aee181058d0ad570d2559f0ea3ece8e731a25e5f33",
+        "containsGeneratedSuffixTrie": false
+      },
+      "evidence": "Registry archive identity, SRI and complete shipped notice files reviewed"
+    },
+    {
+      "location": "node_modules/tough-cookie",
+      "name": "tough-cookie",
+      "oldVersion": null,
+      "version": "6.0.2",
+      "declaredLicense": "BSD-3-Clause",
+      "resolved": "https://registry.npmjs.org/tough-cookie/-/tough-cookie-6.0.2.tgz",
+      "integrity": "sha512-exgYmnmL/sJpR3upZfXG5PoatXQii55xAiXGXzY+sROLZ/Y+SLcp9PgJNI9Vz37HpQ74WvDcLT8eqm+kV3FzrA==",
+      "dev": true,
+      "archiveSha256": "9f8413255be6492501f0d9344034aa517d578afd5e7114ebb26627eee9a62670",
+      "packageDeclaredLicense": "BSD-3-Clause",
+      "engines": {
+        "node": ">=16"
+      },
+      "files": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "22ec6791c91ba42c0516a05f4cbdde019aae4687f8a38c5ca7e8a69ee68f851d",
+          "bytes": 1485
+        }
+      ],
+      "evidence": "Registry archive identity, SRI and complete shipped notice files reviewed"
+    },
+    {
+      "location": "node_modules/tr46",
+      "name": "tr46",
+      "oldVersion": null,
+      "version": "6.0.0",
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/tr46/-/tr46-6.0.0.tgz",
+      "integrity": "sha512-bLVMLPtstlZ4iMQHpFHTR7GAGj2jxi8Dg0s2h2MafAE4uSWF98FC/3MomU51iQAMf8/qDUbKWf5GxuvvVcXEhw==",
+      "dev": true,
+      "archiveSha256": "8737146639e92140a7bf77090b8a09539ec7610b60fcf9a412567cb7280e2881",
+      "packageDeclaredLicense": "MIT",
+      "engines": {
+        "node": ">=20"
+      },
+      "files": [
+        {
+          "path": "package/LICENSE.md",
+          "sha256": "499d6d466d064e0460427967a344e2a32fcb86ea8c6cd1a285ec4f1fa03fba67",
+          "bytes": 1076
+        }
+      ],
+      "evidence": "Registry archive identity, SRI and complete shipped notice files reviewed"
+    },
+    {
+      "location": "node_modules/w3c-xmlserializer",
+      "name": "w3c-xmlserializer",
+      "oldVersion": null,
+      "version": "5.0.0",
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/w3c-xmlserializer/-/w3c-xmlserializer-5.0.0.tgz",
+      "integrity": "sha512-o8qghlI8NZHU1lLPrpi2+Uq7abh4GGPpYANlalzWxyWteJOCsr/P+oPBA49TOLu5FTZO4d3F9MnWJfiMo4BkmA==",
+      "dev": true,
+      "archiveSha256": "7fea0c33bb82228932e677a4c7aaaad45bdb04541d8517e40700355cbefebd03",
+      "packageDeclaredLicense": "MIT",
+      "engines": {
+        "node": ">=18"
+      },
+      "files": [
+        {
+          "path": "package/LICENSE.md",
+          "sha256": "ab654de803cdaa9e2819ab2e934bdf7f757e308649ec231d78e80e92425cdc34",
+          "bytes": 1105
+        }
+      ],
+      "evidence": "Registry archive identity, SRI and complete shipped notice files reviewed"
+    },
+    {
+      "location": "node_modules/webidl-conversions",
+      "name": "webidl-conversions",
+      "oldVersion": null,
+      "version": "8.0.1",
+      "declaredLicense": "BSD-2-Clause",
+      "resolved": "https://registry.npmjs.org/webidl-conversions/-/webidl-conversions-8.0.1.tgz",
+      "integrity": "sha512-BMhLD/Sw+GbJC21C/UgyaZX41nPt8bUTg+jWyDeg7e7YN4xOM05YPSIXceACnXVtqyEw/LMClUQMtMZ+PGGpqQ==",
+      "dev": true,
+      "archiveSha256": "016809c2063e0f2066d11deec4fa7d563455b454fab66c3563ab5b52cccbb9e9",
+      "packageDeclaredLicense": "BSD-2-Clause",
+      "engines": {
+        "node": ">=20"
+      },
+      "files": [
+        {
+          "path": "package/LICENSE.md",
+          "sha256": "a889cc4dbee2ae172c179856b25d75b0b7a5a136e1b97109b9b590b2ff1a879c",
+          "bytes": 1323
+        }
+      ],
+      "evidence": "Registry archive identity, SRI and complete shipped notice files reviewed"
+    },
+    {
+      "location": "node_modules/whatwg-mimetype",
+      "name": "whatwg-mimetype",
+      "oldVersion": null,
+      "version": "4.0.0",
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/whatwg-mimetype/-/whatwg-mimetype-4.0.0.tgz",
+      "integrity": "sha512-QaKxh0eNIi2mE9p2vEdzfagOKHCcj1pJ56EEHGQOVxp8r9/iszLUUV7v89x9O1p/T+NlTM5W7jW6+cz4Fq1YVg==",
+      "dev": true,
+      "archiveSha256": "d1618a0f551c0b9d770f9ae15b54313956713d1430298e59dfc4f5d4b4bb5183",
+      "packageDeclaredLicense": "MIT",
+      "engines": {
+        "node": ">=18"
+      },
+      "files": [
+        {
+          "path": "package/LICENSE.txt",
+          "sha256": "528eec83cb836a0adda9f8fc3d6a2a70a710d6cc0be9a155f92212c8df28acfa",
+          "bytes": 1069
+        }
+      ],
+      "evidence": "Registry archive identity, SRI and complete shipped notice files reviewed"
+    },
+    {
+      "location": "node_modules/whatwg-url",
+      "name": "whatwg-url",
+      "oldVersion": null,
+      "version": "15.1.0",
+      "declaredLicense": "MIT",
+      "resolved": "https://registry.npmjs.org/whatwg-url/-/whatwg-url-15.1.0.tgz",
+      "integrity": "sha512-2ytDk0kiEj/yu90JOAp44PVPUkO9+jVhyf+SybKlRHSDlvOOZhdPIrr7xTH64l4WixO2cP+wQIcgujkGBPPz6g==",
+      "dev": true,
+      "archiveSha256": "278537dd22cd3614905472d13a1c8bab79d5f136b21f7e1e6bd3a9701a6e8bdd",
+      "packageDeclaredLicense": "MIT",
+      "engines": {
+        "node": ">=20"
+      },
+      "files": [
+        {
+          "path": "package/LICENSE.txt",
+          "sha256": "db480f236292a093e77a83c35431a8496624e1e664a3547768a9ce2bdde39877",
+          "bytes": 1076
+        }
+      ],
+      "evidence": "Registry archive identity, SRI and complete shipped notice files reviewed"
+    },
+    {
+      "location": "node_modules/xml-name-validator",
+      "name": "xml-name-validator",
+      "oldVersion": null,
+      "version": "5.0.0",
+      "declaredLicense": "Apache-2.0",
+      "resolved": "https://registry.npmjs.org/xml-name-validator/-/xml-name-validator-5.0.0.tgz",
+      "integrity": "sha512-EvGK8EJ3DhaHfbRlETOWAS5pO9MZITeauHKJyb8wyajUfQUenkIg2MvLDTZ4T/TgIcm3HU0TFBgWWboAZ30UHg==",
+      "dev": true,
+      "archiveSha256": "3d40b1428dae32a6328ea20543abaafb72101a2652a95f43ec8757fef213f0be",
+      "packageDeclaredLicense": "Apache-2.0",
+      "engines": {
+        "node": ">=18"
+      },
+      "files": [
+        {
+          "path": "package/LICENSE.txt",
+          "sha256": "a6cba85bc92e0cff7a450b1d873c0eaa2e9fc96bf472df0247a26bec77bf3ff9",
+          "bytes": 10173
+        }
+      ],
+      "evidence": "Registry archive identity, SRI and complete shipped notice files reviewed"
+    }
+  ],
+  "scope": "Separate technical license review of the jsdom 27.4.0 development-only dependency delta for real React DOM quote lifecycle regression tests. The Office 0.3.5 archive and strict Office license policy are unchanged.",
+  "baseApprovedBaseline": {
+    "declarationHash": "af047c5599eaaf82904c1d9a2d458c9ff3d7fd8a58a4876e6a190c04de9e2b01",
+    "lockPackagesHash": "71f1ce4b875451791a32e4d33818fb38172ce78f661c82595204164b73f5c50b",
+    "verifiedAgainstBaseRevision": true
+  },
+  "review": {
+    "newLockRecords": 41,
+    "changedExistingLockRecords": 0,
+    "removedLockRecords": 0,
+    "developmentOnlyNewRecords": 41,
+    "uniqueDownloadedAndSriVerifiedArchives": 39,
+    "shippedNoticeRecords": 40,
+    "upstreamNoticeRecords": 1,
+    "unknownDeclaredLicenses": 0,
+    "changedExistingDeclaredLicenseExpressions": 0,
+    "limits": [
+      "This is a host development-dependency delta review. It does not expand or bypass the Office-only license allowlist.",
+      "All new lock records are dev:true, with jsdom imported only by the Vitest environment; they are not application feature or Office runtime dependencies.",
+      "BlueOak-1.0.0 and MIT-0 notices are retained explicitly. Distribution of these development tools must retain applicable notices and license texts.",
+      "Saxes 6.0.0 omits its license file in the registry archive. The complete upstream ISC license and historical MIT notice were retrieved from the exact gitHead recorded in the registry metadata and retained.",
+      "The color-helpers archive includes W3C-20150513-derived conversion code. Its existing attribution comments and the upstream 2015 license are retained in the notice bundle.",
+      "The tldts library declares MIT, while its exact upstream publicsuffix data submodule declares MPL-2.0. Preserve those data notices and source availability if redistributing the development toolchain; do not treat the complete dependency tree as Office-allowlisted.",
+      "Existing host Sharp/libvips, caniuse-lite and other previously reviewed obligations remain unchanged.",
+      "Registry identity/SRI, SPDX declarations, shipped notices and identified upstream notices were checked; this is not a certification of legal compliance for every possible deployment or redistribution."
+    ]
+  },
+  "sources": [
+    {
+      "url": "https://raw.githubusercontent.com/lddubeau/saxes/211fa0ebec9b628affc09219199639887174bfc3/LICENSE",
+      "sha256": "0fac2374380621b22e6b50451057721a9c52935b02d16d106a9f04897f061d0e",
+      "bytes": 3011
+    },
+    {
+      "url": "https://www.w3.org/Consortium/Legal/2015/copyright-software-and-document",
+      "sha256": "e3ea81a3892d14b02f3effc82e97674733a9d0e2d410457cc17f0a5a83833461",
+      "bytes": 27092
+    },
+    {
+      "url": "https://raw.githubusercontent.com/remusao/tldts/4ecabd1690a72c8e30dbaeb24502f7355908830b/.gitmodules",
+      "sha256": "b4488f905d09018fd03c8d7c36e2f2674d46e72752aa540476aaf3c1cde1b72c",
+      "bytes": 111
+    },
+    {
+      "url": "https://raw.githubusercontent.com/publicsuffix/list/52b71b3c4576ff77450cc7ebcfc7f34a916af3f9/public_suffix_list.dat",
+      "sha256": "3d92f70d719426d7e82dc4aee181058d0ad570d2559f0ea3ece8e731a25e5f33",
+      "bytes": 338118
+    },
+    {
+      "url": "https://www.mozilla.org/media/MPL/2.0/index.txt",
+      "sha256": "3f3d9e0024b1921b067d6f7f88deb4a60cbe7a78e76c64e3f1d7fc3b779b9d04",
+      "bytes": 16726
+    }
+  ],
+  "noticesFile": "vendor/host-dependency-notices-20261024.json",
+  "noticesSha256": "3614182c83430bf7247c3fb298ab195c54a5f416ba29511122d2c6d4818b97dc"
+}
