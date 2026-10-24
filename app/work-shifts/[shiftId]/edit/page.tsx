@@ -2,7 +2,9 @@
 import { redirect } from 'next/navigation'
 import DashboardShell from '@/components/DashboardShell'
 import { getRequestDictionary } from '@/lib/i18n/server'
-import { createSupabaseServerClient } from '@/lib/supabase-server'
+import { requireCompanyRoleDalContext } from '@/lib/dal/auth'
+import { getLaborSubmission, listLaborSourceOptions } from '@/lib/dal/labor-history'
+import { isApprovedLaborSourceError, laborSourceReviewHref } from '@/lib/labor-source-navigation'
 
 type EditWorkShiftPageProps = {
   params: Promise<{
@@ -37,10 +39,6 @@ type JobOptionRow = {
   start_at: string | null
 }
 
-type CompanyMemberRow = {
-  company_id: string | null
-}
-
 function getShiftMonthRange(shift: Pick<WorkShiftRow, 'shift_date' | 'started_at' | 'ended_at'>) {
   const sourceValue = shift.shift_date ?? shift.started_at ?? shift.ended_at
   if (!sourceValue) return null
@@ -73,7 +71,11 @@ function getErrorMessage(
 
   if (errorCode === 'missing-id') return t.missingId
   if (errorCode === 'update-failed') return t.updateFailed
+  if (errorCode === 'approved-source') return t.approvedSource
+  if (errorCode === 'scope-changed') return t.scopeChanged
   if (errorCode === 'invalid-date') return t.invalidDate
+  if (errorCode === 'invalid-hours') return t.invalidHours
+  if (errorCode === 'invalid-time-order') return t.invalidTimeOrder
   if (errorCode === 'missing-job-hours') return t.missingJobHours
   if (errorCode === 'invalid-job-hours') return t.invalidJobHours
   if (errorCode === 'unexpected') return t.unexpected
@@ -130,7 +132,9 @@ export default async function EditWorkShiftPage({
   const resolvedSearchParams = searchParams ? await searchParams : {}
   const errorMessage = getErrorMessage(resolvedSearchParams?.error, t)
 
-  const supabase = await createSupabaseServerClient()
+  const ctx = await requireCompanyRoleDalContext('company_admin', 'super_admin').catch(() => null)
+  if (!ctx) redirect('/mobile/my')
+  const { supabase, companyId: editorCompanyId, profileId: editorActorId } = ctx
 
   let supportsJobAssignment = true
 
@@ -154,6 +158,7 @@ export default async function EditWorkShiftPage({
       )
     `)
     .eq('id', shiftId)
+    .eq('company_id', ctx.companyId)
     .maybeSingle()
 
   if (shiftResponse.error && isMissingWorkShiftAssignmentColumn(shiftResponse.error.message)) {
@@ -176,6 +181,7 @@ export default async function EditWorkShiftPage({
         )
       `)
       .eq('id', shiftId)
+      .eq('company_id', ctx.companyId)
       .maybeSingle()
   }
 
@@ -232,43 +238,24 @@ export default async function EditWorkShiftPage({
         : null,
   } as WorkShiftRow
 
-  const companyMemberResponse = shift.profile_id
-    ? await supabase
-        .from('company_members')
-        .select('company_id')
-        .eq('profile_id', shift.profile_id)
-        .eq('is_active', true)
-        .maybeSingle()
-    : { data: null, error: null }
-
-  if (companyMemberResponse.error) {
-    return (
-      <DashboardShell activeItem="workers">
-        <main
-          style={{
-            maxWidth: '900px',
-            fontFamily: 'Arial, Helvetica, sans-serif',
-            color: '#111827',
-          }}
-        >
-          <div
-            style={{
-              border: '1px solid #fdba74',
-              background: '#fff7ed',
-              color: '#9a3412',
-              borderRadius: '16px',
-              padding: '24px',
-            }}
-          >
-            {t.workerCompanyLoadFailed}: {companyMemberResponse.error.message}
-          </div>
-        </main>
-      </DashboardShell>
-    )
+  // Never infer a tenant from another membership of this worker.
+  const jobsCompanyId = ctx.companyId
+  let protectedSource = false
+  let reviewUnavailable = false
+  let reviewHref: string | null = null
+  if (shift.profile_id && shift.job_id) {
+    try {
+      const options = await listLaborSourceOptions(ctx, { profileId: shift.profile_id })
+      const source = options.items.find(value => value.kind === 'shift' && value.id === shift.id
+        && value.profileId === shift.profile_id && value.jobId === shift.job_id)
+      if (source?.submissionId) {
+        const submission = await getLaborSubmission(ctx, source.submissionId)
+        protectedSource = submission.approvedVersionId !== null
+        if (protectedSource) reviewHref = laborSourceReviewHref({ companyId: ctx.companyId, actorProfileId: ctx.profileId,
+          jobId: shift.job_id, profileId: shift.profile_id, source: { kind: 'shift', id: shift.id } })
+      }
+    } catch { reviewUnavailable = true }
   }
-
-  const companyMember = (companyMemberResponse.data ?? null) as CompanyMemberRow | null
-  const jobsCompanyId = shift.company_id ?? companyMember?.company_id ?? null
   const shiftMonthRange = getShiftMonthRange(shift)
 
   const jobsResponse =
@@ -295,7 +282,6 @@ export default async function EditWorkShiftPage({
     'use server'
 
     const shiftIdValue = String(formData.get('shiftId') ?? '').trim()
-    const profileId = String(formData.get('profileId') ?? '').trim()
     const shiftDateRaw = String(formData.get('shift_date') ?? '').trim()
     const jobIdRaw = String(formData.get('job_id') ?? '').trim()
     const jobHoursOverrideRaw = String(formData.get('job_hours_override') ?? '').trim()
@@ -304,37 +290,48 @@ export default async function EditWorkShiftPage({
     const hoursOverrideRaw = String(formData.get('hours_override') ?? '').trim()
     const note = String(formData.get('note') ?? '').trim()
 
-    if (!shiftIdValue) {
-      redirect('/workers?error=missing-id')
+    if (!shiftIdValue || shiftIdValue !== shift.id) redirect('/workers?error=missing-id')
+    const fresh = await requireCompanyRoleDalContext('company_admin', 'super_admin').catch(() => null)
+    if (!fresh || fresh.companyId !== editorCompanyId || fresh.profileId !== editorActorId) {
+      redirect(`/work-shifts/${shift.id}/edit?error=scope-changed`)
     }
+    if (protectedSource) redirect(`/work-shifts/${shift.id}/edit?error=approved-source`)
+    if (reviewUnavailable) redirect(`/work-shifts/${shift.id}/edit?error=update-failed`)
 
     const shiftDate = shiftDateRaw === '' ? null : shiftDateRaw
     const jobId = jobIdRaw === '' ? null : jobIdRaw
-    const startedAt = startedAtRaw === '' ? null : new Date(startedAtRaw).toISOString()
-    const endedAt = endedAtRaw === '' ? null : new Date(endedAtRaw).toISOString()
+    const parsedStart = startedAtRaw === '' ? null : new Date(startedAtRaw)
+    const parsedEnd = endedAtRaw === '' ? null : new Date(endedAtRaw)
+    if ((parsedStart && Number.isNaN(parsedStart.getTime())) || (parsedEnd && Number.isNaN(parsedEnd.getTime()))) {
+      redirect(`/work-shifts/${shiftIdValue}/edit?error=invalid-date`)
+    }
+    if (parsedStart && parsedEnd && parsedEnd.getTime() < parsedStart.getTime()) {
+      redirect(`/work-shifts/${shiftIdValue}/edit?error=invalid-time-order`)
+    }
+    const startedAt = parsedStart?.toISOString() ?? null
+    const endedAt = parsedEnd?.toISOString() ?? null
     const hoursOverride =
       hoursOverrideRaw === '' ? null : Number(hoursOverrideRaw.replace(',', '.'))
     const jobHoursOverride =
       jobHoursOverrideRaw === '' ? null : Number(jobHoursOverrideRaw.replace(',', '.'))
 
-    if (
-      (startedAtRaw !== '' && !startedAt) ||
-      (endedAtRaw !== '' && !endedAt) ||
-      (hoursOverrideRaw !== '' && Number.isNaN(hoursOverride)) ||
-      (jobHoursOverrideRaw !== '' && Number.isNaN(jobHoursOverride))
-    ) {
-      redirect(`/work-shifts/${shiftIdValue}/edit?error=invalid-date`)
+    if (hoursOverride != null && (!Number.isFinite(hoursOverride) || hoursOverride < 0)) {
+      redirect(`/work-shifts/${shiftIdValue}/edit?error=invalid-hours`)
     }
 
     if (jobId && jobHoursOverride == null) {
       redirect(`/work-shifts/${shiftIdValue}/edit?error=missing-job-hours`)
     }
 
-    if (jobHoursOverride != null && jobHoursOverride < 0) {
+    if (jobHoursOverride != null && (!Number.isFinite(jobHoursOverride) || jobHoursOverride < 0)) {
       redirect(`/work-shifts/${shiftIdValue}/edit?error=invalid-job-hours`)
     }
 
-    const supabase = await createSupabaseServerClient()
+    const { supabase } = fresh
+    if (jobId) {
+      const selectedJob = await supabase.from('jobs').select('id').eq('id', jobId).eq('company_id', fresh.companyId).maybeSingle()
+      if (selectedJob.error || !selectedJob.data) redirect(`/work-shifts/${shift.id}/edit?error=update-failed`)
+    }
 
     const updatePayload = supportsJobAssignment
       ? {
@@ -354,18 +351,20 @@ export default async function EditWorkShiftPage({
           note: note === '' ? null : note,
         }
 
-    const { error } = await supabase
+    const { data: updated, error } = await supabase
       .from('work_shifts')
       .update(updatePayload)
-      .eq('id', shiftIdValue)
+      .eq('id', shift.id)
+      .eq('company_id', fresh.companyId)
+      .select('id')
+      .maybeSingle()
 
-    if (error) {
-      redirect(`/work-shifts/${shiftIdValue}/edit?error=update-failed`)
+    if (error || !updated) {
+      const code = isApprovedLaborSourceError(error) ? 'approved-source' : 'update-failed'
+      redirect(`/work-shifts/${shift.id}/edit?error=${code}`)
     }
 
-    if (profileId) {
-      redirect(`/workers/${profileId}`)
-    }
+    if (shift.profile_id) redirect(`/workers/${shift.profile_id}`)
 
     redirect('/workers')
   }
@@ -467,9 +466,14 @@ export default async function EditWorkShiftPage({
             </div>
           ) : null}
 
+          {(protectedSource || reviewUnavailable) && <div role="status" style={{ marginBottom: 20, padding: 16, borderRadius: 12, background: '#f5f3ff', color: '#4c1d95' }}>
+            <p>{protectedSource ? t.approvedSource : t.reviewUnavailable}</p>
+            {reviewHref && <Link href={reviewHref} style={{ color: '#6d28d9', fontWeight: 700 }}>{t.openReview}</Link>}
+          </div>}
+
           <form action={updateShift}>
+            <fieldset disabled={protectedSource || reviewUnavailable} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
             <input type="hidden" name="shiftId" value={shift.id} />
-            <input type="hidden" name="profileId" value={shift.profile_id ?? ''} />
 
             <div
               style={{
@@ -517,6 +521,7 @@ export default async function EditWorkShiftPage({
                   id="job_hours_override"
                   name="job_hours_override"
                   type="number"
+                  min="0"
                   step="0.01"
                   defaultValue={formatInputNumber(shift.job_hours_override)}
                   style={inputStyle}
@@ -557,6 +562,7 @@ export default async function EditWorkShiftPage({
                   id="hours_override"
                   name="hours_override"
                   type="number"
+                  min="0"
                   step="0.01"
                   defaultValue={formatInputNumber(shift.hours_override)}
                   style={inputStyle}
@@ -617,6 +623,7 @@ export default async function EditWorkShiftPage({
                 {t.cancel}
               </Link>
             </div>
+            </fieldset>
           </form>
         </section>
       </main>

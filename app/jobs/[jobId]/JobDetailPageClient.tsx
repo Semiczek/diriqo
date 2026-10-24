@@ -1,9 +1,11 @@
 'use client'
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
+import { useAssignmentBatch } from './useAssignmentBatch'
+import type { AssignmentWorkspace } from './assignment-recovery'
 import { supabase } from '../../../lib/supabase'
 import JobEconomicsSection from '../../../components/JobEconomicsSection'
 import JobCommunicationSection from '@/components/JobCommunicationSection'
@@ -40,16 +42,16 @@ import type {
 } from '@/lib/job-status'
 import { getShiftDateKey } from '@/lib/job-shift-activity'
 import type { MessageFeedItem } from '@/lib/email/types'
-import {
-  getAssignmentFallbackLaborCalculation,
-  getShiftLaborCalculation,
-  type LaborCalculationSource,
-} from '@/lib/labor-calculation'
+import { getRecordedAssignmentHours } from '@/lib/assignment-source-hours'
+import { approvedLaborSourceCode } from '@/lib/labor-source-navigation'
 import {
   getContractorBillingType,
   getWorkerType,
 } from '@/lib/payroll-settings'
-import { calculateQuotedJobEconomics } from '@/lib/economics'
+import { calculateQuotedJobEconomics, type JobEconomicsSummary } from '@/lib/economics'
+import { aggregateJobEconomics } from '@/lib/job-grouping'
+import LaborCostStatus from '@/components/LaborCostStatus'
+import { OFFICE_CONTEXT_EVENT, OFFICE_CONTEXT_STORAGE_KEY } from '@/lib/office/client-context'
 import detailStyles from './job-detail.module.css'
 
 type AssignmentWorkState = 'not_started' | 'working' | 'completed'
@@ -57,6 +59,7 @@ type AssignmentWorkState = 'not_started' | 'working' | 'completed'
 type Job = {
   id: string
   company_id: string | null
+  currency?: string | null
   parent_job_id?: string | null
   title: string | null
   description: string | null
@@ -223,23 +226,13 @@ type CostItemRow = {
   created_at?: string | null
 }
 
-type JobEconomicsSummaryRow = {
-  job_id: string
-  quoted_revenue_total?: number | null
-  revenue_total: number
-  labor_hours_total: number
-  internal_labor_cost_total?: number | null
-  external_labor_cost_total?: number | null
-  labor_cost_total: number
-  other_cost_total: number
-  total_cost_total: number
-  profit_total: number
-  margin_percent: number | null
-}
+type JobEconomicsSummaryRow = JobEconomicsSummary
 
 type JobDetailPageClientProps = {
   jobId: string
   referenceTime: number
+  initialActorProfileId: string | null
+  initialActorRole: string | null
   canManageJobPhotos?: boolean
   canManageCommunication?: boolean
   initialJob: Job | null
@@ -262,18 +255,6 @@ type JobDetailPageClientProps = {
   initialNotFound?: boolean
 }
 
-type DerivedHoursRow = {
-  id: string
-  profileName: string
-  hours: number
-  note: string
-  hourlyRate: number | null
-  laborCost: number
-  workStartedAt: string | null
-  workCompletedAt: string | null
-  workState: AssignmentWorkState
-  hoursSource: LaborCalculationSource
-}
 
 type NormalizedAssignment = {
   id: string
@@ -285,11 +266,7 @@ type NormalizedAssignment = {
   assignment_billing_type: string | null
   external_amount: number | null
   note: string | null
-  computed_labor_hours: number
-  computed_hourly_rate: number
-  computed_labor_cost: number
-  computed_internal_labor_cost: number
-  computed_external_labor_cost: number
+  computed_labor_hours: number | null
   work_started_at: string | null
   work_completed_at: string | null
   profiles: {
@@ -342,12 +319,13 @@ function getProfileNameForDisplay(profile: AssignmentRow['profiles'], fallback: 
   return profile.id ?? fallback
 }
 
-function formatCurrencyForLocale(value: number | null | undefined, locale: string) {
-  const safeValue = Number(value ?? 0)
+function formatCurrencyForLocale(value: number | null | undefined, locale: string, currency?: string | null) {
+  if (value == null || !Number.isFinite(value) || !currency) return '—'
+  const safeValue = value
 
   return new Intl.NumberFormat(locale, {
     style: 'currency',
-    currency: 'CZK',
+    currency,
     maximumFractionDigits: 2,
   }).format(safeValue)
 }
@@ -440,26 +418,6 @@ function getShiftWorkerNameForDisplay(shift: WorkShiftRow, fallback: string) {
   if (shift.profiles?.full_name?.trim()) return shift.profiles.full_name.trim()
   if (shift.profiles?.email?.trim()) return shift.profiles.email.trim()
   return fallback
-}
-
-function getShiftHourlyRate(shift: WorkShiftRow, assignments: AssignmentRow[]) {
-  const assignmentRate = assignments.find(
-    (assignment) =>
-      assignment.job_id === shift.job_id &&
-      assignment.profile_id === shift.profile_id &&
-      assignment.hourly_rate != null &&
-      toNumber(assignment.hourly_rate) > 0
-  )?.hourly_rate
-
-  if (assignmentRate != null && toNumber(assignmentRate) > 0) {
-    return toNumber(assignmentRate)
-  }
-
-  return toNumber(shift.profiles?.default_hourly_rate)
-}
-
-function getShiftLaborCost(shift: WorkShiftRow, assignments: AssignmentRow[]) {
-  return roundHours(getShiftHours(shift) * getShiftHourlyRate(shift, assignments))
 }
 
 function normalizeCostType(value: string | null | undefined): CostType {
@@ -726,39 +684,6 @@ function getAssignmentWorkStateStyles(
   }
 }
 
-function getEffectiveHourlyRate(assignment: AssignmentRow) {
-  const rawRate =
-    assignment.hourly_rate !== null && assignment.hourly_rate !== undefined
-      ? toNumber(assignment.hourly_rate)
-      : null
-
-  const defaultRate =
-    assignment.profiles?.default_hourly_rate !== null &&
-    assignment.profiles?.default_hourly_rate !== undefined
-      ? toNumber(assignment.profiles.default_hourly_rate)
-      : null
-
-  if (rawRate !== null && rawRate > 0) {
-    return rawRate
-  }
-
-  return defaultRate ?? 0
-}
-
-function getEffectiveHours(assignment: AssignmentRow) {
-  return getAssignmentFallbackLaborCalculation(
-    assignment,
-    toNumber(assignment.profiles?.default_hourly_rate)
-  ).hours
-}
-
-function getEffectiveHoursSource(assignment: AssignmentRow): LaborCalculationSource {
-  return getAssignmentFallbackLaborCalculation(
-    assignment,
-    toNumber(assignment.profiles?.default_hourly_rate)
-  ).source
-}
-
 function normalizeAssignmentRows(
   data: unknown[],
   profilesById = new Map<string, NonNullable<AssignmentRow['profiles']>>()
@@ -837,7 +762,7 @@ function assignmentDraftsFrom(assignments: AssignmentRow[]) {
 }
 
 export default function JobDetailPageClient(props: JobDetailPageClientProps) {
-  return <JobDetailContent key={props.jobId} {...props} />
+  return <JobDetailContent key={(props.initialJob?.company_id ?? '') + ':' + (props.initialActorProfileId ?? '') + ':' + props.jobId} {...props} />
 }
 
 function JobDetailContent({
@@ -860,6 +785,8 @@ function JobDetailContent({
   initialWorkLogs,
   initialCostItems,
   initialJobEconomicsSummary,
+  initialActorProfileId,
+  initialActorRole,
   initialCommunicationFeed,
   initialError = null,
   initialNotFound = false,
@@ -868,7 +795,12 @@ function JobDetailContent({
   const { dictionary, locale } = useI18n()
   const dateLocale = getIntlLocale(locale)
   const detailMessages = dictionary.jobs.detail
-  const formatCurrency = (value: number | null | undefined) => formatCurrencyForLocale(value, dateLocale)
+  const assignmentMessages = {
+    cs: { recordedHours: 'Hodiny v původním záznamu', reviewCost: 'Náklad tohoto záznamu zde není ověřený.', openReview: 'Otevřít výkaz', protected: 'Schválenou práci nelze přepsat ani odstranit. Ve výkazu vytvořte opravu ke schválení.' },
+    en: { recordedHours: 'Hours in the source record', reviewCost: 'This record’s cost has not been verified here.', openReview: 'Open submission', protected: 'Approved work cannot be overwritten or deleted. Create a correction in the submission for approval.' },
+    de: { recordedHours: 'Stunden im ursprünglichen Eintrag', reviewCost: 'Die Kosten dieses Eintrags sind hier nicht geprüft.', openReview: 'Arbeitsnachweis öffnen', protected: 'Freigegebene Arbeit kann nicht überschrieben oder gelöscht werden. Erstellen Sie im Nachweis eine Korrektur zur Freigabe.' },
+  }[locale]
+  const formatCurrency = (value: number | null | undefined) => formatCurrencyForLocale(value, dateLocale, initialJobEconomicsSummary?.currency ?? initialJob?.currency)
   const formatDateTime = (value: string | null) => formatDateTimeForLocale(value, dateLocale)
   const formatDate = (value: string | null) => formatDateForLocale(value, dateLocale)
   const formatHours = (value: number) => formatHoursForLocale(value, dateLocale)
@@ -931,6 +863,7 @@ function JobDetailContent({
     return detailMessages.mainStatusNotStarted
   }
 
+  const [contextInvalid, setContextInvalid] = useState(false)
   const [job, setJob] = useState<Job | null>(initialJob)
   const [jobState, setJobState] = useState<JobStateRow | null>(initialJobState)
   const [customer] = useState<Customer | null>(initialCustomer)
@@ -939,7 +872,6 @@ function JobDetailContent({
   const [jobCustomerContactsWithDetails] =
     useState<JobCustomerContact[]>(initialJobCustomerContacts)
   const [assignments, setAssignments] = useState<AssignmentRow[]>(initialAssignments)
-  const [previousAssignments, setPreviousAssignments] = useState(initialAssignments)
   const workShifts = initialWorkShifts
   const [groupParentJob] =
     useState<GroupMemberJobRow | null>(initialGroupParentJob)
@@ -947,8 +879,7 @@ function JobDetailContent({
   const [groupMemberJobStates] =
     useState<JobStateRow[]>(initialGroupMemberJobStates)
   const groupWorkShifts = initialGroupWorkShifts
-  const [groupEconomicsSummaries] =
-    useState<JobEconomicsSummaryRow[]>(initialGroupEconomicsSummaries)
+  const groupEconomicsSummaries = initialGroupEconomicsSummaries
   const [workLogs] = useState<WorkLogRow[]>(initialWorkLogs)
   const [costItems, setCostItems] = useState<CostItemRow[]>(initialCostItems)
   const [jobEconomicsSummary, setJobEconomicsSummary] =
@@ -960,6 +891,7 @@ function JobDetailContent({
   const [workerOptions, setWorkerOptions] = useState<WorkerOption[]>([])
   const [loadingWorkerOptions, setLoadingWorkerOptions] = useState(false)
   const [workerMessage, setWorkerMessage] = useState<string | null>(null)
+  const [workerReviewHref, setWorkerReviewHref] = useState<string | null>(null)
   const [workersExpanded, setWorkersExpanded] = useState(false)
   const [costItemsExpanded, setCostItemsExpanded] = useState(false)
   const [addingWorker, setAddingWorker] = useState(false)
@@ -974,17 +906,87 @@ function JobDetailContent({
     external_amount: '',
     note: '',
   })
+  const dirtyAssignmentFields = useRef(new Map<string, Set<string>>())
   const [assignmentDrafts, setAssignmentDrafts] = useState<
     Record<string, { labor_hours: string; hourly_rate: string; external_amount: string; note: string }>
   >(() => assignmentDraftsFrom(initialAssignments))
 
-  // Reconcile a new server snapshot before rendering children. Ordinary local
-  // edits keep the same source props and therefore retain their draft values.
-  if (previousAssignments !== initialAssignments) {
-    setPreviousAssignments(initialAssignments)
-    setAssignments(initialAssignments)
-    setAssignmentDrafts(assignmentDraftsFrom(initialAssignments))
+  const recoveryMessages = {
+    cs: { loading: 'Načítám aktuální přiřazení…', pending: 'Výsledek poslední změny zatím není potvrzený. Další změny jsou pozastavené, aby se zápis neprovedl dvakrát.',
+      conflict: 'Přiřazení se změnilo nebo zápis není povolený. Načtěte aktuální stav a zkontrolujte zachované úpravy před dalším uložením.',
+      unavailable: 'Aktuální přiřazení se nepodařilo ověřit. Do načtení jsou změny pozastavené.', blocked: 'Změny jsou pozastavené. Ověřte přihlášení a dostupnost úložiště prohlížeče; neodstraňujte uloženou nepotvrzenou operaci.',
+      cancel: 'Bezpečně zrušit pokus', cancelled: 'Pokus byl bezpečně zrušen. Úpravy zůstaly zachované; před uložením je zkontrolujte.', lookup: 'Ověřit výsledek', retry: 'Zopakovat původní změnu', refresh: 'Načíst aktuální stav', validation: 'Zkontrolujte hodiny, sazbu, částku a délku poznámky (nejvýše 4 000 znaků).',
+      operation: 'Nepotvrzená operace', upsert: 'Uložení přiřazení', delete: 'Odebrání přiřazení', absent: 'Potvrzení zatím nebylo nalezeno. Můžete bezpečně zopakovat stejnou změnu.' },
+    en: { loading: 'Loading current assignments…', pending: 'The last change is not confirmed yet. Further changes are paused to prevent duplicate writes.',
+      conflict: 'Assignments changed or this write is not permitted. Load the current state and review your preserved edits before saving again.',
+      unavailable: 'Current assignments could not be verified. Changes are paused until they load.', blocked: 'Changes are paused. Check your sign-in and browser storage; do not remove the saved unconfirmed operation.',
+      cancel: 'Safely cancel attempt', cancelled: 'The attempt was safely cancelled. Your edits were preserved; review them before saving.', lookup: 'Check result', retry: 'Retry original change', refresh: 'Load current state', validation: 'Check hours, rate, amount and note length (at most 4,000 characters).',
+      operation: 'Unconfirmed operation', upsert: 'Save assignment', delete: 'Remove assignment', absent: 'No receipt has been found yet. You can safely retry the same change.' },
+    de: { loading: 'Aktuelle Zuordnungen werden geladen…', pending: 'Die letzte Änderung ist noch nicht bestätigt. Weitere Änderungen sind pausiert, um doppelte Einträge zu verhindern.',
+      conflict: 'Zuordnungen wurden geändert oder der Schreibzugriff ist nicht erlaubt. Laden Sie den aktuellen Stand und prüfen Sie Ihre erhaltenen Änderungen vor dem Speichern.',
+      unavailable: 'Aktuelle Zuordnungen konnten nicht geprüft werden. Änderungen sind bis zum Laden pausiert.', blocked: 'Änderungen sind pausiert. Prüfen Sie Anmeldung und Browserspeicher; löschen Sie den gespeicherten unbestätigten Vorgang nicht.',
+      cancel: 'Versuch sicher abbrechen', cancelled: 'Der Versuch wurde sicher abgebrochen. Ihre Änderungen bleiben erhalten; prüfen Sie diese vor dem Speichern.', lookup: 'Ergebnis prüfen', retry: 'Ursprüngliche Änderung wiederholen', refresh: 'Aktuellen Stand laden', validation: 'Prüfen Sie Stunden, Satz, Betrag und die Länge der Notiz (höchstens 4.000 Zeichen).',
+      operation: 'Unbestätigter Vorgang', upsert: 'Zuordnung speichern', delete: 'Zuordnung entfernen', absent: 'Es wurde noch keine Bestätigung gefunden. Sie können dieselbe Änderung sicher wiederholen.' },
+  }[locale]
+  function workspaceRows(snapshot: AssignmentWorkspace) {
+    const profiles = new Map<string, NonNullable<AssignmentRow['profiles']>>()
+    for (const row of initialAssignments) if (row.profile_id && row.profiles) profiles.set(row.profile_id, row.profiles)
+    for (const row of workerOptions) profiles.set(row.id, row)
+    return normalizeAssignmentRows(snapshot.assignments.filter(row => row.job_id === jobId), profiles)
   }
+  function mergeDrafts(nextRows: AssignmentRow[], resetIds: string[] = []) {
+    const after = assignmentDraftsFrom(nextRows)
+    for (const id of resetIds) dirtyAssignmentFields.current.delete(id)
+    setAssignmentDrafts(current => {
+      const result = { ...current, ...after }
+      for (const [id, draft] of Object.entries(current)) {
+        if (!after[id] || resetIds.includes(id)) continue
+        for (const field of ['labor_hours', 'hourly_rate', 'external_amount', 'note'] as const) {
+          if (dirtyAssignmentFields.current.get(id)?.has(field)) result[id][field] = draft[field]
+        }
+      }
+      return result
+    })
+  }
+  const assignmentBatch = useAssignmentBatch({
+    scope: initialJob?.company_id && initialActorProfileId ? { companyId: initialJob.company_id, actorProfileId: initialActorProfileId, jobId } : null,
+    enabled: !contextInvalid && ['super_admin', 'company_admin'].includes(initialActorRole ?? ''),
+    onWorkspace(snapshot, initial) {
+      const next = workspaceRows(snapshot)
+      if (initial) { dirtyAssignmentFields.current.clear(); setAssignmentDrafts(assignmentDraftsFrom(next)) } else mergeDrafts(next)
+      setAssignments(next); syncJobStateForAssignments(next)
+    },
+    onReceipt(receipt, stored) {
+      const next = workspaceRows(receipt)
+      const changed = stored.command.kind === 'upsert' ? receipt.assignments.filter(row =>
+        stored.command.kind === 'upsert' && stored.command.assignments.some(input => input.profile_id === row.profile_id)).map(row => row.id) : []
+      mergeDrafts(next, changed); setAssignments(next); syncJobStateForAssignments(next)
+      if (stored.method === 'POST') setNewAssignment({ profile_id: '', labor_hours: '', hourly_rate: '', external_amount: '', note: '' })
+      setWorkerMessage(stored.method === 'POST' ? detailMessages.workerAdded : stored.method === 'DELETE' ? detailMessages.workerRemoved : detailMessages.workerSaved)
+      router.refresh()
+    },
+    onCancelled() { setWorkerReviewHref(null); setWorkerMessage(recoveryMessages.cancelled) },
+    onRestore(stored) {
+      setWorkersExpanded(true)
+      if (stored.command.kind === 'upsert') {
+        for (const row of stored.command.assignments) {
+          const draft = { labor_hours: row.labor_hours == null ? '' : String(row.labor_hours), hourly_rate: row.hourly_rate == null ? '' : String(row.hourly_rate),
+            external_amount: row.external_amount == null ? '' : String(row.external_amount), note: row.note ?? '' }
+          if (stored.method === 'POST') setNewAssignment({ ...draft, profile_id: row.profile_id })
+          else if (row.id) updateAssignmentDraft(row.id, draft)
+        }
+      }
+    },
+    onFailure(failure, stored) {
+      const command = stored?.command
+      const profileId = command?.kind === 'upsert' ? command.assignments[0]?.profile_id
+        : command?.kind === 'delete' ? assignments.find(row => row.id === command.assignmentId)?.profile_id : null
+      if (profileId && showProtectedAssignment(failure.status, failure.body, profileId)) return
+      setWorkerReviewHref(null)
+      setWorkerMessage(failure.code === 'validation' ? recoveryMessages.validation : recoveryMessages.conflict)
+    },
+  })
+
   if (previousEconomicsSummary !== initialJobEconomicsSummary) {
     setPreviousEconomicsSummary(initialJobEconomicsSummary)
     setJobEconomicsSummary(initialJobEconomicsSummary)
@@ -1004,27 +1006,46 @@ function JobDetailContent({
 
   useEffect(() => {
     let cancelled = false
-
+    let generation = 0
+    const invalidate = () => { if (!cancelled) setContextInvalid(true) }
+    const storage = (event: StorageEvent) => { if (event.key === OFFICE_CONTEXT_STORAGE_KEY) invalidate() }
+    async function verifyScope() {
+      const ticket = ++generation
+      try {
+        const response = await fetch('/api/active-company', { cache: 'no-store' })
+        const scope = await response.json()
+        if (!cancelled && ticket === generation && (!response.ok || scope?.companyId !== initialJob?.company_id
+          || scope?.profileId !== initialActorProfileId || scope?.role !== initialActorRole)) invalidate()
+      } catch { if (!cancelled && ticket === generation) invalidate() }
+    }
     async function loadWorkerOptions() {
       setLoadingWorkerOptions(true)
-
-      const { data } = await supabase
-        .from('profiles')
-        .select('id, full_name, email, default_hourly_rate, hourly_rate, worker_type, contractor_billing_type, contractor_default_rate')
-        .order('full_name', { ascending: true })
-
-      if (!cancelled) {
-        setWorkerOptions((data ?? []) as WorkerOption[])
-        setLoadingWorkerOptions(false)
-      }
+      try {
+        if (!initialJob?.company_id) return
+        const members = await supabase.from('company_members').select('profile_id')
+          .eq('company_id', initialJob.company_id).eq('is_active', true)
+        if (members.error) throw new Error('Members unavailable')
+        const ids = [...new Set((members.data ?? []).map(member => member.profile_id).filter(Boolean))]
+        const result = ids.length ? await supabase.from('profiles')
+          .select('id,full_name,email,worker_type,contractor_billing_type').in('id', ids).order('full_name', { ascending: true })
+          : { data: [], error: null }
+        if (result.error) throw new Error('Worker names unavailable')
+        if (!cancelled) setWorkerOptions((result.data ?? []) as WorkerOption[])
+      } catch { if (!cancelled) setWorkerOptions([]) }
+      finally { if (!cancelled) setLoadingWorkerOptions(false) }
     }
-
+    window.addEventListener(OFFICE_CONTEXT_EVENT, invalidate)
+    window.addEventListener('storage', storage)
+    window.addEventListener('focus', verifyScope)
+    void verifyScope()
     void loadWorkerOptions()
-
     return () => {
       cancelled = true
+      window.removeEventListener(OFFICE_CONTEXT_EVENT, invalidate)
+      window.removeEventListener('storage', storage)
+      window.removeEventListener('focus', verifyScope)
     }
-  }, [])
+  }, [initialJob?.company_id, initialActorProfileId, initialActorRole])
 
   const getLocalizedTimeStateLabel = (state: TimeState) => {
     if (state === 'future') return dictionary.jobs.future
@@ -1092,19 +1113,7 @@ function JobDetailContent({
         worker_type: assignment.worker_type_snapshot ?? assignment.profiles?.worker_type,
       })
       const billingType = assignment.assignment_billing_type ?? assignment.profiles?.contractor_billing_type ?? null
-      const computedLaborHours = getEffectiveHours(assignment)
-      const computedHourlyRate = getEffectiveHourlyRate(assignment)
-      const hourlyCost = roundHours(computedLaborHours * computedHourlyRate)
-      const computedExternalLaborCost =
-        workerType === 'contractor'
-          ? roundHours(
-              assignment.external_amount != null && toNumber(assignment.external_amount) > 0
-                ? toNumber(assignment.external_amount)
-                : hourlyCost
-            )
-          : 0
-      const computedInternalLaborCost = workerType === 'employee' ? hourlyCost : 0
-      const computedLaborCost = computedInternalLaborCost + computedExternalLaborCost
+      const computedLaborHours = getRecordedAssignmentHours(assignment)
 
       return {
         id: assignment.id,
@@ -1117,10 +1126,6 @@ function JobDetailContent({
         external_amount: assignment.external_amount ?? null,
         note: assignment.note ?? null,
         computed_labor_hours: computedLaborHours,
-        computed_hourly_rate: computedHourlyRate,
-        computed_labor_cost: computedLaborCost,
-        computed_internal_labor_cost: computedInternalLaborCost,
-        computed_external_labor_cost: computedExternalLaborCost,
         work_started_at: assignment.work_started_at,
         work_completed_at: assignment.work_completed_at,
         profiles: assignment.profiles
@@ -1132,68 +1137,6 @@ function JobDetailContent({
       }
     })
   }, [assignments])
-
-  const derivedHoursRows = useMemo<DerivedHoursRow[]>(() => {
-    const shiftAssignmentKeys = new Set(
-      workShifts
-        .filter((shift) => shift.job_id && shift.profile_id)
-        .map((shift) => `${shift.job_id}:${shift.profile_id}`)
-    )
-
-    const shiftRows = workShifts.map((shift) => {
-      const hourlyRate = getShiftHourlyRate(shift, assignments)
-      const calculation = getShiftLaborCalculation(shift, hourlyRate)
-
-      return {
-        id: shift.id,
-        profileName: getShiftWorkerName(shift),
-        hours: calculation.hours,
-        note: shift.note ?? '',
-        hourlyRate: calculation.hourlyRate,
-        laborCost: calculation.reward,
-        workStartedAt: shift.started_at,
-        workCompletedAt: shift.ended_at,
-        workState: shift.ended_at ? 'completed' as const : 'working' as const,
-        hoursSource: calculation.source,
-      }
-    })
-
-    const fallbackRows = assignments
-      .filter(
-        (assignment) =>
-          !assignment.job_id ||
-          !assignment.profile_id ||
-          !shiftAssignmentKeys.has(`${assignment.job_id}:${assignment.profile_id}`)
-      )
-      .map((assignment) => {
-      const normalizedAssignment = normalizedAssignments.find((item) => item.id === assignment.id)
-      const workState = getAssignmentWorkState(assignment, {
-        effectiveHours: normalizedAssignment?.computed_labor_hours ?? 0,
-        jobWorkState: resolvedWorkState,
-      })
-
-      return {
-        id: assignment.id,
-        profileName: getProfileName(assignment.profiles),
-        hours: normalizedAssignment?.computed_labor_hours ?? 0,
-        note: assignment.note ?? '',
-        hourlyRate: normalizedAssignment?.computed_hourly_rate ?? 0,
-        laborCost: normalizedAssignment?.computed_labor_cost ?? 0,
-        workStartedAt:
-          getEffectiveHoursSource(assignment) === 'assignment_fallback'
-            ? assignment.work_started_at
-            : null,
-        workCompletedAt:
-          getEffectiveHoursSource(assignment) === 'assignment_fallback'
-            ? assignment.work_completed_at
-            : null,
-        workState,
-        hoursSource: getEffectiveHoursSource(assignment),
-      }
-    })
-
-    return [...shiftRows, ...fallbackRows]
-  }, [assignments, getProfileName, getShiftWorkerName, normalizedAssignments, resolvedWorkState, workShifts])
 
   const selectedWorkerOption = useMemo(() => {
     return workerOptions.find((worker) => worker.id === newAssignment.profile_id) ?? null
@@ -1315,50 +1258,18 @@ function JobDetailContent({
   }, [groupMemberJobs, groupedJobsForDisplay, job?.id])
 
   const groupedEconomicsSummary = useMemo(() => {
-    const quotedRevenue = groupEconomicsSummaries.reduce(
-      (sum, item) => sum + toNumber(item.quoted_revenue_total),
-      0
-    )
-    const laborCost = groupEconomicsSummaries.reduce(
-      (sum, item) => sum + toNumber(item.labor_cost_total),
-      0
-    )
-    const otherCosts = groupEconomicsSummaries.reduce(
-      (sum, item) => sum + toNumber(item.other_cost_total),
-      0
-    )
-    const quotedEconomics = calculateQuotedJobEconomics({
-      quotedRevenue,
-      laborCost,
-      otherCost: otherCosts,
+    const currency = jobEconomicsSummary?.currency ?? job?.currency
+    const summary = currency ? aggregateJobEconomics(groupEconomicsSummaries, groupMemberJobs.map(member => member.id), currency) : null
+    const quoted = calculateQuotedJobEconomics({
+      quotedRevenue: summary?.quoted_revenue_total, laborCost: summary?.labor_cost_total,
+      otherCost: summary?.other_cost_total, completeness: summary?.labor_completeness ?? 'incomplete',
     })
+    return { summary, totalHours: summary?.labor_hours_total ?? null, laborCost: summary?.labor_cost_total ?? null,
+      otherCosts: summary?.other_cost_total ?? null, totalCosts: quoted.totalCost, revenue: summary?.revenue_total ?? null, profit: quoted.profit }
+  }, [groupEconomicsSummaries, groupMemberJobs, jobEconomicsSummary?.currency, job?.currency])
 
-    return {
-      totalHours: roundHours(
-        groupEconomicsSummaries.reduce((sum, item) => sum + toNumber(item.labor_hours_total), 0)
-      ),
-      laborCost,
-      otherCosts,
-      totalCosts: quotedEconomics.totalCost,
-      revenue: groupEconomicsSummaries.reduce(
-        (sum, item) => sum + toNumber(item.revenue_total),
-        0
-      ),
-      profit: quotedEconomics.profit,
-    }
-  }, [groupEconomicsSummaries])
-
-  const totalHours = useMemo(() => {
-    return roundHours(toNumber(jobEconomicsSummary?.labor_hours_total))
-  }, [jobEconomicsSummary])
-
-  const laborCost = useMemo(() => {
-    return toNumber(jobEconomicsSummary?.internal_labor_cost_total ?? jobEconomicsSummary?.labor_cost_total)
-  }, [jobEconomicsSummary])
-
-  const otherCosts = useMemo(() => {
-    return toNumber(jobEconomicsSummary?.other_cost_total)
-  }, [jobEconomicsSummary])
+  const laborCost = jobEconomicsSummary?.internal_labor_cost_total ?? null
+  const otherCosts = jobEconomicsSummary?.other_cost_total ?? null
 
   const normalizedCostItems = useMemo<NormalizedCostItem[]>(() => {
     return costItems.map((item) => ({
@@ -1394,21 +1305,14 @@ function JobDetailContent({
   }, [costItems])
 
   const assignmentTotalHours = useMemo(() => {
+    if (normalizedAssignments.some(assignment => assignment.computed_labor_hours === null)) return null
     return roundHours(
-      normalizedAssignments.reduce((sum, assignment) => sum + assignment.computed_labor_hours, 0)
+      normalizedAssignments.reduce((sum, assignment) => sum + (assignment.computed_labor_hours ?? 0), 0)
     )
   }, [normalizedAssignments])
 
-  const assignmentLaborCost = useMemo(() => {
-    return normalizedAssignments.reduce(
-      (sum, assignment) => sum + assignment.computed_internal_labor_cost,
-      0
-    )
-  }, [normalizedAssignments])
-
-  const externalLaborCost = useMemo(() => {
-    return toNumber(jobEconomicsSummary?.external_labor_cost_total)
-  }, [jobEconomicsSummary])
+  const assignmentLaborCost = jobEconomicsSummary?.internal_labor_cost_total ?? null
+  const externalLaborCost = jobEconomicsSummary?.external_labor_cost_total ?? null
 
   const assignedWorkerNames = useMemo(() => {
     return normalizedAssignments
@@ -1428,16 +1332,17 @@ function JobDetailContent({
   }, [normalizedCostItems])
 
   const accountingRevenue = useMemo(() => {
-    return toNumber(jobEconomicsSummary?.revenue_total)
+    return jobEconomicsSummary?.revenue_total ?? null
   }, [jobEconomicsSummary])
 
   const assignmentProfit = useMemo(() => {
     return calculateQuotedJobEconomics({
       quotedRevenue: job?.price,
       laborCost,
-      otherCost: externalLaborCost + otherCosts,
+      otherCost: externalLaborCost === null || otherCosts === null ? null : externalLaborCost + otherCosts,
+      completeness: jobEconomicsSummary?.labor_completeness ?? 'incomplete',
     }).profit
-  }, [externalLaborCost, job?.price, laborCost, otherCosts])
+  }, [externalLaborCost, job?.price, laborCost, otherCosts, jobEconomicsSummary?.labor_completeness])
 
   const visibleBillingState = useMemo(() => {
     return getVisibleBillingState(resolvedWorkState, resolvedBillingState)
@@ -1476,7 +1381,7 @@ function JobDetailContent({
 
   function parseMoneyInput(value: string) {
     const normalized = value.replace(',', '.').trim()
-    if (!normalized) return 0
+    if (!normalized) return Number.NaN
     const parsed = Number(normalized)
     return Number.isFinite(parsed) ? parsed : Number.NaN
   }
@@ -1485,6 +1390,9 @@ function JobDetailContent({
     assignmentId: string,
     patch: Partial<{ labor_hours: string; hourly_rate: string; external_amount: string; note: string }>
   ) {
+    const dirty = dirtyAssignmentFields.current.get(assignmentId) ?? new Set<string>()
+    for (const field of Object.keys(patch)) dirty.add(field)
+    dirtyAssignmentFields.current.set(assignmentId, dirty)
     setAssignmentDrafts((current) => ({
       ...current,
       [assignmentId]: {
@@ -1518,8 +1426,41 @@ function JobDetailContent({
     )
   }
 
+  function showProtectedAssignment(status: number, body: unknown, profileId: string) {
+    if (status !== 409 || !body || typeof body !== 'object'
+      || !('code' in body) || body.code !== approvedLaborSourceCode) return false
+    const companyId = job?.company_id
+    const actorProfileId = initialActorProfileId
+    if (!companyId || !actorProfileId) {
+      setWorkerReviewHref(null)
+      setWorkerMessage(assignmentMessages.protected)
+      return true
+    }
+    // Build the minimum safe fallback from this page's server-authorized scope.
+    const fallback = `/labor?${new URLSearchParams({ company: companyId, actor: actorProfileId, worker: profileId })}`
+    let href = fallback
+    if ('reviewHref' in body && typeof body.reviewHref === 'string') {
+      try {
+        const url = new URL(body.reviewHref, 'https://diriqo.invalid')
+        const entries = [...url.searchParams]
+        if (url.origin === 'https://diriqo.invalid' && url.pathname === '/labor' && !url.hash
+          && new Set(entries.map(([key]) => key)).size === entries.length
+          && entries.every(([key]) => ['company', 'actor', 'worker', 'job', 'sourceKind', 'source'].includes(key))
+          && url.searchParams.get('company') === job?.company_id
+          && url.searchParams.get('actor') === initialActorProfileId
+          && url.searchParams.get('worker') === profileId
+          && (!url.searchParams.has('job') || url.searchParams.get('job') === job?.id)) {
+          href = `${url.pathname}${url.search}`
+        }
+      } catch { /* A malformed target must not replace the safe scoped fallback. */ }
+    }
+    setWorkerReviewHref(href)
+    setWorkerMessage(assignmentMessages.protected)
+    return true
+  }
+
   async function addJobAssignment() {
-    if (!job?.id) return
+    if (!job?.id || assignmentBatch.locked) return
 
     const profileId = newAssignment.profile_id.trim()
     if (!profileId) {
@@ -1541,7 +1482,7 @@ function JobDetailContent({
         ? getContractorBillingType(selectedWorkerOption?.contractor_billing_type)
         : null
 
-    if (workerType === 'employee' && (!Number.isFinite(laborHours) || laborHours < 0)) {
+    if ((workerType === 'employee' || billingType === 'hourly') && (!Number.isFinite(laborHours) || laborHours < 0)) {
       setWorkerMessage(detailMessages.validHoursRequired)
       return
     }
@@ -1563,98 +1504,24 @@ function JobDetailContent({
       return
     }
 
+    setWorkerReviewHref(null)
     setAddingWorker(true)
     setWorkerMessage(detailMessages.addingWorker)
 
     try {
-      const response = await fetch(`/api/jobs/${job.id}/assignments`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          profile_id: profileId,
-          labor_hours: Math.round(laborHours * 100) / 100,
-          hourly_rate: Math.round(hourlyRate * 100) / 100,
-          worker_type_snapshot: workerType,
-          assignment_billing_type: billingType,
-          external_amount:
-            workerType === 'contractor' && billingType !== 'hourly'
-              ? Math.round(externalAmount * 100) / 100
-              : null,
-          note: newAssignment.note.trim() || null,
-        }),
+      await assignmentBatch.execute('POST', {
+        profile_id: profileId,
+        labor_hours: Number.isFinite(laborHours) ? Math.round(laborHours * 100) / 100 : undefined,
+        hourly_rate: Number.isFinite(hourlyRate) ? Math.round(hourlyRate * 100) / 100 : undefined,
+        worker_type_snapshot: workerType, assignment_billing_type: billingType,
+        external_amount: workerType === 'contractor' && billingType !== 'hourly' ? Math.round(externalAmount * 100) / 100 : null,
+        note: newAssignment.note.trim() || null,
       })
-
-      if (!response.ok) {
-        const body = (await response.json().catch(() => null)) as { error?: string } | null
-        throw new Error(body?.error || detailMessages.addWorkerFailed)
-      }
-
-      const body = (await response.json().catch(() => null)) as {
-        assignment?: Partial<AssignmentRow> | null
-      } | null
-      const selectedProfile = workerOptions.find((worker) => worker.id === profileId) ?? null
-      const savedAssignment = body?.assignment ?? null
-      const temporaryId = savedAssignment?.id ?? `temp-${profileId}-${Date.now()}`
-      const nextAssignment: AssignmentRow = {
-        id: temporaryId,
-        job_id: savedAssignment?.job_id ?? job.id,
-        profile_id: savedAssignment?.profile_id ?? profileId,
-        labor_hours:
-          savedAssignment?.labor_hours != null
-            ? Number(savedAssignment.labor_hours)
-            : Math.round(laborHours * 100) / 100,
-        hourly_rate:
-          savedAssignment?.hourly_rate != null
-            ? Number(savedAssignment.hourly_rate)
-            : Math.round(hourlyRate * 100) / 100,
-        worker_type_snapshot: savedAssignment?.worker_type_snapshot ?? workerType,
-        assignment_billing_type: savedAssignment?.assignment_billing_type ?? billingType,
-        external_amount:
-          savedAssignment?.external_amount != null
-            ? Number(savedAssignment.external_amount)
-            : workerType === 'contractor' && billingType !== 'hourly'
-              ? Math.round(externalAmount * 100) / 100
-              : null,
-        note: savedAssignment?.note ?? (newAssignment.note.trim() || null),
-        work_started_at: savedAssignment?.work_started_at ?? null,
-        work_completed_at: savedAssignment?.work_completed_at ?? null,
-        profiles: selectedProfile
-          ? {
-              id: selectedProfile.id,
-              full_name: selectedProfile.full_name,
-              email: selectedProfile.email ?? null,
-              default_hourly_rate: selectedProfile.default_hourly_rate ?? selectedProfile.hourly_rate ?? null,
-              worker_type: selectedProfile.worker_type ?? null,
-              contractor_billing_type: selectedProfile.contractor_billing_type ?? null,
-              contractor_default_rate: selectedProfile.contractor_default_rate ?? null,
-            }
-          : null,
-      }
-
-      const nextAssignments = [...assignments, nextAssignment]
-      setAssignments(nextAssignments)
-      syncJobStateForAssignments(nextAssignments)
-      setAssignmentDrafts((current) => ({
-        ...current,
-        [temporaryId]: {
-          labor_hours: String(nextAssignment.labor_hours ?? ''),
-          hourly_rate: String(nextAssignment.hourly_rate ?? ''),
-          external_amount: String(nextAssignment.external_amount ?? ''),
-          note: nextAssignment.note ?? '',
-        },
-      }))
-      setNewAssignment({ profile_id: '', labor_hours: '', hourly_rate: '', external_amount: '', note: '' })
-      setWorkerMessage(detailMessages.workerAdded)
-      router.refresh()
-    } catch (saveError) {
-      setWorkerMessage(saveError instanceof Error ? saveError.message : detailMessages.addWorkerFailed)
-    } finally {
-      setAddingWorker(false)
-    }
+    } finally { setAddingWorker(false) }
   }
 
   async function saveJobAssignment(assignment: NormalizedAssignment) {
-    if (!job?.id) return
+    if (!job?.id || assignmentBatch.locked) return
 
     const draft = assignmentDrafts[assignment.id] ?? {
       labor_hours: String(assignment.labor_hours ?? ''),
@@ -1670,7 +1537,7 @@ function JobDetailContent({
       ? getContractorBillingType(assignment.assignment_billing_type)
       : null
 
-    if (assignment.worker_type === 'employee' && (!Number.isFinite(laborHours) || laborHours < 0)) {
+    if ((assignment.worker_type === 'employee' || billingType === 'hourly') && (!Number.isFinite(laborHours) || laborHours < 0)) {
       setWorkerMessage(detailMessages.validHoursRequired)
       return
     }
@@ -1692,100 +1559,33 @@ function JobDetailContent({
       return
     }
 
+    setWorkerReviewHref(null)
     setSavingAssignmentId(assignment.id)
     setWorkerMessage(detailMessages.savingWorker)
 
     try {
-      const response = await fetch(`/api/jobs/${job.id}/assignments`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          assignments: [
-            {
-              id: assignment.id,
-              profile_id: assignment.profile_id,
-              labor_hours: Math.round(laborHours * 100) / 100,
-              hourly_rate: Math.round(hourlyRate * 100) / 100,
-              worker_type_snapshot: assignment.worker_type,
-              assignment_billing_type: billingType,
-              external_amount:
-                assignment.worker_type === 'contractor' && billingType !== 'hourly'
-                  ? Math.round(externalAmount * 100) / 100
-                  : null,
-              note: draft.note.trim() || null,
-            },
-          ],
-        }),
-      })
-
-      if (!response.ok) {
-        const body = (await response.json().catch(() => null)) as { error?: string } | null
-        throw new Error(body?.error || detailMessages.saveWorkerFailed)
-      }
-
-      const nextAssignments = assignments.map((item) =>
-          item.id === assignment.id
-            ? {
-                ...item,
-                labor_hours: Math.round(laborHours * 100) / 100,
-                hourly_rate: Math.round(hourlyRate * 100) / 100,
-                worker_type_snapshot: assignment.worker_type,
-                assignment_billing_type: billingType,
-                external_amount:
-                  assignment.worker_type === 'contractor' && billingType !== 'hourly'
-                    ? Math.round(externalAmount * 100) / 100
-                    : null,
-                note: draft.note.trim() || null,
-              }
-            : item
-      )
-      setAssignments(nextAssignments)
-      syncJobStateForAssignments(nextAssignments)
-      setWorkerMessage(detailMessages.workerSaved)
-      router.refresh()
-    } catch (saveError) {
-      setWorkerMessage(saveError instanceof Error ? saveError.message : detailMessages.saveWorkerFailed)
-    } finally {
-      setSavingAssignmentId(null)
-    }
+      await assignmentBatch.execute('PUT', { assignments: [{ id: assignment.id, profile_id: assignment.profile_id,
+        labor_hours: Number.isFinite(laborHours) ? Math.round(laborHours * 100) / 100 : undefined,
+        hourly_rate: Number.isFinite(hourlyRate) ? Math.round(hourlyRate * 100) / 100 : undefined,
+        worker_type_snapshot: assignment.worker_type, assignment_billing_type: billingType,
+        external_amount: assignment.worker_type === 'contractor' && billingType !== 'hourly' ? Math.round(externalAmount * 100) / 100 : null,
+        note: draft.note.trim() || null,
+      }] })
+    } finally { setSavingAssignmentId(null) }
   }
 
   async function removeJobAssignment(assignment: NormalizedAssignment) {
-    if (!job?.id) return
+    if (!job?.id || assignmentBatch.locked) return
 
     const confirmed = window.confirm(detailMessages.removeWorkerConfirm)
     if (!confirmed) return
 
+    setWorkerReviewHref(null)
     setRemovingAssignmentId(assignment.id)
     setWorkerMessage(detailMessages.removingWorker)
 
-    try {
-      const response = await fetch(`/api/jobs/${job.id}/assignments`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ assignmentId: assignment.id }),
-      })
-
-      if (!response.ok) {
-        const body = (await response.json().catch(() => null)) as { error?: string } | null
-        throw new Error(body?.error || detailMessages.removeWorkerFailed)
-      }
-
-      const nextAssignments = assignments.filter((item) => item.id !== assignment.id)
-      setAssignments(nextAssignments)
-      syncJobStateForAssignments(nextAssignments)
-      setAssignmentDrafts((current) => {
-        const next = { ...current }
-        delete next[assignment.id]
-        return next
-      })
-      setWorkerMessage(detailMessages.workerRemoved)
-      router.refresh()
-    } catch (saveError) {
-      setWorkerMessage(saveError instanceof Error ? saveError.message : detailMessages.removeWorkerFailed)
-    } finally {
-      setRemovingAssignmentId(null)
-    }
+    try { await assignmentBatch.execute('DELETE', { assignmentId: assignment.id }) }
+    finally { setRemovingAssignmentId(null) }
   }
 
   async function markJobAsDone() {
@@ -1843,6 +1643,12 @@ function JobDetailContent({
     } finally {
       setMarkingJobDone(false)
     }
+  }
+
+  if (contextInvalid) {
+    return <DashboardShell><p role="alert">{locale === 'cs' ? 'Firma, účet nebo oprávnění se změnily. Obnovte stránku.' :
+      locale === 'de' ? 'Firma, Konto oder Berechtigungen haben sich geändert. Laden Sie die Seite neu.' :
+        'Company, account or permissions changed. Reload this page.'}</p></DashboardShell>
   }
 
   if (!job && !notFound) {
@@ -1937,6 +1743,7 @@ function JobDetailContent({
           <span>{locale === 'cs' ? 'Finanční přehled' : locale === 'de' ? 'Finanzübersicht' : 'Financial overview'}</span>
           <span className={detailStyles.financePrice}>{detailMessages.jobPrice}: {formatCurrency(job.price)}</span>
         </summary>
+        <LaborCostStatus summary={jobEconomicsSummary} locale={locale} />
         <div className={detailStyles.financeGrid}>
         <FinanceSummaryCard label={detailMessages.accountingRevenue} value={formatCurrency(accountingRevenue)} tone="blue" />
         <FinanceSummaryCard label={detailMessages.jobPrice} value={formatCurrency(job.price)} tone="gray" />
@@ -1946,7 +1753,7 @@ function JobDetailContent({
         <FinanceSummaryCard
           label={dictionary.jobs.profit}
           value={formatCurrency(assignmentProfit)}
-          tone={assignmentProfit >= 0 ? 'green' : 'red'}
+          tone={assignmentProfit === null ? 'gray' : assignmentProfit >= 0 ? 'green' : 'red'}
         />
         </div>
       </details>
@@ -2052,6 +1859,7 @@ function JobDetailContent({
             }}
           >
             <h2 style={{ ...cardTitleStyle, margin: 0, fontSize: '20px' }}>{detailMessages.groupCostSummary}</h2>
+            <LaborCostStatus summary={groupedEconomicsSummary.summary} locale={locale} />
           </div>
 
           <div
@@ -2064,7 +1872,7 @@ function JobDetailContent({
             <div style={{ border: '1px solid #e5e7eb', borderRadius: '12px', padding: '14px' }}>
               <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>{detailMessages.groupHours}</div>
               <div style={{ fontWeight: 700, fontSize: '24px', color: '#111827' }}>
-                {formatHours(groupedEconomicsSummary.totalHours)} h
+                {groupedEconomicsSummary.totalHours === null ? '—' : formatHours(groupedEconomicsSummary.totalHours) + ' h'}
               </div>
             </div>
 
@@ -2102,7 +1910,7 @@ function JobDetailContent({
                 style={{
                   fontWeight: 700,
                   fontSize: '24px',
-                  color: groupedEconomicsSummary.profit >= 0 ? '#166534' : '#991b1b',
+                  color: groupedEconomicsSummary.profit === null ? '#64748b' : groupedEconomicsSummary.profit >= 0 ? '#166534' : '#991b1b',
                 }}
               >
                 {formatCurrency(groupedEconomicsSummary.profit)}
@@ -2457,7 +2265,19 @@ function JobDetailContent({
 
         {workersExpanded ? (
         <>
-        {workerMessage ? (
+        {assignmentBatch.phase !== 'ready' ? (
+          <div role="status" style={{ marginBottom: 14, padding: 14, borderRadius: 12, background: '#f5f3ff', border: '1px solid #ddd6fe', color: '#4c1d95' }}>
+            <p style={{ margin: '0 0 10px' }}>{recoveryMessages[assignmentBatch.phase]}</p>
+            {assignmentBatch.pending ? <>
+              <p>{recoveryMessages.operation}: {recoveryMessages[assignmentBatch.pending.command.kind]}</p>
+              {assignmentBatch.canRetry ? <p>{recoveryMessages.absent}</p> : null}
+              <button type="button" disabled={assignmentBatch.busy} onClick={() => void assignmentBatch.lookup()} style={secondaryButtonStyle}>{recoveryMessages.lookup}</button>{' '}
+              {assignmentBatch.canRetry ? <button type="button" disabled={assignmentBatch.busy} onClick={() => void assignmentBatch.retry()} style={secondaryButtonStyle}>{recoveryMessages.retry}</button> : null}
+              {' '}<button type="button" disabled={assignmentBatch.busy} onClick={() => void assignmentBatch.cancel()} style={secondaryButtonStyle}>{recoveryMessages.cancel}</button>
+            </> : ['conflict', 'unavailable'].includes(assignmentBatch.phase) ? <button type="button" disabled={assignmentBatch.busy} onClick={() => void assignmentBatch.refresh()} style={secondaryButtonStyle}>{recoveryMessages.refresh}</button> : null}
+          </div>
+        ) : null}
+        {workerMessage && !['pending', 'blocked'].includes(assignmentBatch.phase) ? (
           <div
             style={{
               marginBottom: '14px',
@@ -2471,9 +2291,11 @@ function JobDetailContent({
             }}
           >
             {workerMessage}
+            {workerReviewHref ? <>{' '}<Link href={workerReviewHref}>{assignmentMessages.openReview}</Link></> : null}
           </div>
         ) : null}
 
+        <fieldset disabled={assignmentBatch.locked} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
         <div
           style={{
             display: 'grid',
@@ -2605,7 +2427,7 @@ function JobDetailContent({
         <button
           type="button"
           onClick={addJobAssignment}
-          disabled={addingWorker}
+          disabled={assignmentBatch.locked || addingWorker}
           style={{
             ...primaryButtonStyle,
             opacity: addingWorker ? 0.7 : 1,
@@ -2623,10 +2445,8 @@ function JobDetailContent({
             fontWeight: 700,
           }}
         >
-          {formatTemplate(detailMessages.assignmentSummary, {
-            hours: formatHours(assignmentTotalHours),
-            cost: formatCurrency(assignmentLaborCost),
-          })}
+          {assignmentMessages.recordedHours}: {assignmentTotalHours === null ? '—' : `${formatHours(assignmentTotalHours)} h`}
+          {' · '}{detailMessages.internalLabor}: {formatCurrency(assignmentLaborCost)}
         </div>
 
         {detailsLoading ? (
@@ -2653,20 +2473,9 @@ function JobDetailContent({
                 external_amount: assignment.external_amount != null ? String(assignment.external_amount) : '',
                 note: assignment.note ?? '',
               }
-              const previewHours = parseMoneyInput(draft.labor_hours)
-              const previewRate = parseMoneyInput(draft.hourly_rate)
-              const previewExternal = parseMoneyInput(draft.external_amount)
               const billingType = assignment.worker_type === 'contractor'
                 ? getContractorBillingType(assignment.assignment_billing_type)
                 : null
-              const previewCost =
-                assignment.worker_type === 'contractor' && billingType !== 'hourly'
-                  ? Number.isFinite(previewExternal)
-                    ? previewExternal
-                    : assignment.computed_external_labor_cost
-                : Number.isFinite(previewHours) && Number.isFinite(previewRate)
-                  ? previewHours * previewRate
-                  : assignment.computed_labor_cost
 
               return (
               <div
@@ -2693,15 +2502,16 @@ function JobDetailContent({
                     </div>
                     <div style={{ color: '#6b7280', fontSize: '14px' }}>
                       {assignment.worker_type === 'contractor'
-                        ? `${detailMessages.contractorWorker} · ${getContractorBillingTypeLabel(assignment.assignment_billing_type)} · ${formatCurrency(assignment.computed_external_labor_cost)}`
-                        : `${formatHours(assignment.computed_labor_hours)} h × ${formatCurrency(assignment.computed_hourly_rate)} = ${formatCurrency(assignment.computed_internal_labor_cost)}`}
+                        ? `${detailMessages.contractorWorker} · ${getContractorBillingTypeLabel(assignment.assignment_billing_type)} · `
+                        : ''}
+                      {assignmentMessages.recordedHours}: {assignment.computed_labor_hours === null ? '—' : `${formatHours(assignment.computed_labor_hours)} h`}
                     </div>
                   </div>
 
                   <button
                     type="button"
                     onClick={() => removeJobAssignment(assignment)}
-                    disabled={removingAssignmentId === assignment.id}
+                    disabled={assignmentBatch.locked || removingAssignmentId === assignment.id}
                     style={{
                       padding: '8px 12px',
                       borderRadius: '10px',
@@ -2759,7 +2569,7 @@ function JobDetailContent({
                   <button
                     type="button"
                     onClick={() => saveJobAssignment(assignment)}
-                    disabled={savingAssignmentId === assignment.id}
+                    disabled={assignmentBatch.locked || savingAssignmentId === assignment.id}
                     style={{
                       ...secondaryButtonStyle,
                       justifyContent: 'center',
@@ -2770,8 +2580,9 @@ function JobDetailContent({
                   </button>
                 </div>
 
-                <div style={{ marginTop: '10px', color: '#374151', fontSize: '14px', fontWeight: 700 }}>
-                  {formatTemplate(detailMessages.costAfterEdit, { cost: formatCurrency(previewCost) })}
+                <div style={{ marginTop: '10px', color: '#6b7280', fontSize: '14px' }}>
+                  {assignmentMessages.reviewCost}{' '}
+                  <Link href={`/labor?job=${encodeURIComponent(job.id)}&worker=${encodeURIComponent(assignment.profile_id)}`}>{assignmentMessages.openReview}</Link>
                 </div>
               </div>
             )})}
@@ -2799,6 +2610,7 @@ function JobDetailContent({
             </div>
           </div>
         )}
+        </fieldset>
         </>
         ) : null}
       </div>
@@ -2819,6 +2631,7 @@ function JobDetailContent({
             externalLaborCost={externalLaborCost}
             otherCosts={otherCosts}
             profit={assignmentProfit}
+            summary={jobEconomicsSummary}
             onPriceSaved={handlePriceSaved}
             onCostItemAdded={handleCostItemAdded}
             onCostItemDeleted={handleCostItemDeleted}

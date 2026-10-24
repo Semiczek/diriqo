@@ -782,6 +782,8 @@ export const csDictionary: TranslationDictionary = {
       edit: 'Upravit',
       unpaid: 'Nezaplaceno',
       saveFailed: 'Uložení selhalo.',
+      approvedAssignmentSource: 'Schválenou práci nelze přepsat ani odstranit. Ve výkazu vytvořte opravu ke schválení.',
+      openAssignmentReview: 'Otevřít výkaz a připravit opravu',
       missingAssignmentIds: 'Chybí job_id nebo profile_id.',
       hoursValidation: 'Hodiny musí být platné číslo 0 nebo více.',
       rateValidation: 'Sazba musí být platné číslo 0 nebo více.',
@@ -1440,6 +1442,14 @@ export const csDictionary: TranslationDictionary = {
     cancel: 'Zrušit',
   },
   workShiftEdit: {
+    invalidHours: 'Ruční přepis hodin musí být platné číslo 0 nebo více.',
+    invalidTimeOrder: 'Konec směny nesmí být dříve než její začátek.',
+
+    approvedSource: 'Tato směna je součástí schváleného výkazu. Původní záznam zůstává zachovaný; změnu hodin vytvořte jako opravu výkazu a odešlete ji ke schválení.',
+    openReview: 'Otevřít výkaz a připravit opravu',
+    reviewUnavailable: 'Stav schválení se nepodařilo ověřit. Obnovte stránku; do té doby nelze směnu upravit.',
+    scopeChanged: 'Změnila se firma nebo přihlášený účet. Otevřete směnu znovu ve správné firmě.',
+
     missingId: 'Chybí ID směny.',
     updateFailed: 'Uložení změn se nepovedlo.',
     invalidDate: 'Datum nebo čas mají neplatný formát.',

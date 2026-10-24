@@ -1,7 +1,7 @@
 {
-  "scope": "Host development dependencies reviewed for jsdom 27.4.0 React lifecycle tests on 2026-10-24; separate from the unchanged Office-only license audit.",
-  "reviewFile": "vendor/host-dependency-review-20261024.json",
-  "reviewSha256": "82a917be25bf4f0eb0e40e9ba77a2a9d68e38fa78fc7ffc9df98cf010bfd1263",
-  "declarationHash": "3783499bdec5d5e0206f70d1b60740851dceaf2eb2bf5d4fd70a9a7213f400ce",
-  "lockPackagesHash": "160a33e3cf1d5550218f4c3eb2b73aad7c8b99ccc3740ccbc596f5117e2e5a37"
+  "scope": "Host development dependencies reviewed for pinned PGlite 0.5.9 SQL regression tests on 2026-10-24; chains the prior jsdom review and preserves the independent Office-only audit.",
+  "reviewFile": "vendor/labor-test-runtime-review-20261024.json",
+  "reviewSha256": "384c777ca249327b992f65e4efe59815be83757a81bd465b0332ae0d4cd0c46e",
+  "declarationHash": "72768d89c121bb57c81e33cf0a22d95fc3379a2cd28bcee163cab451b337f4a2",
+  "lockPackagesHash": "eec351db9a721f1c1ab3b37122b499d8d33f2621a02dc9c8b6f4714519cf3df7"
 }

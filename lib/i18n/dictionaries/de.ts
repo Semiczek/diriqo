@@ -784,6 +784,8 @@ export const deDictionary: TranslationDictionary = {
       edit: 'Bearbeiten',
       unpaid: 'Unbezahlt',
       saveFailed: 'Speichern fehlgeschlagen.',
+      approvedAssignmentSource: 'Genehmigte Arbeit kann nicht überschrieben oder entfernt werden. Erstellen Sie eine Korrektur des Arbeitsnachweises und reichen Sie diese zur Genehmigung ein.',
+      openAssignmentReview: 'Arbeitsnachweis öffnen und Korrektur vorbereiten',
       missingAssignmentIds: 'job_id oder profile_id fehlt.',
       hoursValidation: 'Stunden müssen eine gültige Zahl ab 0 sein.',
       rateValidation: 'Satz muss eine gültige Zahl ab 0 sein.',
@@ -1443,6 +1445,14 @@ export const deDictionary: TranslationDictionary = {
     cancel: 'Abbrechen',
   },
   workShiftEdit: {
+    invalidHours: 'Die manuell eingegebene Stundenzahl muss eine gültige Zahl von 0 oder mehr sein.',
+    invalidTimeOrder: 'Das Schichtende darf nicht vor dem Schichtbeginn liegen.',
+
+    approvedSource: 'Diese Schicht gehört zu einem genehmigten Arbeitsnachweis. Der ursprüngliche Eintrag bleibt erhalten. Erstellen Sie zur Änderung der Stunden eine Korrektur und reichen Sie diese zur Genehmigung ein.',
+    openReview: 'Arbeitsnachweis öffnen und Korrektur vorbereiten',
+    reviewUnavailable: 'Der Genehmigungsstatus konnte nicht geprüft werden. Laden Sie die Seite vor der Bearbeitung neu.',
+    scopeChanged: 'Das Unternehmen oder das angemeldete Konto hat sich geändert. Öffnen Sie die Schicht im richtigen Unternehmen erneut.',
+
     missingId: 'Schicht-ID fehlt.',
     updateFailed: 'Speichern der Änderungen ist fehlgeschlagen.',
     invalidDate: 'Datum oder Uhrzeit haben ein ungültiges Format.',

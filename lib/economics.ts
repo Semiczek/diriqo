@@ -1,3 +1,5 @@
+export type LaborCompleteness = 'complete' | 'provisional' | 'incomplete'
+
 export type JobEconomicsSummary = {
   job_id: string
   company_id?: string | null
@@ -6,11 +8,21 @@ export type JobEconomicsSummary = {
   labor_hours_total: number
   internal_labor_cost_total: number
   external_labor_cost_total: number
-  labor_cost_total: number
+  labor_cost_total: number | null
   other_cost_total: number
-  total_cost_total: number
-  profit_total: number
+  total_cost_total: number | null
+  profit_total: number | null
   margin_percent: number | null
+  currency: string
+  labor_completeness: LaborCompleteness
+  labor_cost_reasons: string[]
+  missing_rate_hours: number
+  unapproved_labor_hours: number
+  legacy_unverified_labor_count: number
+  unconverted_labor_costs: { currency: string; amount: string }[]
+  provisional_labor_cost_total: number
+  known_labor_cost_total: number
+  known_cost_total: number
 }
 
 export function toEconomicsNumber(value: number | string | null | undefined) {
@@ -52,12 +64,16 @@ export function calculateQuotedJobEconomics(input: {
   quotedRevenue: number | string | null | undefined
   laborCost: number | string | null | undefined
   otherCost: number | string | null | undefined
+  completeness?: LaborCompleteness
 }) {
   const quotedRevenue = roundEconomicsMoney(toEconomicsNumber(input.quotedRevenue))
   const laborCost = roundEconomicsMoney(toEconomicsNumber(input.laborCost))
   const otherCost = roundEconomicsMoney(toEconomicsNumber(input.otherCost))
-  const totalCost = roundEconomicsMoney(laborCost + otherCost)
-  const profit = roundEconomicsMoney(quotedRevenue - totalCost)
+  const complete = (input.completeness ?? 'complete') === 'complete'
+    && input.laborCost != null && input.otherCost != null
+  const knownTotalCost = roundEconomicsMoney(laborCost + otherCost)
+  const totalCost = complete ? knownTotalCost : null
+  const profit = totalCost === null ? null : roundEconomicsMoney(quotedRevenue - totalCost)
 
   return {
     quotedRevenue,
@@ -65,7 +81,8 @@ export function calculateQuotedJobEconomics(input: {
     otherCost,
     totalCost,
     profit,
-    margin_percent: quotedRevenue > 0 ? roundEconomicsMoney((profit / quotedRevenue) * 100) : null,
+    knownTotalCost,
+    margin_percent: profit !== null && quotedRevenue > 0 ? roundEconomicsMoney((profit / quotedRevenue) * 100) : null,
   }
 }
 
@@ -78,15 +95,26 @@ export function buildJobEconomicsSummary(input: {
   internalLaborCost: number
   externalLaborCost: number
   directCost: number
+  currency?: string
+  laborCompleteness?: LaborCompleteness
+  laborCostReasons?: string[]
+  missingRateHours?: number
+  unapprovedLaborHours?: number
+  legacyUnverifiedLaborCount?: number
+  unconvertedLaborCosts?: { currency: string; amount: string }[]
+  provisionalLaborCost?: number
 }): JobEconomicsSummary {
   const internalLaborCost = roundEconomicsMoney(input.internalLaborCost)
   const externalLaborCost = roundEconomicsMoney(input.externalLaborCost)
   const laborCost = roundEconomicsMoney(internalLaborCost + externalLaborCost)
   const directCost = roundEconomicsMoney(input.directCost)
-  const totalCost = roundEconomicsMoney(laborCost + directCost)
+  const knownCost = roundEconomicsMoney(laborCost + directCost)
+  const completeness = input.laborCompleteness ?? 'complete'
+  const complete = completeness === 'complete' && (input.unconvertedLaborCosts?.length ?? 0) === 0
+  const totalCost = complete ? knownCost : null
   const quotedRevenue = roundEconomicsMoney(input.quotedRevenue)
   const invoicedRevenue = roundEconomicsMoney(input.invoicedRevenue)
-  const profit = roundEconomicsMoney(invoicedRevenue - totalCost)
+  const profit = totalCost === null ? null : roundEconomicsMoney(invoicedRevenue - totalCost)
 
   return {
     job_id: input.jobId,
@@ -96,10 +124,33 @@ export function buildJobEconomicsSummary(input: {
     labor_hours_total: roundEconomicsMoney(input.laborHours),
     internal_labor_cost_total: internalLaborCost,
     external_labor_cost_total: externalLaborCost,
-    labor_cost_total: laborCost,
+    labor_cost_total: complete ? laborCost : null,
     other_cost_total: directCost,
     total_cost_total: totalCost,
     profit_total: profit,
-    margin_percent: invoicedRevenue > 0 ? roundEconomicsMoney((profit / invoicedRevenue) * 100) : null,
+    currency: input.currency ?? 'CZK',
+    labor_completeness: complete ? 'complete' : completeness === 'complete' ? 'incomplete' : completeness,
+    labor_cost_reasons: input.laborCostReasons ?? [],
+    missing_rate_hours: input.missingRateHours ?? 0,
+    unapproved_labor_hours: input.unapprovedLaborHours ?? 0,
+    legacy_unverified_labor_count: input.legacyUnverifiedLaborCount ?? 0,
+    unconverted_labor_costs: input.unconvertedLaborCosts ?? [],
+    provisional_labor_cost_total: input.provisionalLaborCost ?? 0,
+    known_labor_cost_total: laborCost,
+    known_cost_total: knownCost,
+    margin_percent: profit !== null && invoicedRevenue > 0 ? roundEconomicsMoney((profit / invoicedRevenue) * 100) : null,
   }
+}
+
+/** An unknown component (or a different currency) must never become zero in a KPI. */
+export function sumCompleteJobProfit(rows: JobEconomicsSummary[], currency: string): number | null {
+  if (rows.some(row => row.labor_completeness !== 'complete' || row.profit_total === null || row.currency !== currency)) return null
+  return roundEconomicsMoney(rows.reduce((sum, row) => sum + row.profit_total!, 0))
+}
+
+/** Null on an existing row is unresolved/mixed currency, never a default currency. */
+export function commonEconomicsCurrency(rows: readonly { currency: string | null | undefined }[], emptyCurrency = 'CZK'): string | null {
+  if (rows.length === 0) return emptyCurrency
+  const currency = rows[0].currency
+  return currency && rows.every(row => row.currency === currency) ? currency : null
 }

@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react'
 import { useI18n } from '@/components/I18nProvider'
 import { getIntlLocale } from '@/lib/i18n/config'
+import type { LaborCompleteness } from '@/lib/economics'
 import {
   createJobCostItemAction,
   deleteJobCostItemAction,
@@ -47,8 +48,10 @@ type Props = {
   initialPrice: number | null
   initialAssignments: Assignment[]
   initialCostItems: CostItem[]
-  actualLaborCost: number
-  actualExternalLaborCost?: number
+  actualLaborCost: number | null
+  actualExternalLaborCost?: number | null
+  laborCompleteness: LaborCompleteness
+  currency?: string
   onPriceSaved?: (price: number) => void
   onCostItemAdded?: (item: CostItem) => void
   onCostItemDeleted?: (id: string) => void
@@ -60,10 +63,11 @@ function toNumber(value: number | string | null | undefined) {
   return Number.isFinite(n) ? n : 0
 }
 
-function formatCurrency(value: number, locale: string) {
+function formatCurrency(value: number | null, locale: string, currency?: string) {
+  if (value === null || !currency) return '—'
   return new Intl.NumberFormat(locale, {
     style: 'currency',
-    currency: 'CZK',
+    currency,
   }).format(value)
 }
 
@@ -89,7 +93,7 @@ function getSupabaseErrorDetail(error: unknown) {
 }
 
 function getAssignmentRate(assignment: Assignment) {
-  return toNumber(assignment.hourly_rate ?? assignment.profiles?.hourly_rate ?? assignment.profiles?.default_hourly_rate)
+  return assignment.hourly_rate == null ? null : toNumber(assignment.hourly_rate)
 }
 
 function getCostTotal(item: CostItem) {
@@ -130,6 +134,8 @@ export default function JobEconomicsEditor({
   initialCostItems,
   actualLaborCost,
   actualExternalLaborCost = 0,
+  laborCompleteness,
+  currency,
   onPriceSaved,
   onCostItemAdded,
   onCostItemDeleted,
@@ -268,10 +274,8 @@ export default function JobEconomicsEditor({
   })
 
   const plannedAssignmentCost = useMemo(() => {
-    return initialAssignments.reduce(
-      (sum, assignment) => sum + toNumber(assignment.labor_hours) * getAssignmentRate(assignment),
-      0
-    )
+    if (initialAssignments.some(assignment => getAssignmentRate(assignment) === null)) return null
+    return initialAssignments.reduce((sum, assignment) => sum + toNumber(assignment.labor_hours) * getAssignmentRate(assignment)!, 0)
   }, [initialAssignments])
 
   const currentOtherCosts = useMemo(() => {
@@ -279,7 +283,8 @@ export default function JobEconomicsEditor({
   }, [costItems])
 
   const currentPrice = toNumber(price)
-  const plannedProfit = currentPrice - actualLaborCost - actualExternalLaborCost - currentOtherCosts
+  const plannedProfit = laborCompleteness !== 'complete' || actualLaborCost === null || actualExternalLaborCost === null ? null
+    : currentPrice - actualLaborCost - actualExternalLaborCost - currentOtherCosts
   const liveNewCostTotal = toNumber(newCost.quantity) * toNumber(newCost.unit_price)
   const canAddCost = newCost.title.trim().length > 0 && toNumber(newCost.unit_price) > 0 && !addingCost
 
@@ -439,11 +444,11 @@ export default function JobEconomicsEditor({
       <div style={panelStyle}>
         <h3 style={{ margin: '0 0 14px 0', fontSize: '20px' }}>{text.quickSummary}</h3>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px' }}>
-          <SummaryTile label={detailMessages.jobPrice} value={formatCurrency(toNumber(price), dateLocale)} />
-          <SummaryTile label={detailMessages.internalLabor} value={formatCurrency(actualLaborCost, dateLocale)} />
-          <SummaryTile label={detailMessages.externalLabor} value={formatCurrency(actualExternalLaborCost, dateLocale)} />
-          <SummaryTile label={detailMessages.directCosts} value={formatCurrency(currentOtherCosts, dateLocale)} />
-          <SummaryTile label={text.plannedDifference} value={formatCurrency(plannedProfit, dateLocale)} tone={plannedProfit >= 0 ? 'success' : 'danger'} />
+          <SummaryTile label={detailMessages.jobPrice} value={formatCurrency(toNumber(price), dateLocale, currency)} />
+          <SummaryTile label={detailMessages.internalLabor} value={formatCurrency(actualLaborCost, dateLocale, currency)} />
+          <SummaryTile label={detailMessages.externalLabor} value={formatCurrency(actualExternalLaborCost, dateLocale, currency)} />
+          <SummaryTile label={detailMessages.directCosts} value={formatCurrency(currentOtherCosts, dateLocale, currency)} />
+          <SummaryTile label={text.plannedDifference} value={formatCurrency(plannedProfit, dateLocale, currency)} tone={plannedProfit === null ? undefined : plannedProfit >= 0 ? 'success' : 'danger'} />
         </div>
       </div>
 
@@ -539,7 +544,7 @@ export default function JobEconomicsEditor({
             title={canAddCost ? detailMessages.addCost : text.addCostDisabledTitle}
             style={{ ...buttonStyle, opacity: addingCost ? 0.7 : 1 }}
           >
-            {addingCost ? text.addingCost : `${detailMessages.addCost} ${formatCurrency(liveNewCostTotal, dateLocale)}`}
+            {addingCost ? text.addingCost : `${detailMessages.addCost} ${formatCurrency(liveNewCostTotal, dateLocale, currency)}`}
           </button>
         </div>
 
@@ -592,13 +597,13 @@ export default function JobEconomicsEditor({
                     </span>
                   </div>
                   <div style={{ marginTop: '6px', color: '#64748b', fontSize: '14px' }}>
-                    {formatHours(toNumber(item.quantity), dateLocale)} {item.unit || 'ks'} × {formatCurrency(toNumber(item.unit_price), dateLocale)}
+                    {formatHours(toNumber(item.quantity), dateLocale)} {item.unit || 'ks'} × {formatCurrency(toNumber(item.unit_price), dateLocale, currency)}
                     {item.note ? ` · ${item.note}` : ''}
                   </div>
                 </div>
 
                 <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontWeight: 900, fontSize: '18px', color: '#0f172a' }}>{formatCurrency(getCostTotal(item), dateLocale)}</div>
+                  <div style={{ fontWeight: 900, fontSize: '18px', color: '#0f172a' }}>{formatCurrency(getCostTotal(item), dateLocale, currency)}</div>
                   <button type="button" onClick={() => deleteCost(item.id)} style={{ ...secondaryButtonStyle, marginTop: '8px', color: '#b91c1c' }}>
                     {dictionary.common.delete}
                   </button>
@@ -612,7 +617,9 @@ export default function JobEconomicsEditor({
       <div style={panelStyle}>
         <h3 style={{ margin: '0 0 12px 0', fontSize: '20px' }}>{text.laborFromAssignments}</h3>
         <p style={{ margin: '0 0 14px 0', color: '#64748b', fontSize: '14px' }}>
-          {text.laborFromAssignmentsDescription}
+          {locale === 'cs' ? 'Pouze plán přiřazení. Schválené náklady práce se počítají z pracovních výkazů a jejich historických sazeb.' :
+            locale === 'de' ? 'Nur Einsatzplanung. Freigegebene Kosten stammen aus Arbeitsnachweisen und historischen Sätzen.' :
+              'Assignment plan only. Approved labour costs come from work submissions and historical rates.'}
         </p>
 
         {initialAssignments.length === 0 ? (
@@ -622,7 +629,7 @@ export default function JobEconomicsEditor({
             {initialAssignments.map((assignment) => {
               const hours = toNumber(assignment.labor_hours)
               const rate = getAssignmentRate(assignment)
-              const cost = toNumber(assignment.computed_internal_labor_cost) || hours * rate
+              const cost = rate === null ? null : hours * rate
 
               return (
                 <div
@@ -642,7 +649,7 @@ export default function JobEconomicsEditor({
                     {assignment.note ? <div style={{ color: '#64748b', fontSize: '13px', marginTop: '4px' }}>{assignment.note}</div> : null}
                   </div>
                   <div style={{ fontWeight: 900, color: '#0f172a' }}>
-                    {formatHours(hours, dateLocale)} h × {formatCurrency(rate, dateLocale)} = {formatCurrency(cost, dateLocale)}
+                    {formatHours(hours, dateLocale)} h × {formatCurrency(rate, dateLocale, currency)} = {formatCurrency(cost, dateLocale, currency)}
                   </div>
                 </div>
               )
@@ -650,7 +657,7 @@ export default function JobEconomicsEditor({
           </div>
         )}
 
-        <div style={{ marginTop: '14px', fontWeight: 900, color: '#0f172a' }}>{text.total}: {formatCurrency(plannedAssignmentCost, dateLocale)}</div>
+        <div style={{ marginTop: '14px', fontWeight: 900, color: '#0f172a' }}>{text.total}: {formatCurrency(plannedAssignmentCost, dateLocale, currency)}</div>
       </div>
     </div>
   )

@@ -6,18 +6,20 @@ import DashboardShell from '@/components/DashboardShell'
 import {
   fixedCostCategories,
   formatCostCurrency,
-  getFixedCostMonthlyAmount,
   getRecurrenceLabel,
   isOneTimeExpense,
   jobExpenseCategories,
   normalizeCurrency,
   oneTimeExpenseCategories,
   recurrenceOptions,
-  toCostNumber,
   type ExpenseRow,
   type FixedCostRow,
 } from '@/lib/costs'
+import { sumCompleteJobProfit } from '@/lib/economics'
 import { listJobEconomicsSummaries } from '@/lib/dal/economics'
+import { ECONOMICS_PAGE_SIZE } from '@/lib/dal/economics-pages'
+import { readCompleteFinancialResult } from '@/lib/dal/financial-page-result'
+import { financialCurrency, sumCostsInCurrency, sumFixedCostsInMonth, combineKnownCosts } from '@/lib/cost-overview'
 import { requireCompanyRole } from '@/lib/server-guards'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 
@@ -353,15 +355,24 @@ function ExpenseCreateForm({
   )
 }
 
+function knownCostMoney(row: { amount: unknown; currency: unknown }) {
+  const currency = financialCurrency(row.currency)
+  const amount = sumCostsInCurrency([row], currency)
+  return amount === null || currency === null ? '—' : formatCostCurrency(amount, currency)
+}
+
 function FixedCostsTable({
   costs,
+  unavailable,
   month,
   currency,
 }: {
+  unavailable?: boolean
   costs: FixedCostRow[]
   month: string
   currency: string
 }) {
+  if (unavailable) return <MessageBox tone="danger">Seznam fixních nákladů není dostupný. Obnovte přehled.</MessageBox>
   return (
     <section style={panelStyle}>
       <div>
@@ -396,7 +407,7 @@ function FixedCostsTable({
                     {cost.note ? <div style={noteStyle}>{cost.note}</div> : null}
                   </td>
                   <td>{cost.category}</td>
-                  <td>{formatCostCurrency(toCostNumber(cost.amount), cost.currency ?? currency)}</td>
+                  <td>{knownCostMoney(cost)}</td>
                   <td>{cost.due_day ? `${cost.due_day}. den` : '—'}</td>
                   <td>{getRecurrenceLabel(cost.recurrence)}</td>
                   <td>
@@ -452,6 +463,7 @@ function ExpensesTable({
   title,
   description,
   expenses,
+  unavailable,
   month,
   currency,
   jobs,
@@ -459,6 +471,7 @@ function ExpensesTable({
 }: {
   title: string
   description: string
+  unavailable?: boolean
   expenses: ExpenseWithJob[]
   month: string
   currency: string
@@ -467,6 +480,7 @@ function ExpensesTable({
 }) {
   const categoryOptions = tab === 'one_time' ? oneTimeExpenseCategories : jobExpenseCategories
 
+  if (unavailable) return <MessageBox tone="danger">Seznam výdajů není dostupný. Obnovte přehled.</MessageBox>
   return (
     <section style={panelStyle}>
       <div>
@@ -505,7 +519,7 @@ function ExpensesTable({
                     <td>{expense.job_id ? jobTitle : 'Bez zakázky'}</td>
                     <td><strong>{expense.name}</strong></td>
                     <td>{expense.category}</td>
-                    <td>{formatCostCurrency(toCostNumber(expense.amount), expense.currency ?? currency)}</td>
+                    <td>{knownCostMoney(expense)}</td>
                     <td>{expense.source ?? 'manual'}</td>
                     <td>{expense.note || '—'}</td>
                     <td>
@@ -559,35 +573,28 @@ export default async function CostsPage({ searchParams }: PageProps) {
 
   const [companyResponse, fixedCostsResponse, expensesResponse, jobsResponse, monthJobsResponse] = await Promise.all([
     supabase.from('companies').select('currency').eq('id', companyId).maybeSingle(),
-    supabase
+    readCompleteFinancialResult<FixedCostRow>(offset => supabase
       .from('fixed_costs')
-      .select('id, company_id, name, category, amount, currency, due_day, recurrence, start_date, end_date, is_active, note, created_at, updated_at')
+      .select('id, company_id, name, category, amount, currency, due_day, recurrence, start_date, end_date, is_active, note, created_at, updated_at', { count: 'exact' })
       .eq('company_id', companyId)
-      .order('is_active', { ascending: false })
-      .order('category', { ascending: true })
-      .order('name', { ascending: true }),
-    supabase
+      .order('id').range(offset, offset + ECONOMICS_PAGE_SIZE - 1)),
+    readCompleteFinancialResult<ExpenseWithJob>(offset => supabase
       .from('expenses')
-      .select('id, company_id, job_id, worker_id, name, category, amount, currency, expense_date, source, note, created_at, updated_at, jobs(id, title)')
+      .select('id, company_id, job_id, worker_id, name, category, amount, currency, expense_date, source, note, created_at, updated_at, jobs(id, title)', { count: 'exact' })
       .eq('company_id', companyId)
       .gte('expense_date', monthRange.start)
       .lt('expense_date', monthRange.end)
-      .order('expense_date', { ascending: false })
-      .order('created_at', { ascending: false }),
-    supabase
-      .from('jobs')
-      .select('id, title, start_at, created_at')
+      .order('id').range(offset, offset + ECONOMICS_PAGE_SIZE - 1)),
+    readCompleteFinancialResult<JobOption>(offset => supabase
+      .from('jobs').select('id, title, start_at, created_at', { count: 'exact' })
       .eq('company_id', companyId)
-      .order('start_at', { ascending: false, nullsFirst: false })
-      .order('created_at', { ascending: false })
-      .limit(500),
-    supabase
-      .from('jobs')
-      .select('id')
+      .order('id').range(offset, offset + ECONOMICS_PAGE_SIZE - 1)),
+    readCompleteFinancialResult<{ id: string }>(offset => supabase
+      .from('jobs').select('id', { count: 'exact' })
       .eq('company_id', companyId)
       .gte('start_at', monthRange.start)
       .lt('start_at', monthRange.end)
-      .limit(500),
+      .order('id').range(offset, offset + ECONOMICS_PAGE_SIZE - 1)),
   ])
 
   if (companyResponse.error) loadErrors.push(companyResponse.error.message)
@@ -596,42 +603,43 @@ export default async function CostsPage({ searchParams }: PageProps) {
   if (jobsResponse.error) loadErrors.push(jobsResponse.error.message)
   if (monthJobsResponse.error) loadErrors.push(monthJobsResponse.error.message)
 
-  const defaultCurrency = normalizeCurrency(
-    (companyResponse.data as { currency?: string | null } | null)?.currency,
-    'CZK',
-  )
-  const fixedCosts = (fixedCostsResponse.data ?? []) as FixedCostRow[]
-  const expenses = (expensesResponse.data ?? []) as ExpenseWithJob[]
-  const jobs = (jobsResponse.data ?? []) as JobOption[]
-  const monthJobIds = ((monthJobsResponse.data ?? []) as Array<{ id: string | null }>).map((job) => job.id).filter((id): id is string => Boolean(id))
+  const reportCurrency = companyResponse.error ? null : financialCurrency(companyResponse.data?.currency)
+  const defaultCurrency = reportCurrency ?? 'CZK' // Form default only; unknown report currency never authorizes a sum.
+  if (!reportCurrency) loadErrors.push('Měna firmy není ověřena. Finanční součty nejsou k dispozici.')
+  const fixedCosts = [...(fixedCostsResponse.data ?? [])].sort((a, b) => Number(b.is_active) - Number(a.is_active) || a.category.localeCompare(b.category) || a.name.localeCompare(b.name))
+  const expenses = [...(expensesResponse.data ?? [])].sort((a, b) => (b.expense_date ?? '').localeCompare(a.expense_date ?? '') || (b.created_at ?? '').localeCompare(a.created_at ?? ''))
+  const jobs = [...(jobsResponse.data ?? [])].sort((a, b) => (b.start_at ?? '').localeCompare(a.start_at ?? '') || (b.created_at ?? '').localeCompare(a.created_at ?? ''))
+  const monthJobIds = monthJobsResponse.data?.map(job => job.id) ?? null
 
   let monthlyJobProfit: number | null = null
 
   try {
+    if (monthJobIds === null || reportCurrency === null) throw new Error('Úplnost zakázek nebo měnu firmy nelze ověřit.')
     const economics = await listJobEconomicsSummaries(
       {
         supabase,
         companyId,
+        profileId: access.value.profileId,
+        role: access.value.role,
       },
       monthJobIds,
     )
-    monthlyJobProfit = economics.reduce((sum, item) => sum + toCostNumber(item.profit_total), 0)
+    monthlyJobProfit = sumCompleteJobProfit(economics, reportCurrency)
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Nepodařilo se načíst ekonomiku zakázek.'
     loadErrors.push(message)
   }
 
-  const fixedCostsTotal = fixedCosts.reduce(
-    (sum, cost) => sum + getFixedCostMonthlyAmount(cost, monthRange.start, monthRange.end),
-    0,
-  )
-  const expensesTotal = expenses.reduce((sum, expense) => sum + toCostNumber(expense.amount), 0)
+  const fixedCostsTotal = sumFixedCostsInMonth(fixedCostsResponse.data, monthRange.start, monthRange.end, reportCurrency)
+  const expensesTotal = sumCostsInCurrency(expensesResponse.data, reportCurrency)
   const jobExpenses = expenses.filter((expense) => Boolean(expense.job_id))
   const oneTimeExpenses = expenses.filter(isOneTimeExpense)
-  const jobExpensesTotal = jobExpenses.reduce((sum, expense) => sum + toCostNumber(expense.amount), 0)
-  const oneTimeExpensesTotal = oneTimeExpenses.reduce((sum, expense) => sum + toCostNumber(expense.amount), 0)
-  const costsTotal = fixedCostsTotal + expensesTotal
-  const operationalResult = monthlyJobProfit == null ? null : monthlyJobProfit - fixedCostsTotal - expensesTotal
+  const jobExpensesTotal = sumCostsInCurrency(expensesResponse.data === null ? null : jobExpenses, reportCurrency)
+  const oneTimeExpensesTotal = sumCostsInCurrency(expensesResponse.data === null ? null : oneTimeExpenses, reportCurrency)
+  const costsTotal = combineKnownCosts(fixedCostsTotal, expensesTotal)
+  const operationalResult = monthlyJobProfit === null || costsTotal === null ? null : monthlyJobProfit - costsTotal
+  const costMoney = (value: number | null) => value === null ? '—' : formatCostCurrency(value, defaultCurrency)
+  if (costsTotal === null) loadErrors.push('Součet nákladů není dostupný: podklady nejsou úplné, mají různé či neznámé měny nebo neurčené měsíční rozložení.')
   const visibleExpenses =
     activeTab === 'job'
       ? jobExpenses
@@ -672,14 +680,14 @@ export default async function CostsPage({ searchParams }: PageProps) {
         </form>
 
         <section style={kpiGridStyle}>
-          <KpiCard label="Fixní náklady" value={formatCostCurrency(fixedCostsTotal, defaultCurrency)} detail="monthly + one_time podle měsíce" tone="blue" />
-          <KpiCard label="Náklady zakázek" value={formatCostCurrency(jobExpensesTotal, defaultCurrency)} detail="ruční náklady navázané na zakázku" tone="orange" />
-          <KpiCard label="Jednorázové náklady" value={formatCostCurrency(oneTimeExpensesTotal, defaultCurrency)} detail="mimo běžný měsíční režim" />
-          <KpiCard label="Celkem tento měsíc" value={formatCostCurrency(costsTotal, defaultCurrency)} detail="fixní + ruční náklady" />
+          <KpiCard label="Fixní náklady" value={costMoney(fixedCostsTotal)} detail="monthly + one_time podle měsíce" tone="blue" />
+          <KpiCard label="Náklady zakázek" value={costMoney(jobExpensesTotal)} detail="ruční náklady navázané na zakázku" tone="orange" />
+          <KpiCard label="Jednorázové náklady" value={costMoney(oneTimeExpensesTotal)} detail="mimo běžný měsíční režim" />
+          <KpiCard label="Celkem tento měsíc" value={costMoney(costsTotal)} detail="fixní + ruční náklady" />
           <KpiCard
             label="Orientační výsledek"
             value={operationalResult == null ? '—' : formatCostCurrency(operationalResult, defaultCurrency)}
-            detail={monthlyJobProfit == null ? 'ekonomika zakázek není dostupná' : 'provozní pohled, ne účetní výsledek'}
+            detail={operationalResult == null ? 'náklady nejsou úplné, schválené nebo ve stejné měně' : 'provozní pohled, ne účetní výsledek'}
             tone={operationalResult != null && operationalResult >= 0 ? 'green' : 'orange'}
           />
         </section>
@@ -703,7 +711,7 @@ export default async function CostsPage({ searchParams }: PageProps) {
         {activeTab === 'fixed' ? (
           <>
             <FixedCostCreateForm month={selectedMonth} currency={defaultCurrency} />
-            <FixedCostsTable costs={fixedCosts} month={selectedMonth} currency={defaultCurrency} />
+            <FixedCostsTable unavailable={fixedCostsResponse.data === null} costs={fixedCosts} month={selectedMonth} currency={defaultCurrency} />
           </>
         ) : null}
 
@@ -713,6 +721,7 @@ export default async function CostsPage({ searchParams }: PageProps) {
             <ExpensesTable
               title="Náklady zakázek"
               description="Přidej náklad k zakázce, například materiál, dopravu nebo externistu."
+              unavailable={expensesResponse.data === null}
               expenses={visibleExpenses}
               month={selectedMonth}
               currency={defaultCurrency}
@@ -728,6 +737,7 @@ export default async function CostsPage({ searchParams }: PageProps) {
             <ExpensesTable
               title="Jednorázové náklady"
               description="Výdaje mimo běžný měsíční režim."
+              unavailable={expensesResponse.data === null}
               expenses={visibleExpenses}
               month={selectedMonth}
               currency={defaultCurrency}
@@ -742,13 +752,14 @@ export default async function CostsPage({ searchParams }: PageProps) {
             <ExpensesTable
               title="Přehled ručních nákladů"
               description="Ruční provozní náklady za vybraný měsíc."
+              unavailable={expensesResponse.data === null}
               expenses={visibleExpenses}
               month={selectedMonth}
               currency={defaultCurrency}
               jobs={jobs}
               tab="overview"
             />
-            <FixedCostsTable costs={fixedCosts} month={selectedMonth} currency={defaultCurrency} />
+            <FixedCostsTable unavailable={fixedCostsResponse.data === null} costs={fixedCosts} month={selectedMonth} currency={defaultCurrency} />
           </>
         ) : null}
       </main>

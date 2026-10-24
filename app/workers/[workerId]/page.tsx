@@ -917,6 +917,12 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
             </div>
 
             <div style={actionRowStyle}>
+              <SecondaryAction href={`/workers/${workerId}/rates`}>
+                {locale === 'en' ? 'Cost rates' : locale === 'de' ? 'Kostensätze' : 'Nákladové sazby'}
+              </SecondaryAction>
+              <SecondaryAction href={`/labor?worker=${workerId}`}>
+                {locale === 'en' ? 'Work submissions' : locale === 'de' ? 'Arbeitsnachweise' : 'Pracovní výkazy'}
+              </SecondaryAction>
               <Link href={`/workers/${workerId}?month=${previousMonth}`} style={monthNavButtonStyle}>
                 {dictionary.workers.detail.previousPayroll}
               </Link>
@@ -1230,6 +1236,7 @@ export default async function WorkerDetailPage({ params, searchParams }: WorkerD
 
         <div data-tour="worker-detail-assignments">
         <WorkerAssignmentsSection
+          reviewScope={{ companyId: pageAccess.value.companyId, actorProfileId: pageAccess.value.profileId, workerProfileId: workerId }}
           workPeriodLabel={workPeriodLabel}
           jobAssignments={jobAssignments}
           defaultRate={defaultHourlyRate}

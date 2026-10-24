@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 
 import { requireCompanyRole } from '@/lib/server-guards'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
+import { approvedLaborSourceCode, isApprovedLaborSourceError, laborSourceReviewHref } from '@/lib/labor-source-navigation'
 
 type RouteContext = {
   params: Promise<{
@@ -10,6 +11,8 @@ type RouteContext = {
 }
 
 type ActionPayload = {
+  companyId?: string
+  actorProfileId?: string
   action?: 'reset_hours' | 'archive'
   reason?: string | null
 }
@@ -48,12 +51,19 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: 'Missing assignment id.' }, { status: 400 })
   }
 
-  const payload = (await request.json().catch(() => ({}))) as ActionPayload
+  const raw: unknown = await request.json().catch(() => null)
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return NextResponse.json({ error: 'Invalid request.' }, { status: 400 })
+  const payload = raw as ActionPayload
   const action = payload.action
 
   if (action !== 'reset_hours' && action !== 'archive') {
     return NextResponse.json({ error: 'Invalid action.' }, { status: 400 })
   }
+
+  if (payload.companyId !== activeCompany.companyId || payload.actorProfileId !== activeCompany.profileId) {
+    return NextResponse.json({ error: 'Firma nebo přihlášený účet se změnil. Otevřete záznam znovu.' }, { status: 403 })
+  }
+  if (payload.reason != null && typeof payload.reason !== 'string') return NextResponse.json({ error: 'Invalid reason.' }, { status: 400 })
 
   const supabase = await createSupabaseServerClient()
 
@@ -70,11 +80,12 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       `
     )
     .eq('id', cleanAssignmentId)
+    .eq('jobs.company_id', activeCompany.companyId)
     .maybeSingle()
 
   if (assignmentResponse.error) {
     return NextResponse.json(
-      { error: `Failed to load assignment: ${assignmentResponse.error.message}` },
+      { error: 'Failed to load assignment.' },
       { status: 500 }
     )
   }
@@ -92,7 +103,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   const updatePayload =
     action === 'reset_hours'
       ? {
-          labor_hours: null,
+          labor_hours: 0,
           work_started_at: null,
           work_completed_at: null,
           reset_at: nowIso,
@@ -103,22 +114,32 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           archived_at: nowIso,
           archived_by: activeCompany.profileId,
           archive_reason: reason,
-          labor_hours: null,
-          work_started_at: null,
-          work_completed_at: null,
         }
 
   const updateResponse = await supabase
     .from('job_assignments')
     .update(updatePayload)
     .eq('id', assignment.id)
+    .eq('job_id', assignment.job_id)
+    .select('id')
+    .maybeSingle()
 
   if (updateResponse.error) {
+    if (isApprovedLaborSourceError(updateResponse.error) && assignment.job_id && assignment.profile_id) {
+      return NextResponse.json({
+        error: 'Schválenou práci nelze přepsat ani odstranit. Otevřete výkaz a vytvořte opravu ke schválení.',
+        code: approvedLaborSourceCode,
+        reviewHref: laborSourceReviewHref({ companyId: activeCompany.companyId, actorProfileId: activeCompany.profileId,
+          jobId: assignment.job_id, profileId: assignment.profile_id, source: { kind: 'assignment', id: assignment.id } }),
+      }, { status: 409 })
+    }
     return NextResponse.json(
-      { error: `Failed to update assignment: ${updateResponse.error.message}` },
+      { error: 'Failed to update assignment.' },
       { status: 500 }
     )
   }
+
+  if (!updateResponse.data) return NextResponse.json({ error: 'Assignment not found.' }, { status: 404 })
 
   return NextResponse.json({ ok: true })
 }
@@ -154,11 +175,12 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
       `
     )
     .eq('id', cleanAssignmentId)
+    .eq('jobs.company_id', activeCompany.companyId)
     .maybeSingle()
 
   if (assignmentResponse.error) {
     return NextResponse.json(
-      { error: `Failed to load assignment: ${assignmentResponse.error.message}` },
+      { error: 'Failed to load assignment.' },
       { status: 500 }
     )
   }
@@ -174,13 +196,26 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
     .from('job_assignments')
     .delete()
     .eq('id', assignment.id)
+    .eq('job_id', assignment.job_id)
+    .select('id')
+    .maybeSingle()
 
   if (deleteResponse.error) {
+    if (isApprovedLaborSourceError(deleteResponse.error) && assignment.job_id && assignment.profile_id) {
+      return NextResponse.json({
+        error: 'Schválenou práci nelze přepsat ani odstranit. Otevřete výkaz a vytvořte opravu ke schválení.',
+        code: approvedLaborSourceCode,
+        reviewHref: laborSourceReviewHref({ companyId: activeCompany.companyId, actorProfileId: activeCompany.profileId,
+          jobId: assignment.job_id, profileId: assignment.profile_id, source: { kind: 'assignment', id: assignment.id } }),
+      }, { status: 409 })
+    }
     return NextResponse.json(
-      { error: `Failed to delete assignment: ${deleteResponse.error.message}` },
+      { error: 'Failed to delete assignment.' },
       { status: 500 }
     )
   }
+
+  if (!deleteResponse.data) return NextResponse.json({ error: 'Assignment not found.' }, { status: 404 })
 
   return NextResponse.json({ ok: true })
 }

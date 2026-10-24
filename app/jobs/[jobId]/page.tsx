@@ -213,6 +213,8 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
   if (!jobId) {
     return (
       <JobDetailPageClient
+        initialActorProfileId={null}
+        initialActorRole={null}
         referenceTime={referenceTime}
         jobId=""
         initialJob={null}
@@ -287,6 +289,8 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
     if (jobResponse.error.code === 'PGRST116') {
       return (
         <JobDetailPageClient
+          initialActorProfileId={null}
+          initialActorRole={null}
           referenceTime={referenceTime}
           jobId={jobId}
           initialJob={null}
@@ -303,6 +307,8 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
 
     return (
       <JobDetailPageClient
+        initialActorProfileId={null}
+        initialActorRole={null}
         referenceTime={referenceTime}
         jobId={jobId}
         initialJob={null}
@@ -500,6 +506,8 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
             {
               supabase,
               companyId: activeCompany.companyId,
+              profileId: activeCompany.profileId,
+              role: activeCompany.role,
             },
             groupJobIds,
           ),
@@ -554,6 +562,9 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
 
   return (
     <JobDetailPageClient
+      key={`${activeCompany.companyId}:${activeCompany.profileId}:${activeCompany.role}:${jobId}`}
+      initialActorProfileId={activeCompany.profileId}
+      initialActorRole={activeCompany.role}
       referenceTime={referenceTime}
       jobId={jobId}
       canManageJobPhotos={activeCompany.role === 'super_admin' || activeCompany.role === 'company_admin'}

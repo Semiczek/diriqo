@@ -154,6 +154,7 @@ export default async function MyWorkPage() {
           ) : null}
         </section>
 
+        <Link href="/labor">Moje pracovní výkazy a schválení hodin</Link>
         <Link href="/mobile/my/advances">Moje zálohy a historie výplat</Link>
         <WorkerFlowClient jobs={jobs} timeZone={access.value.timeZone} />
       </main>

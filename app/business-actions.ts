@@ -34,6 +34,8 @@ import {
   type CoreQuoteResult, type CoreQuoteReceipt, type CoreQuotePublicationReceipt,
 } from '@/lib/core-quote-lifecycle'
 import { TenantScopeError } from '@/lib/dal/companies'
+import { laborHistoryId } from '@/lib/labor-history'
+import { approvedLaborSourceCode, isApprovedLaborSourceError, laborSourceReviewHref } from '@/lib/labor-source-navigation'
 
 import type { CoreQuoteConversionInput, CoreQuoteConversionResult } from '@/lib/core-quote-conversion'
 import { coreQuoteConversionError } from '@/lib/dal/core-quote-conversion'
@@ -307,24 +309,44 @@ export async function deleteJobCostItemAction(input: {
   }
 }
 
+export type AssignmentEconomicsActionResult = ActionResult | {
+  ok: false; error: string; code: typeof approvedLaborSourceCode; reviewHref: string
+}
+
 export async function updateJobAssignmentEconomicsAction(input: {
+  companyId: string
+  actorProfileId: string
+  assignmentId: string
   jobId: string
   profileId: string
   laborHours: number
   hourlyRate: number
-}): Promise<ActionResult> {
+}): Promise<AssignmentEconomicsActionResult> {
   try {
     const ctx = await requireCompanyRoleDalContext('company_admin', 'super_admin')
-    const jobId = requiredString(input.jobId, 'Zakázka')
-    await updateJobAssignmentEconomics(ctx, {
-      jobId,
-      profileId: requiredString(input.profileId, 'Pracovník'),
-      laborHours: nonNegativeNumber(input.laborHours, 'Hodiny'),
-      hourlyRate: nonNegativeNumber(input.hourlyRate, 'Sazba'),
-    })
-
+    if (laborHistoryId(input.companyId) !== ctx.companyId || laborHistoryId(input.actorProfileId) !== ctx.profileId) {
+      throw new TenantScopeError('Firma nebo přihlášený účet se změnil. Otevřete záznam znovu.')
+    }
+    const assignmentId = laborHistoryId(input.assignmentId)
+    const jobId = laborHistoryId(input.jobId)
+    const profileId = laborHistoryId(input.profileId)
+    try {
+      await updateJobAssignmentEconomics(ctx, {
+        assignmentId, jobId, profileId,
+        laborHours: nonNegativeNumber(input.laborHours, 'Hodiny'),
+        hourlyRate: nonNegativeNumber(input.hourlyRate, 'Sazba'),
+      })
+    } catch (error) {
+      if (isApprovedLaborSourceError(error)) return {
+        ok: false, error: 'Schválenou práci nelze přepsat. Ve výkazu vytvořte opravu ke schválení.',
+        code: approvedLaborSourceCode,
+        reviewHref: laborSourceReviewHref({ companyId: ctx.companyId, actorProfileId: ctx.profileId,
+          jobId, profileId, source: { kind: 'assignment', id: assignmentId } }),
+      }
+      throw error
+    }
     revalidatePath(`/jobs/${jobId}`)
-
+    revalidatePath(`/workers/${profileId}`)
     return { ok: true, data: undefined }
   } catch (error) {
     return actionError(error)

@@ -1,0 +1,211 @@
+{
+  "schemaVersion": 1,
+  "reviewDate": "2026-10-24",
+  "scope": "Host development-only PGlite SQL regression runtime; separate from the unchanged Office archive and license allowlist.",
+  "baseRevision": "0a987c75f8272c33d24bfbd7748b2f8d78806682",
+  "baseLockSha256": "43a6adc143a338cfd6101826eaf50bcf9aa558a02b13fc2a9cc56b303f4021ed",
+  "lockSha256": "2814fc5e35fcc4f1c620b6d8534d6a7115b310283989c7b06a79de72da738431",
+  "previousReview": {
+    "file": "vendor/host-dependency-review-20261024.json",
+    "sha256": "82a917be25bf4f0eb0e40e9ba77a2a9d68e38fa78fc7ffc9df98cf010bfd1263",
+    "declarationHash": "3783499bdec5d5e0206f70d1b60740851dceaf2eb2bf5d4fd70a9a7213f400ce",
+    "lockPackagesHash": "160a33e3cf1d5550218f4c3eb2b73aad7c8b99ccc3740ccbc596f5117e2e5a37"
+  },
+  "dependencyDelta": {
+    "addedPackageLocations": [
+      "node_modules/@electric-sql/pglite"
+    ],
+    "changedExistingPackages": [],
+    "removedPackages": [],
+    "rootChange": "Only adds @electric-sql/pglite: 0.5.9 to devDependencies; production declarations unchanged."
+  },
+  "packages": [
+    {
+      "location": "node_modules/@electric-sql/pglite",
+      "name": "@electric-sql/pglite",
+      "version": "0.5.9",
+      "declaredLicense": "Apache-2.0",
+      "resolved": "https://registry.npmjs.org/@electric-sql/pglite/-/pglite-0.5.9.tgz",
+      "integrity": "sha512-GoQTRMZ/o4J3sMW4mLDtDFGNOm1xy5oH+iHDALWll3uERY6OF4BSnL1t7FZH2Mlw+RPceDBlFJgSaecO73c4EA==",
+      "dev": true,
+      "archiveSha256": "10c57dd9d5b19f3b2cfed5c3c3794d0415b1a6a16f6da32a0f4d173b00be8d9d",
+      "archiveBytes": 8818148,
+      "verifiedArchiveFiles": 308,
+      "installedFileMismatches": 0,
+      "runtimeNpmDependencies": {},
+      "optionalNpmDependencies": {},
+      "installHooks": {},
+      "files": [
+        {
+          "path": "package/LICENSE",
+          "sha256": "a6cba85bc92e0cff7a450b1d873c0eaa2e9fc96bf472df0247a26bec77bf3ff9",
+          "bytes": 10173
+        }
+      ]
+    }
+  ],
+  "notices": {
+    "file": "vendor/labor-test-runtime-notices-20261024.json",
+    "sha256": "4796cff5ad078ecfbaddcd5f21a3be34454ab076b7a8a3348707cda2c9c6ff65",
+    "count": 23
+  },
+  "bundledComponentEvidence": {
+    "archiveSha256": "10c57dd9d5b19f3b2cfed5c3c3794d0415b1a6a16f6da32a0f4d173b00be8d9d",
+    "releaseCommit": "11df48e283ed556441a101707088f3235d58a32a",
+    "postgresSourceCommit": "7fb2b76f78eecbf155c197d652ffc60e0a75b493",
+    "binarySha256": "ca8099e85e6c310fdf94a51b04b25563dd89754fecf9ff2ad15b7a7c83d80481",
+    "bundledSourceMapEntries": {
+      "../../../../node_modules/.pnpm/tsup@8.3.0_@microsoft+api-extractor@7.47.7_@types+node@20.16.11__postcss@8.4.47_tsx@4.19.2_typescript@5.6.3/node_modules/tsup/assets/cjs_shims.js": {
+        "sourceMap": "package/dist/contrib/uuid_ossp.cjs.map",
+        "contentSha256": "df8af335e4135a476574f0ddf14418c6b844f1b9e190dde9d8b90941207647a8"
+      },
+      "../../../../node_modules/.pnpm/tinytar@0.1.0/node_modules/tinytar/lib/utils.js": {
+        "sourceMap": "package/dist/fs/opfs-ahp.cjs.map",
+        "contentSha256": "d2dfd363335c9a0bff0853b0c66fd016c5b5219f9521532f3313d678765e03d4"
+      },
+      "../../../../node_modules/.pnpm/tinytar@0.1.0/node_modules/tinytar/lib/constants.js": {
+        "sourceMap": "package/dist/fs/opfs-ahp.cjs.map",
+        "contentSha256": "566eee16d84a3ab35890b6b76d779908c856f94d985257c00702d04eed75d1c1"
+      },
+      "../../../../node_modules/.pnpm/tinytar@0.1.0/node_modules/tinytar/lib/types.js": {
+        "sourceMap": "package/dist/fs/opfs-ahp.cjs.map",
+        "contentSha256": "816341cf98b096bc0ae6dc6328dd953c0f14a31f3f8722d587a9c2c5233a3d5f"
+      },
+      "../../../../node_modules/.pnpm/tinytar@0.1.0/node_modules/tinytar/lib/tar.js": {
+        "sourceMap": "package/dist/fs/opfs-ahp.cjs.map",
+        "contentSha256": "63e7c3cd5c479638be338d2bb414570859e62f959ec2ea83b8a106b0b40d1b26"
+      },
+      "../../../../node_modules/.pnpm/tinytar@0.1.0/node_modules/tinytar/lib/untar.js": {
+        "sourceMap": "package/dist/fs/opfs-ahp.cjs.map",
+        "contentSha256": "1b20189a6eba04e59995be4814c1daafa306696a8c43df277219cf5527ec944c"
+      },
+      "../../../../node_modules/.pnpm/tinytar@0.1.0/node_modules/tinytar/index.js": {
+        "sourceMap": "package/dist/fs/opfs-ahp.cjs.map",
+        "contentSha256": "912dc215ac120586e136fdec9fb792bd86900fb72c4f018c27d9a061204dbd7e"
+      },
+      "../../../pglite-utils/src/utils.ts": {
+        "sourceMap": "package/dist/fs/opfs-ahp.cjs.map",
+        "contentSha256": "725108c326e106ee2756c6ff3eaec23f8b78094bf08a91b67d2c55ded1384290"
+      },
+      "../../pg-protocol/src/messages.ts": {
+        "sourceMap": "package/dist/index.cjs.map",
+        "contentSha256": "cff42404a9d3767ae426090c5f5f273c23b64b8f7d02f832728e66131e4b5a9d"
+      },
+      "../../pg-protocol/src/index.ts": {
+        "sourceMap": "package/dist/index.cjs.map",
+        "contentSha256": "a6b84a33f5d83dd6c65bbf3aa2d208feb8dc775a872629a63d7fe81902390a57"
+      },
+      "../../pg-protocol/src/serializer.ts": {
+        "sourceMap": "package/dist/index.cjs.map",
+        "contentSha256": "b660c1660fa9b4d9b99b55b3f79a44c9b2bf3292924571a18793c713ea7fbc34"
+      },
+      "../../pg-protocol/src/buffer-writer.ts": {
+        "sourceMap": "package/dist/index.cjs.map",
+        "contentSha256": "810b9a3d9cfcbc3cc5aee49fd03240f2c04570902efa10318ddf200d2fc9bd2a"
+      },
+      "../../pg-protocol/src/string-utils.ts": {
+        "sourceMap": "package/dist/index.cjs.map",
+        "contentSha256": "435bc9719e9b7fbebe7b69ff992d4bad9f1fd0ba09b667170d9ce62f284c943f"
+      },
+      "../../pg-protocol/src/parser.ts": {
+        "sourceMap": "package/dist/index.cjs.map",
+        "contentSha256": "810ed7939499f093e02eff723e95a4f1718e0573f9e6cd9c0a7a34d6273da04e"
+      },
+      "../../pg-protocol/src/types.ts": {
+        "sourceMap": "package/dist/index.cjs.map",
+        "contentSha256": "bb57aeb351d1c645d02b99bbb89dac79552d7c86a0995a36573ec4996478b266"
+      },
+      "../../pg-protocol/src/buffer-reader.ts": {
+        "sourceMap": "package/dist/index.cjs.map",
+        "contentSha256": "2d35e93a6d7f9a3b86077c0f20d3f8337f16e23676e42476ad96524d35c3a2e3"
+      },
+      "../../pglite-utils/src/utils.ts": {
+        "sourceMap": "package/dist/index.cjs.map",
+        "contentSha256": "725108c326e106ee2756c6ff3eaec23f8b78094bf08a91b67d2c55ded1384290"
+      },
+      "../../../node_modules/.pnpm/tsup@8.3.0_@microsoft+api-extractor@7.47.7_@types+node@20.16.11__postcss@8.4.47_tsx@4.19.2_typescript@5.6.3/node_modules/tsup/assets/esm_shims.js": {
+        "sourceMap": "package/dist/chunk-QY3QWFKW.js.map",
+        "contentSha256": "5adfbb77297abfaa793d58eebc0f25ddc60d6547a7a617a8b95e34d5941ab3dc"
+      },
+      "../../../node_modules/.pnpm/tinytar@0.1.0/node_modules/tinytar/lib/utils.js": {
+        "sourceMap": "package/dist/index.cjs.map",
+        "contentSha256": "d2dfd363335c9a0bff0853b0c66fd016c5b5219f9521532f3313d678765e03d4"
+      },
+      "../../../node_modules/.pnpm/tinytar@0.1.0/node_modules/tinytar/lib/constants.js": {
+        "sourceMap": "package/dist/index.cjs.map",
+        "contentSha256": "566eee16d84a3ab35890b6b76d779908c856f94d985257c00702d04eed75d1c1"
+      },
+      "../../../node_modules/.pnpm/tinytar@0.1.0/node_modules/tinytar/lib/types.js": {
+        "sourceMap": "package/dist/index.cjs.map",
+        "contentSha256": "816341cf98b096bc0ae6dc6328dd953c0f14a31f3f8722d587a9c2c5233a3d5f"
+      },
+      "../../../node_modules/.pnpm/tinytar@0.1.0/node_modules/tinytar/lib/tar.js": {
+        "sourceMap": "package/dist/index.cjs.map",
+        "contentSha256": "63e7c3cd5c479638be338d2bb414570859e62f959ec2ea83b8a106b0b40d1b26"
+      },
+      "../../../node_modules/.pnpm/tinytar@0.1.0/node_modules/tinytar/lib/untar.js": {
+        "sourceMap": "package/dist/index.cjs.map",
+        "contentSha256": "1b20189a6eba04e59995be4814c1daafa306696a8c43df277219cf5527ec944c"
+      },
+      "../../../node_modules/.pnpm/tinytar@0.1.0/node_modules/tinytar/index.js": {
+        "sourceMap": "package/dist/index.cjs.map",
+        "contentSha256": "912dc215ac120586e136fdec9fb792bd86900fb72c4f018c27d9a061204dbd7e"
+      },
+      "../../../node_modules/.pnpm/tsup@8.3.0_@microsoft+api-extractor@7.47.7_@types+node@20.16.11__postcss@8.4.47_tsx@4.19.2_typescript@5.6.3/node_modules/tsup/assets/cjs_shims.js": {
+        "sourceMap": "package/dist/index.cjs.map",
+        "contentSha256": "df8af335e4135a476574f0ddf14418c6b844f1b9e190dde9d8b90941207647a8"
+      },
+      "../../../node_modules/.pnpm/async-mutex@0.4.1/node_modules/async-mutex/index.mjs": {
+        "sourceMap": "package/dist/index.js.map",
+        "contentSha256": "9613908419ff37c788692353c66e64449310d08005857e3461e0dac1f2768d4c"
+      },
+      "../../../pg-protocol/src/string-utils.ts": {
+        "sourceMap": "package/dist/worker/index.cjs.map",
+        "contentSha256": "435bc9719e9b7fbebe7b69ff992d4bad9f1fd0ba09b667170d9ce62f284c943f"
+      },
+      "../../../pg-protocol/src/buffer-writer.ts": {
+        "sourceMap": "package/dist/worker/index.cjs.map",
+        "contentSha256": "810b9a3d9cfcbc3cc5aee49fd03240f2c04570902efa10318ddf200d2fc9bd2a"
+      },
+      "../../../pg-protocol/src/serializer.ts": {
+        "sourceMap": "package/dist/worker/index.cjs.map",
+        "contentSha256": "b660c1660fa9b4d9b99b55b3f79a44c9b2bf3292924571a18793c713ea7fbc34"
+      },
+      "../../../pg-protocol/src/buffer-reader.ts": {
+        "sourceMap": "package/dist/worker/index.cjs.map",
+        "contentSha256": "2d35e93a6d7f9a3b86077c0f20d3f8337f16e23676e42476ad96524d35c3a2e3"
+      },
+      "../../../pg-protocol/src/parser.ts": {
+        "sourceMap": "package/dist/worker/index.cjs.map",
+        "contentSha256": "810ed7939499f093e02eff723e95a4f1718e0573f9e6cd9c0a7a34d6273da04e"
+      },
+      "../../../pg-protocol/src/messages.ts": {
+        "sourceMap": "package/dist/worker/index.cjs.map",
+        "contentSha256": "cff42404a9d3767ae426090c5f5f273c23b64b8f7d02f832728e66131e4b5a9d"
+      }
+    },
+    "nativeEvidence": {
+      "postgresVersion": "18.6",
+      "emscriptenVersion": "3.1.74",
+      "emscriptenCommit": "1092ec30a3fb1d46b1782ff1b4db5094d3d06ae5",
+      "zlibVersionString": "1.3.2",
+      "enabledConfigured": [
+        "icu",
+        "uuid=ossp",
+        "zlib",
+        "libxml",
+        "libxslt"
+      ],
+      "opensslCoreConfigure": "no",
+      "limitation": "Exact ICU/XML/XSLT/OSSP/OpenSSL extension linkage versions and complete native source notice inventory not proven by this bounded package/source audit; Dockerfile default SDK 6.0.5 differs from binary SDK3.1.74."
+    }
+  },
+  "runtimeScope": "Imported only by offline SQL test runners, not app/components/lib production code. Local regression does not contact hosted databases.",
+  "limitations": [
+    "Exact libxml2/libxslt binary patch versions not independently established; notice files taken from exact pinned release source builder recipe.",
+    "Native object-level linkage not exhaustively reconstructed; do not claim a full native SBOM.",
+    "ICU full notice lists GPL config.guess/install helpers with Autoconf exceptions; these build scripts are not present in the package virtual filesystem; retaining text is not evidence of GPL runtime linkage."
+  ],
+  "reviewedDeclarationHash": "72768d89c121bb57c81e33cf0a22d95fc3379a2cd28bcee163cab451b337f4a2",
+  "reviewedLockPackagesHash": "eec351db9a721f1c1ab3b37122b499d8d33f2621a02dc9c8b6f4714519cf3df7"
+}
