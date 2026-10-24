@@ -1,9 +1,11 @@
 'use client'
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
+import { useAssignmentBatch } from './useAssignmentBatch'
+import type { AssignmentWorkspace } from './assignment-recovery'
 import { supabase } from '../../../lib/supabase'
 import JobEconomicsSection from '../../../components/JobEconomicsSection'
 import JobCommunicationSection from '@/components/JobCommunicationSection'
@@ -870,7 +872,6 @@ function JobDetailContent({
   const [jobCustomerContactsWithDetails] =
     useState<JobCustomerContact[]>(initialJobCustomerContacts)
   const [assignments, setAssignments] = useState<AssignmentRow[]>(initialAssignments)
-  const [previousAssignments, setPreviousAssignments] = useState(initialAssignments)
   const workShifts = initialWorkShifts
   const [groupParentJob] =
     useState<GroupMemberJobRow | null>(initialGroupParentJob)
@@ -905,17 +906,87 @@ function JobDetailContent({
     external_amount: '',
     note: '',
   })
+  const dirtyAssignmentFields = useRef(new Map<string, Set<string>>())
   const [assignmentDrafts, setAssignmentDrafts] = useState<
     Record<string, { labor_hours: string; hourly_rate: string; external_amount: string; note: string }>
   >(() => assignmentDraftsFrom(initialAssignments))
 
-  // Reconcile a new server snapshot before rendering children. Ordinary local
-  // edits keep the same source props and therefore retain their draft values.
-  if (previousAssignments !== initialAssignments) {
-    setPreviousAssignments(initialAssignments)
-    setAssignments(initialAssignments)
-    setAssignmentDrafts(assignmentDraftsFrom(initialAssignments))
+  const recoveryMessages = {
+    cs: { loading: 'Načítám aktuální přiřazení…', pending: 'Výsledek poslední změny zatím není potvrzený. Další změny jsou pozastavené, aby se zápis neprovedl dvakrát.',
+      conflict: 'Přiřazení se změnilo nebo zápis není povolený. Načtěte aktuální stav a zkontrolujte zachované úpravy před dalším uložením.',
+      unavailable: 'Aktuální přiřazení se nepodařilo ověřit. Do načtení jsou změny pozastavené.', blocked: 'Změny jsou pozastavené. Ověřte přihlášení a dostupnost úložiště prohlížeče; neodstraňujte uloženou nepotvrzenou operaci.',
+      cancel: 'Bezpečně zrušit pokus', cancelled: 'Pokus byl bezpečně zrušen. Úpravy zůstaly zachované; před uložením je zkontrolujte.', lookup: 'Ověřit výsledek', retry: 'Zopakovat původní změnu', refresh: 'Načíst aktuální stav', validation: 'Zkontrolujte hodiny, sazbu, částku a délku poznámky (nejvýše 4 000 znaků).',
+      operation: 'Nepotvrzená operace', upsert: 'Uložení přiřazení', delete: 'Odebrání přiřazení', absent: 'Potvrzení zatím nebylo nalezeno. Můžete bezpečně zopakovat stejnou změnu.' },
+    en: { loading: 'Loading current assignments…', pending: 'The last change is not confirmed yet. Further changes are paused to prevent duplicate writes.',
+      conflict: 'Assignments changed or this write is not permitted. Load the current state and review your preserved edits before saving again.',
+      unavailable: 'Current assignments could not be verified. Changes are paused until they load.', blocked: 'Changes are paused. Check your sign-in and browser storage; do not remove the saved unconfirmed operation.',
+      cancel: 'Safely cancel attempt', cancelled: 'The attempt was safely cancelled. Your edits were preserved; review them before saving.', lookup: 'Check result', retry: 'Retry original change', refresh: 'Load current state', validation: 'Check hours, rate, amount and note length (at most 4,000 characters).',
+      operation: 'Unconfirmed operation', upsert: 'Save assignment', delete: 'Remove assignment', absent: 'No receipt has been found yet. You can safely retry the same change.' },
+    de: { loading: 'Aktuelle Zuordnungen werden geladen…', pending: 'Die letzte Änderung ist noch nicht bestätigt. Weitere Änderungen sind pausiert, um doppelte Einträge zu verhindern.',
+      conflict: 'Zuordnungen wurden geändert oder der Schreibzugriff ist nicht erlaubt. Laden Sie den aktuellen Stand und prüfen Sie Ihre erhaltenen Änderungen vor dem Speichern.',
+      unavailable: 'Aktuelle Zuordnungen konnten nicht geprüft werden. Änderungen sind bis zum Laden pausiert.', blocked: 'Änderungen sind pausiert. Prüfen Sie Anmeldung und Browserspeicher; löschen Sie den gespeicherten unbestätigten Vorgang nicht.',
+      cancel: 'Versuch sicher abbrechen', cancelled: 'Der Versuch wurde sicher abgebrochen. Ihre Änderungen bleiben erhalten; prüfen Sie diese vor dem Speichern.', lookup: 'Ergebnis prüfen', retry: 'Ursprüngliche Änderung wiederholen', refresh: 'Aktuellen Stand laden', validation: 'Prüfen Sie Stunden, Satz, Betrag und die Länge der Notiz (höchstens 4.000 Zeichen).',
+      operation: 'Unbestätigter Vorgang', upsert: 'Zuordnung speichern', delete: 'Zuordnung entfernen', absent: 'Es wurde noch keine Bestätigung gefunden. Sie können dieselbe Änderung sicher wiederholen.' },
+  }[locale]
+  function workspaceRows(snapshot: AssignmentWorkspace) {
+    const profiles = new Map<string, NonNullable<AssignmentRow['profiles']>>()
+    for (const row of initialAssignments) if (row.profile_id && row.profiles) profiles.set(row.profile_id, row.profiles)
+    for (const row of workerOptions) profiles.set(row.id, row)
+    return normalizeAssignmentRows(snapshot.assignments.filter(row => row.job_id === jobId), profiles)
   }
+  function mergeDrafts(nextRows: AssignmentRow[], resetIds: string[] = []) {
+    const after = assignmentDraftsFrom(nextRows)
+    for (const id of resetIds) dirtyAssignmentFields.current.delete(id)
+    setAssignmentDrafts(current => {
+      const result = { ...current, ...after }
+      for (const [id, draft] of Object.entries(current)) {
+        if (!after[id] || resetIds.includes(id)) continue
+        for (const field of ['labor_hours', 'hourly_rate', 'external_amount', 'note'] as const) {
+          if (dirtyAssignmentFields.current.get(id)?.has(field)) result[id][field] = draft[field]
+        }
+      }
+      return result
+    })
+  }
+  const assignmentBatch = useAssignmentBatch({
+    scope: initialJob?.company_id && initialActorProfileId ? { companyId: initialJob.company_id, actorProfileId: initialActorProfileId, jobId } : null,
+    enabled: !contextInvalid && ['super_admin', 'company_admin'].includes(initialActorRole ?? ''),
+    onWorkspace(snapshot, initial) {
+      const next = workspaceRows(snapshot)
+      if (initial) { dirtyAssignmentFields.current.clear(); setAssignmentDrafts(assignmentDraftsFrom(next)) } else mergeDrafts(next)
+      setAssignments(next); syncJobStateForAssignments(next)
+    },
+    onReceipt(receipt, stored) {
+      const next = workspaceRows(receipt)
+      const changed = stored.command.kind === 'upsert' ? receipt.assignments.filter(row =>
+        stored.command.kind === 'upsert' && stored.command.assignments.some(input => input.profile_id === row.profile_id)).map(row => row.id) : []
+      mergeDrafts(next, changed); setAssignments(next); syncJobStateForAssignments(next)
+      if (stored.method === 'POST') setNewAssignment({ profile_id: '', labor_hours: '', hourly_rate: '', external_amount: '', note: '' })
+      setWorkerMessage(stored.method === 'POST' ? detailMessages.workerAdded : stored.method === 'DELETE' ? detailMessages.workerRemoved : detailMessages.workerSaved)
+      router.refresh()
+    },
+    onCancelled() { setWorkerReviewHref(null); setWorkerMessage(recoveryMessages.cancelled) },
+    onRestore(stored) {
+      setWorkersExpanded(true)
+      if (stored.command.kind === 'upsert') {
+        for (const row of stored.command.assignments) {
+          const draft = { labor_hours: row.labor_hours == null ? '' : String(row.labor_hours), hourly_rate: row.hourly_rate == null ? '' : String(row.hourly_rate),
+            external_amount: row.external_amount == null ? '' : String(row.external_amount), note: row.note ?? '' }
+          if (stored.method === 'POST') setNewAssignment({ ...draft, profile_id: row.profile_id })
+          else if (row.id) updateAssignmentDraft(row.id, draft)
+        }
+      }
+    },
+    onFailure(failure, stored) {
+      const command = stored?.command
+      const profileId = command?.kind === 'upsert' ? command.assignments[0]?.profile_id
+        : command?.kind === 'delete' ? assignments.find(row => row.id === command.assignmentId)?.profile_id : null
+      if (profileId && showProtectedAssignment(failure.status, failure.body, profileId)) return
+      setWorkerReviewHref(null)
+      setWorkerMessage(failure.code === 'validation' ? recoveryMessages.validation : recoveryMessages.conflict)
+    },
+  })
+
   if (previousEconomicsSummary !== initialJobEconomicsSummary) {
     setPreviousEconomicsSummary(initialJobEconomicsSummary)
     setJobEconomicsSummary(initialJobEconomicsSummary)
@@ -1319,6 +1390,9 @@ function JobDetailContent({
     assignmentId: string,
     patch: Partial<{ labor_hours: string; hourly_rate: string; external_amount: string; note: string }>
   ) {
+    const dirty = dirtyAssignmentFields.current.get(assignmentId) ?? new Set<string>()
+    for (const field of Object.keys(patch)) dirty.add(field)
+    dirtyAssignmentFields.current.set(assignmentId, dirty)
     setAssignmentDrafts((current) => ({
       ...current,
       [assignmentId]: {
@@ -1352,8 +1426,8 @@ function JobDetailContent({
     )
   }
 
-  function showProtectedAssignment(response: Response, body: unknown, profileId: string) {
-    if (response.status !== 409 || !body || typeof body !== 'object'
+  function showProtectedAssignment(status: number, body: unknown, profileId: string) {
+    if (status !== 409 || !body || typeof body !== 'object'
       || !('code' in body) || body.code !== approvedLaborSourceCode) return false
     const companyId = job?.company_id
     const actorProfileId = initialActorProfileId
@@ -1386,7 +1460,7 @@ function JobDetailContent({
   }
 
   async function addJobAssignment() {
-    if (!job?.id) return
+    if (!job?.id || assignmentBatch.locked) return
 
     const profileId = newAssignment.profile_id.trim()
     if (!profileId) {
@@ -1435,95 +1509,19 @@ function JobDetailContent({
     setWorkerMessage(detailMessages.addingWorker)
 
     try {
-      const response = await fetch(`/api/jobs/${job.id}/assignments`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          profile_id: profileId,
-          labor_hours: Math.round(laborHours * 100) / 100,
-          hourly_rate: Math.round(hourlyRate * 100) / 100,
-          worker_type_snapshot: workerType,
-          assignment_billing_type: billingType,
-          external_amount:
-            workerType === 'contractor' && billingType !== 'hourly'
-              ? Math.round(externalAmount * 100) / 100
-              : null,
-          note: newAssignment.note.trim() || null,
-        }),
+      await assignmentBatch.execute('POST', {
+        profile_id: profileId,
+        labor_hours: Number.isFinite(laborHours) ? Math.round(laborHours * 100) / 100 : undefined,
+        hourly_rate: Number.isFinite(hourlyRate) ? Math.round(hourlyRate * 100) / 100 : undefined,
+        worker_type_snapshot: workerType, assignment_billing_type: billingType,
+        external_amount: workerType === 'contractor' && billingType !== 'hourly' ? Math.round(externalAmount * 100) / 100 : null,
+        note: newAssignment.note.trim() || null,
       })
-
-      if (!response.ok) {
-        const body = (await response.json().catch(() => null)) as { error?: string } | null
-        if (showProtectedAssignment(response, body, profileId)) return
-        throw new Error(body?.error || detailMessages.addWorkerFailed)
-      }
-
-      const body = (await response.json().catch(() => null)) as {
-        assignment?: Partial<AssignmentRow> | null
-      } | null
-      const selectedProfile = workerOptions.find((worker) => worker.id === profileId) ?? null
-      const savedAssignment = body?.assignment ?? null
-      const temporaryId = savedAssignment?.id ?? `temp-${profileId}-${Date.now()}`
-      const nextAssignment: AssignmentRow = {
-        id: temporaryId,
-        job_id: savedAssignment?.job_id ?? job.id,
-        profile_id: savedAssignment?.profile_id ?? profileId,
-        labor_hours:
-          savedAssignment?.labor_hours != null
-            ? Number(savedAssignment.labor_hours)
-            : Math.round(laborHours * 100) / 100,
-        hourly_rate:
-          savedAssignment?.hourly_rate != null
-            ? Number(savedAssignment.hourly_rate)
-            : Math.round(hourlyRate * 100) / 100,
-        worker_type_snapshot: savedAssignment?.worker_type_snapshot ?? workerType,
-        assignment_billing_type: savedAssignment?.assignment_billing_type ?? billingType,
-        external_amount:
-          savedAssignment?.external_amount != null
-            ? Number(savedAssignment.external_amount)
-            : workerType === 'contractor' && billingType !== 'hourly'
-              ? Math.round(externalAmount * 100) / 100
-              : null,
-        note: savedAssignment?.note ?? (newAssignment.note.trim() || null),
-        work_started_at: savedAssignment?.work_started_at ?? null,
-        work_completed_at: savedAssignment?.work_completed_at ?? null,
-        profiles: selectedProfile
-          ? {
-              id: selectedProfile.id,
-              full_name: selectedProfile.full_name,
-              email: selectedProfile.email ?? null,
-              default_hourly_rate: selectedProfile.default_hourly_rate ?? selectedProfile.hourly_rate ?? null,
-              worker_type: selectedProfile.worker_type ?? null,
-              contractor_billing_type: selectedProfile.contractor_billing_type ?? null,
-              contractor_default_rate: selectedProfile.contractor_default_rate ?? null,
-            }
-          : null,
-      }
-
-      const nextAssignments = [...assignments, nextAssignment]
-      setAssignments(nextAssignments)
-      syncJobStateForAssignments(nextAssignments)
-      setAssignmentDrafts((current) => ({
-        ...current,
-        [temporaryId]: {
-          labor_hours: String(nextAssignment.labor_hours ?? ''),
-          hourly_rate: String(nextAssignment.hourly_rate ?? ''),
-          external_amount: String(nextAssignment.external_amount ?? ''),
-          note: nextAssignment.note ?? '',
-        },
-      }))
-      setNewAssignment({ profile_id: '', labor_hours: '', hourly_rate: '', external_amount: '', note: '' })
-      setWorkerMessage(detailMessages.workerAdded)
-      router.refresh()
-    } catch (saveError) {
-      setWorkerMessage(saveError instanceof Error ? saveError.message : detailMessages.addWorkerFailed)
-    } finally {
-      setAddingWorker(false)
-    }
+    } finally { setAddingWorker(false) }
   }
 
   async function saveJobAssignment(assignment: NormalizedAssignment) {
-    if (!job?.id) return
+    if (!job?.id || assignmentBatch.locked) return
 
     const draft = assignmentDrafts[assignment.id] ?? {
       labor_hours: String(assignment.labor_hours ?? ''),
@@ -1566,63 +1564,18 @@ function JobDetailContent({
     setWorkerMessage(detailMessages.savingWorker)
 
     try {
-      const response = await fetch(`/api/jobs/${job.id}/assignments`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          assignments: [
-            {
-              id: assignment.id,
-              profile_id: assignment.profile_id,
-              labor_hours: Math.round(laborHours * 100) / 100,
-              hourly_rate: Math.round(hourlyRate * 100) / 100,
-              worker_type_snapshot: assignment.worker_type,
-              assignment_billing_type: billingType,
-              external_amount:
-                assignment.worker_type === 'contractor' && billingType !== 'hourly'
-                  ? Math.round(externalAmount * 100) / 100
-                  : null,
-              note: draft.note.trim() || null,
-            },
-          ],
-        }),
-      })
-
-      if (!response.ok) {
-        const body = (await response.json().catch(() => null)) as { error?: string } | null
-        if (showProtectedAssignment(response, body, assignment.profile_id)) return
-        throw new Error(body?.error || detailMessages.saveWorkerFailed)
-      }
-
-      const nextAssignments = assignments.map((item) =>
-          item.id === assignment.id
-            ? {
-                ...item,
-                labor_hours: Math.round(laborHours * 100) / 100,
-                hourly_rate: Math.round(hourlyRate * 100) / 100,
-                worker_type_snapshot: assignment.worker_type,
-                assignment_billing_type: billingType,
-                external_amount:
-                  assignment.worker_type === 'contractor' && billingType !== 'hourly'
-                    ? Math.round(externalAmount * 100) / 100
-                    : null,
-                note: draft.note.trim() || null,
-              }
-            : item
-      )
-      setAssignments(nextAssignments)
-      syncJobStateForAssignments(nextAssignments)
-      setWorkerMessage(detailMessages.workerSaved)
-      router.refresh()
-    } catch (saveError) {
-      setWorkerMessage(saveError instanceof Error ? saveError.message : detailMessages.saveWorkerFailed)
-    } finally {
-      setSavingAssignmentId(null)
-    }
+      await assignmentBatch.execute('PUT', { assignments: [{ id: assignment.id, profile_id: assignment.profile_id,
+        labor_hours: Number.isFinite(laborHours) ? Math.round(laborHours * 100) / 100 : undefined,
+        hourly_rate: Number.isFinite(hourlyRate) ? Math.round(hourlyRate * 100) / 100 : undefined,
+        worker_type_snapshot: assignment.worker_type, assignment_billing_type: billingType,
+        external_amount: assignment.worker_type === 'contractor' && billingType !== 'hourly' ? Math.round(externalAmount * 100) / 100 : null,
+        note: draft.note.trim() || null,
+      }] })
+    } finally { setSavingAssignmentId(null) }
   }
 
   async function removeJobAssignment(assignment: NormalizedAssignment) {
-    if (!job?.id) return
+    if (!job?.id || assignmentBatch.locked) return
 
     const confirmed = window.confirm(detailMessages.removeWorkerConfirm)
     if (!confirmed) return
@@ -1631,34 +1584,8 @@ function JobDetailContent({
     setRemovingAssignmentId(assignment.id)
     setWorkerMessage(detailMessages.removingWorker)
 
-    try {
-      const response = await fetch(`/api/jobs/${job.id}/assignments`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ assignmentId: assignment.id }),
-      })
-
-      if (!response.ok) {
-        const body = (await response.json().catch(() => null)) as { error?: string } | null
-        if (showProtectedAssignment(response, body, assignment.profile_id)) return
-        throw new Error(body?.error || detailMessages.removeWorkerFailed)
-      }
-
-      const nextAssignments = assignments.filter((item) => item.id !== assignment.id)
-      setAssignments(nextAssignments)
-      syncJobStateForAssignments(nextAssignments)
-      setAssignmentDrafts((current) => {
-        const next = { ...current }
-        delete next[assignment.id]
-        return next
-      })
-      setWorkerMessage(detailMessages.workerRemoved)
-      router.refresh()
-    } catch (saveError) {
-      setWorkerMessage(saveError instanceof Error ? saveError.message : detailMessages.removeWorkerFailed)
-    } finally {
-      setRemovingAssignmentId(null)
-    }
+    try { await assignmentBatch.execute('DELETE', { assignmentId: assignment.id }) }
+    finally { setRemovingAssignmentId(null) }
   }
 
   async function markJobAsDone() {
@@ -2338,7 +2265,19 @@ function JobDetailContent({
 
         {workersExpanded ? (
         <>
-        {workerMessage ? (
+        {assignmentBatch.phase !== 'ready' ? (
+          <div role="status" style={{ marginBottom: 14, padding: 14, borderRadius: 12, background: '#f5f3ff', border: '1px solid #ddd6fe', color: '#4c1d95' }}>
+            <p style={{ margin: '0 0 10px' }}>{recoveryMessages[assignmentBatch.phase]}</p>
+            {assignmentBatch.pending ? <>
+              <p>{recoveryMessages.operation}: {recoveryMessages[assignmentBatch.pending.command.kind]}</p>
+              {assignmentBatch.canRetry ? <p>{recoveryMessages.absent}</p> : null}
+              <button type="button" disabled={assignmentBatch.busy} onClick={() => void assignmentBatch.lookup()} style={secondaryButtonStyle}>{recoveryMessages.lookup}</button>{' '}
+              {assignmentBatch.canRetry ? <button type="button" disabled={assignmentBatch.busy} onClick={() => void assignmentBatch.retry()} style={secondaryButtonStyle}>{recoveryMessages.retry}</button> : null}
+              {' '}<button type="button" disabled={assignmentBatch.busy} onClick={() => void assignmentBatch.cancel()} style={secondaryButtonStyle}>{recoveryMessages.cancel}</button>
+            </> : ['conflict', 'unavailable'].includes(assignmentBatch.phase) ? <button type="button" disabled={assignmentBatch.busy} onClick={() => void assignmentBatch.refresh()} style={secondaryButtonStyle}>{recoveryMessages.refresh}</button> : null}
+          </div>
+        ) : null}
+        {workerMessage && !['pending', 'blocked'].includes(assignmentBatch.phase) ? (
           <div
             style={{
               marginBottom: '14px',
@@ -2356,6 +2295,7 @@ function JobDetailContent({
           </div>
         ) : null}
 
+        <fieldset disabled={assignmentBatch.locked} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
         <div
           style={{
             display: 'grid',
@@ -2487,7 +2427,7 @@ function JobDetailContent({
         <button
           type="button"
           onClick={addJobAssignment}
-          disabled={addingWorker}
+          disabled={assignmentBatch.locked || addingWorker}
           style={{
             ...primaryButtonStyle,
             opacity: addingWorker ? 0.7 : 1,
@@ -2571,7 +2511,7 @@ function JobDetailContent({
                   <button
                     type="button"
                     onClick={() => removeJobAssignment(assignment)}
-                    disabled={removingAssignmentId === assignment.id}
+                    disabled={assignmentBatch.locked || removingAssignmentId === assignment.id}
                     style={{
                       padding: '8px 12px',
                       borderRadius: '10px',
@@ -2629,7 +2569,7 @@ function JobDetailContent({
                   <button
                     type="button"
                     onClick={() => saveJobAssignment(assignment)}
-                    disabled={savingAssignmentId === assignment.id}
+                    disabled={assignmentBatch.locked || savingAssignmentId === assignment.id}
                     style={{
                       ...secondaryButtonStyle,
                       justifyContent: 'center',
@@ -2670,6 +2610,7 @@ function JobDetailContent({
             </div>
           </div>
         )}
+        </fieldset>
         </>
         ) : null}
       </div>

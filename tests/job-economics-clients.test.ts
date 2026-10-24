@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, createElement, type ReactNode } from 'react'
+import { act, createElement, isValidElement, type ReactNode } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { csDictionary } from '../lib/i18n/dictionaries/cs'
@@ -37,6 +37,10 @@ const jobB = '55555555-1111-4111-8111-111111111111'
 let activeCompany = companyA
 let root: Root
 let container: HTMLDivElement
+let assignmentRows: Record<string, unknown>[] = []
+const assignmentToken = 'a'.repeat(64)
+function assignmentWorkspace() { return { company_id: companyA, actor_id: actor, job_id: jobA, scope_token: assignmentToken,
+  target_job_ids: [jobA], assignments: assignmentRows.map(row => ({ assignment_billing_type: null, external_amount: null, note: null, archived_at: null, ...row, company_id: companyA })) } }
 let queries: { table: string; filters: Record<string, unknown>; select: string }[]
 
 function summary(jobId = jobA, companyId = companyA, extra: Partial<JobEconomicsSummary> = {}): JobEconomicsSummary {
@@ -67,15 +71,18 @@ function setupQueries() {
     return builder
   })
 }
-async function mount(element: ReactNode) { await act(async () => { root.render(element) }) }
+async function mount(element: ReactNode) {
+  if (isValidElement<{ initialAssignments: Record<string, unknown>[] }>(element) && element.type === JobDetailPageClient) assignmentRows = element.props.initialAssignments
+  await act(async () => { root.render(element) })
+}
 async function flush() { await act(async () => { for (let i = 0; i < 10; i++) await Promise.resolve() }) }
 
 beforeEach(() => {
   vi.clearAllMocks()
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
-  activeCompany = companyA; queries = []
+  activeCompany = companyA; queries = []; assignmentRows = []; sessionStorage.clear()
   container = document.createElement('div'); document.body.append(container); root = createRoot(container)
-  vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ companyId: activeCompany, profileId: actor, role: 'company_admin', timeZone: 'Europe/Prague' }) })))
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => ({ ok: true, status: 200, json: async () => url.includes('/assignments?') ? { ok: true, workspace: assignmentWorkspace() } : { companyId: activeCompany, profileId: actor, role: 'company_admin', timeZone: 'Europe/Prague' } })))
   setupQueries()
   mocks.read.mockImplementation(async input => ({ ok: true, companyId: input.companyId, profileId: input.profileId,
     summaries: input.jobIds.map((id: string) => summary(id, input.companyId)) }))
@@ -240,14 +247,17 @@ describe('job detail financial snapshot', () => {
     vi.mocked(fetch).mockClear()
     await act(async () => save.click())
     expect(fetch).not.toHaveBeenCalled()
-    expect(container.textContent).toContain(csDictionary.jobs.detail.validHoursRequired)
+    expect(save.disabled).toBe(true)
+    expect(container.textContent).toContain('Aktuální přiřazení se nepodařilo ověřit.')
   })
   it('allows an explicitly entered zero without treating it as a missing value', async () => {
     await mount(createElement(JobDetailPageClient, { ...props(), initialAssignments: [assignment({ labor_hours: 0, hourly_rate: 0 })] })); await flush()
     const card = await openWorkerRows()
-    vi.mocked(fetch).mockResolvedValue({ ok: true, status: 200, json: async () => ({ ok: true }) } as Response)
+    vi.mocked(fetch).mockImplementation(async (_url, options) => ({ ok: true, status: 200, json: async () => options?.method ? { ok: true, receipt: {
+      ...assignmentWorkspace(), operation_id: JSON.parse(String(options.body)).operationId, kind: 'upsert', deleted_ids: [],
+    } } : { ok: true, workspace: assignmentWorkspace() } } as Response))
     await act(async () => [...card.querySelectorAll('button')].find(button => button.textContent === csDictionary.common.save)!.click())
-    const options = vi.mocked(fetch).mock.calls.at(-1)?.[1]
+    const options = vi.mocked(fetch).mock.calls.find(([, options]) => options?.method === 'PUT')?.[1]
     expect(JSON.parse(String(options?.body)).assignments[0]).toMatchObject({ labor_hours: 0, hourly_rate: 0 })
     expect(mocks.router.refresh).toHaveBeenCalledOnce()
   })
@@ -255,7 +265,7 @@ describe('job detail financial snapshot', () => {
     await mount(createElement(JobDetailPageClient, { ...props(), initialAssignments: [assignment({ labor_hours: 8, hourly_rate: 200 })] })); await flush()
     const card = await openWorkerRows()
     const reviewHref = `/labor?company=${companyA}&actor=${actor}&worker=${actor}&job=${jobA}&sourceKind=assignment&source=66666666-1111-4111-8111-111111111111`
-    vi.mocked(fetch).mockResolvedValue({ ok: false, status: 409, json: async () => ({ code: 'LABOR_APPROVED_SOURCE_IMMUTABLE', error: 'raw db token', reviewHref }) } as Response)
+    vi.mocked(fetch).mockResolvedValue({ ok: false, status: 409, json: async () => ({ uncertain: false, code: 'LABOR_APPROVED_SOURCE_IMMUTABLE', error: 'raw db token', reviewHref }) } as Response)
     vi.spyOn(window, 'confirm').mockReturnValue(true)
     const button = [...card.querySelectorAll('button')].find(node => node.textContent === (action === 'save' ? csDictionary.common.save : csDictionary.jobs.detail.removeWorker))!
     await act(async () => button.click())
@@ -267,10 +277,92 @@ describe('job detail financial snapshot', () => {
     expect(card.querySelector<HTMLInputElement>(`input[placeholder="${csDictionary.jobs.detail.hours}"]`)?.value).toBe('8')
     expect(mocks.router.refresh).not.toHaveBeenCalled()
   })
+  async function changeField(field: HTMLInputElement, value: string) {
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(field, value)
+      field.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+  }
+  it('shows recovery instead of success for a malformed acknowledgement and preserves the actual draft across a server refresh', async () => {
+    const original = { ...props(), initialAssignments: [assignment({ labor_hours: 8, hourly_rate: 200 })] }
+    await mount(createElement(JobDetailPageClient, original)); await flush()
+    const card = await openWorkerRows()
+    const hours = card.querySelector<HTMLInputElement>(`input[placeholder="${csDictionary.jobs.detail.hours}"]`)!
+    await changeField(hours, '9')
+    vi.mocked(fetch).mockResolvedValue({ ok: true, status: 200, json: async () => ({ ok: true }) } as Response)
+    await act(async () => [...card.querySelectorAll('button')].find(button => button.textContent === csDictionary.common.save)!.click())
+    expect(container.textContent).toContain('Výsledek poslední změny zatím není potvrzený.')
+    expect(container.textContent).not.toContain(csDictionary.jobs.detail.workerSaved)
+    expect(mocks.router.refresh).not.toHaveBeenCalled()
+    await mount(createElement(JobDetailPageClient, { ...original, initialAssignments: [assignment({ labor_hours: 2, hourly_rate: 200 })] }))
+    expect(hours.value).toBe('9')
+    expect([...card.querySelectorAll('button')].every(button => button.disabled)).toBe(true)
+    expect([...container.querySelectorAll('button')].some(button => button.textContent === 'Ověřit výsledek')).toBe(true)
+  })
+  it('preserves edited fields after a conflict, refreshes untouched fields and requires a new user submission', async () => {
+    await mount(createElement(JobDetailPageClient, { ...props(), initialAssignments: [assignment({ labor_hours: 8, hourly_rate: 200 })] })); await flush()
+    const card = await openWorkerRows()
+    const hours = card.querySelector<HTMLInputElement>(`input[placeholder="${csDictionary.jobs.detail.hours}"]`)!
+    const rate = card.querySelector<HTMLInputElement>(`input[placeholder="${csDictionary.jobs.detail.hourlyRatePlaceholder}"]`)!
+    await changeField(hours, '9')
+    const nextWorkspace = { ...assignmentWorkspace(), scope_token: 'b'.repeat(64), assignments: assignmentWorkspace().assignments.map(row => ({ ...row, labor_hours: 10, hourly_rate: 250 })) }
+    vi.mocked(fetch).mockImplementation(async (_url, options) => ({ ok: !options?.method, status: options?.method ? 409 : 200,
+      json: async () => options?.method ? { ok: false, code: 'conflict', uncertain: false } : { ok: true, workspace: nextWorkspace } } as Response))
+    await act(async () => [...card.querySelectorAll('button')].find(button => button.textContent === csDictionary.common.save)!.click())
+    const first = JSON.parse(String(vi.mocked(fetch).mock.calls.find(([, options]) => options?.method === 'PUT')?.[1]?.body))
+    expect(hours.value).toBe('9')
+    await act(async () => [...container.querySelectorAll('button')].find(button => button.textContent === 'Načíst aktuální stav')!.click())
+    expect(hours.value).toBe('9'); expect(rate.value).toBe('250')
+    expect(vi.mocked(fetch).mock.calls.filter(([, options]) => options?.method === 'PUT')).toHaveLength(1)
+    await act(async () => [...card.querySelectorAll('button')].find(button => button.textContent === csDictionary.common.save)!.click())
+    const second = JSON.parse(String(vi.mocked(fetch).mock.calls.filter(([, options]) => options?.method === 'PUT').at(-1)?.[1]?.body))
+    expect(second.operationId).not.toBe(first.operationId); expect(second.scopeToken).toBe('b'.repeat(64))
+    expect(second.assignments[0]).toMatchObject({ labor_hours: 9, hourly_rate: 250 })
+  })
+  it('keeps the form draft when the user safely cancels an uncertain attempt', async () => {
+    await mount(createElement(JobDetailPageClient, { ...props(), initialAssignments: [assignment({ labor_hours: 8, hourly_rate: 200 })] })); await flush()
+    const card = await openWorkerRows()
+    const hours = card.querySelector<HTMLInputElement>(`input[placeholder="${csDictionary.jobs.detail.hours}"]`)!
+    await changeField(hours, '9')
+    vi.mocked(fetch).mockImplementation(async (_url, options) => {
+      if (options?.method === 'PUT') throw Error('response lost')
+      if (options?.method === 'PATCH') {
+        const command = JSON.parse(String(options.body))
+        return { ok: true, status: 200, json: async () => ({ ok: true, receipt: { company_id: companyA, actor_id: actor, job_id: jobA,
+          operation_id: command.operationId, kind: command.kind, cancelled: true } }) } as Response
+      }
+      return { ok: true, status: 200, json: async () => ({ ok: true, workspace: assignmentWorkspace() }) } as Response
+    })
+    await act(async () => [...card.querySelectorAll('button')].find(button => button.textContent === csDictionary.common.save)!.click())
+    expect(container.textContent).not.toContain(csDictionary.jobs.detail.savingWorker)
+    const cancel = [...container.querySelectorAll('button')].find(button => button.textContent === 'Bezpečně zrušit pokus')!
+    expect(cancel.disabled).toBe(false)
+    await act(async () => cancel.click())
+    expect(container.textContent).toContain('Pokus byl bezpečně zrušen.')
+    expect(hours.value).toBe('9')
+    expect([...card.querySelectorAll('button')].find(button => button.textContent === csDictionary.common.save)?.disabled).toBe(false)
+    expect(mocks.router.refresh).not.toHaveBeenCalled()
+  })
+  it('keeps same-scope drafts on refresh and remounts them at the server company/actor/role/job key boundary', async () => {
+    const pageProps = { ...props(), initialAssignments: [assignment({ labor_hours: 8, hourly_rate: 200 })] }
+    const pageKey = (value: typeof pageProps) => `${value.initialJob.company_id}:${value.initialActorProfileId}:${value.initialActorRole}:${value.jobId}`
+    await mount(createElement(JobDetailPageClient, { ...pageProps, key: pageKey(pageProps) })); await flush()
+    let card = await openWorkerRows()
+    await changeField(card.querySelector<HTMLInputElement>(`input[placeholder="${csDictionary.jobs.detail.hours}"]`)!, '9')
+    await mount(createElement(JobDetailPageClient, { ...pageProps, key: pageKey(pageProps), initialAssignments: [assignment({ labor_hours: 4, hourly_rate: 200 })] }))
+    expect(card.querySelector<HTMLInputElement>(`input[placeholder="${csDictionary.jobs.detail.hours}"]`)!.value).toBe('9')
+    const nextProps = { ...pageProps, initialActorProfileId: companyB, initialAssignments: [assignment({ labor_hours: 2, hourly_rate: 200 })] }
+    vi.mocked(fetch).mockImplementation(async url => ({ ok: true, status: 200, json: async () => String(url).includes('/assignments?')
+      ? { ok: true, workspace: { ...assignmentWorkspace(), actor_id: companyB } }
+      : { companyId: companyA, profileId: companyB, role: 'company_admin' } } as Response))
+    await mount(createElement(JobDetailPageClient, { ...nextProps, key: pageKey(nextProps) })); await flush()
+    card = await openWorkerRows()
+    expect(card.querySelector<HTMLInputElement>(`input[placeholder="${csDictionary.jobs.detail.hours}"]`)!.value).toBe('2')
+  })
   it('does not follow a protected response to another site or company', async () => {
     await mount(createElement(JobDetailPageClient, { ...props(), initialAssignments: [assignment({ labor_hours: 8, hourly_rate: 200 })] })); await flush()
     const card = await openWorkerRows()
-    vi.mocked(fetch).mockResolvedValue({ ok: false, status: 409, json: async () => ({ code: 'LABOR_APPROVED_SOURCE_IMMUTABLE', reviewHref: `https://evil.test/labor?company=${companyB}` }) } as Response)
+    vi.mocked(fetch).mockResolvedValue({ ok: false, status: 409, json: async () => ({ uncertain: false, code: 'LABOR_APPROVED_SOURCE_IMMUTABLE', reviewHref: `https://evil.test/labor?company=${companyB}` }) } as Response)
     await act(async () => [...card.querySelectorAll('button')].find(button => button.textContent === csDictionary.common.save)!.click())
     expect(container.innerHTML).not.toContain('evil.test')
     expect([...container.querySelectorAll('a')].some(link => link.getAttribute('href') === `/labor?company=${companyA}&actor=${actor}&worker=${actor}`)).toBe(true)

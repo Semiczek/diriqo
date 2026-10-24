@@ -2,6 +2,66 @@
 
 Status: **NOT DONE / TEST DATABASE APPLIED / DRAFT PR #44 / APPLICATION NOT DEPLOYED**. This report covers the additive database foundation and draft application integration on codex/diriqo-labor-history, based on 0a987c75f8272c33d24bfbd7748b2f8d78806682. PR #44 is open and draft: https://github.com/Semiczek/diriqo/pull/44. The foundation is committed as 9e969e8; the separate test-runtime audit is committed as 6cf8baa. Both reviewed migrations are applied only to authorized Diriqo test project wfcpfraxiuhuglnuaxqj. The application is not deployed. Legacy remuneration readers, further concurrency gates and authenticated user acceptance remain open. No original acceptance scenario is closed by this draft.
 
+
+## Atomic assignment recovery checkpoint (2026-10-24, local only)
+
+The root/child assignment endpoint now calls one authorized PostgreSQL
+transaction for POST, PUT and DELETE. It validates the complete command,
+locks workers in stable order, checks the full hierarchy/source snapshot again
+after waiting, preserves archive/reset metadata, and stores the applied result
+with the source changes. A later failure rolls back the entire batch.
+
+The real job form loads source rows and their version together, persists the
+exact pending command in sessionStorage before sending, and accepts only a
+complete company/actor/job/operation-matching receipt. Lost or malformed responses
+keep further changes blocked. Receipt lookup and exact replay retain the same
+operation identity. A stale retry has an explicit safe exit: PATCH requests a
+terminal cancellation serialized by the same operation lock. An already applied
+operation returns its original result; an unapplied one receives a cancellation
+marker that prevents a delayed original request from writing later. Cancellation
+and receipt lookup still require current company-administrator authority, but
+work after licence expiry or deletion of the original job.
+
+Verified cancellation preserves the user's edits and reloads a fresh workspace
+before enabling new writes. An uncertain cancellation does not discard the
+original command. The page is keyed by company, actor, role and job; a
+same-context refresh preserves drafts, and a changed context remounts the form.
+The interface uses the established purple palette and Czech/English/German text.
+
+Local validation at this checkpoint:
+
+- Full application regression: **3,124/3,124 tests in 112 files PASS**, zero skips.
+- The five focused API/parser/React/SQL files: **184 tests** included above;
+  the final React subset contains **43 tests**.
+- Mandatory actual PGlite 0.5.9 SQL: **73 checks**, **65 captured error responses**,
+  **14 actual DTOs** passed through production parsers, and **6 rollback cleanup
+  assertions**. The SQL/parser contract file has **18 tests**. These 73 SQL checks
+  are not the original 73 product acceptance scenarios.
+- SQL checks cover late failure rollback, source protection, authorization,
+  stale scope and exact replay, plus both sequential cancellation orderings,
+  cancellation after job deletion/expiry and mismatched command rejection.
+  No genuine simultaneous multi-connection execution is claimed for PGlite.
+- Full TypeScript passed. Full ESLint has zero errors and the same three existing
+  navigation warnings. Next 16.4.2 production build passed (108/108 pages,
+  4.5-second compilation, 5.1-second build TypeScript) with nonfunctional
+  Supabase configuration. Independent scoped reviews found no remaining
+  concrete issue in the recovery hook and cancellation/API outcome boundary.
+
+New migration: `20261024120344_atomic_job_assignment_batch.sql`,
+SHA-256 `b49d1867731851a97361ea2d4dafeb10aeb1aa27286257dd54464c3949de1398`.
+**It has not been applied to the hosted test database. This batch is not
+application-deployed.** The two previously applied migrations and their protected
+test/evidence sources remain byte-identical.
+
+Before applying/accepting this new batch, capture current schema/data preservation,
+review and apply it only to the authorized Diriqo test project, then verify real
+concurrent writes/cancellation, hierarchy changes and authorization loss while
+waiting. Existing mobile/direct-DML grants and reversed lock acquisition remain
+separate open gates. The four remuneration readers, authenticated UI flows and
+complete financial acceptance still need completion. PR #44 stays draft and
+unmerged. Original product acceptance remains **8 HOTOVO / 46 CASTECNE /
+3 CHYBA / 11 CHYBI / 5 NEOVERENO**; no scenario is promoted by this checkpoint.
+
 ## Legacy editor and source-row checkpoint (2026-10-24)
 
 The legacy shift editor now pins the authenticated administrator and active
@@ -65,7 +125,7 @@ and 23 retained component-notice entries are now in
 The unchanged Office/package gate passes. The prior failed run remains evidence
 of its own version, not a passing result.
 
-**Still open:** the existing root/child assignment batch uses multiple database
+**At that earlier checkpoint:** the existing root/child assignment batch used multiple database
 statements. Input preflight prevents malformed later inputs from creating an
 earlier write, but a later database/auth failure can still leave a partial batch.
 This requires an atomic database operation and real rollback/concurrency tests
@@ -198,7 +258,7 @@ These five successful RPC scenarios close their specific overlap/outcome checks.
 
 1. **Reconcile the four remuneration readers with approved time and an independently evidenced remuneration basis.** app/workers/page.tsx:567, app/workers/[workerId]/page.tsx:609, app/api/workers/export/route.ts:364 and app/api/workers/[workerId]/shifts/export/route.ts:194 still derive financial values from legacy shift/assignment hours and present-day profile rates. lib/dal/payroll-readers.ts:56 still reads worker_job_assignment_summary. A ledger correction leaves the original source immutable by design, so these readers otherwise disagree with the canonical job economics. Use one scoped read model for the current approved version, filter individual work_date rows into the calendar work month, preserve actual/pay/billed hours separately, and expose missing historical evidence explicitly. Do not replace cost_amount with netPayout.
 2. **Preserve the distinction between employer cost and worker remuneration.** The original input “Diriqo zadání pro Codex”, 10 October 2026, §5 introductory rules (line 300), §5.3 (lines 346–348) and §5.4 (lines 360–366) distinguishes actual/remuneration/billed hours, defines a historical cost rate, and explicitly excludes a legislative payroll calculation from Core. It does not establish cost rate = remuneration rate, gross wage or net wage. Existing profile “default hourly rate” and calculateWorkerPayroll provide no historical proof of that equality. Define a separate company-scoped, effective, explicitly evidenced remuneration basis and immutable calculation/version links; missing basis stays unknown. Preserve the actual paid amount/date and represent a later approved correction as an explicit difference to settle. Current payroll_payments upsert and a paid_at badge do not by themselves reconcile changed approved time. Payday stays a plan for month M+1, not the work-period selector or proof of payment; see docs/worker-advances-c08-implementation-20261018.md. Validate all four readers/exports against the same approved-time cases, distinct cost/remuneration rates, 31 October/1 November split, 8 actual/7.5 remuneration/6 billed hours, explicit zero versus unknown, revisions after payment, worker payday overrides, currencies, and company/role boundaries. Financial readers remain administrator-only; manager/worker time DTOs must not gain cost fields.
-3. **Verify the repaired legacy editors and row displays in the real user flow.** The checkpoint above implements protected-source review links, scoped editor actions, truthful unknown row costs and strict numeric input. Confirm administrator/manager/worker visibility, actual protected-source responses and draft preservation after reload in the deployed application. Replace the existing multi-statement assignment batch with a transaction so a later database or authorization failure cannot leave partial updates. An approved correction must keep the previous amount until approval and then switch the current pointer once.
+3. **Verify the repaired legacy editors and row displays in the real user flow.** The checkpoint above implements protected-source review links, scoped editor actions, truthful unknown row costs and strict numeric input. Confirm administrator/manager/worker visibility, actual protected-source responses and draft preservation after reload in the deployed application. The new atomic assignment batch and terminal cancellation are locally validated above; apply and verify them in the hosted test database and authenticated UI before acceptance. An approved correction must keep the previous amount until approval and then switch the current pointer once.
 4. **Complete source-write and authorization concurrency gates.** Collect actual source PATCH/approval lock evidence, including a shift referenced through a log. Direct DML takes a source-row lock before the worker lock; approval takes the worker lock before a source-row lock. A real 40P01/deadlock remains possible and is not repaired by changing deterministic domain conflicts to PT409. Reconcile survivor/victim state, audit, receipts and any retry before accepting the flow. Test role/membership/module revocation during a wait and the rate-first stale-preview outcome with separately identified evidence. Do not reuse consumed fixtures or interpret sequential operations as overlap.
 5. **Finish application release proof after those integrations.** Keep the current draft review separate from approval to merge/deploy. Run the updated application checks and authenticated administrator/manager/worker flow, including reload, correction, company switch, unknown rates and licence loss. Preserve the migration bodies, both historical and fresh artifacts, and the original 73-scenario scope. This worklist does not introduce a restricted rollout as a substitute for completing that scope.
 

@@ -562,6 +562,7 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
 
   return (
     <JobDetailPageClient
+      key={`${activeCompany.companyId}:${activeCompany.profileId}:${activeCompany.role}:${jobId}`}
       initialActorProfileId={activeCompany.profileId}
       initialActorRole={activeCompany.role}
       referenceTime={referenceTime}
