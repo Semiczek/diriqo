@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest'
 
 import {
   buildJobEconomicsSummary,
+  calculateQuotedJobEconomics,
+  commonEconomicsCurrency,
+  sumCompleteJobProfit,
   getDirectCostTotal,
   getInvoiceNetAmount,
   roundEconomicsMoney,
@@ -58,7 +61,57 @@ describe('economics pure functions', () => {
       total_cost_total: 600.25,
       profit_total: 399.75,
       margin_percent: 39.98,
+      currency: 'CZK', labor_completeness: 'complete', labor_cost_reasons: [],
+      missing_rate_hours: 0, unapproved_labor_hours: 0, legacy_unverified_labor_count: 0,
+      unconverted_labor_costs: [], provisional_labor_cost_total: 0,
+      known_labor_cost_total: 500.25, known_cost_total: 600.25,
     })
   })
 })
 
+
+const base = { jobId: 'job-1', companyId: 'company-1', quotedRevenue: 2500, invoicedRevenue: 2500, laborHours: 8, internalLaborCost: 1600, externalLaborCost: 0, directCost: 10, currency: 'CZK' }
+describe('incomplete labour never creates profit', () => {
+  it.each(['incomplete', 'provisional'] as const)('preserves known costs but withholds totals for %s', laborCompleteness => {
+    const summary = buildJobEconomicsSummary({ ...base, laborCompleteness, missingRateHours: 2, provisionalLaborCost: 400 })
+    expect(summary).toMatchObject({ known_labor_cost_total: 1600, known_cost_total: 1610,
+      labor_cost_total: null, total_cost_total: null, profit_total: null, margin_percent: null,
+      provisional_labor_cost_total: 400, missing_rate_hours: 2 })
+    expect(sumCompleteJobProfit([summary], 'CZK')).toBeNull()
+  })
+  it('keeps an explicit approved zero complete', () => {
+    const summary = buildJobEconomicsSummary({ ...base, internalLaborCost: 0 })
+    expect(summary).toMatchObject({ labor_cost_total: 0, total_cost_total: 10, profit_total: 2490, margin_percent: 99.6 })
+  })
+  it('does not hide missing labour behind a nonzero material cost', () => {
+    const summary = buildJobEconomicsSummary({ ...base, internalLaborCost: 0, laborCompleteness: 'incomplete', missingRateHours: 8 })
+    expect(summary.known_cost_total).toBe(10)
+    expect(summary.profit_total).toBeNull()
+    expect(calculateQuotedJobEconomics({ quotedRevenue: 2500, laborCost: summary.labor_cost_total, otherCost: 10 }).profit).toBeNull()
+  })
+  it('does not include an unconverted approved cost in a different currency', () => {
+    const summary = buildJobEconomicsSummary({ ...base, unconvertedLaborCosts: [{ currency: 'EUR', amount: '100.00' }] })
+    expect(summary).toMatchObject({ labor_completeness: 'incomplete', total_cost_total: null, margin_percent: null })
+  })
+  it('keeps incomplete parts and different currencies out of combined profit', () => {
+    const complete = buildJobEconomicsSummary(base)
+    expect(sumCompleteJobProfit([complete, complete], 'CZK')).toBe(1780)
+    expect(sumCompleteJobProfit([complete, { ...complete, currency: 'EUR' }], 'CZK')).toBeNull()
+    expect(sumCompleteJobProfit([complete, { ...complete, labor_completeness: 'incomplete' }], 'CZK')).toBeNull()
+    expect(sumCompleteJobProfit([], 'CZK')).toBe(0)
+  })
+  it('cannot present provisional known subtotal as final quoted profit', () => {
+    expect(calculateQuotedJobEconomics({ quotedRevenue: 2000, laborCost: 100, otherCost: 50, completeness: 'provisional' }))
+      .toMatchObject({ knownTotalCost: 150, totalCost: null, profit: null, margin_percent: null })
+  })
+})
+
+describe('combined currency evidence', () => {
+  it('does not turn a mixed group represented by null into CZK', () => {
+    expect(commonEconomicsCurrency([{ currency: null }])).toBeNull()
+    expect(commonEconomicsCurrency([{ currency: 'EUR' }, { currency: null }])).toBeNull()
+    expect(commonEconomicsCurrency([{ currency: 'EUR' }, { currency: 'CZK' }])).toBeNull()
+    expect(commonEconomicsCurrency([{ currency: 'EUR' }, { currency: 'EUR' }])).toBe('EUR')
+    expect(commonEconomicsCurrency([], 'EUR')).toBe('EUR')
+  })
+})

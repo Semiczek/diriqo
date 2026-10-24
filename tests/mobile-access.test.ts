@@ -42,6 +42,9 @@ describe('mobile app authorization', () => {
     for (const value of ['//evil.test', 'https://evil.test', '/mobile/my', '../admin', 'manager/admin', '']) expect(mobileEntryPath(value)).toBeNull()
     expect(isMemberWorkspacePath('/api/job-photos/url')).toBe(true)
     expect(isMemberWorkspacePath('/mobile/manager')).toBe(true)
+    expect(isMemberWorkspacePath('/labor')).toBe(true)
+    expect(isMemberWorkspacePath('/labor/review')).toBe(true)
+    expect(isMemberWorkspacePath('/labor-admin')).toBe(false)
     for (const value of ['/jobs', '/workers', '/api/job-photos-admin', '/mobile/managerial']) expect(isMemberWorkspacePath(value)).toBe(false)
   })
   it('blocks an unauthenticated or demoted manager before privileged reads', async () => {

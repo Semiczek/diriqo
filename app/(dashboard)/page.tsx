@@ -12,7 +12,8 @@ import OnboardingChecklist from '@/components/onboarding/OnboardingChecklist'
 import { getIntlLocale, type Locale } from '@/lib/i18n/config'
 import { getRequestDictionary, getRequestLocale } from '@/lib/i18n/server'
 import { listJobEconomicsSummaries } from '@/lib/dal/economics'
-import { calculateQuotedJobEconomics, type JobEconomicsSummary } from '@/lib/economics'
+import { ECONOMICS_PAGE_SIZE, readCompleteEconomicsRows } from '@/lib/dal/economics-pages'
+import { calculateQuotedJobEconomics, commonEconomicsCurrency, type JobEconomicsSummary } from '@/lib/economics'
 import { getCompanyOnboardingChecklist } from '@/lib/onboarding'
 import { resolveCompanyTimeZone } from '@/lib/company-timezone'
 import { requireHubAccess } from '@/lib/require-hub-access'
@@ -281,10 +282,14 @@ type MonthEconomyJob = {
   price: number
   laborCost: number
   otherCost: number
-  profit: number
+  profit: number | null
   revenue: number
   invoicedRevenue: number
   margin: number | null
+  costsComplete: boolean
+  monthlyAllocationComplete: boolean
+  inOperationalPeriod: boolean
+  currency: string | null
   start_at: string | null
   end_at: string | null
   created_at?: string | null
@@ -483,6 +488,15 @@ function getDisplayWorkStateForDay(
   }
 
   return job.work_state
+}
+
+/** Match the existing job-period model, but do not allocate a lifetime amount across months. */
+function getJobFinancialMonth(job: JobRow, timeZone: string): string | null {
+  const start = parseDateSafe(job.start_at, timeZone) ?? parseDateSafe(job.end_at, timeZone)
+  const end = parseDateSafe(job.end_at, timeZone) ?? start
+  if (!start || !end || start > end) return null
+  const startMonth = formatDateKeyInTimeZone(start, timeZone).slice(0, 7)
+  return startMonth === formatDateKeyInTimeZone(end, timeZone).slice(0, 7) ? startMonth : null
 }
 
 function isDateInDateKeyRange(
@@ -742,7 +756,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     jobParentLinksResponse,
     jobPhotosResponse,
   ] = await Promise.all([
-    supabase
+    readCompleteEconomicsRows<JobRow>(offset => supabase
       .from('jobs_with_state')
       .select(
         `
@@ -763,10 +777,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             started_total,
             completed_total,
             active_workers
-          `
+          `,
+          { count: 'exact' }
         )
       .eq('company_id', companyId)
-      .order('start_at', { ascending: true }),
+      .order('id').range(offset, offset + ECONOMICS_PAGE_SIZE - 1))
+      .then(data => ({ data: data.sort((a, b) => (a.start_at ?? '\uffff').localeCompare(b.start_at ?? '\uffff')) })),
 
     supabase
       .from('customers')
@@ -821,10 +837,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       .order('due_date', { ascending: true })
       .limit(50),
 
-    supabase
+    readCompleteEconomicsRows<{ id: string; parent_job_id: string | null }>(offset => supabase
       .from('jobs')
-      .select('id, parent_job_id')
-      .eq('company_id', companyId),
+      .select('id, parent_job_id', { count: 'exact' })
+      .eq('company_id', companyId)
+      .order('id').range(offset, offset + ECONOMICS_PAGE_SIZE - 1))
+      .then(data => ({ data })),
 
     supabase
       .from('job_photos')
@@ -857,6 +875,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     ((jobParentLinksResponse.data ?? []) as Array<{ id: string; parent_job_id: string | null }>)
       .map((job) => [job.id, job.parent_job_id])
   )
+  if (parentByJobId.size !== jobsResponse.data.length || jobsResponse.data.some(job => !parentByJobId.has(job.id))) {
+    throw new Error('Podklady zakázek se během načítání změnily. Obnovte přehled.')
+  }
   const jobs = ((jobsResponse.data ?? []) as JobRow[])
     .filter((job) => !job.company_id || job.company_id === companyId)
     .map((job) => {
@@ -895,6 +916,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     {
       supabase,
       companyId,
+      profileId: activeCompany.profileId,
+      role: activeCompany.role,
     },
     jobIds
   )
@@ -1084,24 +1107,37 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const toMonthEconomyJobs = (sourceJobs: JobRow[]) => {
     const grouped = new Map<string, MonthEconomyJob>()
 
-    for (const job of sourceJobs) {
+    // Operational cards omit summary parents. Their money belongs to their own period,
+    // not to every month containing a child; an ambiguous period cannot publish a total.
+    const operationalGroupIds = new Set(sourceJobs.map(job => getJobGroupRootId(job.id, groupedParentByJobId)))
+    const financialJobs = new Map(sourceJobs.map(job => [job.id, job]))
+    for (const job of jobs) {
+      if (summaryJobIds.has(job.id) && (operationalGroupIds.has(job.id)
+        || overlapsRange(job.start_at, job.end_at, summaryMonthConfig.start, summaryMonthConfig.end))) {
+        financialJobs.set(job.id, job)
+      }
+    }
+    for (const job of financialJobs.values()) {
       const rootId = getJobGroupRootId(job.id, groupedParentByJobId)
       const rootJob = jobsById.get(rootId) ?? job
       const current = grouped.get(rootId)
       const economicsSummary = economicsByJobId.get(job.id)
-      const nextLaborCost = toNumber(economicsSummary?.labor_cost_total)
-      const nextOtherCost = toNumber(economicsSummary?.other_cost_total)
-      const nextRevenue = toNumber(economicsSummary?.revenue_total)
-      const nextPrice = toNumber(job.price)
+      const financialMonth = getJobFinancialMonth(job, companyTimeZone)
+      const contributesToMonth = financialMonth === selectedSummaryMonth
+      const monthlyAllocationComplete = (current?.monthlyAllocationComplete ?? true) && financialMonth !== null
+      const nextLaborCost = contributesToMonth ? toNumber(economicsSummary?.known_labor_cost_total) : 0
+      const nextOtherCost = contributesToMonth ? toNumber(economicsSummary?.other_cost_total) : 0
+      const nextRevenue = contributesToMonth ? toNumber(economicsSummary?.revenue_total) : 0
+      const nextPrice = contributesToMonth ? toNumber(job.price) : 0
 
       const nextStart =
-        [current?.start_at, job.start_at]
+        [current?.start_at, contributesToMonth ? job.start_at : null]
           .map((value) => parseDateSafe(value))
           .filter((value): value is Date => Boolean(value))
           .sort((a, b) => a.getTime() - b.getTime())[0] ?? null
 
       const nextEnd =
-        [current?.end_at, job.end_at]
+        [current?.end_at, contributesToMonth ? job.end_at : null]
           .map((value) => parseDateSafe(value))
           .filter((value): value is Date => Boolean(value))
           .sort((a, b) => b.getTime() - a.getTime())[0] ?? null
@@ -1110,7 +1146,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       const invoicedRevenue = (current?.invoicedRevenue ?? 0) + nextRevenue
       const laborCost = (current?.laborCost ?? 0) + nextLaborCost
       const otherCost = (current?.otherCost ?? 0) + nextOtherCost
+      const currency = !contributesToMonth && financialMonth !== null && current ? current.currency
+        : current ? (current.currency === economicsSummary?.currency ? current.currency : null) : economicsSummary?.currency ?? null
+      const costsComplete = (current?.costsComplete ?? true) && monthlyAllocationComplete
+        && (!contributesToMonth || economicsSummary?.labor_completeness === 'complete') && currency !== null
       const quotedEconomics = calculateQuotedJobEconomics({
+        completeness: costsComplete ? 'complete' : 'incomplete',
         quotedRevenue: price,
         laborCost,
         otherCost,
@@ -1132,8 +1173,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         revenue: quotedEconomics.quotedRevenue,
         invoicedRevenue,
         margin: quotedEconomics.margin_percent,
-        start_at: nextStart ? nextStart.toISOString() : job.start_at ?? null,
-        end_at: nextEnd ? nextEnd.toISOString() : job.end_at ?? null,
+        costsComplete,
+        monthlyAllocationComplete,
+        inOperationalPeriod: operationalGroupIds.has(rootId),
+        currency,
+        start_at: nextStart ? nextStart.toISOString() : contributesToMonth ? job.start_at ?? null : null,
+        end_at: nextEnd ? nextEnd.toISOString() : contributesToMonth ? job.end_at ?? null : null,
         created_at: rootJob.created_at ?? job.created_at ?? null,
         waitingForInvoice,
         invoiced,
@@ -1156,11 +1201,17 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const monthProfitJobs = monthCompletedJobs
   const monthReadyToInvoice = monthWaitingForInvoiceJobs.reduce((sum, job) => sum + job.price, 0)
   const monthInvoiced = monthInvoicedJobs.reduce((sum, job) => sum + job.invoicedRevenue, 0)
-  const monthLabor = monthProfitJobs.reduce((sum, job) => sum + job.laborCost, 0)
+  const monthCurrency = commonEconomicsCurrency(monthEconomyJobs)
+  const monthAllocationComplete = monthEconomyJobs.every(job => job.monthlyAllocationComplete)
+  const monthCostsComplete = monthCurrency !== null && monthAllocationComplete && monthProfitJobs.every(job => job.costsComplete)
+  const incompleteCostsText = locale === 'en' ? 'Costs are incomplete. Review rates and work approval before assessing profit.' : locale === 'de' ? 'Kosten sind unvollständig. Bitte Kostensätze und Arbeitsfreigaben prüfen.' : 'Náklady nejsou úplné. Pro výpočet zisku doplňte sazby a schvalte pracovní výkazy.'
+  const mixedCurrenciesText = locale === 'en' ? 'Jobs use different currencies. A combined amount is not available.' : locale === 'de' ? 'Aufträge verwenden verschiedene Währungen. Eine gemeinsame Summe ist nicht verfügbar.' : 'Zakázky používají různé měny. Společný součet není k dispozici.'
+  const monthlyAllocationText = locale === 'en' ? 'Monthly amounts are unavailable: a job spans multiple months or has no verified period. Its full economics remains available in the job detail.' : locale === 'de' ? 'Monatsbeträge sind nicht verfügbar: Ein Auftrag erstreckt sich über mehrere Monate oder hat keinen bestätigten Zeitraum. Die Gesamtkalkulation steht im Auftragsdetail.' : 'Měsíční částky nejsou dostupné: zakázka přesahuje více měsíců nebo nemá ověřené období. Celková ekonomika zůstává v detailu zakázky.'
+  const monthMoney = (value: number | null) => monthCurrency && monthAllocationComplete ? formatCurrency(value, intlLocale, monthCurrency) : '—'
+  const monthLabor = monthCostsComplete ? monthProfitJobs.reduce((sum, job) => sum + job.laborCost, 0) : null
   const monthOther = monthProfitJobs.reduce((sum, job) => sum + job.otherCost, 0)
-  const monthTotalCosts = monthLabor + monthOther
   // KPI profit follows the same central job economics as the jobs list: job price minus labor and direct costs.
-  const monthProfit = monthProfitJobs.reduce((sum, job) => sum + job.profit, 0)
+  const monthProfit = monthCostsComplete ? monthProfitJobs.reduce((sum, job) => sum + (job.profit ?? 0), 0) : null
 
   const weekAbsences = absences.filter((item) =>
     overlapsRange(item.start_at, item.end_at, weekStart, weekEnd)
@@ -1241,11 +1292,15 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       otherCost,
       revenue,
       price: job.price,
+      costsComplete: job.costsComplete,
+      monthlyAllocationComplete: job.monthlyAllocationComplete,
+      currency: job.currency,
     }
   })
 
   const topJobs = profitJobDetails
-    .sort((a, b) => b.profit - a.profit)
+    .filter(job => job.costsComplete && job.profit !== null)
+    .sort((a, b) => (b.profit ?? 0) - (a.profit ?? 0))
     .slice(0, 4)
 
   const riskJobs = profitJobDetails
@@ -1253,21 +1308,22 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       const laborRatio = job.revenue > 0 ? job.laborCost / job.revenue : 0
       const reasons: string[] = []
 
-      if (job.profit < 0) reasons.push(t.negativeProfit)
+      if (job.profit !== null && job.profit < 0) reasons.push(t.negativeProfit)
       if (job.margin != null && job.margin <= 10) reasons.push(t.lowMargin)
       if (laborRatio >= 0.65) reasons.push(t.highLaborCosts)
       if (job.price <= 0) reasons.push(t.missingPrice)
-      if (job.price > 0 && job.laborCost === 0 && job.otherCost === 0) reasons.push(t.missingCosts)
+      if (!job.costsComplete) reasons.push(t.missingCosts)
 
       return { ...job, reasons }
     })
     .filter((job) => job.reasons.length > 0)
-    .sort((a, b) => a.profit - b.profit)
+    .sort((a, b) => Number(a.costsComplete) - Number(b.costsComplete) || (a.profit ?? 0) - (b.profit ?? 0))
     .slice(0, 5)
 
   const monthProfitByDay = new Map<number, { profit: number; revenue: number; costs: number }>()
   const selectedMonthDays = getDaysInMonth(summaryMonthConfig.start)
   for (const job of monthProfitJobs) {
+    if (job.profit === null || !job.costsComplete) continue
     const date = parseDateSafe(job.end_at) ?? parseDateSafe(job.start_at) ?? parseDateSafe(job.created_at)
     if (!date || date < summaryMonthConfig.start || date > summaryMonthConfig.end) continue
 
@@ -1291,7 +1347,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       costs: point.costs,
     }
   })
-  const hasProfitChartData = profitChartPoints.some(
+  const hasProfitChartData = monthCostsComplete && profitChartPoints.some(
     (point) => point.value !== 0 || point.revenue !== 0 || point.costs !== 0
   )
 
@@ -1413,7 +1469,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         id: job.id,
         title: job.title ?? t.unnamedJob,
         customer: customerMap.get(job.customer_id ?? '') ?? t.noCustomer,
-        meta: [formatShortDateTime(job.end_at ?? job.start_at, companyTimeZone, intlLocale), formatCurrency(toNumber(job.price), intlLocale)]
+        meta: [formatShortDateTime(job.end_at ?? job.start_at, companyTimeZone, intlLocale), job.monthlyAllocationComplete && job.currency ? formatCurrency(job.price, intlLocale, job.currency) : '—']
           .filter(Boolean)
           .join(' • '),
         href: `/jobs/${job.id}`,
@@ -1538,10 +1594,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     overdueQuotes.length +
     pendingAdvances.length +
     pendingAbsences.length
-  const companyStateStyle = monthProfit < 0 ? companyStateCardLoss : companyStateCardProfit
+  const companyStateStyle = monthProfit !== null && monthProfit < 0 ? companyStateCardLoss : companyStateCardProfit
   const firstChartValue = profitChartPoints.find((point) => point.value !== 0)?.value ?? 0
   const lastChartValue = [...profitChartPoints].reverse().find((point) => point.value !== 0)?.value ?? 0
-  const chartComment = !hasProfitChartData
+  const chartComment = !monthAllocationComplete ? monthlyAllocationText : !monthCostsComplete ? (monthCurrency ? incompleteCostsText : mixedCurrenciesText) : !hasProfitChartData
     ? t.noChartData
     : lastChartValue >= firstChartValue
       ? t.profitGrowing
@@ -1897,9 +1953,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                   </Link>
                 </div>
             <div className={styles.financeMetrics}>
-              <StatCard dataTour="dashboard-kpi-completed-jobs" title={t.completedJobs} value={String(monthCompletedJobs.length)} subvalue={summaryMonthLabel} />
-              <StatCard dataTour="dashboard-kpi-waiting-invoice" title={t.waitingForInvoice} value={formatCurrency(waitingInvoiceTotal, intlLocale)} subvalue={`${waitingInvoiceJobs.length} ${t.jobsWaitingForInvoice}`} />
-              <StatCard dataTour="dashboard-kpi-profit" title={t.profit} value={formatCurrency(monthProfit, intlLocale)} subvalue={summaryMonthLabel} highlight />
+              <StatCard dataTour="dashboard-kpi-completed-jobs" title={t.completedJobs} value={String(monthCompletedJobs.filter(job => job.inOperationalPeriod).length)} subvalue={summaryMonthLabel} />
+              <StatCard dataTour="dashboard-kpi-waiting-invoice" title={t.waitingForInvoice} value={monthMoney(waitingInvoiceTotal)} subvalue={`${waitingInvoiceJobs.length} ${t.jobsWaitingForInvoice}`} />
+              <StatCard dataTour="dashboard-kpi-profit" title={t.profit} value={monthMoney(monthProfit)} subvalue={summaryMonthLabel} highlight />
             </div>
         <section data-tour="dashboard-month-economy" style={operationsPanel}>
           <div style={operationsHeader}>
@@ -1910,6 +1966,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             <div style={monthBadge}>{summaryMonthLabel}</div>
           </div>
 
+          {!monthCostsComplete ? <div role="status" style={{ margin: '12px 0', color: 'var(--dq-purple, #6d45c6)' }}>
+            {!monthAllocationComplete ? monthlyAllocationText : monthCurrency ? incompleteCostsText : mixedCurrenciesText}{' '}
+            <Link href={monthAllocationComplete ? '/labor' : '/jobs'}>{monthAllocationComplete ? (locale === 'en' ? 'Review work' : locale === 'de' ? 'Arbeit prüfen' : 'Otevřít výkazy') : (locale === 'en' ? 'Open jobs' : locale === 'de' ? 'Aufträge öffnen' : 'Otevřít zakázky')}</Link>
+          </div> : null}
           <div className={styles.economyGrid}>
             <div data-tour="dashboard-economy-chart" style={compactChartPanel}>
               <div style={chartCommentBox}>{chartComment}</div>
@@ -1922,7 +1982,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                     revenue: t.revenue,
                     costs: t.costs,
                   }}
-                  formatCurrencyLabel={(value) => formatCurrency(value, intlLocale)}
+                  formatCurrencyLabel={monthMoney}
                 />
               ) : (
                 <EmptyState text={t.noChartData} />
@@ -1930,13 +1990,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             </div>
 
             <div data-tour="dashboard-economy-table" style={financeTable}>
-              <EconomyLine label={t.ordered} value={formatCurrency(monthOrdered, intlLocale)} />
-              <EconomyLine label={t.invoiced} value={formatCurrency(monthInvoiced, intlLocale)} />
-              <EconomyLine label={t.readyToInvoice} value={formatCurrency(monthReadyToInvoice, intlLocale)} />
-              <EconomyLine label={t.laborCosts} value={formatCurrency(monthLabor, intlLocale)} />
-              <EconomyLine label={t.otherCosts} value={formatCurrency(monthOther, intlLocale)} />
+              <EconomyLine label={t.ordered} value={monthMoney(monthOrdered)} />
+              <EconomyLine label={t.invoiced} value={monthMoney(monthInvoiced)} />
+              <EconomyLine label={t.readyToInvoice} value={monthMoney(monthReadyToInvoice)} />
+              <EconomyLine label={t.laborCosts} value={monthMoney(monthLabor)} />
+              <EconomyLine label={t.otherCosts} value={monthMoney(monthOther)} />
               <EconomyLine label={t.currentPayrollAdvances} value={payrollAdvanceAmount == null ? 'Nelze načíst' : payrollAdvanceAmount === 0 ? '0' : formatAdvanceMoney(payrollAdvanceAmount, workerAdvancesResponse.currency)} />
-              <EconomyLine label={t.profit} value={formatCurrency(monthProfit, intlLocale)} strong />
+              <EconomyLine label={t.profit} value={monthMoney(monthProfit)} strong />
             </div>
           </div>
         </section>
@@ -2028,7 +2088,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                     key={job.id}
                     job={job}
                     labels={jobProfitLabels}
-                    formatCurrencyLabel={(value) => formatCurrency(value, intlLocale)}
+                    formatCurrencyLabel={(value) => job.monthlyAllocationComplete && job.currency ? formatCurrency(value, intlLocale, job.currency) : '—'}
                   />
                 ))}
                 </div>
@@ -2049,7 +2109,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                       job={job}
                       warning={job.reasons.join(', ')}
                       labels={jobProfitLabels}
-                      formatCurrencyLabel={(value) => formatCurrency(value, intlLocale)}
+                      formatCurrencyLabel={(value) => job.monthlyAllocationComplete && job.currency ? formatCurrency(value, intlLocale, job.currency) : '—'}
                     />
                   ))}
                   </div>
@@ -2534,7 +2594,9 @@ function JobProfitRow({
     id: string
     title: string
     customer: string
-    profit: number
+    profit: number | null
+    costsComplete: boolean
+    currency: string | null
     margin: number | null
     laborCost: number
     otherCost: number
@@ -2561,7 +2623,7 @@ function JobProfitRow({
         <div style={profitJobTitle}>{job.title}</div>
         <div style={profitJobMeta}>{job.customer}</div>
         <div style={jobEconomyMeta}>
-          {labels.margin} {formatPercent(job.margin)} | {labels.labor} {formatCurrencyLabel(job.laborCost)} | {labels.other} {formatCurrencyLabel(job.otherCost)}
+          {labels.margin} {formatPercent(job.margin)} | {labels.labor} {job.costsComplete ? formatCurrencyLabel(job.laborCost) : '—'} | {labels.other} {formatCurrencyLabel(job.otherCost)}
         </div>
         <div style={tagRow}>
           {tags.map((tag) => (
@@ -2572,14 +2634,16 @@ function JobProfitRow({
         </div>
         {warning && <div style={riskReason}>{warning}</div>}
       </div>
-      <div style={job.profit < 0 ? riskValue : profitValue}>{formatCurrencyLabel(job.profit)}</div>
+      <div style={job.profit !== null && job.profit < 0 ? riskValue : profitValue}>{job.profit === null ? '—' : formatCurrencyLabel(job.profit)}</div>
     </Link>
   )
 }
 
 function getJobProfitTags(
   job: {
-    profit: number
+    profit: number | null
+    costsComplete: boolean
+    currency: string | null
     margin: number | null
     laborCost: number
     otherCost: number
@@ -2596,7 +2660,7 @@ function getJobProfitTags(
 ) {
   const tags: Array<{ label: string; style: CSSProperties }> = []
 
-  if (job.profit < 0 || warning?.includes(labels.negativeProfit)) {
+  if ((job.profit !== null && job.profit < 0) || warning?.includes(labels.negativeProfit)) {
     tags.push({ label: labels.negativeProfit, style: tagDanger })
   }
   if (job.margin != null && job.margin <= 10) {
@@ -2605,10 +2669,10 @@ function getJobProfitTags(
   if ((job.revenue ?? 0) <= 0) {
     tags.push({ label: labels.missingPrice, style: tagMuted })
   }
-  if ((job.revenue ?? 0) > 0 && job.laborCost === 0 && job.otherCost === 0) {
+  if (!job.costsComplete) {
     tags.push({ label: labels.missingCosts, style: tagMuted })
   }
-  if (tags.length === 0 && job.profit > 0 && (job.margin ?? 0) >= 25) {
+  if (tags.length === 0 && job.profit !== null && job.profit > 0 && (job.margin ?? 0) >= 25) {
     tags.push({ label: labels.excellentJob, style: tagSuccess })
   }
 

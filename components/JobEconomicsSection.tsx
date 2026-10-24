@@ -5,6 +5,8 @@ import styles from './JobEconomicsSection.module.css'
 import { useI18n } from '@/components/I18nProvider'
 import { getIntlLocale } from '@/lib/i18n/config'
 import JobEconomicsEditor from './JobEconomicsEditor'
+import LaborCostStatus from './LaborCostStatus'
+import type { JobEconomicsSummary } from '@/lib/economics'
 import {
   cardTitleStyle,
   metaItemStyle,
@@ -53,11 +55,12 @@ type JobEconomicsSectionProps = {
   price: number | null
   assignments: Assignment[]
   costItems: CostItem[]
-  accountingRevenue?: number
-  laborCost: number
-  externalLaborCost?: number
-  otherCosts: number
-  profit: number
+  accountingRevenue?: number | null
+  laborCost: number | null
+  externalLaborCost?: number | null
+  otherCosts: number | null
+  profit: number | null
+  summary: JobEconomicsSummary | null
   onPriceSaved?: (price: number) => void
   onCostItemAdded?: (item: CostItem) => void
   onCostItemDeleted?: (id: string) => void
@@ -69,10 +72,11 @@ function toNumber(value: string | number | null | undefined) {
   return Number.isFinite(n) ? n : 0
 }
 
-function formatCurrency(value: number, locale: string) {
+function formatCurrency(value: number | null, locale: string, currency?: string) {
+  if (value === null || !currency) return '—'
   return new Intl.NumberFormat(locale, {
     style: 'currency',
-    currency: 'CZK',
+    currency,
     maximumFractionDigits: 2,
   }).format(value)
 }
@@ -88,6 +92,7 @@ export default function JobEconomicsSection({
   externalLaborCost = 0,
   otherCosts,
   profit,
+  summary,
   onPriceSaved,
   onCostItemAdded,
   onCostItemDeleted,
@@ -97,7 +102,7 @@ export default function JobEconomicsSection({
   const detailMessages = dictionary.jobs.detail
   const [isEditing, setIsEditing] = useState(false)
 
-  const revenue = toNumber(accountingRevenue)
+  const revenue = accountingRevenue ?? null
   const quotedPrice = toNumber(price)
 
   const sectionStyle: React.CSSProperties = {
@@ -149,7 +154,7 @@ export default function JobEconomicsSection({
 
   const profitStyle: React.CSSProperties = {
     ...valueStyle,
-    color: profit >= 0 ? '#15803d' : '#b91c1c',
+    color: profit === null ? '#64748b' : profit >= 0 ? '#15803d' : '#b91c1c',
   }
 
   return (
@@ -165,36 +170,37 @@ export default function JobEconomicsSection({
         </button>
       </div>
 
+      <LaborCostStatus summary={summary} locale={locale} />
       {!isEditing ? (
         <div className={styles.summary}>
           <div style={cardStyle}>
             <div style={labelStyle}>{detailMessages.accountingRevenue}</div>
-            <div style={valueStyle}>{formatCurrency(revenue, dateLocale)}</div>
+            <div style={valueStyle}>{formatCurrency(revenue, dateLocale, summary?.currency)}</div>
           </div>
 
           <div style={cardStyle}>
             <div style={labelStyle}>{detailMessages.jobPrice}</div>
-            <div style={valueStyle}>{formatCurrency(quotedPrice, dateLocale)}</div>
+            <div style={valueStyle}>{formatCurrency(quotedPrice, dateLocale, summary?.currency)}</div>
           </div>
 
           <div style={cardStyle}>
             <div style={labelStyle}>{detailMessages.internalLabor}</div>
-            <div style={valueStyle}>{formatCurrency(laborCost, dateLocale)}</div>
+            <div style={valueStyle}>{formatCurrency(laborCost, dateLocale, summary?.currency)}</div>
           </div>
 
           <div style={cardStyle}>
             <div style={labelStyle}>{detailMessages.externalLabor}</div>
-            <div style={valueStyle}>{formatCurrency(externalLaborCost, dateLocale)}</div>
+            <div style={valueStyle}>{formatCurrency(externalLaborCost, dateLocale, summary?.currency)}</div>
           </div>
 
           <div style={cardStyle}>
             <div style={labelStyle}>{detailMessages.directCosts}</div>
-            <div style={valueStyle}>{formatCurrency(otherCosts, dateLocale)}</div>
+            <div style={valueStyle}>{formatCurrency(otherCosts, dateLocale, summary?.currency)}</div>
           </div>
 
           <div style={cardStyle}>
             <div style={labelStyle}>{dictionary.jobs.profit}</div>
-            <div style={profitStyle}>{formatCurrency(profit, dateLocale)}</div>
+            <div style={profitStyle}>{formatCurrency(profit, dateLocale, summary?.currency)}</div>
           </div>
         </div>
       ) : (
@@ -206,6 +212,8 @@ export default function JobEconomicsSection({
           initialCostItems={costItems}
           actualLaborCost={laborCost}
           actualExternalLaborCost={externalLaborCost}
+          laborCompleteness={summary?.labor_completeness ?? 'incomplete'}
+          currency={summary?.currency}
           onPriceSaved={onPriceSaved}
           onCostItemAdded={onCostItemAdded}
           onCostItemDeleted={onCostItemDeleted}

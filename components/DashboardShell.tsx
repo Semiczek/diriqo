@@ -26,6 +26,7 @@ type DashboardShellProps = {
     | 'customers'
     | 'leads'
     | 'workers'
+    | 'labor'
     | 'advanceRequests'
     | 'absences'
     | 'kalkulace'

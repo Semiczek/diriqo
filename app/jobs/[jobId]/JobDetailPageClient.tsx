@@ -42,14 +42,16 @@ import { getShiftDateKey } from '@/lib/job-shift-activity'
 import type { MessageFeedItem } from '@/lib/email/types'
 import {
   getAssignmentFallbackLaborCalculation,
-  getShiftLaborCalculation,
   type LaborCalculationSource,
 } from '@/lib/labor-calculation'
 import {
   getContractorBillingType,
   getWorkerType,
 } from '@/lib/payroll-settings'
-import { calculateQuotedJobEconomics } from '@/lib/economics'
+import { calculateQuotedJobEconomics, type JobEconomicsSummary } from '@/lib/economics'
+import { aggregateJobEconomics } from '@/lib/job-grouping'
+import LaborCostStatus from '@/components/LaborCostStatus'
+import { OFFICE_CONTEXT_EVENT, OFFICE_CONTEXT_STORAGE_KEY } from '@/lib/office/client-context'
 import detailStyles from './job-detail.module.css'
 
 type AssignmentWorkState = 'not_started' | 'working' | 'completed'
@@ -57,6 +59,7 @@ type AssignmentWorkState = 'not_started' | 'working' | 'completed'
 type Job = {
   id: string
   company_id: string | null
+  currency?: string | null
   parent_job_id?: string | null
   title: string | null
   description: string | null
@@ -223,23 +226,13 @@ type CostItemRow = {
   created_at?: string | null
 }
 
-type JobEconomicsSummaryRow = {
-  job_id: string
-  quoted_revenue_total?: number | null
-  revenue_total: number
-  labor_hours_total: number
-  internal_labor_cost_total?: number | null
-  external_labor_cost_total?: number | null
-  labor_cost_total: number
-  other_cost_total: number
-  total_cost_total: number
-  profit_total: number
-  margin_percent: number | null
-}
+type JobEconomicsSummaryRow = JobEconomicsSummary
 
 type JobDetailPageClientProps = {
   jobId: string
   referenceTime: number
+  initialActorProfileId: string | null
+  initialActorRole: string | null
   canManageJobPhotos?: boolean
   canManageCommunication?: boolean
   initialJob: Job | null
@@ -262,18 +255,6 @@ type JobDetailPageClientProps = {
   initialNotFound?: boolean
 }
 
-type DerivedHoursRow = {
-  id: string
-  profileName: string
-  hours: number
-  note: string
-  hourlyRate: number | null
-  laborCost: number
-  workStartedAt: string | null
-  workCompletedAt: string | null
-  workState: AssignmentWorkState
-  hoursSource: LaborCalculationSource
-}
 
 type NormalizedAssignment = {
   id: string
@@ -286,10 +267,10 @@ type NormalizedAssignment = {
   external_amount: number | null
   note: string | null
   computed_labor_hours: number
-  computed_hourly_rate: number
-  computed_labor_cost: number
-  computed_internal_labor_cost: number
-  computed_external_labor_cost: number
+  computed_hourly_rate: number | null
+  computed_labor_cost: number | null
+  computed_internal_labor_cost: number | null
+  computed_external_labor_cost: number | null
   work_started_at: string | null
   work_completed_at: string | null
   profiles: {
@@ -342,12 +323,13 @@ function getProfileNameForDisplay(profile: AssignmentRow['profiles'], fallback: 
   return profile.id ?? fallback
 }
 
-function formatCurrencyForLocale(value: number | null | undefined, locale: string) {
-  const safeValue = Number(value ?? 0)
+function formatCurrencyForLocale(value: number | null | undefined, locale: string, currency?: string | null) {
+  if (value == null || !Number.isFinite(value) || !currency) return '—'
+  const safeValue = value
 
   return new Intl.NumberFormat(locale, {
     style: 'currency',
-    currency: 'CZK',
+    currency,
     maximumFractionDigits: 2,
   }).format(safeValue)
 }
@@ -440,26 +422,6 @@ function getShiftWorkerNameForDisplay(shift: WorkShiftRow, fallback: string) {
   if (shift.profiles?.full_name?.trim()) return shift.profiles.full_name.trim()
   if (shift.profiles?.email?.trim()) return shift.profiles.email.trim()
   return fallback
-}
-
-function getShiftHourlyRate(shift: WorkShiftRow, assignments: AssignmentRow[]) {
-  const assignmentRate = assignments.find(
-    (assignment) =>
-      assignment.job_id === shift.job_id &&
-      assignment.profile_id === shift.profile_id &&
-      assignment.hourly_rate != null &&
-      toNumber(assignment.hourly_rate) > 0
-  )?.hourly_rate
-
-  if (assignmentRate != null && toNumber(assignmentRate) > 0) {
-    return toNumber(assignmentRate)
-  }
-
-  return toNumber(shift.profiles?.default_hourly_rate)
-}
-
-function getShiftLaborCost(shift: WorkShiftRow, assignments: AssignmentRow[]) {
-  return roundHours(getShiftHours(shift) * getShiftHourlyRate(shift, assignments))
 }
 
 function normalizeCostType(value: string | null | undefined): CostType {
@@ -727,35 +689,20 @@ function getAssignmentWorkStateStyles(
 }
 
 function getEffectiveHourlyRate(assignment: AssignmentRow) {
-  const rawRate =
-    assignment.hourly_rate !== null && assignment.hourly_rate !== undefined
-      ? toNumber(assignment.hourly_rate)
-      : null
-
-  const defaultRate =
-    assignment.profiles?.default_hourly_rate !== null &&
-    assignment.profiles?.default_hourly_rate !== undefined
-      ? toNumber(assignment.profiles.default_hourly_rate)
-      : null
-
-  if (rawRate !== null && rawRate > 0) {
-    return rawRate
-  }
-
-  return defaultRate ?? 0
+  return assignment.hourly_rate == null ? null : toNumber(assignment.hourly_rate)
 }
 
 function getEffectiveHours(assignment: AssignmentRow) {
   return getAssignmentFallbackLaborCalculation(
     assignment,
-    toNumber(assignment.profiles?.default_hourly_rate)
+    0
   ).hours
 }
 
 function getEffectiveHoursSource(assignment: AssignmentRow): LaborCalculationSource {
   return getAssignmentFallbackLaborCalculation(
     assignment,
-    toNumber(assignment.profiles?.default_hourly_rate)
+    0
   ).source
 }
 
@@ -837,7 +784,7 @@ function assignmentDraftsFrom(assignments: AssignmentRow[]) {
 }
 
 export default function JobDetailPageClient(props: JobDetailPageClientProps) {
-  return <JobDetailContent key={props.jobId} {...props} />
+  return <JobDetailContent key={(props.initialJob?.company_id ?? '') + ':' + (props.initialActorProfileId ?? '') + ':' + props.jobId} {...props} />
 }
 
 function JobDetailContent({
@@ -860,6 +807,8 @@ function JobDetailContent({
   initialWorkLogs,
   initialCostItems,
   initialJobEconomicsSummary,
+  initialActorProfileId,
+  initialActorRole,
   initialCommunicationFeed,
   initialError = null,
   initialNotFound = false,
@@ -868,7 +817,7 @@ function JobDetailContent({
   const { dictionary, locale } = useI18n()
   const dateLocale = getIntlLocale(locale)
   const detailMessages = dictionary.jobs.detail
-  const formatCurrency = (value: number | null | undefined) => formatCurrencyForLocale(value, dateLocale)
+  const formatCurrency = (value: number | null | undefined) => formatCurrencyForLocale(value, dateLocale, initialJobEconomicsSummary?.currency ?? initialJob?.currency)
   const formatDateTime = (value: string | null) => formatDateTimeForLocale(value, dateLocale)
   const formatDate = (value: string | null) => formatDateForLocale(value, dateLocale)
   const formatHours = (value: number) => formatHoursForLocale(value, dateLocale)
@@ -931,6 +880,7 @@ function JobDetailContent({
     return detailMessages.mainStatusNotStarted
   }
 
+  const [contextInvalid, setContextInvalid] = useState(false)
   const [job, setJob] = useState<Job | null>(initialJob)
   const [jobState, setJobState] = useState<JobStateRow | null>(initialJobState)
   const [customer] = useState<Customer | null>(initialCustomer)
@@ -947,8 +897,7 @@ function JobDetailContent({
   const [groupMemberJobStates] =
     useState<JobStateRow[]>(initialGroupMemberJobStates)
   const groupWorkShifts = initialGroupWorkShifts
-  const [groupEconomicsSummaries] =
-    useState<JobEconomicsSummaryRow[]>(initialGroupEconomicsSummaries)
+  const groupEconomicsSummaries = initialGroupEconomicsSummaries
   const [workLogs] = useState<WorkLogRow[]>(initialWorkLogs)
   const [costItems, setCostItems] = useState<CostItemRow[]>(initialCostItems)
   const [jobEconomicsSummary, setJobEconomicsSummary] =
@@ -1004,27 +953,46 @@ function JobDetailContent({
 
   useEffect(() => {
     let cancelled = false
-
+    let generation = 0
+    const invalidate = () => { if (!cancelled) setContextInvalid(true) }
+    const storage = (event: StorageEvent) => { if (event.key === OFFICE_CONTEXT_STORAGE_KEY) invalidate() }
+    async function verifyScope() {
+      const ticket = ++generation
+      try {
+        const response = await fetch('/api/active-company', { cache: 'no-store' })
+        const scope = await response.json()
+        if (!cancelled && ticket === generation && (!response.ok || scope?.companyId !== initialJob?.company_id
+          || scope?.profileId !== initialActorProfileId || scope?.role !== initialActorRole)) invalidate()
+      } catch { if (!cancelled && ticket === generation) invalidate() }
+    }
     async function loadWorkerOptions() {
       setLoadingWorkerOptions(true)
-
-      const { data } = await supabase
-        .from('profiles')
-        .select('id, full_name, email, default_hourly_rate, hourly_rate, worker_type, contractor_billing_type, contractor_default_rate')
-        .order('full_name', { ascending: true })
-
-      if (!cancelled) {
-        setWorkerOptions((data ?? []) as WorkerOption[])
-        setLoadingWorkerOptions(false)
-      }
+      try {
+        if (!initialJob?.company_id) return
+        const members = await supabase.from('company_members').select('profile_id')
+          .eq('company_id', initialJob.company_id).eq('is_active', true)
+        if (members.error) throw new Error('Members unavailable')
+        const ids = [...new Set((members.data ?? []).map(member => member.profile_id).filter(Boolean))]
+        const result = ids.length ? await supabase.from('profiles')
+          .select('id,full_name,email,worker_type,contractor_billing_type').in('id', ids).order('full_name', { ascending: true })
+          : { data: [], error: null }
+        if (result.error) throw new Error('Worker names unavailable')
+        if (!cancelled) setWorkerOptions((result.data ?? []) as WorkerOption[])
+      } catch { if (!cancelled) setWorkerOptions([]) }
+      finally { if (!cancelled) setLoadingWorkerOptions(false) }
     }
-
+    window.addEventListener(OFFICE_CONTEXT_EVENT, invalidate)
+    window.addEventListener('storage', storage)
+    window.addEventListener('focus', verifyScope)
+    void verifyScope()
     void loadWorkerOptions()
-
     return () => {
       cancelled = true
+      window.removeEventListener(OFFICE_CONTEXT_EVENT, invalidate)
+      window.removeEventListener('storage', storage)
+      window.removeEventListener('focus', verifyScope)
     }
-  }, [])
+  }, [initialJob?.company_id, initialActorProfileId, initialActorRole])
 
   const getLocalizedTimeStateLabel = (state: TimeState) => {
     if (state === 'future') return dictionary.jobs.future
@@ -1094,17 +1062,13 @@ function JobDetailContent({
       const billingType = assignment.assignment_billing_type ?? assignment.profiles?.contractor_billing_type ?? null
       const computedLaborHours = getEffectiveHours(assignment)
       const computedHourlyRate = getEffectiveHourlyRate(assignment)
-      const hourlyCost = roundHours(computedLaborHours * computedHourlyRate)
-      const computedExternalLaborCost =
-        workerType === 'contractor'
-          ? roundHours(
-              assignment.external_amount != null && toNumber(assignment.external_amount) > 0
-                ? toNumber(assignment.external_amount)
-                : hourlyCost
-            )
-          : 0
+      const hourlyCost = computedHourlyRate === null ? null : roundHours(computedLaborHours * computedHourlyRate)
+      const computedExternalLaborCost = workerType === 'contractor'
+        ? assignment.external_amount != null ? toNumber(assignment.external_amount) : billingType === 'hourly' ? hourlyCost : null
+        : 0
       const computedInternalLaborCost = workerType === 'employee' ? hourlyCost : 0
-      const computedLaborCost = computedInternalLaborCost + computedExternalLaborCost
+      const computedLaborCost = computedInternalLaborCost === null || computedExternalLaborCost === null ? null
+        : computedInternalLaborCost + computedExternalLaborCost
 
       return {
         id: assignment.id,
@@ -1132,68 +1096,6 @@ function JobDetailContent({
       }
     })
   }, [assignments])
-
-  const derivedHoursRows = useMemo<DerivedHoursRow[]>(() => {
-    const shiftAssignmentKeys = new Set(
-      workShifts
-        .filter((shift) => shift.job_id && shift.profile_id)
-        .map((shift) => `${shift.job_id}:${shift.profile_id}`)
-    )
-
-    const shiftRows = workShifts.map((shift) => {
-      const hourlyRate = getShiftHourlyRate(shift, assignments)
-      const calculation = getShiftLaborCalculation(shift, hourlyRate)
-
-      return {
-        id: shift.id,
-        profileName: getShiftWorkerName(shift),
-        hours: calculation.hours,
-        note: shift.note ?? '',
-        hourlyRate: calculation.hourlyRate,
-        laborCost: calculation.reward,
-        workStartedAt: shift.started_at,
-        workCompletedAt: shift.ended_at,
-        workState: shift.ended_at ? 'completed' as const : 'working' as const,
-        hoursSource: calculation.source,
-      }
-    })
-
-    const fallbackRows = assignments
-      .filter(
-        (assignment) =>
-          !assignment.job_id ||
-          !assignment.profile_id ||
-          !shiftAssignmentKeys.has(`${assignment.job_id}:${assignment.profile_id}`)
-      )
-      .map((assignment) => {
-      const normalizedAssignment = normalizedAssignments.find((item) => item.id === assignment.id)
-      const workState = getAssignmentWorkState(assignment, {
-        effectiveHours: normalizedAssignment?.computed_labor_hours ?? 0,
-        jobWorkState: resolvedWorkState,
-      })
-
-      return {
-        id: assignment.id,
-        profileName: getProfileName(assignment.profiles),
-        hours: normalizedAssignment?.computed_labor_hours ?? 0,
-        note: assignment.note ?? '',
-        hourlyRate: normalizedAssignment?.computed_hourly_rate ?? 0,
-        laborCost: normalizedAssignment?.computed_labor_cost ?? 0,
-        workStartedAt:
-          getEffectiveHoursSource(assignment) === 'assignment_fallback'
-            ? assignment.work_started_at
-            : null,
-        workCompletedAt:
-          getEffectiveHoursSource(assignment) === 'assignment_fallback'
-            ? assignment.work_completed_at
-            : null,
-        workState,
-        hoursSource: getEffectiveHoursSource(assignment),
-      }
-    })
-
-    return [...shiftRows, ...fallbackRows]
-  }, [assignments, getProfileName, getShiftWorkerName, normalizedAssignments, resolvedWorkState, workShifts])
 
   const selectedWorkerOption = useMemo(() => {
     return workerOptions.find((worker) => worker.id === newAssignment.profile_id) ?? null
@@ -1315,50 +1217,18 @@ function JobDetailContent({
   }, [groupMemberJobs, groupedJobsForDisplay, job?.id])
 
   const groupedEconomicsSummary = useMemo(() => {
-    const quotedRevenue = groupEconomicsSummaries.reduce(
-      (sum, item) => sum + toNumber(item.quoted_revenue_total),
-      0
-    )
-    const laborCost = groupEconomicsSummaries.reduce(
-      (sum, item) => sum + toNumber(item.labor_cost_total),
-      0
-    )
-    const otherCosts = groupEconomicsSummaries.reduce(
-      (sum, item) => sum + toNumber(item.other_cost_total),
-      0
-    )
-    const quotedEconomics = calculateQuotedJobEconomics({
-      quotedRevenue,
-      laborCost,
-      otherCost: otherCosts,
+    const currency = jobEconomicsSummary?.currency ?? job?.currency
+    const summary = currency ? aggregateJobEconomics(groupEconomicsSummaries, groupMemberJobs.map(member => member.id), currency) : null
+    const quoted = calculateQuotedJobEconomics({
+      quotedRevenue: summary?.quoted_revenue_total, laborCost: summary?.labor_cost_total,
+      otherCost: summary?.other_cost_total, completeness: summary?.labor_completeness ?? 'incomplete',
     })
+    return { summary, totalHours: summary?.labor_hours_total ?? null, laborCost: summary?.labor_cost_total ?? null,
+      otherCosts: summary?.other_cost_total ?? null, totalCosts: quoted.totalCost, revenue: summary?.revenue_total ?? null, profit: quoted.profit }
+  }, [groupEconomicsSummaries, groupMemberJobs, jobEconomicsSummary?.currency, job?.currency])
 
-    return {
-      totalHours: roundHours(
-        groupEconomicsSummaries.reduce((sum, item) => sum + toNumber(item.labor_hours_total), 0)
-      ),
-      laborCost,
-      otherCosts,
-      totalCosts: quotedEconomics.totalCost,
-      revenue: groupEconomicsSummaries.reduce(
-        (sum, item) => sum + toNumber(item.revenue_total),
-        0
-      ),
-      profit: quotedEconomics.profit,
-    }
-  }, [groupEconomicsSummaries])
-
-  const totalHours = useMemo(() => {
-    return roundHours(toNumber(jobEconomicsSummary?.labor_hours_total))
-  }, [jobEconomicsSummary])
-
-  const laborCost = useMemo(() => {
-    return toNumber(jobEconomicsSummary?.internal_labor_cost_total ?? jobEconomicsSummary?.labor_cost_total)
-  }, [jobEconomicsSummary])
-
-  const otherCosts = useMemo(() => {
-    return toNumber(jobEconomicsSummary?.other_cost_total)
-  }, [jobEconomicsSummary])
+  const laborCost = jobEconomicsSummary?.internal_labor_cost_total ?? null
+  const otherCosts = jobEconomicsSummary?.other_cost_total ?? null
 
   const normalizedCostItems = useMemo<NormalizedCostItem[]>(() => {
     return costItems.map((item) => ({
@@ -1399,16 +1269,8 @@ function JobDetailContent({
     )
   }, [normalizedAssignments])
 
-  const assignmentLaborCost = useMemo(() => {
-    return normalizedAssignments.reduce(
-      (sum, assignment) => sum + assignment.computed_internal_labor_cost,
-      0
-    )
-  }, [normalizedAssignments])
-
-  const externalLaborCost = useMemo(() => {
-    return toNumber(jobEconomicsSummary?.external_labor_cost_total)
-  }, [jobEconomicsSummary])
+  const assignmentLaborCost = jobEconomicsSummary?.internal_labor_cost_total ?? null
+  const externalLaborCost = jobEconomicsSummary?.external_labor_cost_total ?? null
 
   const assignedWorkerNames = useMemo(() => {
     return normalizedAssignments
@@ -1428,16 +1290,17 @@ function JobDetailContent({
   }, [normalizedCostItems])
 
   const accountingRevenue = useMemo(() => {
-    return toNumber(jobEconomicsSummary?.revenue_total)
+    return jobEconomicsSummary?.revenue_total ?? null
   }, [jobEconomicsSummary])
 
   const assignmentProfit = useMemo(() => {
     return calculateQuotedJobEconomics({
       quotedRevenue: job?.price,
       laborCost,
-      otherCost: externalLaborCost + otherCosts,
+      otherCost: externalLaborCost === null || otherCosts === null ? null : externalLaborCost + otherCosts,
+      completeness: jobEconomicsSummary?.labor_completeness ?? 'incomplete',
     }).profit
-  }, [externalLaborCost, job?.price, laborCost, otherCosts])
+  }, [externalLaborCost, job?.price, laborCost, otherCosts, jobEconomicsSummary?.labor_completeness])
 
   const visibleBillingState = useMemo(() => {
     return getVisibleBillingState(resolvedWorkState, resolvedBillingState)
@@ -1845,6 +1708,12 @@ function JobDetailContent({
     }
   }
 
+  if (contextInvalid) {
+    return <DashboardShell><p role="alert">{locale === 'cs' ? 'Firma, účet nebo oprávnění se změnily. Obnovte stránku.' :
+      locale === 'de' ? 'Firma, Konto oder Berechtigungen haben sich geändert. Laden Sie die Seite neu.' :
+        'Company, account or permissions changed. Reload this page.'}</p></DashboardShell>
+  }
+
   if (!job && !notFound) {
     return (
       <DashboardShell activeItem="jobs">
@@ -1937,6 +1806,7 @@ function JobDetailContent({
           <span>{locale === 'cs' ? 'Finanční přehled' : locale === 'de' ? 'Finanzübersicht' : 'Financial overview'}</span>
           <span className={detailStyles.financePrice}>{detailMessages.jobPrice}: {formatCurrency(job.price)}</span>
         </summary>
+        <LaborCostStatus summary={jobEconomicsSummary} locale={locale} />
         <div className={detailStyles.financeGrid}>
         <FinanceSummaryCard label={detailMessages.accountingRevenue} value={formatCurrency(accountingRevenue)} tone="blue" />
         <FinanceSummaryCard label={detailMessages.jobPrice} value={formatCurrency(job.price)} tone="gray" />
@@ -1946,7 +1816,7 @@ function JobDetailContent({
         <FinanceSummaryCard
           label={dictionary.jobs.profit}
           value={formatCurrency(assignmentProfit)}
-          tone={assignmentProfit >= 0 ? 'green' : 'red'}
+          tone={assignmentProfit === null ? 'gray' : assignmentProfit >= 0 ? 'green' : 'red'}
         />
         </div>
       </details>
@@ -2052,6 +1922,7 @@ function JobDetailContent({
             }}
           >
             <h2 style={{ ...cardTitleStyle, margin: 0, fontSize: '20px' }}>{detailMessages.groupCostSummary}</h2>
+            <LaborCostStatus summary={groupedEconomicsSummary.summary} locale={locale} />
           </div>
 
           <div
@@ -2064,7 +1935,7 @@ function JobDetailContent({
             <div style={{ border: '1px solid #e5e7eb', borderRadius: '12px', padding: '14px' }}>
               <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>{detailMessages.groupHours}</div>
               <div style={{ fontWeight: 700, fontSize: '24px', color: '#111827' }}>
-                {formatHours(groupedEconomicsSummary.totalHours)} h
+                {groupedEconomicsSummary.totalHours === null ? '—' : formatHours(groupedEconomicsSummary.totalHours) + ' h'}
               </div>
             </div>
 
@@ -2102,7 +1973,7 @@ function JobDetailContent({
                 style={{
                   fontWeight: 700,
                   fontSize: '24px',
-                  color: groupedEconomicsSummary.profit >= 0 ? '#166534' : '#991b1b',
+                  color: groupedEconomicsSummary.profit === null ? '#64748b' : groupedEconomicsSummary.profit >= 0 ? '#166534' : '#991b1b',
                 }}
               >
                 {formatCurrency(groupedEconomicsSummary.profit)}
@@ -2819,6 +2690,7 @@ function JobDetailContent({
             externalLaborCost={externalLaborCost}
             otherCosts={otherCosts}
             profit={assignmentProfit}
+            summary={jobEconomicsSummary}
             onPriceSaved={handlePriceSaved}
             onCostItemAdded={handleCostItemAdded}
             onCostItemDeleted={handleCostItemDeleted}

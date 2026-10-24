@@ -15,6 +15,7 @@ type SidebarItemKey =
   | 'customers'
   | 'leads'
   | 'workers'
+  | 'labor'
   | 'advanceRequests'
   | 'absences'
   | 'kalkulace'
@@ -124,6 +125,7 @@ export default function DashboardSidebar({
     { href: '/cenove-nabidky', label: dictionary.navigation.quotes, key: 'quotes', icon: 'quotes', module: 'quotes' },
     { href: '/kalkulace', label: dictionary.navigation.calculations, key: 'kalkulace', icon: 'costs', module: 'quotes' },
     { href: '/costs', label: dictionary.navigation.costs, key: 'costs', icon: 'costs', module: 'finance' },
+    { href: '/labor', label: { cs: 'Pracovní výkazy', en: 'Work submissions', de: 'Arbeitsnachweise' }[locale], key: 'labor', icon: 'calendar', module: 'workers' },
     { href: '/absences', label: dictionary.navigation.absences, key: 'absences', icon: 'calendar', module: 'workers' },
     { href: '/advance-requests', label: dictionary.navigation.advanceRequests, key: 'advanceRequests', icon: 'costs', module: 'payroll' },
   ]

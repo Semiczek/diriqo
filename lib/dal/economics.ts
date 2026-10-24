@@ -8,66 +8,15 @@ import {
   toEconomicsNumber,
   type JobEconomicsSummary,
 } from '@/lib/economics'
-import {
-  getAssignmentFallbackLaborCalculation,
-  getHoursFromRange,
-  getShiftLaborCalculation,
-  roundLaborHours,
-} from '@/lib/labor-calculation'
-import { getContractorBillingType, getWorkerType } from '@/lib/payroll-settings'
+import { getJobLaborCostTotals } from '@/lib/dal/labor-history'
+import { DalAuthError } from '@/lib/dal/auth'
+import { readCompleteEconomicsRows, ECONOMICS_PAGE_SIZE } from '@/lib/dal/economics-pages'
+import type { JobLaborCostTotalsDto } from '@/lib/labor-history'
 
-type ProfileRelation = {
-  id?: string | null
-  default_hourly_rate?: number | string | null
-  hourly_rate?: number | string | null
-  worker_type?: string | null
-  contractor_billing_type?: string | null
-  contractor_default_rate?: number | string | null
-}
-
-type JobRow = {
-  id: string
-  company_id: string | null
-  price?: number | string | null
-}
-
-type WorkShiftRow = {
-  id: string
-  job_id: string | null
-  profile_id: string | null
-  started_at: string | null
-  ended_at: string | null
-  hours_override?: number | string | null
-  job_hours_override?: number | string | null
-  hourly_rate?: number | string | null
-  profiles?: ProfileRelation | ProfileRelation[] | null
-}
-
-type WorkLogRow = {
-  id: string
-  job_id: string | null
-  profile_id: string | null
-  hours?: number | string | null
-  started_at?: string | null
-  ended_at?: string | null
-  profiles?: ProfileRelation | ProfileRelation[] | null
-}
-
-type AssignmentRow = {
-  id: string
-  job_id: string | null
-  profile_id: string | null
-  labor_hours?: number | string | null
-  hourly_rate?: number | string | null
-  worker_type_snapshot?: string | null
-  assignment_billing_type?: string | null
-  external_amount?: number | string | null
-  work_started_at?: string | null
-  work_completed_at?: string | null
-  profiles?: ProfileRelation | ProfileRelation[] | null
-}
+type JobRow = { id: string; company_id: string | null; price?: number | string | null; currency?: string | null }
 
 type CostItemRow = {
+  id: string
   job_id: string | null
   total_price?: number | string | null
   quantity?: number | string | null
@@ -75,16 +24,19 @@ type CostItemRow = {
 }
 
 type InvoiceItemRow = {
+  id: string
   source_job_id?: string | null
   total_without_vat?: number | string | null
   total_price?: number | string | null
   total_with_vat?: number | string | null
-  invoices?: { status?: string | null } | { status?: string | null }[] | null
+  invoices?: { status?: string | null; currency?: string | null } | { status?: string | null; currency?: string | null }[] | null
 }
 
 type InvoiceRow = {
+  id: string
   job_id?: string | null
   status?: string | null
+  currency?: string | null
   subtotal_without_vat?: number | string | null
   total_without_vat?: number | string | null
   total_amount?: number | string | null
@@ -95,12 +47,6 @@ function asSingle<T>(value: T | T[] | null | undefined): T | null {
   return Array.isArray(value) ? value[0] ?? null : value ?? null
 }
 
-function getProfileHourlyRate(profile: ProfileRelation | null, fallback?: number | string | null) {
-  return toEconomicsNumber(
-    fallback ?? profile?.contractor_default_rate ?? profile?.default_hourly_rate ?? profile?.hourly_rate
-  )
-}
-
 function addToMap(map: Map<string, number>, key: string | null | undefined, value: number) {
   if (!key) return
   map.set(key, (map.get(key) ?? 0) + value)
@@ -108,261 +54,128 @@ function addToMap(map: Map<string, number>, key: string | null | undefined, valu
 
 function isRevenueInvoiceStatus(status: string | null | undefined) {
   const normalized = (status ?? '').trim().toLowerCase()
-  return normalized !== 'cancelled' && normalized !== 'canceled' && normalized !== 'void'
+  return ['issued', 'sent', 'paid', 'overdue'].includes(normalized)
 }
 
 function isMissingSourceJobColumn(error: { code?: string; message?: string } | null | undefined) {
   const message = error?.message?.toLowerCase() ?? ''
-  return error?.code === '42703' || error?.code === 'PGRST204' || message.includes('source_job_id')
+  return (error?.code === '42703' || error?.code === 'PGRST204') && message.includes('source_job_id')
 }
 
 export async function listJobEconomicsSummaries(
-  ctx: Pick<DalContext, 'supabase' | 'companyId'>,
+  ctx: DalContext,
   jobIds: string[],
 ): Promise<JobEconomicsSummary[]> {
+  if (!['company_admin', 'super_admin'].includes(ctx.role ?? '')) throw new DalAuthError()
   const uniqueJobIds = Array.from(new Set(jobIds.filter(Boolean)))
   if (uniqueJobIds.length === 0) return []
 
+  // Bound every RPC and table read. Keep failures explicit instead of returning partial totals.
+  const summaries: JobEconomicsSummary[] = []
+  for (let offset = 0; offset < uniqueJobIds.length; offset += 500) {
+    summaries.push(...await readEconomicsBatch(ctx, uniqueJobIds.slice(offset, offset + 500)))
+  }
+  return summaries
+}
+
+async function readEconomicsBatch(ctx: DalContext, jobIds: string[]): Promise<JobEconomicsSummary[]> {
   const { data: jobsData, error: jobsError } = await ctx.supabase
-    .from('jobs')
-    .select('id, company_id, price')
-    .eq('company_id', ctx.companyId)
-    .in('id', uniqueJobIds)
-
+    .from('jobs').select('id, company_id, price, currency')
+    .eq('company_id', ctx.companyId).in('id', jobIds)
   if (jobsError) throw jobsError
-
-  const jobs = ((jobsData ?? []) as JobRow[]).filter((job) => job.company_id === ctx.companyId)
-  const scopedJobIds = jobs.map((job) => job.id)
-  if (scopedJobIds.length === 0) return []
-
-  const [shiftsResponse, logsResponse, assignmentsResponse, costItemsResponse, moduleCostsResponse] = await Promise.all([
-    ctx.supabase
-      .from('work_shifts')
-      .select(
-        `
-          id,
-          job_id,
-          profile_id,
-          started_at,
-          ended_at,
-          hours_override,
-          job_hours_override,
-          hourly_rate,
-          profiles (
-            id,
-            default_hourly_rate,
-            hourly_rate,
-            worker_type,
-            contractor_billing_type,
-            contractor_default_rate
-          )
-        `,
-      )
-      .eq('company_id', ctx.companyId)
-      .in('job_id', scopedJobIds),
-    ctx.supabase
-      .from('work_logs')
-      .select(
-        `
-          id,
-          job_id,
-          profile_id,
-          hours,
-          started_at,
-          ended_at,
-          profiles (
-            id,
-            default_hourly_rate,
-            hourly_rate,
-            worker_type,
-            contractor_billing_type,
-            contractor_default_rate
-          )
-        `,
-      )
-      .eq('company_id', ctx.companyId)
-      .in('job_id', scopedJobIds)
-      .is('archived_at', null),
-    ctx.supabase
-      .from('job_assignments')
-      .select(
-        `
-          id,
-          job_id,
-          profile_id,
-          labor_hours,
-          hourly_rate,
-          worker_type_snapshot,
-          assignment_billing_type,
-          external_amount,
-          work_started_at,
-          work_completed_at,
-          profiles (
-            id,
-            default_hourly_rate,
-            hourly_rate,
-            worker_type,
-            contractor_billing_type,
-            contractor_default_rate
-          )
-        `,
-      )
-      .in('job_id', scopedJobIds)
-      .is('archived_at', null),
-    ctx.supabase
-      .from('job_cost_items')
-      .select('job_id, total_price, quantity, unit_price')
-      .eq('company_id', ctx.companyId)
-      .in('job_id', scopedJobIds),
-    ctx.supabase.rpc('job_module_cost_totals', { company: ctx.companyId, job_ids: scopedJobIds }),
+  const jobs = ((jobsData ?? []) as JobRow[]).filter(job => job.company_id === ctx.companyId)
+  if (jobs.length !== jobIds.length || new Set(jobs.map(job => job.id)).size !== jobIds.length) {
+    throw new DalAuthError('Ekonomika vybraných zakázek není dostupná v této firmě.')
+  }
+  const jobCurrencies = new Map(jobs.map(job => {
+    if (typeof job.currency !== 'string' || !/^[A-Z]{3}$/.test(job.currency)) {
+      throw new Error('Chybí platná měna zakázky. Ekonomiku nelze spočítat.')
+    }
+    return [job.id, job.currency] as const
+  }))
+  const [labor, costItems, moduleCosts, revenue] = await Promise.all([
+    getJobLaborCostTotals(ctx, jobIds),
+    readCompleteEconomicsRows<CostItemRow>(offset => ctx.supabase.from('job_cost_items').select('id, job_id, total_price, quantity, unit_price', { count: 'exact' })
+      .eq('company_id', ctx.companyId).in('job_id', jobIds).order('id').range(offset, offset + ECONOMICS_PAGE_SIZE - 1)),
+    ctx.supabase.rpc('job_module_cost_totals', { company: ctx.companyId, job_ids: jobIds }),
+    getInvoiceRevenueByJobId(ctx, jobCurrencies),
   ])
-
-  if (shiftsResponse.error) throw shiftsResponse.error
-  if (logsResponse.error) throw logsResponse.error
-  if (assignmentsResponse.error) throw assignmentsResponse.error
-  if (costItemsResponse.error) throw costItemsResponse.error
-  if (moduleCostsResponse.error) throw moduleCostsResponse.error
-
-  const laborHoursByJobId = new Map<string, number>()
-  const internalLaborByJobId = new Map<string, number>()
-  const externalLaborByJobId = new Map<string, number>()
-  const directCostByJobId = new Map<string, number>()
-  const coveredWorkerKeys = new Set<string>()
-
-  for (const shift of (shiftsResponse.data ?? []) as WorkShiftRow[]) {
-    if (!shift.job_id) continue
-
-    const profile = asSingle(shift.profiles)
-    const calculation = getShiftLaborCalculation(shift, getProfileHourlyRate(profile, shift.hourly_rate))
-    const workerType = getWorkerType(profile)
-    addToMap(laborHoursByJobId, shift.job_id, calculation.hours)
-    addToMap(
-      workerType === 'contractor' ? externalLaborByJobId : internalLaborByJobId,
-      shift.job_id,
-      calculation.reward,
-    )
-
-    if (shift.profile_id) coveredWorkerKeys.add(`${shift.job_id}:${shift.profile_id}`)
+  if (moduleCosts.error) throw moduleCosts.error
+  const laborByJob = new Map(labor.items.map(item => [item.jobId, item]))
+  const directCosts = new Map<string, number>()
+  for (const item of costItems) {
+    addToMap(directCosts, item.job_id, getDirectCostTotal(item))
   }
-
-  for (const log of (logsResponse.data ?? []) as WorkLogRow[]) {
-    if (!log.job_id) continue
-    if (log.profile_id && coveredWorkerKeys.has(`${log.job_id}:${log.profile_id}`)) continue
-
-    const profile = asSingle(log.profiles)
-    const hours =
-      toEconomicsNumber(log.hours) > 0
-        ? toEconomicsNumber(log.hours)
-        : getHoursFromRange(log.started_at ?? null, log.ended_at ?? null)
-    const reward = roundLaborHours(hours * getProfileHourlyRate(profile))
-    const workerType = getWorkerType(profile)
-
-    addToMap(laborHoursByJobId, log.job_id, hours)
-    addToMap(workerType === 'contractor' ? externalLaborByJobId : internalLaborByJobId, log.job_id, reward)
-
-    if (log.profile_id) coveredWorkerKeys.add(`${log.job_id}:${log.profile_id}`)
+  for (const item of (moduleCosts.data ?? []) as { job_id: string; total_amount: number | string }[]) {
+    addToMap(directCosts, item.job_id, toEconomicsNumber(item.total_amount))
   }
-
-  for (const assignment of (assignmentsResponse.data ?? []) as AssignmentRow[]) {
-    if (!assignment.job_id) continue
-    if (assignment.profile_id && coveredWorkerKeys.has(`${assignment.job_id}:${assignment.profile_id}`)) continue
-
-    const profile = asSingle(assignment.profiles)
-    const workerType = getWorkerType({
-      worker_type: assignment.worker_type_snapshot ?? profile?.worker_type,
+  return jobs.map(job => {
+    const item = laborByJob.get(job.id)
+    if (!item) throw new Error('Chybí ověřený souhrn práce pro zakázku.')
+    if (item.currency !== jobCurrencies.get(job.id)) throw new Error('Měna zakázky se během načítání změnila. Obnovte přehled.')
+    return buildJobEconomicsSummary({
+      jobId: job.id, companyId: ctx.companyId, currency: item.currency,
+      quotedRevenue: toEconomicsNumber(job.price), invoicedRevenue: revenue.get(job.id) ?? 0,
+      laborHours: exactDisplayNumber(item.approvedHours),
+      internalLaborCost: exactDisplayNumber(item.approvedInternalCost),
+      externalLaborCost: exactDisplayNumber(item.approvedExternalCost),
+      directCost: directCosts.get(job.id) ?? 0,
+      laborCompleteness: item.completeness, laborCostReasons: item.reasons,
+      missingRateHours: exactDisplayNumber(item.missingRateHours),
+      unapprovedLaborHours: exactDisplayNumber(item.unapprovedHours),
+      legacyUnverifiedLaborCount: item.legacyUnverifiedCount,
+      unconvertedLaborCosts: item.unconvertedCosts,
+      provisionalLaborCost: exactDisplayNumber(item.provisionalKnownCost),
     })
-    const billingType = getContractorBillingType(
-      assignment.assignment_billing_type ?? profile?.contractor_billing_type,
-    )
-    const calculation = getAssignmentFallbackLaborCalculation(
-      assignment,
-      getProfileHourlyRate(profile, assignment.hourly_rate),
-    )
-    const contractorFixedCost =
-      workerType === 'contractor' && billingType !== 'hourly' && assignment.external_amount != null
-        ? toEconomicsNumber(assignment.external_amount)
-        : calculation.reward
+  })
+}
 
-    addToMap(laborHoursByJobId, assignment.job_id, calculation.hours)
-    addToMap(
-      workerType === 'contractor' ? externalLaborByJobId : internalLaborByJobId,
-      assignment.job_id,
-      workerType === 'contractor' ? contractorFixedCost : calculation.reward,
-    )
+/** Database money remains decimal; reject overflow when adapting existing numeric UI. */
+function exactDisplayNumber(value: JobLaborCostTotalsDto['items'][number]['approvedCost']): number {
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed) || Math.abs(parsed) > Number.MAX_SAFE_INTEGER / 100) {
+    throw new Error('Částka je mimo bezpečný rozsah zobrazení.')
   }
-
-  for (const item of (costItemsResponse.data ?? []) as CostItemRow[]) {
-    addToMap(directCostByJobId, item.job_id, getDirectCostTotal(item))
-  }
-  for (const item of (moduleCostsResponse.data ?? []) as { job_id: string; total_amount: number | string }[]) {
-    addToMap(directCostByJobId, item.job_id, toEconomicsNumber(item.total_amount))
-  }
-
-  const revenueByJobId = await getInvoiceRevenueByJobId(ctx, scopedJobIds)
-
-  return jobs.map((job) =>
-    buildJobEconomicsSummary({
-      jobId: job.id,
-      companyId: job.company_id,
-      quotedRevenue: toEconomicsNumber(job.price),
-      invoicedRevenue: revenueByJobId.get(job.id) ?? 0,
-      laborHours: laborHoursByJobId.get(job.id) ?? 0,
-      internalLaborCost: internalLaborByJobId.get(job.id) ?? 0,
-      externalLaborCost: externalLaborByJobId.get(job.id) ?? 0,
-      directCost: directCostByJobId.get(job.id) ?? 0,
-    }),
-  )
+  return parsed
 }
 
 async function getInvoiceRevenueByJobId(
   ctx: Pick<DalContext, 'supabase' | 'companyId'>,
-  jobIds: string[],
+  jobCurrencies: Map<string, string>,
 ) {
+  const jobIds = [...jobCurrencies.keys()]
   const revenueByJobId = new Map<string, number>()
 
-  const itemsResponse = await ctx.supabase
-    .from('invoice_items')
-    .select(
-      `
-        source_job_id,
-        total_without_vat,
-        total_price,
-        total_with_vat,
-        invoices!inner (
-          status,
-          company_id
-        )
-      `,
-    )
-    .eq('invoices.company_id', ctx.companyId)
-    .in('source_job_id', jobIds)
-
-  if (!itemsResponse.error) {
-    for (const item of (itemsResponse.data ?? []) as InvoiceItemRow[]) {
+  try {
+    const items = await readCompleteEconomicsRows<InvoiceItemRow>(offset => ctx.supabase
+      .from('invoice_items')
+      .select('id, source_job_id, total_without_vat, total_price, total_with_vat, invoices!inner(status, company_id, currency)', { count: 'exact' })
+      .eq('invoices.company_id', ctx.companyId).in('source_job_id', jobIds)
+      .order('id').range(offset, offset + ECONOMICS_PAGE_SIZE - 1))
+    for (const item of items) {
       const invoice = asSingle(item.invoices)
       if (!isRevenueInvoiceStatus(invoice?.status)) continue
+      assertInvoiceCurrency(jobCurrencies, item.source_job_id, invoice?.currency)
       addToMap(revenueByJobId, item.source_job_id, getInvoiceNetAmount(item))
     }
-
     return revenueByJobId
+  } catch (error) {
+    if (!isMissingSourceJobColumn(error as { code?: string; message?: string })) throw error
   }
-
-  if (!isMissingSourceJobColumn(itemsResponse.error)) {
-    throw itemsResponse.error
-  }
-
-  const invoicesResponse = await ctx.supabase
-    .from('invoices')
-    .select('job_id, status, subtotal_without_vat, total_without_vat, total_amount, total_with_vat')
-    .eq('company_id', ctx.companyId)
-    .in('job_id', jobIds)
-
-  if (invoicesResponse.error) throw invoicesResponse.error
-
-  for (const invoice of (invoicesResponse.data ?? []) as InvoiceRow[]) {
+  const invoices = await readCompleteEconomicsRows<InvoiceRow>(offset => ctx.supabase.from('invoices')
+    .select('id, job_id, status, currency, subtotal_without_vat, total_without_vat, total_amount, total_with_vat', { count: 'exact' })
+    .eq('company_id', ctx.companyId).in('job_id', jobIds).order('id').range(offset, offset + ECONOMICS_PAGE_SIZE - 1))
+  for (const invoice of invoices) {
     if (!isRevenueInvoiceStatus(invoice.status)) continue
+    assertInvoiceCurrency(jobCurrencies, invoice.job_id, invoice.currency)
     addToMap(revenueByJobId, invoice.job_id, getInvoiceNetAmount(invoice))
   }
-
   return revenueByJobId
+}
+
+function assertInvoiceCurrency(jobCurrencies: Map<string, string>, jobId: string | null | undefined, invoiceCurrency: string | null | undefined) {
+  const jobCurrency = jobId ? jobCurrencies.get(jobId) : undefined
+  if (!jobCurrency || invoiceCurrency !== jobCurrency) {
+    throw new Error('Měna vydané faktury chybí nebo neodpovídá měně zakázky. Výnos nelze spočítat.')
+  }
 }

@@ -13,6 +13,6 @@ export function canUseMobileApp(role: string | null | undefined, app: MobileApp)
 }
 
 export function isMemberWorkspacePath(path: string) {
-  return ['/moje-prace', '/mobile/my', '/mobile/manager', '/api/job-photos', '/logout']
+  return ['/labor', '/moje-prace', '/mobile/my', '/mobile/manager', '/api/job-photos', '/logout']
     .some(prefix => path === prefix || path.startsWith(prefix + '/'))
 }

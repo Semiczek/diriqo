@@ -34,10 +34,12 @@ import {
   buildJobShiftActivityMap,
   type JobShiftActivityRow,
 } from '../../lib/job-shift-activity'
-import { buildJobGroups, type JobParentLinkRow } from '../../lib/job-grouping'
+import { aggregateJobEconomics, buildJobGroups, type JobParentLinkRow } from '../../lib/job-grouping'
 import { supabase } from '../../lib/supabase'
-import { getContractorBillingType, getWorkerType } from '@/lib/payroll-settings'
-import { calculateQuotedJobEconomics } from '@/lib/economics'
+import { calculateQuotedJobEconomics, type JobEconomicsSummary } from '@/lib/economics'
+import LaborCostStatus from '@/components/LaborCostStatus'
+import { readJobEconomicsAction } from '@/app/jobs/economics-actions'
+import { OFFICE_CONTEXT_EVENT, OFFICE_CONTEXT_STORAGE_KEY } from '@/lib/office/client-context'
 import { createJobGroupFromDropAction } from '@/app/jobs/actions'
 
 const JOB_DRAG_TYPE = 'application/x-diriqo-job-id'
@@ -48,6 +50,8 @@ type ViewType = 'individual' | 'summary'
 
 type JobRow = {
   id: string
+  company_id: string
+  currency: string
   title: string | null
   description: string | null
   address: string | null
@@ -107,16 +111,7 @@ type RawJobAssignmentRow = {
   work_completed_at?: string | null
 }
 
-type JobEconomicsSummaryRow = {
-  job_id: string
-  revenue_total: number | null
-  labor_hours_total: number | null
-  labor_cost_total: number | null
-  other_cost_total: number | null
-  total_cost_total: number | null
-  profit_total: number | null
-  margin_percent: number | null
-}
+type JobEconomicsSummaryRow = JobEconomicsSummary
 
 type JobWithComputed = JobRow & {
   workers: string[]
@@ -124,9 +119,10 @@ type JobWithComputed = JobRow & {
   startedWorkerProfileIds: string[]
   completedWorkerProfileIds: string[]
   activeWorkerProfileIds: string[]
-  laborCost: number
-  otherCost: number
-  profit: number
+  laborCost: number | null
+  otherCost: number | null
+  profit: number | null
+  economics: JobEconomicsSummary | null
   customerName: string | null
   assignedCount: number
   activeCount: number
@@ -620,12 +616,14 @@ export default function JobsPage() {
   const [dataVersion, setDataVersion] = useState(0)
   const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(false)
   const [companyTimeZone, setCompanyTimeZone] = useState('Europe/Prague')
+  const [canReadEconomics, setCanReadEconomics] = useState(false)
   const dateLocale = locale === 'de' ? 'de-DE' : locale === 'en' ? 'en-GB' : 'cs-CZ'
 
-  function formatCurrency(value: number) {
+  function formatCurrency(value: number | null, currency: string) {
+    if (value === null) return '—'
     return new Intl.NumberFormat(locale === 'de' ? 'de-DE' : locale === 'en' ? 'en-GB' : 'cs-CZ', {
       style: 'currency',
-      currency: 'CZK',
+      currency,
     }).format(value)
   }
 
@@ -725,251 +723,86 @@ export default function JobsPage() {
 
   useEffect(() => {
     let mounted = true
-
+    const clear = () => {
+      setJobs([]); setCustomers([]); setAssignments([]); setEconomicsSummaries([])
+      setJobShiftActivity([]); setJobParentLinks([]); setCanReadEconomics(false)
+    }
+    const invalidate = () => {
+      mounted = false
+      clear()
+      setDataVersion(current => current + 1)
+    }
+    const storage = (event: StorageEvent) => { if (event.key === OFFICE_CONTEXT_STORAGE_KEY) invalidate() }
+    async function activeScope() {
+      const response = await fetch('/api/active-company', { cache: 'no-store' })
+      const value = await response.json()
+      if (!response.ok || typeof value?.companyId !== 'string' || typeof value?.profileId !== 'string') throw new Error('Scope unavailable')
+      return value as { companyId: string; profileId: string; role: string; timeZone?: string | null }
+    }
     async function loadData() {
-      setLoading(true)
-      setError(null)
-
+      setLoading(true); setError(null); clear()
       try {
-        const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
-
+        const scope = await activeScope()
         if (!mounted) return
-
-        if (sessionError) {
-          console.error('Jobs session error', sessionError)
-          setError(dictionary.jobs.loadError)
-          setJobs([])
-          setCustomers([])
-          setAssignments([])
-          setEconomicsSummaries([])
-          setJobShiftActivity([])
-          setJobParentLinks([])
-          setLoading(false)
-          return
+        const financial = ['company_admin', 'super_admin'].includes(scope.role)
+        const jobsSelectBase = 'id,company_id,currency,title,description,address,status,start_at,end_at,created_at,price,customer_id,time_state,work_state,billing_state_resolved,assigned_total,started_total,completed_total,active_workers'
+        let jobsResponse: { data: unknown[] | null; error: { message: string } | null } = await supabase.from('jobs_with_state').select(jobsSelectBase + ',is_internal')
+          .eq('company_id', scope.companyId).order('created_at', { ascending: false })
+        if (jobsResponse.error && /is_internal/i.test(jobsResponse.error.message)) {
+          jobsResponse = await supabase.from('jobs_with_state').select(jobsSelectBase)
+            .eq('company_id', scope.companyId).order('created_at', { ascending: false })
         }
-
-        if (!sessionData.session) {
-          setError(dictionary.jobs.unauthenticated)
-          setJobs([])
-          setCustomers([])
-          setAssignments([])
-          setEconomicsSummaries([])
-          setJobShiftActivity([])
-          setJobParentLinks([])
-          setLoading(false)
-          return
-        }
-
-        const activeCompanyResponse = await fetch('/api/active-company', { cache: 'no-store' })
-        const activeCompanyPayload = (await activeCompanyResponse.json().catch(() => null)) as {
-          timeZone?: string | null
-        } | null
-
-        if (mounted && activeCompanyResponse.ok) {
-          setCompanyTimeZone(resolveCompanyTimeZone(activeCompanyPayload?.timeZone))
-        }
-
-        const jobsSelectBase = `
-          id,
-          title,
-          description,
-          address,
-          status,
-          start_at,
-          end_at,
-          created_at,
-          price,
-          customer_id,
-          time_state,
-          work_state,
-          billing_state_resolved,
-          assigned_total,
-          started_total,
-          completed_total,
-          active_workers
-        `
-
-        const jobsResponse = await supabase
-          .from('jobs_with_state')
-          .select(
-            `
-              ${jobsSelectBase},
-              is_internal
-            `
-          )
-          .order('created_at', { ascending: false })
-        let jobsData = (jobsResponse.data ?? []) as JobRow[]
-        let jobsFallbackHandled = false
-
-        if (
-          jobsResponse.error &&
-          /is_internal/i.test(jobsResponse.error.message)
-        ) {
-          const fallbackResponse = await supabase
-            .from('jobs_with_state')
-            .select(jobsSelectBase)
-            .order('created_at', { ascending: false })
-          const fallbackData: JobRow[] = ((fallbackResponse.data ?? []) as JobRow[]).map((job): JobRow => ({
-            ...job,
-            address: job.address ?? null,
-            price: job.price ?? null,
-            is_internal: false,
-          }))
-
-          if (!fallbackResponse.error) {
-            jobsData = fallbackData
-            jobsFallbackHandled = true
+        if (jobsResponse.error) throw new Error('Jobs unavailable')
+        const jobsData = ((jobsResponse.data ?? []) as unknown as JobRow[]).map(job => ({ ...job, is_internal: job.is_internal ?? false }))
+        if (jobsData.some(job => job.company_id !== scope.companyId)) throw new Error('Job scope changed')
+        const jobIds = jobsData.map(job => job.id)
+        const [customersResponse, assignmentsResponse, shiftsResponse, parentLinksResponse] = await Promise.all([
+          supabase.from('customers').select('id,name').eq('company_id', scope.companyId),
+          supabase.from('job_assignments').select('job_id,profile_id,work_started_at,work_completed_at')
+            .eq('company_id', scope.companyId).is('archived_at', null),
+          supabase.from('work_shifts').select('job_id,shift_date,started_at,ended_at').eq('company_id', scope.companyId).not('job_id', 'is', null),
+          supabase.from('jobs').select('id,parent_job_id').eq('company_id', scope.companyId),
+        ])
+        if (customersResponse.error || assignmentsResponse.error || shiftsResponse.error || parentLinksResponse.error) throw new Error('Jobs details unavailable')
+        const assignmentData = ((assignmentsResponse.data ?? []) as RawJobAssignmentRow[]).filter(row => row.job_id && jobIds.includes(row.job_id))
+        const profileIds = [...new Set(assignmentData.map(row => row.profile_id).filter((id): id is string => Boolean(id)))]
+        const profilesResponse = profileIds.length ? await supabase.from('profiles').select('id,full_name').in('id', profileIds) : { data: [], error: null }
+        if (profilesResponse.error) throw new Error('Worker names unavailable')
+        const summaries: JobEconomicsSummary[] = []
+        if (financial) {
+          for (let offset = 0; offset < jobIds.length; offset += 500) {
+            const result = await readJobEconomicsAction({ companyId: scope.companyId, profileId: scope.profileId, jobIds: jobIds.slice(offset, offset + 500) })
+            if (!result.ok || result.companyId !== scope.companyId || result.profileId !== scope.profileId) throw new Error('Economics scope changed')
+            summaries.push(...result.summaries)
           }
         }
-
-        const [
-          customersResponse,
-          assignmentsResponse,
-          profilesResponse,
-          economicsResponse,
-          shiftsResponse,
-          parentLinksResponse,
-        ] = await Promise.all([
-          supabase.from('customers').select('id, name'),
-          supabase.from('job_assignments').select(`
-            job_id,
-            profile_id,
-            labor_hours,
-            hourly_rate,
-            worker_type_snapshot,
-            assignment_billing_type,
-            external_amount,
-            work_started_at,
-            work_completed_at
-          `).is('archived_at', null),
-          supabase
-            .from('profiles')
-            .select('id, full_name, default_hourly_rate, worker_type, contractor_billing_type, contractor_default_rate'),
-          supabase
-            .from('job_economics_summary')
-            .select('job_id, revenue_total, labor_hours_total, labor_cost_total, other_cost_total, total_cost_total, profit_total, margin_percent'),
-          supabase
-            .from('work_shifts')
-            .select('job_id, shift_date, started_at, ended_at')
-            .not('job_id', 'is', null),
-          supabase
-            .from('jobs')
-            .select('id, parent_job_id'),
-        ])
-
+        const current = await activeScope()
         if (!mounted) return
-
-        if (jobsResponse.error && !jobsFallbackHandled) {
-          console.error('Jobs jobs_with_state error', jobsResponse.error)
-          setError(dictionary.jobs.loadError)
-          setJobs([])
-          setCustomers([])
-          setAssignments([])
-          setEconomicsSummaries([])
-          setJobShiftActivity([])
-          setJobParentLinks([])
-          setLoading(false)
-          return
-        }
-
-        if (customersResponse.error) {
-          console.error('Jobs customers error', customersResponse.error)
-          setError(dictionary.jobs.loadError)
-          setJobs(jobsData)
-          setCustomers([])
-          setAssignments([])
-          setEconomicsSummaries([])
-          setJobShiftActivity([])
-          setJobParentLinks([])
-          setLoading(false)
-          return
-        }
-
-        if (assignmentsResponse.error) {
-          console.error('Jobs job_assignments error', assignmentsResponse.error)
-          setError(dictionary.jobs.loadError)
-          setJobs(jobsData)
-          setCustomers(customersResponse.data ?? [])
-          setAssignments([])
-          setEconomicsSummaries([])
-          setJobShiftActivity([])
-          setJobParentLinks([])
-          setLoading(false)
-          return
-        }
-
-        if (profilesResponse.error) {
-          console.error('Jobs profiles error', profilesResponse.error)
-          setError(dictionary.jobs.loadError)
-          setJobs(jobsData)
-          setCustomers(customersResponse.data ?? [])
-          setAssignments([])
-          setEconomicsSummaries([])
-          setJobShiftActivity([])
-          setJobParentLinks([])
-          setLoading(false)
-          return
-        }
-
-        const profilesById = new Map(
-          ((profilesResponse.data ?? []) as JobAssignmentProfile[]).map((profile) => [
-            profile.id,
-            profile,
-          ])
-        )
-
-        const normalizedAssignments = normalizeAssignments(
-          (assignmentsResponse.data ?? []) as RawJobAssignmentRow[],
-          profilesById
-        )
-
-        if (economicsResponse.error) {
-          console.error('Jobs job_economics_summary error', economicsResponse.error)
-          setError(dictionary.jobs.loadError)
-          setJobs(jobsData)
-          setCustomers(customersResponse.data ?? [])
-          setAssignments(normalizedAssignments)
-          setEconomicsSummaries([])
-          setJobShiftActivity([])
-          setJobParentLinks([])
-          setLoading(false)
-          return
-        }
-
-        setError(null)
-        setJobs(jobsData)
-        setCustomers(customersResponse.data ?? [])
-        setAssignments(normalizedAssignments)
-        setEconomicsSummaries((economicsResponse.data ?? []) as JobEconomicsSummaryRow[])
-        setJobShiftActivity(
-          shiftsResponse.error ? [] : ((shiftsResponse.data ?? []) as JobShiftActivityRow[])
-        )
-        setJobParentLinks(
-          parentLinksResponse.error ? [] : ((parentLinksResponse.data ?? []) as JobParentLinkRow[])
-        )
+        if (current.companyId !== scope.companyId || current.profileId !== scope.profileId || current.role !== scope.role) throw new Error('Active company changed')
+        const profilesById = new Map(((profilesResponse.data ?? []) as JobAssignmentProfile[]).map(profile => [profile.id, profile]))
+        setCompanyTimeZone(resolveCompanyTimeZone(scope.timeZone))
+        setCanReadEconomics(financial)
+        setJobs(jobsData); setCustomers(customersResponse.data ?? [])
+        setAssignments(normalizeAssignments(assignmentData, profilesById)); setEconomicsSummaries(summaries)
+        setJobShiftActivity((shiftsResponse.data ?? []) as JobShiftActivityRow[])
+        setJobParentLinks((parentLinksResponse.data ?? []) as JobParentLinkRow[])
         setLoading(false)
-      } catch (err) {
-        console.error('JOBS DEBUG unexpected error', err)
-
+      } catch {
         if (!mounted) return
-
-        setError(dictionary.jobs.loadError)
-        setJobs([])
-        setCustomers([])
-        setAssignments([])
-        setEconomicsSummaries([])
-        setJobShiftActivity([])
-        setJobParentLinks([])
-        setLoading(false)
+        clear(); setError(dictionary.jobs.loadError); setLoading(false)
       }
     }
-
+    window.addEventListener(OFFICE_CONTEXT_EVENT, invalidate)
+    window.addEventListener('storage', storage)
+    window.addEventListener('focus', invalidate)
     void loadData()
-
     return () => {
       mounted = false
+      window.removeEventListener(OFFICE_CONTEXT_EVENT, invalidate)
+      window.removeEventListener('storage', storage)
+      window.removeEventListener('focus', invalidate)
     }
-  }, [dataVersion, dictionary.jobs.loadError, dictionary.jobs.unauthenticated])
+  }, [dataVersion, dictionary.jobs.loadError])
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -1039,35 +872,8 @@ export default function JobsPage() {
         )
       )
 
-      const laborCost = jobAssignments.reduce((sum, assignment) => {
-        const workerType = getWorkerType({
-          worker_type: assignment.worker_type_snapshot ?? assignment.profiles?.worker_type,
-        })
-        if (workerType === 'contractor') return sum
-        const hours = toNumber(assignment.labor_hours)
-        const hourlyRate = toNumber(assignment.hourly_rate ?? assignment.profiles?.default_hourly_rate)
-        return sum + hours * hourlyRate
-      }, 0)
-      const externalLaborCost = jobAssignments.reduce((sum, assignment) => {
-        const workerType = getWorkerType({
-          worker_type: assignment.worker_type_snapshot ?? assignment.profiles?.worker_type,
-        })
-        if (workerType !== 'contractor') return sum
-        const billingType = getContractorBillingType(
-          assignment.assignment_billing_type ?? assignment.profiles?.contractor_billing_type
-        )
-        if (billingType !== 'hourly' && assignment.external_amount != null) {
-          return sum + toNumber(assignment.external_amount)
-        }
-        const hours = toNumber(assignment.labor_hours)
-        const hourlyRate = toNumber(
-          assignment.hourly_rate ??
-            assignment.profiles?.contractor_default_rate ??
-            assignment.profiles?.default_hourly_rate
-        )
-        return sum + hours * hourlyRate
-      }, 0)
-      const otherCost = toNumber(economics?.other_cost_total) + externalLaborCost
+      const laborCost = economics?.labor_cost_total ?? null
+      const otherCost = economics?.other_cost_total ?? null
       const shiftActivity = shiftActivityByJob.get(job.id)
       const activeCount =
         job.active_workers !== null && job.active_workers !== undefined ? toNumber(job.active_workers) : 0
@@ -1086,6 +892,7 @@ export default function JobsPage() {
         quotedRevenue: job.price,
         laborCost,
         otherCost,
+        completeness: economics?.labor_completeness ?? 'incomplete',
       })
       const timeStateResolved = resolveJobTimeState(job.time_state)
       const workStateResolved = getEffectiveJobWorkState({
@@ -1110,6 +917,7 @@ export default function JobsPage() {
         laborCost,
         otherCost,
         profit: quotedEconomics.profit,
+        economics: economics ?? null,
         customerName: customer?.name ?? null,
         assignedCount,
         activeCount,
@@ -1236,12 +1044,21 @@ export default function JobsPage() {
           .filter((date): date is Date => Boolean(date))
           .sort((left, right) => right.getTime() - left.getTime())[0] ?? parseDateSafe(rootJob.end_at)
 
+        const groupEconomics = aggregateJobEconomics(
+          memberJobs.flatMap(member => member.economics ? [member.economics] : []),
+          memberJobs.map(member => member.id), rootJob.currency
+        )
+        const groupQuoted = calculateQuotedJobEconomics({
+          quotedRevenue: groupEconomics?.quoted_revenue_total, laborCost: groupEconomics?.labor_cost_total,
+          otherCost: groupEconomics?.other_cost_total, completeness: groupEconomics?.labor_completeness ?? 'incomplete',
+        })
         result.push({
           ...rootJob,
-          laborCost: statsJobs.reduce((sum, job) => sum + job.laborCost, 0),
-          otherCost: statsJobs.reduce((sum, job) => sum + job.otherCost, 0),
-          profit: statsJobs.reduce((sum, job) => sum + job.profit, 0),
-          price: statsJobs.reduce((sum, job) => sum + toNumber(job.price), 0),
+          economics: groupEconomics,
+          laborCost: groupEconomics?.labor_cost_total ?? null,
+          otherCost: groupEconomics?.other_cost_total ?? null,
+          profit: groupQuoted.profit,
+          price: groupEconomics?.quoted_revenue_total ?? (memberJobs.length === 1 ? rootJob.price : null),
           assignedCount: aggregatedAssignedCount,
           activeCount: aggregatedActiveCount,
           completedCount: aggregatedCompletedCount,
@@ -1622,9 +1439,10 @@ export default function JobsPage() {
                     <div className={styles.jobFooter}>
                       <span>{job.workers.length > 0 ? job.workers.join(', ') : dictionary.jobs.noWorkersAssigned}</span>
                       {childJobs.length ? <span>{dictionary.jobs.childJobs}: {childJobs.length}</span> : null}
-                      <strong>{dictionary.jobs.price}: {job.price === null ? '—' : formatCurrency(toNumber(job.price))}</strong>
+                      <strong>{dictionary.jobs.price}: {job.price === null ? '—' : formatCurrency(toNumber(job.price), job.currency)}</strong>
                     </div>
                   </Link>
+                  {canReadEconomics ? <LaborCostStatus summary={job.economics} locale={locale} /> : null}
                   {childJobs.map((childJob) => {
                     const childStatus = getLocalizedWorkStatusPanel(childJob.timeStateResolved, childJob.workStateResolved, dictionary.jobs)
                     return (
