@@ -54,3 +54,13 @@ Aplikovanou migraci neupravovat. Případná další změna oprávnění musí b
 - `createPortalInquiryAction` nadále čte `customers` přes admin klienta. Při ověřeném chybějícím SELECT tato část nedokáže načíst zákazníka; poptávkový tok tento celek neopravuje.
 - Portálový dashboard současně načítá zakázky a faktury přes další admin readery. Jejich tabulková oprávnění a celý dashboard zde nejsou ověřené. Totéž platí pro odloženou opravu fakturačního exportu a QR.
 - **Potvrzený rozpor kódu se schématem:** `app/api/customer-portal-users/route.ts:189` při vytvoření vazby neuvádí `company_id`. Živý katalog dne 24. 10. 2026 potvrdil `company_id uuid NOT NULL`, bez výchozí hodnoty, bez uživatelských triggerů a bez přepisovacích pravidel na `customer_portal_users`. Pokud se tato větev dostane k INSERT, nemůže požadavek ve stávajícím schématu uspět. Celý endpoint nebyl volán a jeho HTTP chyba není samostatně reprodukovaná; jeho standardní dokončení posílá resetovací e-mail. Oprava tohoto navazujícího rozsahu v tomto celku není provedena.
+
+## Dokončené vydání a zákaznické čtení 24. 10. 2026
+
+Výše uvedený stav bez PR/CI/nasazení je historický předvydávací checkpoint. PR #42 je sloučené a nasazené z `3ed450a2d349cc65e03a5791fcc20abb340611f1`, deployment `dpl_HrdJJEanAPhsSCWqNdh7DhWNhaNf`. CI 40072843882: 2449/84 PASS, Office 62 PASS + 1 podmíněný SKIP, build 107, lint 0 chyb / 3 existující varování.
+
+Nová syntetická zákaznická Auth identita bez zaměstnaneckého profilu a členství prošla **427 HTTP/DTO asercemi PASS** nad nasazeným seznamem, verzemi a PDF. Obě stažená PDF zachovala A 100 + 0 Kč a B 250 + 0 Kč bez interního nákladu či poznámek. Anonymní požadavek vrací 401, neplatné selektory 400, cizí zákazník je odmítnut. **17 kontrol revokace ve stejné relaci PASS**: po odebrání přístupu jsou RPC odmítnuté, PDF vrací 401 a nabídky přesměrují na odmítnutí přístupu.
+
+Úklid zablokoval syntetický Auth účet, změnil jeho heslo a potvrdil 0 relací i 0 aktivních portálových přístupů. Dočasné členství administrátora je neaktivní, oba granty odvolané, neměnná pole a obchodní historie zachované; běžný administrátor zůstává aktivní a UI v Demo. Poptávky, dashboard a vytvoření portálového účtu uvedené výše zůstávají otevřené.
+
+[Akceptace C05 a přesné hranice](core-c05-live-acceptance-release.md); privátní manifest `artifacts/quotes/c05-live-acceptance-20261024.json`, SHA-256 `07caf3fbc90df38b5bef0aa78656786a085c8f0f2a541990fc14e67b90f8be6a`. Doplněk čte uložené výsledky, nespouští nové testy a neoznačuje celý portál ani produkt za připravený.

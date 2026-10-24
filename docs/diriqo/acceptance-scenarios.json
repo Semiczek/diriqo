@@ -810,190 +810,254 @@
   {
     "id": "C05-01",
     "scenario": "Uživatel bez skladu vytvoří položku materiálu ručně a stáhne jednoduchou nabídku do PDF.",
-    "status": "ČÁSTEČNĚ",
+    "status": "HOTOVO",
     "title": "Ruční kalkulace a PDF",
-    "reviewedAt": "2026-10-11",
-    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "reviewedAt": "2026-10-24",
+    "reviewedCommit": "3ed450a2d349cc65e03a5791fcc20abb340611f1",
     "implementation": {
-      "state": "EXISTUJE ALESPOŇ ČÁST",
-      "detail": "Core kalkulace a zákaznické řádky nabídky i PDF endpoint existují.",
+      "state": "IMPLEMENTOVÁNO; PŮVODNÍ SCÉNÁŘ OVĚŘEN",
+      "detail": "Core ukládá ruční kalkulaci a vytváří nabídku atomicky bez nároku na sklad či Smart Quotes. Výslovný nulový zákaznický řádek se zachová i ve skutečně staženém PDF.",
       "files": [
-        "lib/dal/calculations.ts",
+        "supabase/migrations/20261022033222_atomic_core_quote_lifecycle.sql",
+        "lib/core-quote-lifecycle.ts",
+        "lib/dal/core-quote-customer-read.ts",
+        "lib/core-quote-presentation.ts",
+        "lib/core-quote-pdf.ts",
+        "lib/dal/core-calculation-save.ts",
         "lib/dal/flow.ts",
-        "lib/dal/quotes.ts",
-        "app/api/quotes/[quoteId]/pdf/route.ts",
-        "app/api/offers/[token]/pdf/route.ts"
+        "app/api/quotes/[quoteId]/pdf/route.ts"
       ]
     },
     "functionality": {
-      "fullyVerified": false,
-      "basis": "Úplný původní scénář není prokázaný; dílčí funkce nelze zaměnit za plnou akceptaci."
+      "fullyVerified": true,
+      "basis": "Nasazený přihlášený průchod v syntetické firmě s jedinou licencí Core vytvořil zákazníka a ruční materiál, uložil kalkulaci a ověřil ji po reloadu. Stažené PDF obsahuje zákaznické řádky 100 Kč a 0 Kč. Původní C05-01 je tím uzavřen."
     },
     "security": {
-      "state": "NEOVĚŘENO V CELÉM ROZSAHU",
-      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+      "state": "CÍLENÉ SQL, APLIKAČNÍ A ŽIVÉ DŮKAZY PASS; ŠIRŠÍ MATICE OTEVŘENÁ",
+      "detail": "Explicitní zákaznické projekce nepředávají interní náklady ani marže. Živé kontroly pokryly cizího zákazníka, anonymní 401, neplatné selektory 400 a 17 kontrol revokace ve stejné relaci. Firma, aktér a revize chrání zápisy i obnovu potvrzené operace. Úplná bezpečnostní matice všech modulů se tím neuzavírá."
     },
     "tests": {
       "unitOrMock": {
         "files": [
-          "tests/public-token-security.test.ts"
+          "tests/core-calculation-save.test.ts",
+          "tests/core-calculation-actions.test.ts",
+          "tests/core-quote-pdf.test.ts"
         ],
-        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "state": "DOLOŽENO: CI 40072843882, 2449 TESTŮ V 84 SOUBORECH PASS; NEJDE O NOVÝ BĚH TOHOTO DOKUMENTAČNÍHO PŘEHODNOCENÍ",
+        "reportedAt": "2026-10-24",
         "executedThisReview": false
       },
       "database": {
-        "files": [],
-        "state": "BĚH SCÉNÁŘE NEDOLOŽEN",
-        "reportedAt": null,
-        "reports": [],
-        "scope": "Žádné konkrétní živé DB ověření této scénářové hranice se netvrdí.",
+        "files": [
+          "scripts/test-core-quote-lifecycle-sql.mjs",
+          "scripts/test-core-quote-lifecycle-concurrency.mjs",
+          "scripts/test-customer-portal-context-sql.mjs"
+        ],
+        "state": "DOLOŽENO: LIFECYCLE LOKÁLNĚ 115 + 5 + 21 LEGACY, HOSTED 115 + 5; PORTÁL LOKÁLNĚ I HOSTED 33 + 5 PASS",
+        "reportedAt": "2026-10-24",
+        "reports": [
+          "docs/diriqo/core-quote-lifecycle-release.md",
+          "docs/diriqo/customer-portal-context-release.md",
+          "docs/diriqo/core-c05-live-acceptance-release.md",
+          "artifacts/quotes/c05-live-acceptance-20261024.json"
+        ],
+        "scope": "Lifecycle SQL a skutečné Auth/HTTP souběhy pocházejí z checkpointu 22. 10.; portálový kontext a DB vazba vybrané verze na zakázku z 24. 10. Pouze testovací Supabase wfcpfraxiuhuglnuaxqj. Jednadvacet legacy kontrol zahrnuje migraci, kompatibilitu a oprávnění; netvrdí se, že jde o 21 samostatných canary testů. Toto přehodnocení čte uložené důkazy a testy neopakuje.",
         "executedThisReview": false
       }
     },
     "e2e": {
-      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "state": "PŮVODNÍ C05-01 OVĚŘEN; CELÝ P16 ZŮSTÁVÁ OTEVŘENÝ",
       "executedThisReview": false,
-      "partialEvidence": []
+      "reportedAt": "2026-10-24",
+      "partialEvidence": [
+        "docs/diriqo/core-c05-live-acceptance-release.md",
+        "artifacts/quotes/c05-live-acceptance-20261024.json"
+      ],
+      "scope": "Nasazený přihlášený průchod v syntetické firmě s jedinou licencí Core vytvořil zákazníka a ruční materiál, uložil kalkulaci a ověřil ji po reloadu. Stažené PDF obsahuje zákaznické řádky 100 Kč a 0 Kč. Původní C05-01 je tím uzavřen. Skutečné rozhodnutí zákazníka, e-mail a celý tok P16 se netvrdí. Shoda PDF se vztahuje na stejnou veřejnou cestu před/po změnách; portál má širší rozsah zákaznické identity."
     },
     "productionReadiness": {
       "ready": false,
-      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+      "reason": "Přesný původní scénář C05-01 je HOTOVO; celý P16, Smart Quotes, ostatní portálové procesy a komerční připravenost produktu zůstávají otevřené."
     },
     "evidence": [
-      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Core kalkulace a zákaznické řádky nabídky i PDF endpoint existují."
+      "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Core kalkulace a zákaznické řádky nabídky i PDF endpoint existují.",
+      "2026-10-24: Nasazený přihlášený průchod v syntetické firmě s jedinou licencí Core vytvořil zákazníka a ruční materiál, uložil kalkulaci a ověřil ji po reloadu. Stažené PDF obsahuje zákaznické řádky 100 Kč a 0 Kč. Původní C05-01 je tím uzavřen.",
+      "PR #40, #41 a #42 jsou sloučené; nasazená aplikace 3ed450a2d349cc65e03a5791fcc20abb340611f1, deployment dpl_HrdJJEanAPhsSCWqNdh7DhWNhaNf. CI 40072843882: 2449/84 PASS, Office 62 PASS + 1 podmíněný SKIP, build 107 stránek, lint 0 chyb a 3 existující varování.",
+      "Řízený privátní manifest artifacts/quotes/c05-live-acceptance-20261024.json, SHA-256 07caf3fbc90df38b5bef0aa78656786a085c8f0f2a541990fc14e67b90f8be6a. Přehodnocení ověřuje uloženou evidenci; nevytváří nový běh. Úklid obnovil Demo, deaktivoval testovací členství, odvolal oba granty a uzavřel přístupy syntetického portálového účtu; původní obchodní historie zachována."
     ],
     "remaining": [
-      "Ověřit ruční materiál bez inventory nároku a skutečně stažené PDF z přihlášeného průchodu."
+      "Žádný chybějící krok pro přesný původní scénář C05-01.",
+      "Mimo tento scénář: úplný Core tok P16, samostatná akceptace Smart Quotes a širší funkce zákaznického portálu; viz docs/diriqo/core-c05-live-acceptance-release.md."
     ]
   },
   {
     "id": "C05-02",
     "scenario": "Zákaznický dokument ani jeho exportní odpověď neobsahují skryté interní sazby a marže.",
-    "status": "ČÁSTEČNĚ",
+    "status": "HOTOVO",
     "title": "Zákaznický dokument bez marží",
-    "reviewedAt": "2026-10-11",
-    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "reviewedAt": "2026-10-24",
+    "reviewedCommit": "3ed450a2d349cc65e03a5791fcc20abb340611f1",
     "implementation": {
-      "state": "EXISTUJE ALESPOŇ ČÁST",
-      "detail": "Smart quote veřejný snapshot má explicitní omezenou projekci a SQL kontrolu zakázaných polí; core veřejná nabídka má vlastní endpoint.",
+      "state": "IMPLEMENTOVÁNO; PŮVODNÍ SCÉNÁŘ OVĚŘEN",
+      "detail": "Základní nabídky, veřejné a portálové odpovědi i PDF používají explicitní zákaznické projekce a společný parser/renderer. Historické Core readery rovněž čtou uložený dokument přes omezené DTO; nejde o nahrazení staré cesty důkazem Smart Quotes.",
       "files": [
-        "app/smart-quotes/actions.ts",
-        "lib/smart-quotes/server.ts",
-        "app/quote/[token]/actions.ts",
-        "app/smart-quotes/[id]/export/route.ts"
+        "supabase/migrations/20261022033222_atomic_core_quote_lifecycle.sql",
+        "lib/core-quote-lifecycle.ts",
+        "lib/dal/core-quote-customer-read.ts",
+        "lib/core-quote-presentation.ts",
+        "lib/core-quote-pdf.ts",
+        "app/api/quotes/[quoteId]/pdf/route.ts",
+        "app/api/offers/[token]/pdf/route.ts",
+        "lib/customer-portal/data.ts"
       ]
     },
     "functionality": {
-      "fullyVerified": false,
-      "basis": "Úplný původní scénář není prokázaný; dílčí funkce nelze zaměnit za plnou akceptaci."
+      "fullyVerified": true,
+      "basis": "Živé owner/public/portal výstupy neobsahují interní kontrolní náklad 123,45 Kč ani poznámku INTERNAL-C05. Portál bez zaměstnaneckého profilu a členství prošel 427 HTTP/DTO asercemi a ověřením obou PDF. Historická Core cesta je doložená review společných allowlistů, 115 SQL kontrolami a 21 migračními legacy regresními kontrolami plus aplikačními/PDF testy; nový živý legacy HTTP canary běh se netvrdí."
     },
     "security": {
-      "state": "DÍLČÍ DŮKAZ",
-      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+      "state": "CÍLENÉ SQL, APLIKAČNÍ A ŽIVÉ DŮKAZY PASS; ŠIRŠÍ MATICE OTEVŘENÁ",
+      "detail": "Explicitní zákaznické projekce nepředávají interní náklady ani marže. Živé kontroly pokryly cizího zákazníka, anonymní 401, neplatné selektory 400 a 17 kontrol revokace ve stejné relaci. Firma, aktér a revize chrání zápisy i obnovu potvrzené operace. Úplná bezpečnostní matice všech modulů se tím neuzavírá."
     },
     "tests": {
       "unitOrMock": {
         "files": [
-          "tests/smart-quotes-domain.test.ts",
-          "tests/smart-quotes-actions.test.ts",
-          "tests/smart-quotes-export.test.ts"
+          "tests/core-quote-customer-response.test.ts",
+          "tests/core-quote-lifecycle.test.ts",
+          "tests/core-quote-pdf.test.ts",
+          "tests/customer-portal-context.test.ts"
         ],
-        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "state": "DOLOŽENO: CI 40072843882, 2449 TESTŮ V 84 SOUBORECH PASS; NEJDE O NOVÝ BĚH TOHOTO DOKUMENTAČNÍHO PŘEHODNOCENÍ",
+        "reportedAt": "2026-10-24",
         "executedThisReview": false
       },
       "database": {
         "files": [
-          "tests/smart-quotes-integration.sql"
+          "scripts/test-core-quote-lifecycle-sql.mjs",
+          "scripts/test-core-quote-lifecycle-concurrency.mjs",
+          "scripts/test-customer-portal-context-sql.mjs"
         ],
-        "state": "DÍLČÍ PŘEDCHOZÍ BĚH",
-        "reportedAt": "2026-10-11",
+        "state": "DOLOŽENO: LIFECYCLE LOKÁLNĚ 115 + 5 + 21 LEGACY, HOSTED 115 + 5; PORTÁL LOKÁLNĚ I HOSTED 33 + 5 PASS",
+        "reportedAt": "2026-10-24",
         "reports": [
-          "docs/diriqo/functional-modules-release.md"
+          "docs/diriqo/core-quote-lifecycle-release.md",
+          "docs/diriqo/customer-portal-context-release.md",
+          "docs/diriqo/core-c05-live-acceptance-release.md",
+          "artifacts/quotes/c05-live-acceptance-20261024.json"
         ],
-        "scope": "21 skupin SQL v jedné relaci včetně snapshotu, přijetí a konverze; nikoli celý zákaznický UI tok.",
+        "scope": "Lifecycle SQL a skutečné Auth/HTTP souběhy pocházejí z checkpointu 22. 10.; portálový kontext a DB vazba vybrané verze na zakázku z 24. 10. Pouze testovací Supabase wfcpfraxiuhuglnuaxqj. Jednadvacet legacy kontrol zahrnuje migraci, kompatibilitu a oprávnění; netvrdí se, že jde o 21 samostatných canary testů. Toto přehodnocení čte uložené důkazy a testy neopakuje.",
         "executedThisReview": false
       }
     },
     "e2e": {
-      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "state": "PŮVODNÍ C05-02 OVĚŘEN; CELÝ P16 ZŮSTÁVÁ OTEVŘENÝ",
       "executedThisReview": false,
-      "partialEvidence": []
+      "reportedAt": "2026-10-24",
+      "partialEvidence": [
+        "docs/diriqo/core-c05-live-acceptance-release.md",
+        "artifacts/quotes/c05-live-acceptance-20261024.json"
+      ],
+      "scope": "Živé owner/public/portal výstupy neobsahují interní kontrolní náklad 123,45 Kč ani poznámku INTERNAL-C05. Portál bez zaměstnaneckého profilu a členství prošel 427 HTTP/DTO asercemi a ověřením obou PDF. Historická Core cesta je doložená review společných allowlistů, 115 SQL kontrolami a 21 migračními legacy regresními kontrolami plus aplikačními/PDF testy; nový živý legacy HTTP canary běh se netvrdí. Skutečné rozhodnutí zákazníka, e-mail a celý tok P16 se netvrdí. Shoda PDF se vztahuje na stejnou veřejnou cestu před/po změnách; portál má širší rozsah zákaznické identity."
     },
     "productionReadiness": {
       "ready": false,
-      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+      "reason": "Přesný původní scénář C05-02 je HOTOVO; celý P16, Smart Quotes, ostatní portálové procesy a komerční připravenost produktu zůstávají otevřené."
     },
     "evidence": [
       "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Smart quote veřejný snapshot má explicitní omezenou projekci a SQL kontrolu zakázaných polí; core veřejná nabídka má vlastní endpoint.",
-      "Předchozí doložené dílčí DB běhy 2026-10-11: 21 skupin SQL v jedné relaci včetně snapshotu, přijetí a konverze; nikoli celý zákaznický UI tok. Zdroj: docs/diriqo/functional-modules-release.md."
+      "Předchozí doložené dílčí DB běhy 2026-10-11: 21 skupin SQL v jedné relaci včetně snapshotu, přijetí a konverze; nikoli celý zákaznický UI tok. Zdroj: docs/diriqo/functional-modules-release.md.",
+      "2026-10-24: Živé owner/public/portal výstupy neobsahují interní kontrolní náklad 123,45 Kč ani poznámku INTERNAL-C05. Portál bez zaměstnaneckého profilu a členství prošel 427 HTTP/DTO asercemi a ověřením obou PDF. Historická Core cesta je doložená review společných allowlistů, 115 SQL kontrolami a 21 migračními legacy regresními kontrolami plus aplikačními/PDF testy; nový živý legacy HTTP canary běh se netvrdí.",
+      "PR #40, #41 a #42 jsou sloučené; nasazená aplikace 3ed450a2d349cc65e03a5791fcc20abb340611f1, deployment dpl_HrdJJEanAPhsSCWqNdh7DhWNhaNf. CI 40072843882: 2449/84 PASS, Office 62 PASS + 1 podmíněný SKIP, build 107 stránek, lint 0 chyb a 3 existující varování.",
+      "Řízený privátní manifest artifacts/quotes/c05-live-acceptance-20261024.json, SHA-256 07caf3fbc90df38b5bef0aa78656786a085c8f0f2a541990fc14e67b90f8be6a. Přehodnocení ověřuje uloženou evidenci; nevytváří nový běh. Úklid obnovil Demo, deaktivoval testovací členství, odvolal oba granty a uzavřel přístupy syntetického portálového účtu; původní obchodní historie zachována."
     ],
     "remaining": [
-      "Prověřit také všechny staré core PDF, portal a exportní odpovědi; E2E s nákladovou canary hodnotou."
+      "Žádný chybějící krok pro přesný původní scénář C05-02.",
+      "Mimo tento scénář: úplný Core tok P16, samostatná akceptace Smart Quotes a širší funkce zákaznického portálu; viz docs/diriqo/core-c05-live-acceptance-release.md."
     ]
   },
   {
     "id": "C05-03",
     "scenario": "Nová verze nabídky nemění přijatou verzi; zakázka používá jednoznačně vybraný snímek.",
-    "status": "ČÁSTEČNĚ",
+    "status": "HOTOVO",
     "title": "Neměnná přijatá verze",
-    "reviewedAt": "2026-10-11",
-    "reviewedCommit": "cd9291e3414891de7603ec79d1a219f200903993",
+    "reviewedAt": "2026-10-24",
+    "reviewedCommit": "3ed450a2d349cc65e03a5791fcc20abb340611f1",
     "implementation": {
-      "state": "EXISTUJE ALESPOŇ ČÁST",
-      "detail": "Nový smart quote má immutable versions a vazbu přijetí; základní nabídky používají jinou mutovatelnou cestu.",
+      "state": "IMPLEMENTOVÁNO; PŮVODNÍ SCÉNÁŘ OVĚŘEN",
+      "detail": "Základní nabídka má neměnné vydané verze, přijetí konkrétní verze a atomický převod do zakázky s jednoznačnou vazbou na vybraný snímek. Nová verze nepřepisuje přijatou verzi ani její zákaznické PDF.",
       "files": [
-        "app/smart-quotes/actions.ts",
-        "lib/smart-quotes/server.ts",
-        "app/quote/[token]/actions.ts",
-        "app/smart-quotes/[id]/export/route.ts"
+        "supabase/migrations/20261022033222_atomic_core_quote_lifecycle.sql",
+        "lib/core-quote-lifecycle.ts",
+        "lib/dal/core-quote-customer-read.ts",
+        "lib/core-quote-presentation.ts",
+        "lib/core-quote-pdf.ts",
+        "lib/dal/flow.ts",
+        "components/QuoteActionsPanel.tsx",
+        "components/useQuoteOperation.ts"
       ]
     },
     "functionality": {
-      "fullyVerified": false,
-      "basis": "Úplný původní scénář není prokázaný; dílčí funkce nelze zaměnit za plnou akceptaci."
+      "fullyVerified": true,
+      "basis": "V živém průchodu byla přijata syntetická verze A za 100 Kč, následně vydána B za 250 Kč a zakázka jednoznačně vznikla z A za 100 Kč. DB potvrdila vazbu zakázky na A. Veřejné PDF A před/po B a konverzi má stejný SHA-256 14688ceada8e9ab7c6bfa4e18defdc1ea6eea19cde0f9cc4dba0367ae558ea25; portál samostatně vrací A 100 + 0 Kč a B 250 + 0 Kč."
     },
     "security": {
-      "state": "DÍLČÍ DŮKAZ",
-      "detail": "Absence úplného důkazu není tvrzení o úniku dat. Kompletní aktuální matice rolí, přímých API/RPC a revokace zůstává otevřená."
+      "state": "CÍLENÉ SQL, APLIKAČNÍ A ŽIVÉ DŮKAZY PASS; ŠIRŠÍ MATICE OTEVŘENÁ",
+      "detail": "Explicitní zákaznické projekce nepředávají interní náklady ani marže. Živé kontroly pokryly cizího zákazníka, anonymní 401, neplatné selektory 400 a 17 kontrol revokace ve stejné relaci. Firma, aktér a revize chrání zápisy i obnovu potvrzené operace. Úplná bezpečnostní matice všech modulů se tím neuzavírá."
     },
     "tests": {
       "unitOrMock": {
         "files": [
-          "tests/smart-quotes-domain.test.ts",
-          "tests/smart-quotes-actions.test.ts",
-          "tests/smart-quotes-export.test.ts"
+          "tests/core-quote-lifecycle.test.ts",
+          "tests/core-quote-lifecycle-ui.test.ts",
+          "tests/core-quote-operation-react.test.ts",
+          "tests/core-quote-pdf.test.ts"
         ],
-        "state": "EXISTUJÍ CÍLENÉ NEBO SOUVISEJÍCÍ TESTY",
+        "state": "DOLOŽENO: CI 40072843882, 2449 TESTŮ V 84 SOUBORECH PASS; NEJDE O NOVÝ BĚH TOHOTO DOKUMENTAČNÍHO PŘEHODNOCENÍ",
+        "reportedAt": "2026-10-24",
         "executedThisReview": false
       },
       "database": {
         "files": [
-          "tests/smart-quotes-integration.sql"
+          "scripts/test-core-quote-lifecycle-sql.mjs",
+          "scripts/test-core-quote-lifecycle-concurrency.mjs",
+          "scripts/test-customer-portal-context-sql.mjs"
         ],
-        "state": "DÍLČÍ PŘEDCHOZÍ BĚH",
-        "reportedAt": "2026-10-11",
+        "state": "DOLOŽENO: LIFECYCLE LOKÁLNĚ 115 + 5 + 21 LEGACY, HOSTED 115 + 5; PORTÁL LOKÁLNĚ I HOSTED 33 + 5 PASS",
+        "reportedAt": "2026-10-24",
         "reports": [
-          "docs/diriqo/functional-modules-release.md"
+          "docs/diriqo/core-quote-lifecycle-release.md",
+          "docs/diriqo/customer-portal-context-release.md",
+          "docs/diriqo/core-c05-live-acceptance-release.md",
+          "artifacts/quotes/c05-live-acceptance-20261024.json"
         ],
-        "scope": "21 skupin SQL v jedné relaci včetně snapshotu, přijetí a konverze; nikoli celý zákaznický UI tok.",
+        "scope": "Lifecycle SQL a skutečné Auth/HTTP souběhy pocházejí z checkpointu 22. 10.; portálový kontext a DB vazba vybrané verze na zakázku z 24. 10. Pouze testovací Supabase wfcpfraxiuhuglnuaxqj. Jednadvacet legacy kontrol zahrnuje migraci, kompatibilitu a oprávnění; netvrdí se, že jde o 21 samostatných canary testů. Toto přehodnocení čte uložené důkazy a testy neopakuje.",
         "executedThisReview": false
       }
     },
     "e2e": {
-      "state": "ÚPLNÝ SCÉNÁŘ NEOVĚŘEN",
+      "state": "PŮVODNÍ C05-03 OVĚŘEN; CELÝ P16 ZŮSTÁVÁ OTEVŘENÝ",
       "executedThisReview": false,
-      "partialEvidence": []
+      "reportedAt": "2026-10-24",
+      "partialEvidence": [
+        "docs/diriqo/core-c05-live-acceptance-release.md",
+        "artifacts/quotes/c05-live-acceptance-20261024.json"
+      ],
+      "scope": "V živém průchodu byla přijata syntetická verze A za 100 Kč, následně vydána B za 250 Kč a zakázka jednoznačně vznikla z A za 100 Kč. DB potvrdila vazbu zakázky na A. Veřejné PDF A před/po B a konverzi má stejný SHA-256 14688ceada8e9ab7c6bfa4e18defdc1ea6eea19cde0f9cc4dba0367ae558ea25; portál samostatně vrací A 100 + 0 Kč a B 250 + 0 Kč. Skutečné rozhodnutí zákazníka, e-mail a celý tok P16 se netvrdí. Shoda PDF se vztahuje na stejnou veřejnou cestu před/po změnách; portál má širší rozsah zákaznické identity."
     },
     "productionReadiness": {
       "ready": false,
-      "reason": "Celý scénář nemá uzavřenou akceptaci; konkrétní chybějící kroky jsou v remaining."
+      "reason": "Přesný původní scénář C05-03 je HOTOVO; celý P16, Smart Quotes, ostatní portálové procesy a komerční připravenost produktu zůstávají otevřené."
     },
     "evidence": [
       "Statická kontrola baseline cd9291e3414891de7603ec79d1a219f200903993 dne 2026-10-11: Nový smart quote má immutable versions a vazbu přijetí; základní nabídky používají jinou mutovatelnou cestu.",
-      "Předchozí doložené dílčí DB běhy 2026-10-11: 21 skupin SQL v jedné relaci včetně snapshotu, přijetí a konverze; nikoli celý zákaznický UI tok. Zdroj: docs/diriqo/functional-modules-release.md."
+      "Předchozí doložené dílčí DB běhy 2026-10-11: 21 skupin SQL v jedné relaci včetně snapshotu, přijetí a konverze; nikoli celý zákaznický UI tok. Zdroj: docs/diriqo/functional-modules-release.md.",
+      "2026-10-24: V živém průchodu byla přijata syntetická verze A za 100 Kč, následně vydána B za 250 Kč a zakázka jednoznačně vznikla z A za 100 Kč. DB potvrdila vazbu zakázky na A. Veřejné PDF A před/po B a konverzi má stejný SHA-256 14688ceada8e9ab7c6bfa4e18defdc1ea6eea19cde0f9cc4dba0367ae558ea25; portál samostatně vrací A 100 + 0 Kč a B 250 + 0 Kč.",
+      "PR #40, #41 a #42 jsou sloučené; nasazená aplikace 3ed450a2d349cc65e03a5791fcc20abb340611f1, deployment dpl_HrdJJEanAPhsSCWqNdh7DhWNhaNf. CI 40072843882: 2449/84 PASS, Office 62 PASS + 1 podmíněný SKIP, build 107 stránek, lint 0 chyb a 3 existující varování.",
+      "Řízený privátní manifest artifacts/quotes/c05-live-acceptance-20261024.json, SHA-256 07caf3fbc90df38b5bef0aa78656786a085c8f0f2a541990fc14e67b90f8be6a. Přehodnocení ověřuje uloženou evidenci; nevytváří nový běh. Úklid obnovil Demo, deaktivoval testovací členství, odvolal oba granty a uzavřel přístupy syntetického portálového účtu; původní obchodní historie zachována."
     ],
     "remaining": [
-      "Sjednotit kontrakt základní nabídky bez vynucení placeného modulu a ověřit navazující zakázku."
+      "Žádný chybějící krok pro přesný původní scénář C05-03.",
+      "Mimo tento scénář: úplný Core tok P16, samostatná akceptace Smart Quotes a širší funkce zákaznického portálu; viz docs/diriqo/core-c05-live-acceptance-release.md."
     ]
   },
   {
