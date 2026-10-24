@@ -61,6 +61,7 @@ export default function QuoteActionsPanel(props: QuoteActionsPanelProps) {
   const isLegacyBaseline = props.selectedKind === 'legacy' && Boolean(props.workspace.legacy) && props.workspace.versions.length === 0 && props.workspace.currentVersionId === null
   const operation = useQuoteOperation({
     scope: { companyId: props.workspace.companyId, profileId: props.actorProfileId, entityId: props.workspace.quoteId, slot: 'actions' },
+    confirmedView: { revision: props.workspace.revision, receiptRevision: receipt => receipt.revision },
     parseCommand: raw => {
       const command = parseCommand(raw)
       if (command.input.companyId !== scope.companyId || command.input.profileId !== props.actorProfileId || !('quoteId' in command.input) || command.input.quoteId !== scope.quoteId) throw new Error('Požadavek patří k jiné nabídce nebo firmě.')
