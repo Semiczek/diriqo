@@ -49,3 +49,11 @@ Při problému zachovat immutable verze, rozhodnutí, rezervace a potvrzení; ne
 ## Akceptační hranice
 
 Původní matice zatím zůstává 5 HOTOVO / 49 ČÁSTEČNĚ / 3 CHYBA / 11 CHYBÍ / 5 NEOVĚŘENO. C05, P16 a navazující celý obchodní proces se tímto checkpointem neuzavírají; podmínkou zůstává přihlášené ověření příslušných průchodů v nasazené aplikaci. Ostatní části původního zadání, odložené UX a export faktury zůstávají v cíli.
+
+## Dokončení vydání a akceptace 24. 10. 2026
+
+Výše uvedené neuzavřené hranice a počty popisují historický checkpoint 22. 10. Následná PR #40–42 jsou sloučená a nasazená: `3ed450a2d349cc65e03a5791fcc20abb340611f1`, deployment `dpl_HrdJJEanAPhsSCWqNdh7DhWNhaNf`. CI 40072843882 má 2449/84 PASS, Office 62 PASS + 1 podmíněný SKIP, build 107 stránek, lint 0 chyb / 3 existující varování.
+
+[Živá akceptace C05](core-c05-live-acceptance-release.md) doložila Core-only ruční materiál a PDF 100 + 0 Kč, 427 portálových HTTP/DTO a 17 revokačních kontrol, zachovanou přijatou A 100 Kč po vydání B 250 Kč a zakázku z A. Veřejné PDF A před/po B a konverzi je byte-identické; portálové a veřejné PDF mají odlišný rozsah identity a navzájem se za byte-identické nevydávají. C05-01/02/03 jsou HOTOVO, aktuální matice 8 / 46 / 3 / 11 / 5 v pořadí HOTOVO / ČÁSTEČNĚ / CHYBA / CHYBÍ / NEOVĚŘENO. P16, Smart Quotes a celý produkt zůstávají otevřené.
+
+Privátní manifest: `artifacts/quotes/c05-live-acceptance-20261024.json`, SHA-256 `07caf3fbc90df38b5bef0aa78656786a085c8f0f2a541990fc14e67b90f8be6a`. Tento doplněk přehodnocuje uložené důkazy bez nového běhu testů.

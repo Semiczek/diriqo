@@ -63,6 +63,6 @@ Konečná evidence CI, merge, deploymentu a přihlášeného průchodu: artifact
 
 ## Otevřené hranice
 
-Tato oprava sama neuzavírá celý zákazník → kalkulace → nabídka → zakázka → faktura proces. Kalkulace → nabídka a synchronizace nabídky stále mají samostatné neatomické zapisovací cesty; jejich oprava a ochrana vydaného obsahu jsou další povinné kroky původního cíle. Současný převod filtruje nulové prodejní řádky, což není důkaz chyby atomického uložení ani dokončení bezplatné nabídky.
+Historická hranice PR #39: tento blok sám neuzavíral celý zákazník → kalkulace → nabídka → zakázka → faktura proces; navazující vytvoření/synchronizace nabídky tehdy nebyly atomické a převod vynechával nulové prodejní řádky. Tyto konkrétní hranice odstranilo PR #40: společné transakce a neměnné verze nyní zachovávají i nulový zákaznický řádek. Živá akceptace C05 z 24. 10. ověřila PDF 100 + 0 Kč a převod přijaté verze; celý P16 zůstává otevřený. [Aktuální report](core-c05-live-acceptance-release.md).
 
-Původní akceptační matice zůstává 5 HOTOVO / 49 ČÁSTEČNĚ / 3 CHYBA / 11 CHYBÍ / 5 NEOVĚŘENO. Tento dílčí blok kalkulací sám žádný celý akceptační scénář nově neuzavírá.
+Historická matice po tomto dílčím bloku kalkulací: 5 HOTOVO / 49 ČÁSTEČNĚ / 3 CHYBA / 11 CHYBÍ / 5 NEOVĚŘENO; samotné PR #39 žádný celý scénář neuzavřelo. Po navazující akceptaci C05 dne 24. 10. je aktuální stav 8 HOTOVO / 46 ČÁSTEČNĚ / 3 CHYBA / 11 CHYBÍ / 5 NEOVĚŘENO.
